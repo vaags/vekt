@@ -47,6 +47,9 @@ private:
 	std::array<juce::Slider, 6> sliders;
 	std::array<juce::Label, 6> sliderLabels;
 	std::array<std::unique_ptr<SliderAttachment>, 6> sliderAttachments;
+	std::array<juce::Slider, 3> macroSliders;
+	std::array<juce::Label, 3> macroLabels;
+	std::array<std::unique_ptr<SliderAttachment>, 3> macroAttachments;
 	std::array<juce::Slider, 3> bandMixSliders;
 	std::array<juce::Label, 3> bandMixLabels;
 	std::array<std::unique_ptr<SliderAttachment>, 3> bandMixAttachments;

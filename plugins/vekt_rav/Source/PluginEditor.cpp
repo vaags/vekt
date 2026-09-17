@@ -37,6 +37,12 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 	for (std::size_t index = 0; index < sliders.size(); ++index)
 		configureRotary(sliders[index], sliderLabels[index], parameterNames[index], parameterIds[index], sliderAttachments[index]);
 	sliders[2].setTooltip("Tone: positive values brighten, negative values darken");
+	for (std::size_t index = 0; index < macroSliders.size(); ++index)
+	{
+		constexpr std::array names { "Character", "Response", "Texture" };
+		constexpr std::array ids { parameters::character, parameters::response, parameters::texture };
+		configureRotary(macroSliders[index], macroLabels[index], names[index], ids[index], macroAttachments[index]);
+	}
 	for (std::size_t index = 0; index < bandMixSliders.size(); ++index)
 	{
 		constexpr std::array names { "Low Mix", "Mid Mix", "High Mix" };
@@ -106,27 +112,33 @@ void PluginEditor::resized()
 		const auto column = static_cast<int>(index % 3);
 		const auto row = static_cast<int>(index / 3);
 		const auto x = 40 + column * 230;
-		const auto y = 90 + row * 125;
-		sliders[index].setBounds(x, y, 110, 88);
-		sliderLabels[index].setBounds(x - 20, y + 88, 150, 22);
+		const auto y = 82 + row * 102;
+		sliders[index].setBounds(x, y, 110, 68);
+		sliderLabels[index].setBounds(x - 20, y + 68, 150, 20);
+	}
+	for (std::size_t index = 0; index < macroSliders.size(); ++index)
+	{
+		const auto x = 180 + static_cast<int>(index) * 130;
+		macroSliders[index].setBounds(x, 286, 90, 42);
+		macroLabels[index].setBounds(x - 10, 329, 110, 18);
 	}
 	for (std::size_t index = 0; index < bandMixSliders.size(); ++index)
 	{
 		const auto x = 30 + static_cast<int>(index) * 115;
-		bandMixSliders[index].setBounds(x, 332, 78, 52);
-		bandMixLabels[index].setBounds(x - 10, 386, 100, 20);
+		bandMixSliders[index].setBounds(x, 350, 78, 40);
+		bandMixLabels[index].setBounds(x - 10, 391, 100, 18);
 	}
 	for (std::size_t index = 0; index < cutoffSliders.size(); ++index)
 	{
 		const auto x = 385 + static_cast<int>(index) * 145;
-		cutoffSliders[index].setBounds(x, 332, 88, 52);
-		cutoffLabels[index].setBounds(x - 15, 386, 120, 20);
+		cutoffSliders[index].setBounds(x, 350, 88, 40);
+		cutoffLabels[index].setBounds(x - 15, 391, 120, 18);
 	}
-	autoGainButton.setBounds(24, 425, 96, 26);
-	trackingBox.setBounds(130, 425, 108, 26);
-	offlineBox.setBounds(248, 425, 118, 26);
-	qualityLabel.setBounds(378, 425, 190, 26);
-	meterLabel.setBounds(24, 455, 544, 20);
+	autoGainButton.setBounds(24, 420, 96, 26);
+	trackingBox.setBounds(130, 420, 108, 26);
+	offlineBox.setBounds(248, 420, 118, 26);
+	qualityLabel.setBounds(378, 420, 190, 26);
+	meterLabel.setBounds(24, 452, 544, 20);
 	juce::ignoreUnused(content);
 }
 
