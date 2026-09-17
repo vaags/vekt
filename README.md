@@ -20,9 +20,13 @@ git submodule update --init --recursive
 Configure, build, and test the current development slice:
 
 ```sh
-cmake --preset dev
-cmake --build --preset dev
-ctest --preset dev
+./scripts/test.sh
+```
+
+Build the Standalone and VST3 development artifacts with:
+
+```sh
+./scripts/build-dev.sh
 ```
 
 The `xcode` configure preset is reserved for AUv3-capable builds. It requires a
@@ -35,9 +39,7 @@ For Ableton Live on macOS, use the VST3 build. After building with the `dev`
 preset, install the bundle in the user VST3 directory:
 
 ```sh
-mkdir -p "$HOME/Library/Audio/Plug-Ins/VST3"
-ditto "build/dev/plugins/vekt_rav/VektRav_artefacts/Debug/VST3/Vekt Rav.vst3" \
-  "$HOME/Library/Audio/Plug-Ins/VST3/Vekt Rav.vst3"
+./scripts/install-vst3.sh
 ```
 
 In Ableton Live, open **Settings > Plug-Ins**, enable **Use VST3 Plug-In

@@ -12,6 +12,6 @@ command -v pluginval >/dev/null || { print -u2 "pluginval is required"; exit 69;
 command -v auval >/dev/null || { print -u2 "auval is required"; exit 69; }
 
 pluginval --validate "$vst3_path" --strictness-level 10
-auval -v aufx Vsat Vekt
+auval -v aufx Ravv Vekt
 codesign --verify --deep --strict --verbose=2 "$vst3_path"
 codesign --verify --deep --strict --verbose=2 "$auv3_path"
