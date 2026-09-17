@@ -35,6 +35,17 @@ Run a deterministic offline processor report without opening a DAW:
 ./scripts/render-report.sh --source sine --seconds 1 --mode 0
 ```
 
+For live listening without BlackHole or other routing tools, run the opt-in
+Audio Lab:
+
+```sh
+./scripts/run-audio-lab.sh
+```
+
+It generates test signals internally and sends them to the selected default
+audio output. The lab starts muted; select a source and mode, then explicitly
+arm the output. Use headphones or safe monitoring when testing.
+
 The `xcode` configure preset is reserved for AUv3-capable builds. It requires a
 full Xcode installation selected through `xcode-select`; Apple Command Line
 Tools alone are insufficient.

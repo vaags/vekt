@@ -74,3 +74,16 @@ count, RMS, peak, and plugin latency. Peaks above 0 dBFS are intentionally
 reported rather than limited so aggressive mode behavior remains visible.
 Live device input/output, capture, and hardware loopback are future Audio Lab
 phases and are not enabled by this renderer.
+
+## Live Audio Lab
+
+The live lab is a separate opt-in application and does not modify the plugin
+Standalone, VST3, or AUv3 targets. Launch it with:
+
+```sh
+./scripts/run-audio-lab.sh
+```
+
+Choose Sine, Sweep, Impulse, Noise, or Silence and a Rav mode. Output starts
+muted and must be explicitly armed. The lab uses the default macOS audio
+device and does not connect hardware input to output automatically.

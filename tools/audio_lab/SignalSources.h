@@ -19,9 +19,18 @@ enum class Source
 class SignalSource final
 {
 public:
+	SignalSource() noexcept = default;
+
 	SignalSource(Source sourceType, double rate, std::uint32_t seed = 0x6d2b79f5u) noexcept
 		: source(sourceType), sampleRate(rate), randomState(seed)
 	{
+	}
+
+	void prepare(Source sourceType, double rate) noexcept
+	{
+		source = sourceType;
+		sampleRate = rate;
+		randomState = 0x6d2b79f5u;
 	}
 
 	[[nodiscard]] float next(std::int64_t sampleIndex) noexcept
