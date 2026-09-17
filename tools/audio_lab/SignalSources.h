@@ -16,6 +16,7 @@ namespace vekt::audio_lab
 		impulse,
 		noise,
 		kick
+		, unison
 	};
 
 class SignalSource final
@@ -42,6 +43,11 @@ public:
 
 	[[nodiscard]] float next(std::int64_t sampleIndex) noexcept
 	{
+		return next(sampleIndex, 0);
+	}
+
+	[[nodiscard]] float next(std::int64_t sampleIndex, int channel) noexcept
+	{
 		switch (source)
 		{
 		case Source::sine:
@@ -52,6 +58,22 @@ public:
 			const auto phase = std::fmod(static_cast<double>(sampleIndex) * 110.0 * std::exp2(octaveOffset) / sampleRate, 1.0);
 			return static_cast<float>(0.12589254117941673 * (2.0 * phase - 1.0));
 		}
+			case Source::unison:
+			{
+				constexpr auto baseFrequency = 110.0;
+				constexpr auto detuneCents = 7.0;
+				const auto firstFrequency = baseFrequency * std::exp2(octaveOffset);
+				const auto secondFrequency = firstFrequency * std::pow(2.0, detuneCents / 1'200.0);
+				const auto firstPhase = 2.0 * pi * firstFrequency
+					* static_cast<double>(sampleIndex) / sampleRate;
+				const auto secondPhase = 2.0 * pi * secondFrequency
+					* static_cast<double>(sampleIndex) / sampleRate;
+				const auto first = std::sin(firstPhase);
+				const auto second = std::sin(secondPhase);
+				const auto spread = channel == 0 ? 0.3 : 0.7;
+				return static_cast<float>(0.12589254117941673
+					* (first * (1.0 - spread) + second * spread));
+			}
 		case Source::sweep:
 		{
 			const auto duration = std::max(1.0, sampleRate * 5.0);

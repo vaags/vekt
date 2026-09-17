@@ -46,6 +46,8 @@ struct Options final
 			else if (value == "noise") options.source = vekt::audio_lab::Source::noise;
 			else if (value == "kick")
 				options.source = vekt::audio_lab::Source::kick;
+			else if (value == "unison")
+				options.source = vekt::audio_lab::Source::unison;
 			else return false;
 		}
 		else if (valueFor(index, argc, argv, "--sample-rate", value)) options.sampleRate = std::stod(value);
@@ -64,7 +66,7 @@ int main(int argc, char** argv)
 	Options options;
 	if (!parseOptions(argc, argv, options))
 	{
-		std::cerr << "Usage: VektRavRender [--source sine|sawtooth|sweep|impulse|noise|kick] "
+		std::cerr << "Usage: VektRavRender [--source sine|sawtooth|sweep|impulse|noise|kick|unison] "
 					 "[--sample-rate Hz] [--block-size samples] [--seconds duration] [--mode 0-5]\n";
 		return 64;
 	}
@@ -87,9 +89,8 @@ int main(int argc, char** argv)
 		juce::AudioBuffer<float> buffer(2, blockSize);
 		for (int sample = 0; sample < blockSize; ++sample)
 		{
-			const auto value = source.next(offset + sample);
-			buffer.setSample(0, sample, value);
-			buffer.setSample(1, sample, value);
+			buffer.setSample(0, sample, source.next(offset + sample, 0));
+			buffer.setSample(1, sample, source.next(offset + sample, 1));
 		}
 		processor.processBlock(buffer, midi);
 		for (int sample = 0; sample < blockSize; ++sample)

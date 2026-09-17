@@ -24,6 +24,7 @@ public:
 		sourceBox.addItem("Impulse", 4);
 		sourceBox.addItem("Noise", 5);
         sourceBox.addItem("Kick", 6);
+		sourceBox.addItem("Unison", 7);
         sourceBox.setSelectedId(1, juce::dontSendNotification);
         for (auto *component : {static_cast<juce::Component *>(&sourceBox),
                                 static_cast<juce::Component *>(&octaveDownButton), static_cast<juce::Component *>(&octaveUpButton),
@@ -98,10 +99,13 @@ public:
 
         for (auto sample = 0; sample < info.numSamples; ++sample)
 		{
-			const auto value = source.next(sampleIndex++);
-			generatedPeak.store(std::max(generatedPeak.load(), std::abs(value)));
+			const auto sourceSample = sampleIndex++;
 			for (auto channel = 0; channel < info.buffer->getNumChannels(); ++channel)
+			{
+				const auto value = source.next(sourceSample, channel);
+				generatedPeak.store(std::max(generatedPeak.load(), std::abs(value)));
 				info.buffer->setSample(channel, info.startSample + sample, value);
+			}
 		}
 
 		juce::MidiBuffer midi;
