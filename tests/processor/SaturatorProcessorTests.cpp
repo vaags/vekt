@@ -392,3 +392,24 @@ TEST_CASE("Saturator auto-gain holds reference loudness through the wet chain", 
 		REQUIRE(std::abs(renderAutoGainErrorDb(48'000.0, 2, 0, point.driveDb, point.bias)) < 1.0);
 	}
 }
+
+TEST_CASE("Saturator processor publishes and consumes stereo peak snapshots", "[processor][meter]")
+{
+	vekt::saturator::PluginProcessor processor;
+	juce::AudioBuffer<float> buffer(2, 32);
+	juce::MidiBuffer midi;
+	processor.prepareToPlay(48'000.0, buffer.getNumSamples());
+	buffer.clear();
+	buffer.setSample(0, 0, 0.25f);
+	buffer.setSample(1, 0, -0.5f);
+
+	processor.processBlock(buffer, midi);
+	const auto input = processor.consumeInputPeaks();
+	const auto output = processor.consumeOutputPeaks();
+	REQUIRE(input[0] == Catch::Approx(0.25f));
+	REQUIRE(input[1] == Catch::Approx(0.5f));
+	REQUIRE(output[0] > 0.0f);
+	REQUIRE(output[1] > 0.0f);
+	REQUIRE(processor.consumeInputPeaks() == std::array { 0.0f, 0.0f });
+	REQUIRE(processor.consumeOutputPeaks() == std::array { 0.0f, 0.0f });
+}

@@ -32,12 +32,14 @@ juce_add_binary_data(VektSaturatorFactoryData
 target_sources(VektSaturator PRIVATE
 	Source/FactoryPresets.cpp
 	Source/Parameters.cpp
+	Source/PluginEditor.cpp
 	Source/PluginProcessor.cpp
 	Source/UserPresetPaths.cpp)
 
 target_include_directories(VektSaturator PUBLIC Source)
 
 target_compile_definitions(VektSaturator PUBLIC
+	VEKT_AUV3_APP_GROUP_ID="${VEKT_AUV3_APP_GROUP_ID}"
 	JUCE_STRICT_REFCOUNTEDPOINTER=1
 	JUCE_WEB_BROWSER=0
 	JUCE_USE_CURL=0
@@ -46,6 +48,7 @@ target_compile_definitions(VektSaturator PUBLIC
 target_link_libraries(VektSaturator
 	PRIVATE
 		juce::juce_audio_utils
+		vekt::ui
 		VektSaturatorFactoryData
 	PUBLIC
 		vekt::dsp

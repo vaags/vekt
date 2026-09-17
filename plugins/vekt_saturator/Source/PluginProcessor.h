@@ -8,6 +8,7 @@
 #include <vekt/dsp/LatencyAlignedMixer.h>
 #include <vekt/dsp/MatchedToneStage.h>
 #include <vekt/dsp/OversamplingBank.h>
+#include <vekt/dsp/StereoPeakMeter.h>
 #include <vekt/dsp/TanhStage.h>
 #include <vekt/presets/FilePresetRepository.h>
 #include <vekt/presets/Preset.h>
@@ -67,6 +68,8 @@ public:
 	[[nodiscard]] juce::Result saveUserPreset(
 		const juce::String& name,
 		presets::PresetSaveMode mode = presets::PresetSaveMode::createOnly);
+	[[nodiscard]] juce::Result importPreset(const juce::File& source);
+	[[nodiscard]] juce::Result exportPreset(const juce::File& destination, const juce::String& name) const;
 	[[nodiscard]] juce::Result removeUserPreset(const juce::String& name);
 	[[nodiscard]] juce::Result loadPreset(std::size_t index);
 	[[nodiscard]] juce::Result loadNextPreset();
@@ -74,6 +77,8 @@ public:
 	[[nodiscard]] const std::vector<presets::PresetEntry>& getPresetEntries() const noexcept;
 	[[nodiscard]] std::optional<std::size_t> getCurrentPresetIndex() const noexcept;
 	[[nodiscard]] bool isCurrentPresetModified() const;
+	[[nodiscard]] std::array<float, 2> consumeInputPeaks() noexcept;
+	[[nodiscard]] std::array<float, 2> consumeOutputPeaks() noexcept;
 	[[nodiscard]] juce::AudioProcessorValueTreeState& getParameters() noexcept;
 	[[nodiscard]] juce::UndoManager& getUndoManager() noexcept;
 	[[nodiscard]] juce::ValueTree& getProjectMetadata() noexcept;
@@ -132,6 +137,8 @@ private:
 	dsp::TanhStage<float> tanhStage;
 	std::array<dsp::DcBlocker<float>, 2> dcBlockers;
 	StaticAutoGain<float> autoGain;
+	dsp::StereoPeakMeter inputMeter;
+	dsp::StereoPeakMeter outputMeter;
 	juce::dsp::Gain<float> inputGain;
 	juce::dsp::Gain<float> outputGain;
 	juce::AudioBuffer<float> bypassScratch;

@@ -7,6 +7,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(VEKT_BUILD_TESTS "Build Vekt tests" ON)
+set(VEKT_AUV3_APP_GROUP_ID "" CACHE STRING
+    "Optional macOS App Group identifier used by the AUv3 preset container")
 
 add_subdirectory(external/JUCE EXCLUDE_FROM_ALL)
 
@@ -20,6 +22,7 @@ target_link_libraries(vekt_project_options INTERFACE
 add_subdirectory(framework/dsp)
 add_subdirectory(framework/state)
 add_subdirectory(framework/presets)
+add_subdirectory(framework/ui)
 add_subdirectory(plugins/vekt_saturator)
 
 if(VEKT_BUILD_TESTS)

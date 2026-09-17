@@ -1,8 +1,11 @@
 #include "PluginProcessor.h"
 
+#include "PluginEditor.h"
+
 #include "FactoryPresets.h"
 
 #include <vekt/presets/PresetSchema.h>
+#include <vekt/presets/PresetJsonCodec.h>
 
 #include <juce_audio_utils/juce_audio_utils.h>
 
@@ -117,13 +120,17 @@ bool PluginProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
 	observeTransport();
+	inputMeter.publish(buffer);
 	processPreparedBlocks(buffer, midi, bypassParameter->load() >= 0.5f);
+	outputMeter.publish(buffer);
 }
 
 void PluginProcessor::processBlockBypassed(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
 	observeTransport();
+	inputMeter.publish(buffer);
 	processPreparedBlocks(buffer, midi, true);
+	outputMeter.publish(buffer);
 }
 
 void PluginProcessor::processPreparedBlocks(
@@ -201,7 +208,7 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 
 juce::AudioProcessorEditor* PluginProcessor::createEditor()
 {
-	return new juce::GenericAudioProcessorEditor(*this);
+	return new PluginEditor(*this);
 }
 
 bool PluginProcessor::hasEditor() const { return true; }
@@ -334,6 +341,30 @@ juce::Result PluginProcessor::saveUserPreset(
 	return juce::Result::ok();
 }
 
+juce::Result PluginProcessor::importPreset(const juce::File& source)
+{
+	assertMessageThread();
+	if (!source.existsAsFile())
+		return juce::Result::fail("Preset file does not exist");
+	presets::Preset preset;
+	if (const auto result = presets::PresetJsonCodec::decode(source.loadFileAsString(), preset); result.failed())
+		return result;
+	return applyPreset(preset);
+}
+
+juce::Result PluginProcessor::exportPreset(const juce::File& destination, const juce::String& name) const
+{
+	assertMessageThread();
+	juce::String json;
+	if (const auto result = presets::PresetJsonCodec::encode(createPreset(name), json); result.failed())
+		return result;
+	juce::TemporaryFile temporaryFile(destination);
+	if (!temporaryFile.getFile().replaceWithText(json)
+		|| !temporaryFile.overwriteTargetFileWithTemporary())
+		return juce::Result::fail("Could not write preset");
+	return juce::Result::ok();
+}
+
 juce::Result PluginProcessor::removeUserPreset(const juce::String& name)
 {
 	assertMessageThread();
@@ -414,6 +445,16 @@ bool PluginProcessor::isCurrentPresetModified() const
 			parameters::presetProductIdentifier,
 			parameterState,
 			parameters::soundParameterIds);
+}
+
+std::array<float, 2> PluginProcessor::consumeInputPeaks() noexcept
+{
+	return inputMeter.consumePeaks();
+}
+
+std::array<float, 2> PluginProcessor::consumeOutputPeaks() noexcept
+{
+	return outputMeter.consumePeaks();
 }
 
 juce::AudioProcessorValueTreeState& PluginProcessor::getParameters() noexcept

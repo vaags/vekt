@@ -1,0 +1,23 @@
+#pragma once
+
+#include <juce_audio_processors/juce_audio_processors.h>
+
+namespace vekt::ui
+{
+class ScalableEditor : public juce::AudioProcessorEditor
+{
+public:
+	explicit ScalableEditor(juce::AudioProcessor& processor);
+
+	[[nodiscard]] juce::Component& getContent() noexcept;
+	void resized() override;
+
+	inline static constexpr auto logicalWidth = 720;
+	inline static constexpr auto logicalHeight = 480;
+
+private:
+	juce::Component content;
+	juce::ComponentBoundsConstrainer constrainer;
+	juce::ResizableCornerComponent resizeHandle { this, &constrainer };
+};
+}
