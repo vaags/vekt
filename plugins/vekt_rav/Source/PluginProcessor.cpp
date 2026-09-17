@@ -204,7 +204,7 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 	inputGain.setGainDecibels(inputGainParameter->load());
 	outputGain.setGainDecibels(outputGainParameter->load());
 	dryWetMixer.setWetProportion(mixParameter->load() * 0.01f);
-	toneStage.setSlopeDbPerOctave(toneParameter->load());
+	toneStage.setSlopeDbPerOctave(-toneParameter->load());
 	autoGain.setTopologyCompensation(1.0f);
 	autoGain.setParameters(
 		driveParameter->load(), biasParameter->load(),
