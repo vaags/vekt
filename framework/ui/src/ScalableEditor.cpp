@@ -9,10 +9,11 @@ ScalableEditor::ScalableEditor(juce::AudioProcessor& audioProcessor)
 	constrainer.setMaximumSize(1440, 960);
 	constrainer.setFixedAspectRatio(static_cast<double>(logicalWidth) / logicalHeight);
 	setResizable(true, true);
-	setConstrainer(&constrainer);
-	setSize(logicalWidth, logicalHeight);
-	addAndMakeVisible(content);
+    setConstrainer(&constrainer);
+    addAndMakeVisible(content);
 	addAndMakeVisible(resizeHandle);
+    setSize(logicalWidth, logicalHeight);
+    resized();
 }
 
 juce::Component& ScalableEditor::getContent() noexcept { return content; }

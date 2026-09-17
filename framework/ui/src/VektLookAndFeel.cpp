@@ -18,14 +18,18 @@ void VektLookAndFeel::drawRotarySlider(juce::Graphics& graphics, int x, int y, i
 	const auto radius = std::min(bounds.getWidth(), bounds.getHeight()) * 0.5f;
 	const auto centre = bounds.getCentre();
 	graphics.setColour(findColour(juce::Slider::rotarySliderOutlineColourId));
-	graphics.drawEllipse(bounds, 2.0f);
-	graphics.setColour(findColour(juce::Slider::rotarySliderFillColourId));
+    juce::Path track;
+    track.addCentredArc(centre.x, centre.y, radius, radius, 0.0f,
+                        startAngle, endAngle, true);
+    graphics.strokePath(track, juce::PathStrokeType(2.0f));
+    graphics.setColour(findColour(juce::Slider::rotarySliderFillColourId));
 	juce::Path arc;
 	arc.addCentredArc(centre.x, centre.y, radius, radius, 0.0f, startAngle,
 		startAngle + position * (endAngle - startAngle), true);
 	graphics.strokePath(arc, juce::PathStrokeType(2.5f));
-	graphics.drawLine(centre.x, centre.y,
-		centre.x + std::cos(startAngle + position * (endAngle - startAngle)) * radius * 0.65f,
-		centre.y + std::sin(startAngle + position * (endAngle - startAngle)) * radius * 0.65f, 2.5f);
+    const auto angle = startAngle + position * (endAngle - startAngle);
+    graphics.drawLine(centre.x, centre.y,
+                      centre.x + std::cos(angle) * radius * 0.72f,
+                      centre.y + std::sin(angle) * radius * 0.72f, 3.0f);
 }
 }

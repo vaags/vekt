@@ -24,18 +24,19 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 	qualityLabel.setJustificationType(juce::Justification::centredRight);
 	meterLabel.setJustificationType(juce::Justification::centred);
 	for (juce::Component *component : {static_cast<juce::Component *>(&title),
-                                       static_cast<juce::Component *>(&presetLabel), static_cast<juce::Component *>(&qualityLabel),
-                                       static_cast<juce::Component *>(&meterLabel), static_cast<juce::Component *>(&previousButton),
-                                       static_cast<juce::Component *>(&nextButton), static_cast<juce::Component *>(&undoButton),
-                                       static_cast<juce::Component *>(&redoButton), static_cast<juce::Component *>(&bypassButton),
-                                       static_cast<juce::Component *>(&autoGainButton), static_cast<juce::Component *>(&trackingBox),
-                                       static_cast<juce::Component *>(&offlineBox), static_cast<juce::Component *>(&modeBox)})
+									   static_cast<juce::Component *>(&presetLabel), static_cast<juce::Component *>(&qualityLabel),
+									   static_cast<juce::Component *>(&meterLabel), static_cast<juce::Component *>(&previousButton),
+									   static_cast<juce::Component *>(&nextButton), static_cast<juce::Component *>(&undoButton),
+									   static_cast<juce::Component *>(&redoButton), static_cast<juce::Component *>(&bypassButton),
+									   static_cast<juce::Component *>(&autoGainButton), static_cast<juce::Component *>(&trackingBox),
+									   static_cast<juce::Component *>(&offlineBox), static_cast<juce::Component *>(&modeBox)})
 	{
 		getContent().addAndMakeVisible(*component);
 	}
 
 	for (std::size_t index = 0; index < sliders.size(); ++index)
 		configureRotary(sliders[index], sliderLabels[index], parameterNames[index], parameterIds[index], sliderAttachments[index]);
+	sliders[2].setTooltip("Tone: positive values brighten, negative values darken");
 	for (std::size_t index = 0; index < bandMixSliders.size(); ++index)
 	{
 		constexpr std::array names { "Low Mix", "Mid Mix", "High Mix" };
@@ -49,16 +50,16 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 		configureRotary(cutoffSliders[index], cutoffLabels[index], names[index], ids[index], cutoffAttachments[index]);
 	}
 
-    trackingBox.addItem("Off", 1);
-    trackingBox.addItem("2x IIR", 2);
-    trackingBox.addItem("4x IIR", 3);
-    offlineBox.addItem("Off", 1);
-    offlineBox.addItem("2x FIR", 2);
-    offlineBox.addItem("4x FIR", 3);
-    offlineBox.addItem("8x FIR", 4);
-    offlineBox.addItem("16x FIR", 5);
-    modeBox.addItemList({"Saturation", "Overdrive", "Distortion", "Fuzz", "Wavefold", "Bitcrush"}, 1);
-    trackingAttachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), parameters::trackingOversampling, trackingBox);
+	trackingBox.addItem("Off", 1);
+	trackingBox.addItem("2x IIR", 2);
+	trackingBox.addItem("4x IIR", 3);
+	offlineBox.addItem("Off", 1);
+	offlineBox.addItem("2x FIR", 2);
+	offlineBox.addItem("4x FIR", 3);
+	offlineBox.addItem("8x FIR", 4);
+	offlineBox.addItem("16x FIR", 5);
+	modeBox.addItemList({"Saturation", "Overdrive", "Distortion", "Fuzz", "Wavefold", "Bitcrush"}, 1);
+	trackingAttachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), parameters::trackingOversampling, trackingBox);
     offlineAttachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), parameters::offlineOversampling, offlineBox);
     modeAttachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), parameters::mode, modeBox);
 	bypassAttachment = std::make_unique<ButtonAttachment>(pluginProcessor.getParameters(), parameters::bypass, bypassButton);
@@ -67,9 +68,9 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 	previousButton.onClick = [this] { juce::ignoreUnused(pluginProcessor.loadPreviousPreset()); refreshPresetLabel(); };
 	nextButton.onClick = [this] { juce::ignoreUnused(pluginProcessor.loadNextPreset()); refreshPresetLabel(); };
 	undoButton.onClick = [this] { pluginProcessor.getUndoManager().undo(); refreshPresetLabel(); };
-    redoButton.onClick = [this]
-    { pluginProcessor.getUndoManager().redo(); refreshPresetLabel(); };
-    refreshPresetLabel();
+	redoButton.onClick = [this]
+	{ pluginProcessor.getUndoManager().redo(); refreshPresetLabel(); };
+	refreshPresetLabel();
 	startTimerHz(30);
 }
 
@@ -103,28 +104,28 @@ void PluginEditor::resized()
 	{
 		const auto column = static_cast<int>(index % 3);
 		const auto row = static_cast<int>(index / 3);
-		const auto x = 70 + column * 220;
-		const auto y = 90 + row * 130;
-		sliders[index].setBounds(x, y, 100, 96);
-		sliderLabels[index].setBounds(x - 25, y + 94, 150, 24);
+		const auto x = 40 + column * 230;
+		const auto y = 90 + row * 125;
+		sliders[index].setBounds(x, y, 110, 88);
+		sliderLabels[index].setBounds(x - 20, y + 88, 150, 22);
 	}
 	for (std::size_t index = 0; index < bandMixSliders.size(); ++index)
 	{
-		const auto x = 30 + static_cast<int>(index) * 125;
-		bandMixSliders[index].setBounds(x, 340, 90, 70);
-		bandMixLabels[index].setBounds(x - 15, 407, 120, 22);
+		const auto x = 30 + static_cast<int>(index) * 115;
+		bandMixSliders[index].setBounds(x, 332, 78, 52);
+		bandMixLabels[index].setBounds(x - 10, 386, 100, 20);
 	}
 	for (std::size_t index = 0; index < cutoffSliders.size(); ++index)
 	{
-		const auto x = 430 + static_cast<int>(index) * 125;
-		cutoffSliders[index].setBounds(x, 340, 90, 70);
-		cutoffLabels[index].setBounds(x - 15, 407, 120, 22);
+		const auto x = 385 + static_cast<int>(index) * 145;
+		cutoffSliders[index].setBounds(x, 332, 88, 52);
+		cutoffLabels[index].setBounds(x - 15, 386, 120, 20);
 	}
-	autoGainButton.setBounds(30, 392, 100, 28);
-    trackingBox.setBounds(150, 392, 110, 28);
-    offlineBox.setBounds(270, 392, 120, 28);
-    qualityLabel.setBounds(414, 392, 280, 28);
-	meterLabel.setBounds(30, 432, 660, 24);
+	autoGainButton.setBounds(24, 425, 96, 26);
+	trackingBox.setBounds(130, 425, 108, 26);
+	offlineBox.setBounds(248, 425, 118, 26);
+	qualityLabel.setBounds(378, 425, 190, 26);
+	meterLabel.setBounds(24, 455, 544, 20);
 	juce::ignoreUnused(content);
 }
 
