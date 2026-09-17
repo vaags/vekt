@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Parameters.h"
+#include "StaticAutoGain.h"
 
 #include <vekt/dsp/DcBlocker.h>
 #include <vekt/dsp/LatencyAlignedBypass.h>
@@ -75,6 +76,7 @@ private:
 	std::atomic<float>* driveParameter;
 	std::atomic<float>* toneParameter;
 	std::atomic<float>* biasParameter;
+	std::atomic<float>* autoGainParameter;
 	std::atomic<float>* mixParameter;
 	std::atomic<float>* outputGainParameter;
 	std::atomic<float>* oversamplingFactorParameter;
@@ -93,6 +95,7 @@ private:
 	dsp::MatchedToneStage<float> toneStage;
 	dsp::TanhStage<float> tanhStage;
 	std::array<dsp::DcBlocker<float>, 2> dcBlockers;
+	StaticAutoGain<float> autoGain;
 	juce::dsp::Gain<float> inputGain;
 	juce::dsp::Gain<float> outputGain;
 	juce::AudioBuffer<float> bypassScratch;

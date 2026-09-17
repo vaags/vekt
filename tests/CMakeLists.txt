@@ -5,6 +5,7 @@ add_executable(vekt_dsp_tests
     dsp/MatchedToneStageTests.cpp
     dsp/OversamplingBankTests.cpp
     processor/SaturatorProcessorTests.cpp
+    processor/StaticAutoGainTests.cpp
     dsp/TanhStageTests.cpp)
 
 target_link_libraries(vekt_dsp_tests PRIVATE

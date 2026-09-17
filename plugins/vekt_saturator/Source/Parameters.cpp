@@ -32,6 +32,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 	layout.add(std::make_unique<juce::AudioParameterFloat>(
 		juce::ParameterID { bias, parameterVersion }, "Bias",
 		juce::NormalisableRange<float> { -1.0f, 1.0f, 0.001f }, 0.0f));
+	layout.add(std::make_unique<juce::AudioParameterBool>(
+		juce::ParameterID { autoGain, parameterVersion }, "Auto Gain", false));
 	layout.add(std::make_unique<juce::AudioParameterFloat>(
 		juce::ParameterID { mix, parameterVersion }, "Mix",
 		juce::NormalisableRange<float> { 0.0f, 100.0f, 0.01f }, 100.0f,

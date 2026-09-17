@@ -41,8 +41,11 @@ TEST_CASE("Saturator processor produces finite stereo audio", "[processor]")
 	juce::MidiBuffer midi;
 	processor.prepareToPlay(48'000.0, buffer.getNumSamples());
 	auto* tone = processor.getParameters().getParameter(vekt::saturator::parameters::tone);
+	auto* autoGain = processor.getParameters().getParameter(vekt::saturator::parameters::autoGain);
 	REQUIRE(tone != nullptr);
+	REQUIRE(autoGain != nullptr);
 	tone->setValueNotifyingHost(tone->convertTo0to1(6.0f));
+	autoGain->setValueNotifyingHost(1.0f);
 
 	for (auto channel = 0; channel < buffer.getNumChannels(); ++channel)
 		for (auto sample = 0; sample < buffer.getNumSamples(); ++sample)
@@ -61,10 +64,13 @@ TEST_CASE("Saturator processor state round trips parameters", "[processor][state
 	vekt::saturator::PluginProcessor restored;
 	auto* sourceDrive = source.getParameters().getParameter(vekt::saturator::parameters::drive);
 	auto* sourceTone = source.getParameters().getParameter(vekt::saturator::parameters::tone);
+	auto* sourceAutoGain = source.getParameters().getParameter(vekt::saturator::parameters::autoGain);
 	REQUIRE(sourceDrive != nullptr);
 	REQUIRE(sourceTone != nullptr);
+	REQUIRE(sourceAutoGain != nullptr);
 	sourceDrive->setValueNotifyingHost(sourceDrive->convertTo0to1(18.0f));
 	sourceTone->setValueNotifyingHost(sourceTone->convertTo0to1(-3.0f));
+	sourceAutoGain->setValueNotifyingHost(1.0f);
 
 	juce::MemoryBlock state;
 	source.getStateInformation(state);
@@ -74,10 +80,14 @@ TEST_CASE("Saturator processor state round trips parameters", "[processor][state
 		vekt::saturator::parameters::drive);
 	const auto* restoredTone = restored.getParameters().getRawParameterValue(
 		vekt::saturator::parameters::tone);
+	const auto* restoredAutoGain = restored.getParameters().getRawParameterValue(
+		vekt::saturator::parameters::autoGain);
 	REQUIRE(restoredDrive != nullptr);
 	REQUIRE(restoredTone != nullptr);
+	REQUIRE(restoredAutoGain != nullptr);
 	REQUIRE(restoredDrive->load() == Catch::Approx(18.0f));
 	REQUIRE(restoredTone->load() == Catch::Approx(-3.0f));
+	REQUIRE(restoredAutoGain->load() == Catch::Approx(1.0f));
 }
 
 TEST_CASE("Saturator processor bypass preserves reported latency across transitions", "[processor][bypass]")

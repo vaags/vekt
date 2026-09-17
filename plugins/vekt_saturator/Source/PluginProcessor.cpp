@@ -15,6 +15,7 @@ PluginProcessor::PluginProcessor()
 	  driveParameter(requireParameter(parameterState, parameters::drive)),
 	  toneParameter(requireParameter(parameterState, parameters::tone)),
 	  biasParameter(requireParameter(parameterState, parameters::bias)),
+	  autoGainParameter(requireParameter(parameterState, parameters::autoGain)),
 	  mixParameter(requireParameter(parameterState, parameters::mix)),
 	  outputGainParameter(requireParameter(parameterState, parameters::outputGain)),
 	  oversamplingFactorParameter(requireParameter(parameterState, parameters::oversamplingFactor)),
@@ -49,6 +50,7 @@ void PluginProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
 		requestedOversamplingFactor.load(), requestedOversamplingPhase.load()));
 	toneStage.prepare(sampleRate, 2);
 	tanhStage.prepare(sampleRate * static_cast<double>(oversampling.getActiveFactor()));
+	autoGain.prepare(sampleRate);
 	for (auto& dcBlocker : dcBlockers)
 		dcBlocker.prepare(sampleRate);
 
@@ -111,6 +113,8 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 	toneStage.setSlopeDbPerOctave(toneParameter->load());
 	tanhStage.setDriveLinear(juce::Decibels::decibelsToGain(driveParameter->load()));
 	tanhStage.setBias(biasParameter->load());
+	autoGain.setParameters(
+		driveParameter->load(), biasParameter->load(), autoGainParameter->load() >= 0.5f);
 
 	juce::dsp::AudioBlock<float> block(buffer);
 	inputGain.process(juce::dsp::ProcessContextReplacing<float>(block));
@@ -124,6 +128,7 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 	for (std::size_t channel = 0; channel < block.getNumChannels(); ++channel)
 		dcBlockers[channel].process(std::span<float>(block.getChannelPointer(channel), block.getNumSamples()));
 	toneStage.processPost(block);
+	autoGain.process(block);
 
 	dryWetMixer.mixWetSamples(block);
 	outputGain.process(juce::dsp::ProcessContextReplacing<float>(block));
