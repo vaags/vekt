@@ -1,5 +1,7 @@
 #pragma once
 
+#include "RavPostStage.h"
+
 #include <juce_audio_basics/juce_audio_basics.h>
 
 #include <algorithm>
@@ -31,6 +33,7 @@ public:
 		character.reset(processingSampleRate, 0.02);
 		response.reset(processingSampleRate, 0.02);
 		texture.reset(processingSampleRate, 0.02);
+		postStage.prepare(processingSampleRate);
 		reset();
 	}
 
@@ -42,6 +45,7 @@ public:
 		highPassState = 0.0f;
 		holdValue = 0.0f;
 		holdPhase = 1.0f;
+		postStage.reset();
 		drive.setCurrentAndTargetValue(drive.getTargetValue());
 		bias.setCurrentAndTargetValue(bias.getTargetValue());
 		character.setCurrentAndTargetValue(character.getTargetValue());
@@ -76,6 +80,7 @@ private:
 		const auto textureValue = texture.getNextValue();
 		const auto driven = input * juce::Decibels::decibelsToGain(driveDb);
 
+		auto output = input;
 		switch (mode)
 		{
 			case RavMode::saturation:
@@ -83,10 +88,10 @@ private:
 				const auto rollOff = 0.005f + responseValue * 0.2f;
 				feedbackState += (previousOutput - feedbackState) * rollOff;
 				const auto memory = characterValue * feedbackState;
-				const auto output = std::tanh(driven + memory + biasValue * textureValue)
+				output = std::tanh(driven + memory + biasValue * textureValue)
 					- std::tanh(biasValue * textureValue);
 				previousOutput = output;
-				return output;
+				break;
 			}
 			case RavMode::overdrive:
 			{
@@ -97,14 +102,16 @@ private:
 				const auto asymmetricBias = biasValue + (characterValue - 0.5f) * 0.8f;
 				const auto shaped = std::tanh(highPassed + asymmetricBias)
 					- std::tanh(asymmetricBias);
-				return std::tanh(shaped * (1.0f + textureValue * 3.0f));
+				output = std::tanh(shaped * (1.0f + textureValue * 3.0f));
+				break;
 			}
 			case RavMode::distortion:
 			{
 				const auto exponent = 1.2f + characterValue * 6.0f;
 				const auto magnitude = std::abs(driven + biasValue * textureValue);
-				return std::copysign(magnitude / std::pow(1.0f + std::pow(magnitude, exponent),
+				output = std::copysign(magnitude / std::pow(1.0f + std::pow(magnitude, exponent),
 					1.0f / exponent), driven + biasValue * textureValue);
+				break;
 			}
 			case RavMode::fuzz:
 			{
@@ -112,13 +119,15 @@ private:
 				envelope += (std::abs(driven) - envelope) * envelopeRate;
 				const auto starvation = biasValue + (0.5f - envelope) * characterValue;
 				const auto gated = std::abs(driven) < textureValue * (0.05f + envelope) ? 0.0f : driven;
-				return std::clamp((gated + starvation) * 4.0f, -1.0f, 1.0f);
+				output = std::clamp((gated + starvation) * 4.0f, -1.0f, 1.0f);
+				break;
 			}
 			case RavMode::wavefold:
 			{
 				const auto folds = 1.0f + characterValue * 7.0f;
 				const auto offset = biasValue * responseValue;
-				return std::sin((driven + offset) * folds) * (0.6f + textureValue * 0.4f);
+				output = std::sin((driven + offset) * folds) * (0.6f + textureValue * 0.4f);
+				break;
 			}
 			case RavMode::bitcrush:
 			{
@@ -132,11 +141,27 @@ private:
 					holdPhase -= std::floor(holdPhase);
 					holdValue = std::round((driven + biasValue * textureValue) * levels) / levels;
 				}
-				return holdValue;
+				output = holdValue;
+				break;
 			}
 		}
 
-		return input;
+		return postStage.process(output, postCutoffHz(mode, textureValue));
+	}
+
+	[[nodiscard]] static float postCutoffHz(RavMode currentMode, float textureValue) noexcept
+	{
+		switch (currentMode)
+		{
+			case RavMode::saturation: return 10'000.0f + (1.0f - textureValue) * 8'000.0f;
+			case RavMode::overdrive: return 11'000.0f + textureValue * 7'000.0f;
+			case RavMode::distortion: return 5'000.0f + textureValue * 8'000.0f;
+			case RavMode::fuzz: return 4'000.0f + textureValue * 6'000.0f;
+			case RavMode::wavefold: return 5'000.0f + textureValue * 8'000.0f;
+			case RavMode::bitcrush: return 0.0f;
+		}
+
+		return 0.0f;
 	}
 
 	RavMode mode { RavMode::saturation };
@@ -148,6 +173,7 @@ private:
 	float highPassState {};
 	float holdValue {};
 	float holdPhase { 1.0f };
+	RavPostStage postStage;
 	juce::SmoothedValue<float> drive { 6.0f };
 	juce::SmoothedValue<float> bias;
 	juce::SmoothedValue<float> character { 0.5f };
