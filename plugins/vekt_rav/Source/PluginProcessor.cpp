@@ -568,6 +568,21 @@ juce::ValueTree& PluginProcessor::getProjectMetadata() noexcept
 	return stateManager.getMetadata();
 }
 
+RavStageChain::Order PluginProcessor::getStageOrder() const noexcept
+{
+	return stageChain.getOrder();
+}
+
+bool PluginProcessor::reorderStage(std::size_t index, int delta) noexcept
+{
+	if (stageChain.moveStage(index, delta))
+	{
+		stageChain.writeMetadata(stateManager.getMetadata());
+		return true;
+	}
+	return false;
+}
+
 void PluginProcessor::restoreCurrentProgramFromMetadata()
 {
 	const auto name = stateManager.getMetadata()

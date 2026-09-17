@@ -39,6 +39,20 @@ public:
 		return true;
 	}
 
+	[[nodiscard]] bool moveStage(std::size_t fromIndex, int delta) noexcept
+	{
+		if (fromIndex >= stageCount)
+			return false;
+
+		const auto targetIndex = static_cast<int>(fromIndex) + delta;
+		if (targetIndex < 0 || targetIndex >= static_cast<int>(stageCount))
+			return false;
+
+		auto candidate = order;
+		std::swap(candidate[fromIndex], candidate[static_cast<std::size_t>(targetIndex)]);
+		return setOrder(candidate);
+	}
+
 	void writeMetadata(juce::ValueTree& metadata) const
 	{
 		juce::StringArray values;

@@ -44,6 +44,10 @@ private:
     juce::ComboBox trackingBox;
     juce::ComboBox offlineBox;
     juce::ComboBox modeBox;
+	std::array<juce::ToggleButton, 6> stageButtons;
+	std::array<juce::TextButton, 6> stageUpButtons;
+	std::array<juce::TextButton, 6> stageDownButtons;
+	std::array<std::unique_ptr<ButtonAttachment>, 6> stageButtonAttachments;
 	std::array<juce::Slider, 6> sliders;
 	std::array<juce::Label, 6> sliderLabels;
 	std::array<std::unique_ptr<SliderAttachment>, 6> sliderAttachments;

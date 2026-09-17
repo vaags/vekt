@@ -33,6 +33,23 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 	{
 		getContent().addAndMakeVisible(*component);
 	}
+	for (std::size_t index = 0; index < stageButtons.size(); ++index)
+	{
+		constexpr std::array names { "Saturation", "Overdrive", "Distortion", "Fuzz", "Wavefold", "Bitcrush" };
+		stageButtons[index].setButtonText(names[index]);
+		stageButtons[index].setToggleState(pluginProcessor.getParameters().getParameter(parameters::stageEnabledIds[index])->getValue() > 0.5f, juce::dontSendNotification);
+		getContent().addAndMakeVisible(stageButtons[index]);
+		stageButtonAttachments[index] = std::make_unique<ButtonAttachment>(
+			pluginProcessor.getParameters(), parameters::stageEnabledIds[index], stageButtons[index]);
+		stageUpButtons[index].setButtonText("↑");
+		stageUpButtons[index].setVisible(index > 0);
+		stageUpButtons[index].onClick = [this, index] { pluginProcessor.reorderStage(index, -1); };
+		getContent().addAndMakeVisible(stageUpButtons[index]);
+		stageDownButtons[index].setButtonText("↓");
+		stageDownButtons[index].setVisible(index < stageDownButtons.size() - 1);
+		stageDownButtons[index].onClick = [this, index] { pluginProcessor.reorderStage(index, 1); };
+		getContent().addAndMakeVisible(stageDownButtons[index]);
+	}
 
 	for (std::size_t index = 0; index < sliders.size(); ++index)
 		configureRotary(sliders[index], sliderLabels[index], parameterNames[index], parameterIds[index], sliderAttachments[index]);
@@ -110,12 +127,21 @@ void PluginEditor::resized()
 	redoButton.setBounds(572, 18, 54, 28);
 	bypassButton.setBounds(632, 18, 70, 28);
 	modeBox.setBounds(280, 62, 160, 26);
+	modeBox.setVisible(false);
+	for (std::size_t index = 0; index < stageButtons.size(); ++index)
+	{
+		const auto row = static_cast<int>(index);
+		const auto y = 82 + row * 26;
+		stageButtons[index].setBounds(24, y, 140, 22);
+		stageUpButtons[index].setBounds(170, y, 28, 22);
+		stageDownButtons[index].setBounds(202, y, 28, 22);
+	}
 	for (std::size_t index = 0; index < sliders.size(); ++index)
 	{
 		const auto column = static_cast<int>(index % 3);
 		const auto row = static_cast<int>(index / 3);
 		const auto x = 40 + column * 230;
-		const auto y = 82 + row * 102;
+		const auto y = 82 + row * 102 + 180;
 		sliders[index].setBounds(x, y, 110, 68);
 		sliderLabels[index].setBounds(x - 20, y + 68, 150, 20);
 	}

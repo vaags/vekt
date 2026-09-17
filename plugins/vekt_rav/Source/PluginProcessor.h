@@ -85,6 +85,8 @@ public:
 	[[nodiscard]] juce::AudioProcessorValueTreeState& getParameters() noexcept;
 	[[nodiscard]] juce::UndoManager& getUndoManager() noexcept;
 	[[nodiscard]] juce::ValueTree& getProjectMetadata() noexcept;
+	[[nodiscard]] RavStageChain::Order getStageOrder() const noexcept;
+	[[nodiscard]] bool reorderStage(std::size_t index, int delta) noexcept;
 	[[nodiscard]] dsp::OversamplingQuality getActiveQuality() const noexcept;
 	[[nodiscard]] bool hasPendingQualityChange() const noexcept;
 	void applyPendingQualityChange();
