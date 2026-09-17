@@ -2,5 +2,6 @@
   "files.eol": "\n",
   "files.insertFinalNewline": true,
   "files.trimFinalNewlines": true,
-  "editor.formatOnSave": false
+  "editor.formatOnSave": false,
+  "C_Cpp.default.compileCommands": "${workspaceFolder}/build/audio-lab/compile_commands.json"
 }
