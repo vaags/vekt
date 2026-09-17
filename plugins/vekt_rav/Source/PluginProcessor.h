@@ -145,7 +145,7 @@ private:
 	dsp::LatencyAlignedBypass<float> bypassDelay;
 	dsp::LatencyAlignedMixer<float> dryWetMixer;
 	dsp::MatchedToneStage<float> toneStage;
-	std::array<RavModeStage, 3> bandStages;
+	std::array<std::array<RavModeStage, 2>, 3> bandStages;
 	dsp::ThreeBandCrossover<float> crossover;
 	std::array<juce::AudioBuffer<float>, 3> bandBuffers;
 	std::array<juce::AudioBuffer<float>, 3> cleanBandBuffers;

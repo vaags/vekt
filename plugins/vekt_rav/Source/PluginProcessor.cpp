@@ -97,8 +97,9 @@ void PluginProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
 	toneStage.prepare(sampleRate, 2);
 	const auto effectiveFactor = oversampling.getActiveFactor();
 	const auto effectiveSampleRate = sampleRate * static_cast<double>(effectiveFactor);
-	for (auto& stage : bandStages)
-		stage.prepare(effectiveSampleRate, sampleRate);
+	for (auto& band : bandStages)
+		for (auto& stage : band)
+			stage.prepare(effectiveSampleRate, sampleRate);
 	crossover.prepare(
 		{ effectiveSampleRate, static_cast<juce::uint32>(maximumBlockSize * 4), 2 },
 		{ lowMidCutoffParameter->load(), midHighCutoffParameter->load() });
@@ -240,13 +241,16 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 	{
 		for (auto channel = 0; channel < 2; ++channel)
 			cleanBandBuffers[band].copyFrom(channel, 0, bandBuffers[band], channel, 0, samples);
-		bandStages[band].setParameters(
-			static_cast<RavMode>(juce::jlimit(0, 5, juce::roundToInt(modeParameter->load()))),
-			driveParameter->load(), biasParameter->load(), characterParameter->load(),
-			responseParameter->load(), textureParameter->load());
 		for (auto channel = 0; channel < 2; ++channel)
-			bandStages[band].process(std::span<float>(bandBuffers[band].getWritePointer(channel),
-				static_cast<std::size_t>(samples)));
+		{
+			bandStages[band][static_cast<std::size_t>(channel)].setParameters(
+				static_cast<RavMode>(juce::jlimit(0, 5, juce::roundToInt(modeParameter->load()))),
+				driveParameter->load(), biasParameter->load(), characterParameter->load(),
+				responseParameter->load(), textureParameter->load());
+			bandStages[band][static_cast<std::size_t>(channel)].process(
+				std::span<float>(bandBuffers[band].getWritePointer(channel),
+					static_cast<std::size_t>(samples)));
+		}
 		for (auto channel = 0; channel < 2; ++channel)
 			for (auto sample = 0; sample < samples; ++sample)
 				bandBuffers[band].setSample(channel, sample,
@@ -658,8 +662,9 @@ void PluginProcessor::applyPendingQualityChange()
 		oversampling.activate(quality);
 		const auto effectiveSampleRate = getSampleRate()
 			* static_cast<double>(oversampling.getActiveFactor());
-		for (auto& stage : bandStages)
-			stage.prepare(effectiveSampleRate, getSampleRate());
+		for (auto& band : bandStages)
+			for (auto& stage : band)
+				stage.prepare(effectiveSampleRate, getSampleRate());
 		crossover.prepare(
 			{ effectiveSampleRate, static_cast<juce::uint32>(maximumPreparedBlockSize * 4), 2 },
 			{ lowMidCutoffParameter->load(), midHighCutoffParameter->load() });

@@ -149,6 +149,29 @@ TEST_CASE("Rav processor produces finite stereo audio", "[processor]")
 			REQUIRE(std::isfinite(buffer.getSample(channel, sample)));
 }
 
+TEST_CASE("Rav saturation keeps identical noise channels aligned at bright tone", "[processor][stereo]")
+{
+	vekt::rav::PluginProcessor processor;
+	juce::AudioBuffer<float> buffer(2, 512);
+	juce::MidiBuffer midi;
+	setParameter(processor, vekt::rav::parameters::mode, 0.0f);
+	setParameter(processor, vekt::rav::parameters::tone, 6.0f);
+	setParameter(processor, vekt::rav::parameters::drive, 18.0f);
+	processor.prepareToPlay(48'000.0, buffer.getNumSamples());
+
+	for (auto sample = 0; sample < buffer.getNumSamples(); ++sample)
+	{
+		const auto noise = std::sin(static_cast<float>(sample) * 0.731f)
+			+ 0.37f * std::sin(static_cast<float>(sample) * 1.913f);
+		buffer.setSample(0, sample, noise);
+		buffer.setSample(1, sample, noise);
+	}
+
+	processor.processBlock(buffer, midi);
+	for (auto sample = 0; sample < buffer.getNumSamples(); ++sample)
+		REQUIRE(buffer.getSample(0, sample) == Catch::Approx(buffer.getSample(1, sample)).margin(1.0e-6f));
+}
+
 TEST_CASE("Rav processor renders every mode across tracking qualities", "[processor][rav]")
 {
 	for (auto qualityIndex : { 0.0f, 1.0f, 2.0f })
