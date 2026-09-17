@@ -106,3 +106,19 @@ TEST_CASE("Rav mode stage supports slow Texture modulation", "[dsp][rav][texture
 	for (const auto sample : samples)
 		REQUIRE(std::isfinite(sample));
 }
+
+TEST_CASE("Rav Fuzz supports artifact-safe Drive transitions", "[dsp][rav][drive]")
+{
+	vekt::rav::RavModeStage stage;
+	stage.prepare(48'000.0);
+	stage.setControlRampDurationSeconds(0.15);
+	stage.setParameters(vekt::rav::RavMode::fuzz, 6.0f, 0.0f, 0.5f, 0.5f, 0.5f);
+	std::array first { 0.2f, -0.2f, 0.2f, -0.2f };
+	stage.process(first);
+	stage.setParameters(vekt::rav::RavMode::fuzz, 36.0f, 0.0f, 0.5f, 0.5f, 0.5f);
+	std::array second { 0.2f, -0.2f, 0.2f, -0.2f };
+	stage.process(second);
+
+	for (const auto sample : second)
+		REQUIRE(std::isfinite(sample));
+}

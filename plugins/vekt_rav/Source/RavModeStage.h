@@ -81,6 +81,15 @@ public:
 		biasRampDuration = seconds;
 	}
 
+	void setControlRampDurationSeconds(double seconds) noexcept
+	{
+		setRamp(drive, seconds);
+		setRamp(character, seconds);
+		setRamp(response, seconds);
+		setRamp(bias, biasRampDuration);
+		setRamp(texture, textureRampDuration);
+	}
+
 	void setTextureRampDurationSeconds(double seconds) noexcept
 	{
 		if (std::abs(seconds - textureRampDuration) < 1.0e-9)
@@ -101,6 +110,16 @@ public:
 	}
 
 private:
+	template <typename Smoothed>
+	void setRamp(Smoothed& smoother, double seconds) noexcept
+	{
+		const auto current = smoother.getCurrentValue();
+		const auto target = smoother.getTargetValue();
+		smoother.reset(sampleRateHz, seconds);
+		smoother.setCurrentAndTargetValue(current);
+		smoother.setTargetValue(target);
+	}
+
 	[[nodiscard]] float processSample(float input) noexcept
 	{
 		const auto driveDb = drive.getNextValue();
