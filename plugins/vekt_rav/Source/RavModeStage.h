@@ -29,7 +29,7 @@ public:
 		sampleRateHz = static_cast<float>(processingSampleRate);
 		timingRateHz = static_cast<float>(timingSampleRate > 0.0 ? timingSampleRate : processingSampleRate);
 		drive.reset(processingSampleRate, 0.02);
-		bias.reset(processingSampleRate, 0.02);
+		bias.reset(processingSampleRate, biasRampDuration);
 		character.reset(processingSampleRate, 0.02);
 		response.reset(processingSampleRate, 0.02);
 		texture.reset(processingSampleRate, 0.02);
@@ -66,6 +66,19 @@ public:
 		response.setTargetValue(std::clamp(newResponse, 0.0f, 1.0f));
 		texture.setTargetValue(std::clamp(newTexture, 0.0f, 1.0f));
 		tone.setTargetValue(std::clamp(newTone, -6.0f, 6.0f));
+	}
+
+	void setBiasRampDurationSeconds(double seconds) noexcept
+	{
+		if (std::abs(seconds - biasRampDuration) < 1.0e-9)
+			return;
+
+		const auto current = bias.getCurrentValue();
+		const auto target = bias.getTargetValue();
+		bias.reset(sampleRateHz, seconds);
+		bias.setCurrentAndTargetValue(current);
+		bias.setTargetValue(target);
+		biasRampDuration = seconds;
 	}
 
 	void process(std::span<float> samples) noexcept
@@ -192,5 +205,6 @@ private:
 	juce::SmoothedValue<float> response { 0.5f };
 	juce::SmoothedValue<float> texture { 0.5f };
 	juce::SmoothedValue<float> tone;
+	double biasRampDuration { 0.02 };
 };
 }

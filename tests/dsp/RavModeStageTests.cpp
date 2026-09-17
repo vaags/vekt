@@ -80,3 +80,16 @@ TEST_CASE("Rav Bitcrush hold timing is base-rate invariant", "[dsp][rav][bitcrus
 		REQUIRE(oversampledBlock.back() == Catch::Approx(baseBlock.front()).margin(1.0e-6f));
 	}
 }
+
+TEST_CASE("Rav mode stage supports slow Bias modulation", "[dsp][rav][bias]")
+{
+	vekt::rav::RavModeStage stage;
+	stage.prepare(48'000.0);
+	stage.setBiasRampDurationSeconds(0.15);
+	stage.setParameters(vekt::rav::RavMode::fuzz, 24.0f, 1.0f, 0.7f, 0.4f, 0.8f);
+	std::array samples { 0.25f, -0.25f, 0.25f, -0.25f };
+	stage.process(samples);
+
+	for (const auto sample : samples)
+		REQUIRE(std::isfinite(sample));
+}

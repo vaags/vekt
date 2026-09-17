@@ -247,6 +247,7 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 			cleanBandBuffers[band].copyFrom(channel, 0, bandBuffers[band], channel, 0, samples);
 		for (auto channel = 0; channel < 2; ++channel)
 		{
+			bandStages[band][static_cast<std::size_t>(channel)].setBiasRampDurationSeconds(0.15);
 			bandStages[band][static_cast<std::size_t>(channel)].setParameters(
 				static_cast<RavMode>(juce::jlimit(0, 5, juce::roundToInt(modeParameter->load()))),
 				driveParameter->load(), biasParameter->load(), characterParameter->load(),
