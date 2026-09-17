@@ -13,6 +13,7 @@
       "cacheVariables": {
         "CMAKE_OSX_ARCHITECTURES": "arm64",
         "CMAKE_OSX_DEPLOYMENT_TARGET": "27.0",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "VEKT_BUILD_TESTS": "ON"
       }
     },

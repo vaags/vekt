@@ -3,19 +3,20 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include <numbers>
 
 namespace vekt::audio_lab
 {
-enum class Source
-{
-	silence,
-	sine,
-	sweep,
-	impulse,
-	noise,
-	kick
-};
+	inline constexpr auto pi = 3.14159265358979323846;
+
+	enum class Source
+	{
+		silence,
+		sine,
+		sweep,
+		impulse,
+		noise,
+		kick
+	};
 
 class SignalSource final
 {
@@ -40,9 +41,7 @@ public:
 		{
 			case Source::silence: return 0.0f;
 			case Source::sine:
-				return static_cast<float>(0.12589254117941673
-					* std::sin(2.0 * std::numbers::pi * 1'000.0
-						* static_cast<double>(sampleIndex) / sampleRate));
+				return static_cast<float>(0.12589254117941673 * std::sin(2.0 * pi * 1'000.0 * static_cast<double>(sampleIndex) / sampleRate));
 			case Source::sweep:
 			{
 				const auto duration = std::max(1.0, sampleRate * 5.0);
@@ -53,12 +52,9 @@ public:
 				constexpr auto startFrequency = 20.0;
 				constexpr auto endFrequency = 10'000.0;
 				const auto sweepRate = std::log(endFrequency / startFrequency) / duration;
-				const auto cyclePhase = 2.0 * std::numbers::pi *
-					(endFrequency - startFrequency) / (sweepRate * sampleRate);
-				const auto phase = static_cast<double>(cycle) * cyclePhase
-					+ 2.0 * std::numbers::pi * startFrequency
-					* (std::exp(sweepRate * cycleSample) - 1.0)
-					/ (sweepRate * sampleRate);
+				const auto cyclePhase = 2.0 * pi *
+										(endFrequency - startFrequency) / (sweepRate * sampleRate);
+				const auto phase = static_cast<double>(cycle) * cyclePhase + 2.0 * pi * startFrequency * (std::exp(sweepRate * cycleSample) - 1.0) / (sweepRate * sampleRate);
 				return static_cast<float>(0.12589254117941673
 					* std::sin(phase));
 			}
@@ -77,9 +73,9 @@ public:
 				constexpr auto endFrequency = 48.0;
 				const auto pitchDecay = 0.035;
 				const auto pitchRate = std::log(startFrequency / endFrequency) / pitchDecay;
-				const auto phase = 2.0 * std::numbers::pi * startFrequency * (1.0 - std::exp(-pitchRate * time)) / pitchRate;
+				const auto phase = 2.0 * pi * startFrequency * (1.0 - std::exp(-pitchRate * time)) / pitchRate;
 				const auto body = std::sin(phase) * std::exp(-4.5 * time);
-				const auto click = std::sin(2.0 * std::numbers::pi * 3'200.0 * time) * std::exp(-420.0 * time);
+				const auto click = std::sin(2.0 * pi * 3'200.0 * time) * std::exp(-420.0 * time);
 				return static_cast<float>(0.8 * body + 0.24 * click);
 			}
 		}
