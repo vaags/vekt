@@ -85,8 +85,21 @@ TEST_CASE("Rav mode stage supports slow Bias modulation", "[dsp][rav][bias]")
 {
 	vekt::rav::RavModeStage stage;
 	stage.prepare(48'000.0);
-	stage.setBiasRampDurationSeconds(0.15);
+	stage.setArtifactSafePolicy(true);
 	stage.setParameters(vekt::rav::RavMode::fuzz, 24.0f, 1.0f, 0.7f, 0.4f, 0.8f);
+	std::array samples { 0.25f, -0.25f, 0.25f, -0.25f };
+	stage.process(samples);
+
+	for (const auto sample : samples)
+		REQUIRE(std::isfinite(sample));
+}
+
+TEST_CASE("Rav Distortion supports artifact-safe Bias transitions", "[dsp][rav][bias]")
+{
+	vekt::rav::RavModeStage stage;
+	stage.prepare(48'000.0);
+	stage.setArtifactSafePolicy(true);
+	stage.setParameters(vekt::rav::RavMode::distortion, 24.0f, 1.0f, 0.7f, 0.4f, 0.8f);
 	std::array samples { 0.25f, -0.25f, 0.25f, -0.25f };
 	stage.process(samples);
 
@@ -98,7 +111,7 @@ TEST_CASE("Rav mode stage supports slow Texture modulation", "[dsp][rav][texture
 {
 	vekt::rav::RavModeStage stage;
 	stage.prepare(48'000.0);
-	stage.setTextureRampDurationSeconds(0.15);
+	stage.setArtifactSafePolicy(true);
 	stage.setParameters(vekt::rav::RavMode::fuzz, 24.0f, 0.0f, 0.7f, 0.4f, 1.0f);
 	std::array samples { 0.25f, -0.25f, 0.25f, -0.25f };
 	stage.process(samples);
@@ -111,7 +124,7 @@ TEST_CASE("Rav Fuzz supports artifact-safe Drive transitions", "[dsp][rav][drive
 {
 	vekt::rav::RavModeStage stage;
 	stage.prepare(48'000.0);
-	stage.setControlRampDurationSeconds(0.15);
+	stage.setArtifactSafePolicy(true);
 	stage.setParameters(vekt::rav::RavMode::fuzz, 6.0f, 0.0f, 0.5f, 0.5f, 0.5f);
 	std::array first { 0.2f, -0.2f, 0.2f, -0.2f };
 	stage.process(first);

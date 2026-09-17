@@ -2,6 +2,8 @@
 
 #include "RavPostStage.h"
 
+#include <vekt/dsp/ControlTransition.h>
+
 #include <juce_audio_basics/juce_audio_basics.h>
 
 #include <algorithm>
@@ -28,12 +30,12 @@ public:
 	{
 		sampleRateHz = static_cast<float>(processingSampleRate);
 		timingRateHz = static_cast<float>(timingSampleRate > 0.0 ? timingSampleRate : processingSampleRate);
-		drive.reset(processingSampleRate, 0.02);
-		bias.reset(processingSampleRate, biasRampDuration);
-		character.reset(processingSampleRate, 0.02);
-		response.reset(processingSampleRate, 0.02);
-		texture.reset(processingSampleRate, textureRampDuration);
-		tone.reset(processingSampleRate, 0.02);
+		drive.prepare(processingSampleRate, 0.02, 0.15);
+		bias.prepare(processingSampleRate, 0.02, 0.15);
+		character.prepare(processingSampleRate, 0.02, 0.15);
+		response.prepare(processingSampleRate, 0.02, 0.15);
+		texture.prepare(processingSampleRate, 0.02, 0.15);
+		tone.prepare(processingSampleRate, 0.02, 0.15);
 		postStage.prepare(processingSampleRate);
 		reset();
 	}
@@ -68,39 +70,16 @@ public:
 		tone.setTargetValue(std::clamp(newTone, -6.0f, 6.0f));
 	}
 
-	void setBiasRampDurationSeconds(double seconds) noexcept
+	void setArtifactSafePolicy(bool enabled) noexcept
 	{
-		if (std::abs(seconds - biasRampDuration) < 1.0e-9)
-			return;
-
-		const auto current = bias.getCurrentValue();
-		const auto target = bias.getTargetValue();
-		bias.reset(sampleRateHz, seconds);
-		bias.setCurrentAndTargetValue(current);
-		bias.setTargetValue(target);
-		biasRampDuration = seconds;
-	}
-
-	void setControlRampDurationSeconds(double seconds) noexcept
-	{
-		setRamp(drive, seconds);
-		setRamp(character, seconds);
-		setRamp(response, seconds);
-		setRamp(bias, biasRampDuration);
-		setRamp(texture, textureRampDuration);
-	}
-
-	void setTextureRampDurationSeconds(double seconds) noexcept
-	{
-		if (std::abs(seconds - textureRampDuration) < 1.0e-9)
-			return;
-
-		const auto current = texture.getCurrentValue();
-		const auto target = texture.getTargetValue();
-		texture.reset(sampleRateHz, seconds);
-		texture.setCurrentAndTargetValue(current);
-		texture.setTargetValue(target);
-		textureRampDuration = seconds;
+		const auto policy = enabled ? dsp::ControlTransitionPolicy::artifactSafe
+			: dsp::ControlTransitionPolicy::normal;
+		drive.setPolicy(policy);
+		bias.setPolicy(policy);
+		character.setPolicy(policy);
+		response.setPolicy(policy);
+		texture.setPolicy(policy);
+		tone.setPolicy(policy);
 	}
 
 	void process(std::span<float> samples) noexcept
@@ -110,16 +89,6 @@ public:
 	}
 
 private:
-	template <typename Smoothed>
-	void setRamp(Smoothed& smoother, double seconds) noexcept
-	{
-		const auto current = smoother.getCurrentValue();
-		const auto target = smoother.getTargetValue();
-		smoother.reset(sampleRateHz, seconds);
-		smoother.setCurrentAndTargetValue(current);
-		smoother.setTargetValue(target);
-	}
-
 	[[nodiscard]] float processSample(float input) noexcept
 	{
 		const auto driveDb = drive.getNextValue();
@@ -238,13 +207,11 @@ private:
 	float holdPhase { 1.0f };
 	float fuzzToneState {};
 	RavPostStage postStage;
-	juce::SmoothedValue<float> drive { 6.0f };
-	juce::SmoothedValue<float> bias;
-	juce::SmoothedValue<float> character { 0.5f };
-	juce::SmoothedValue<float> response { 0.5f };
-	juce::SmoothedValue<float> texture { 0.5f };
-	juce::SmoothedValue<float> tone;
-	double biasRampDuration { 0.02 };
-	double textureRampDuration { 0.02 };
+	dsp::ControlTransition<float> drive;
+	dsp::ControlTransition<float> bias;
+	dsp::ControlTransition<float> character;
+	dsp::ControlTransition<float> response;
+	dsp::ControlTransition<float> texture;
+	dsp::ControlTransition<float> tone;
 };
 }

@@ -18,7 +18,7 @@ class ControlTransition final
 {
 public:
 	void prepare(double sampleRate, double normalRampSeconds = 0.02,
-		double artifactSafeRampSeconds = 0.15) noexcept
+		double artifactSafeRampSeconds = 0.5) noexcept
 	{
 		sampleRateHz = sampleRate;
 		normalSeconds = std::max(0.0, normalRampSeconds);
@@ -51,6 +51,8 @@ private:
 
 	void retarget(Sample target) noexcept
 	{
+		if (target == value.getTargetValue())
+			return;
 		const auto current = value.getCurrentValue();
 		applyRamp();
 		value.setCurrentAndTargetValue(current);

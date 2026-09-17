@@ -6,7 +6,7 @@
 TEST_CASE("ControlTransition reaches its target without overshoot", "[dsp][control]")
 {
 	vekt::dsp::ControlTransition<float> transition;
-	transition.prepare(48'000.0, 0.01, 0.1);
+	transition.prepare(48'000.0, 0.01, 0.5);
 	transition.setCurrentAndTargetValue(0.0f);
 	transition.setTargetValue(1.0f);
 
@@ -24,7 +24,7 @@ TEST_CASE("ControlTransition reaches its target without overshoot", "[dsp][contr
 TEST_CASE("ControlTransition retargets from its current value", "[dsp][control]")
 {
 	vekt::dsp::ControlTransition<float> transition;
-	transition.prepare(48'000.0, 0.01, 0.1);
+	transition.prepare(48'000.0, 0.01, 0.5);
 	transition.setCurrentAndTargetValue(0.0f);
 	transition.setTargetValue(1.0f);
 	for (auto sample = 0; sample < 100; ++sample)
@@ -37,11 +37,26 @@ TEST_CASE("ControlTransition retargets from its current value", "[dsp][control]"
 TEST_CASE("ControlTransition artifact-safe policy takes longer", "[dsp][control]")
 {
 	vekt::dsp::ControlTransition<float> transition;
-	transition.prepare(48'000.0, 0.01, 0.1);
+	transition.prepare(48'000.0, 0.01, 0.5);
 	transition.setCurrentAndTargetValue(0.0f);
 	transition.setPolicy(vekt::dsp::ControlTransitionPolicy::artifactSafe);
 	transition.setTargetValue(1.0f);
 	for (auto sample = 0; sample < 480; ++sample)
 		juce::ignoreUnused(transition.getNextValue());
 	REQUIRE(transition.getCurrentValue() < 1.0f);
+}
+
+TEST_CASE("ControlTransition does not restart on an unchanged target", "[dsp][control]")
+{
+	vekt::dsp::ControlTransition<float> transition;
+	transition.prepare(48'000.0, 0.01, 0.5);
+	transition.setCurrentAndTargetValue(0.0f);
+	transition.setTargetValue(1.0f);
+	for (auto sample = 0; sample < 480; ++sample)
+	{
+		if (sample % 16 == 0)
+			transition.setTargetValue(1.0f);
+		juce::ignoreUnused(transition.getNextValue());
+	}
+	REQUIRE(transition.getCurrentValue() > 0.0f);
 }
