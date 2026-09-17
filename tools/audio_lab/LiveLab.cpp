@@ -22,7 +22,8 @@ public:
 		sourceBox.addItem("Sweep", 3);
 		sourceBox.addItem("Impulse", 4);
 		sourceBox.addItem("Noise", 5);
-		sourceBox.addItem("Silence", 1);
+        sourceBox.addItem("Kick", 6);
+        sourceBox.addItem("Silence", 1);
 		sourceBox.setSelectedId(2, juce::dontSendNotification);
 		for (auto* component : { static_cast<juce::Component*>(&sourceBox),
 			static_cast<juce::Component*>(&armButton),
@@ -30,7 +31,12 @@ public:
 			addAndMakeVisible(*component);
 
 		sourceBox.onChange = [this] { requestedSource.store(sourceBox.getSelectedId() - 1); };
-		armButton.onClick = [this] { outputArmed.store(armButton.getToggleState()); };
+		armButton.setClickingTogglesState(true);
+		armButton.onClick = [this]
+		{
+			outputArmed.store(armButton.getToggleState());
+			armButton.setButtonText(outputArmed.load() ? "Output armed" : "Arm output");
+		};
 		muteButton.onClick = [this] { outputArmed.store(false); armButton.setToggleState(false, juce::dontSendNotification); };
 		editor.reset(processor.createEditor());
 		if (editor != nullptr)
@@ -74,6 +80,7 @@ public:
 		for (auto sample = 0; sample < info.numSamples; ++sample)
 		{
 			const auto value = source.next(sampleIndex++);
+			generatedPeak.store(std::max(generatedPeak.load(), std::abs(value)));
 			for (auto channel = 0; channel < info.buffer->getNumChannels(); ++channel)
 				info.buffer->setSample(channel, info.startSample + sample, value);
 		}
@@ -134,12 +141,12 @@ private:
 	void timerCallback() override
 	{
 		statusLabel.setText(
-			(outputArmed.load() ? "OUTPUT ARMED" : "Muted")
-			+ juce::String("  Peak ")
-			+ juce::String(outputPeak.load(), 3)
-			+ "  Latency " + juce::String(processor.getLatencySamples()) + " samples",
-			juce::dontSendNotification);
-	}
+			(outputArmed.load() ? "OUTPUT ARMED" : "Muted") + juce::String("  In ")
+			+ juce::String(generatedPeak.load(), 3) + "  Out "
+			+ juce::String(outputPeak.load(), 3) + "  Latency "
+			+ juce::String(processor.getLatencySamples()),
+            juce::dontSendNotification);
+    }
 
 	vekt::rav::PluginProcessor processor;
 	std::unique_ptr<juce::AudioProcessorEditor> editor;
@@ -154,6 +161,7 @@ private:
 	std::int64_t sampleIndex {};
 	std::atomic<bool> outputArmed {};
 	std::atomic<float> outputPeak {};
+	std::atomic<float> generatedPeak {};
 };
 
 class MainWindow final : public juce::DocumentWindow

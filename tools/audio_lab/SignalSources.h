@@ -13,7 +13,8 @@ enum class Source
 	sine,
 	sweep,
 	impulse,
-	noise
+	noise,
+	kick
 };
 
 class SignalSource final
@@ -45,14 +46,42 @@ public:
 			case Source::sweep:
 			{
 				const auto duration = std::max(1.0, sampleRate * 5.0);
-				const auto position = std::clamp(static_cast<double>(sampleIndex) / duration, 0.0, 1.0);
-				const auto frequency = 20.0 * std::pow(10'000.0 / 20.0, position);
+				const auto cycle = static_cast<std::int64_t>(
+					std::floor(static_cast<double>(sampleIndex) / duration));
+				const auto cycleSample = static_cast<double>(sampleIndex)
+					- static_cast<double>(cycle) * duration;
+				constexpr auto startFrequency = 20.0;
+				constexpr auto endFrequency = 10'000.0;
+				const auto sweepRate = std::log(endFrequency / startFrequency) / duration;
+				const auto cyclePhase = 2.0 * std::numbers::pi *
+					(endFrequency - startFrequency) / (sweepRate * sampleRate);
+				const auto phase = static_cast<double>(cycle) * cyclePhase
+					+ 2.0 * std::numbers::pi * startFrequency
+					* (std::exp(sweepRate * cycleSample) - 1.0)
+					/ (sweepRate * sampleRate);
 				return static_cast<float>(0.12589254117941673
-					* std::sin(2.0 * std::numbers::pi * frequency
-						* static_cast<double>(sampleIndex) / sampleRate));
+					* std::sin(phase));
 			}
-			case Source::impulse: return sampleIndex == 0 ? 1.0f : 0.0f;
+			case Source::impulse:
+			{
+				const auto period = std::max<std::int64_t>(1, static_cast<std::int64_t>(sampleRate));
+				return sampleIndex % period == 0 ? 1.0f : 0.0f;
+			}
 			case Source::noise: return nextNoise();
+			case Source::kick:
+			{
+				const auto period = std::max<std::int64_t>(1, static_cast<std::int64_t>(sampleRate));
+				const auto cycleSample = sampleIndex % period;
+				const auto time = static_cast<double>(cycleSample) / sampleRate;
+				constexpr auto startFrequency = 150.0;
+				constexpr auto endFrequency = 48.0;
+				const auto pitchDecay = 0.035;
+				const auto pitchRate = std::log(startFrequency / endFrequency) / pitchDecay;
+				const auto phase = 2.0 * std::numbers::pi * startFrequency * (1.0 - std::exp(-pitchRate * time)) / pitchRate;
+				const auto body = std::sin(phase) * std::exp(-4.5 * time);
+				const auto click = std::sin(2.0 * std::numbers::pi * 3'200.0 * time) * std::exp(-420.0 * time);
+				return static_cast<float>(0.8 * body + 0.24 * click);
+			}
 		}
 
 		return 0.0f;
