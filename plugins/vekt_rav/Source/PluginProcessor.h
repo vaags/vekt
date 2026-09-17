@@ -2,7 +2,7 @@
 
 #include "Parameters.h"
 #include "RavModeStage.h"
-#include "StaticAutoGain.h"
+#include "AdaptiveAutoGain.h"
 
 #include <vekt/dsp/DcBlocker.h>
 #include <vekt/dsp/LatencyAlignedBypass.h>
@@ -149,8 +149,9 @@ private:
 	dsp::ThreeBandCrossover<float> crossover;
 	std::array<juce::AudioBuffer<float>, 3> bandBuffers;
 	std::array<juce::AudioBuffer<float>, 3> cleanBandBuffers;
+	juce::AudioBuffer<float> autoGainReference;
 	std::array<dsp::DcBlocker<float>, 2> dcBlockers;
-	StaticAutoGain<float> autoGain;
+	AdaptiveAutoGain<float> autoGain;
 	dsp::StereoPeakMeter inputMeter;
 	dsp::StereoPeakMeter outputMeter;
 	juce::dsp::Gain<float> inputGain;

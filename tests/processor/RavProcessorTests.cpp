@@ -209,6 +209,14 @@ TEST_CASE("Rav Bitcrush Auto Gain stays near reference loudness", "[processor][a
 	REQUIRE(std::abs(errorDb) < 1.0);
 }
 
+TEST_CASE("Rav Fuzz and Wavefold Auto Gain stay near default loudness", "[processor][auto-gain]")
+{
+	const auto fuzzErrorDb = renderAutoGainErrorDb(48'000.0, 2, 0, 6.0f, 0.0f, 3.0f);
+	const auto wavefoldErrorDb = renderAutoGainErrorDb(48'000.0, 2, 0, 6.0f, 0.0f, 4.0f);
+	REQUIRE(std::abs(fuzzErrorDb) < 1.0);
+	REQUIRE(std::abs(wavefoldErrorDb) < 1.0);
+}
+
 TEST_CASE("Rav processor bounds oversized host blocks", "[processor]")
 {
 	constexpr auto preparedBlockSize = 64;

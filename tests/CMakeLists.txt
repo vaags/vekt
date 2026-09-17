@@ -9,7 +9,7 @@ add_executable(vekt_dsp_tests
 	 dsp/StereoPeakMeterTests.cpp
     presets/PresetTests.cpp
     processor/RavProcessorTests.cpp
-    processor/StaticAutoGainTests.cpp
+    processor/AdaptiveAutoGainTests.cpp
     dsp/TanhStageTests.cpp)
 
 target_link_libraries(vekt_dsp_tests PRIVATE

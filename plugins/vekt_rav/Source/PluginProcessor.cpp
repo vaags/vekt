@@ -108,6 +108,7 @@ void PluginProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
 		bands.setSize(2, maximumOversampledBlockSize, false, false, true);
 	for (auto& bands : cleanBandBuffers)
 		bands.setSize(2, maximumOversampledBlockSize, false, false, true);
+	autoGainReference.setSize(2, maximumBlockSize, false, false, true);
 	autoGain.prepare(sampleRate);
 	for (auto& dcBlocker : dcBlockers)
 		dcBlocker.prepare(sampleRate);
@@ -206,14 +207,12 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 	outputGain.setGainDecibels(outputGainParameter->load());
 	dryWetMixer.setWetProportion(mixParameter->load() * 0.01f);
 	toneStage.setSlopeDbPerOctave(-toneParameter->load());
-	autoGain.setTopologyCompensation(1.0f);
-	autoGain.setParameters(
-		driveParameter->load(), biasParameter->load(),
-		juce::jlimit(0, 5, juce::roundToInt(modeParameter->load())),
-		autoGainParameter->load() >= 0.5f);
 
 	juce::dsp::AudioBlock<float> block(buffer);
 	inputGain.process(juce::dsp::ProcessContextReplacing<float>(block));
+	for (std::size_t channel = 0; channel < block.getNumChannels(); ++channel)
+		autoGainReference.copyFrom(static_cast<int>(channel), 0, buffer,
+		static_cast<int>(channel), 0, buffer.getNumSamples());
 	dryWetMixer.pushDrySamples(juce::dsp::AudioBlock<const float>(block));
 	toneStage.processPre(block);
 
@@ -267,7 +266,9 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 	for (std::size_t channel = 0; channel < block.getNumChannels(); ++channel)
 		dcBlockers[channel].process(std::span<float>(block.getChannelPointer(channel), block.getNumSamples()));
 	toneStage.processPost(block);
-	autoGain.process(block);
+	autoGain.process(
+		juce::dsp::AudioBlock<const float>(autoGainReference), block,
+		autoGainParameter->load() >= 0.5f);
 
 	dryWetMixer.mixWetSamples(block);
 	outputGain.process(juce::dsp::ProcessContextReplacing<float>(block));
