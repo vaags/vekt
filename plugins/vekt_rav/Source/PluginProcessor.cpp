@@ -209,7 +209,9 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 	const auto currentMode = static_cast<RavMode>(
 		juce::jlimit(0, 5, juce::roundToInt(modeParameter->load())));
 	toneStage.setRampDurationSeconds(0.02);
-	toneStage.setSlopeDbPerOctave(currentMode == RavMode::fuzz ? 0.0f : -toneParameter->load());
+	const auto usesDedicatedTone = currentMode == RavMode::fuzz
+		|| currentMode == RavMode::wavefold;
+	toneStage.setSlopeDbPerOctave(usesDedicatedTone ? 0.0f : -toneParameter->load());
 
 	juce::dsp::AudioBlock<float> block(buffer);
 	inputGain.process(juce::dsp::ProcessContextReplacing<float>(block));

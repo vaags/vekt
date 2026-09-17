@@ -151,7 +151,7 @@ private:
 			}
 		}
 
-		if (mode == RavMode::fuzz)
+		if (mode == RavMode::fuzz || mode == RavMode::wavefold)
 		{
 			const auto tilt = std::clamp(toneValue / 6.0f, -0.8f, 0.8f);
 			fuzzToneState += 0.08f * (output - fuzzToneState);
