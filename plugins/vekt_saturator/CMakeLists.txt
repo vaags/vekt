@@ -7,12 +7,12 @@ endif()
 juce_add_plugin(VektSaturator
 	VERSION ${PROJECT_VERSION}
 	COMPANY_NAME Vekt
-	BUNDLE_ID com.vekt.saturator
+	BUNDLE_ID com.vekt.rav
 	PLUGIN_MANUFACTURER_CODE Vekt
-	PLUGIN_CODE Vsat
+	PLUGIN_CODE Ravv
 	FORMATS ${vekt_saturator_formats}
-	PRODUCT_NAME "Vekt Saturator"
-	DESCRIPTION "A quality-first tanh saturation effect"
+	PRODUCT_NAME "Vekt Rav"
+	DESCRIPTION "A six-mode multiband saturation effect"
 	IS_SYNTH FALSE
 	NEEDS_MIDI_INPUT FALSE
 	NEEDS_MIDI_OUTPUT FALSE

@@ -41,6 +41,15 @@ PluginProcessor::PluginProcessor()
 	  bypassParameter(requireParameter(parameterState, parameters::bypass)),
 	  mixParameter(requireParameter(parameterState, parameters::mix)),
 	  outputGainParameter(requireParameter(parameterState, parameters::outputGain)),
+	  lowBandMixParameter(requireParameter(parameterState, parameters::lowBandMix)),
+	  midBandMixParameter(requireParameter(parameterState, parameters::midBandMix)),
+	  highBandMixParameter(requireParameter(parameterState, parameters::highBandMix)),
+	  lowMidCutoffParameter(requireParameter(parameterState, parameters::lowMidCutoffHz)),
+	  midHighCutoffParameter(requireParameter(parameterState, parameters::midHighCutoffHz)),
+	  modeParameter(requireParameter(parameterState, parameters::mode)),
+	  characterParameter(requireParameter(parameterState, parameters::character)),
+	  responseParameter(requireParameter(parameterState, parameters::response)),
+	  textureParameter(requireParameter(parameterState, parameters::texture)),
 	  oversamplingFactorParameter(requireParameter(parameterState, parameters::oversamplingFactor)),
 	  oversamplingPhaseParameter(requireParameter(parameterState, parameters::oversamplingPhase))
 {
@@ -84,7 +93,17 @@ void PluginProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
 	oversampling.activate(parameters::qualityFrom(
 		requestedOversamplingFactor.load(), requestedOversamplingPhase.load()));
 	toneStage.prepare(sampleRate, 2);
-	tanhStage.prepare(sampleRate * static_cast<double>(oversampling.getActiveFactor()));
+	const auto effectiveFactor = oversampling.getActiveFactor();
+	const auto effectiveSampleRate = sampleRate * static_cast<double>(effectiveFactor);
+	for (auto& stage : bandStages)
+		stage.prepare(effectiveSampleRate);
+	crossover.prepare(
+		{ effectiveSampleRate, static_cast<juce::uint32>(maximumBlockSize * 4), 2 },
+		{ lowMidCutoffParameter->load(), midHighCutoffParameter->load() });
+	for (auto& bands : bandBuffers)
+		bands.setSize(2, maximumBlockSize * 4, false, false, true);
+	for (auto& bands : cleanBandBuffers)
+		bands.setSize(2, maximumBlockSize * 4, false, false, true);
 	autoGain.prepare(sampleRate);
 	for (auto& dcBlocker : dcBlockers)
 		dcBlocker.prepare(sampleRate);
@@ -183,8 +202,7 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 	outputGain.setGainDecibels(outputGainParameter->load());
 	dryWetMixer.setWetProportion(mixParameter->load() * 0.01f);
 	toneStage.setSlopeDbPerOctave(toneParameter->load());
-	tanhStage.setDriveLinear(juce::Decibels::decibelsToGain(driveParameter->load()));
-	tanhStage.setBias(biasParameter->load());
+	autoGain.setTopologyCompensation(1.0f);
 	autoGain.setParameters(
 		driveParameter->load(), biasParameter->load(), autoGainParameter->load() >= 0.5f);
 
@@ -194,8 +212,48 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 	toneStage.processPre(block);
 
 	auto oversampled = oversampling.processSamplesUp(juce::dsp::AudioBlock<const float>(block));
-	for (std::size_t channel = 0; channel < oversampled.getNumChannels(); ++channel)
-		tanhStage.process(std::span<float>(oversampled.getChannelPointer(channel), oversampled.getNumSamples()));
+	crossover.requestCutoffs({ lowMidCutoffParameter->load(), midHighCutoffParameter->load() });
+	const auto bandCount = bandBuffers.size();
+	for (std::size_t band = 0; band < bandCount; ++band)
+	{
+		bandBuffers[band].clear();
+		cleanBandBuffers[band].clear();
+	}
+	const auto sampleCount = oversampled.getNumSamples();
+	const auto samples = static_cast<int>(sampleCount);
+	crossover.process(
+		juce::dsp::AudioBlock<const float>(oversampled),
+		{ juce::dsp::AudioBlock<float>(bandBuffers[0].getArrayOfWritePointers(), 2, 0, sampleCount),
+			juce::dsp::AudioBlock<float>(bandBuffers[1].getArrayOfWritePointers(), 2, 0, sampleCount),
+			juce::dsp::AudioBlock<float>(bandBuffers[2].getArrayOfWritePointers(), 2, 0, sampleCount) });
+
+	const auto bandMixes = std::array {
+		lowBandMixParameter->load() * 0.01f,
+		midBandMixParameter->load() * 0.01f,
+		highBandMixParameter->load() * 0.01f };
+	for (std::size_t band = 0; band < bandCount; ++band)
+	{
+		for (auto channel = 0; channel < 2; ++channel)
+			cleanBandBuffers[band].copyFrom(channel, 0, bandBuffers[band], channel, 0, samples);
+		bandStages[band].setParameters(
+			static_cast<RavMode>(juce::jlimit(0, 5, juce::roundToInt(modeParameter->load()))),
+			driveParameter->load(), biasParameter->load(), characterParameter->load(),
+			responseParameter->load(), textureParameter->load());
+		for (auto channel = 0; channel < 2; ++channel)
+			bandStages[band].process(std::span<float>(bandBuffers[band].getWritePointer(channel),
+				static_cast<std::size_t>(samples)));
+		for (auto channel = 0; channel < 2; ++channel)
+			for (auto sample = 0; sample < samples; ++sample)
+				bandBuffers[band].setSample(channel, sample,
+					cleanBandBuffers[band].getSample(channel, sample) * (1.0f - bandMixes[band])
+					+ bandBuffers[band].getSample(channel, sample) * bandMixes[band]);
+	}
+	for (auto channel = 0; channel < 2; ++channel)
+		for (auto sample = 0; sample < samples; ++sample)
+			oversampled.setSample(channel, sample,
+				bandBuffers[0].getSample(channel, sample)
+				+ bandBuffers[1].getSample(channel, sample)
+				+ bandBuffers[2].getSample(channel, sample));
 	oversampling.processSamplesDown(block);
 	for (std::size_t channel = 0; channel < block.getNumChannels(); ++channel)
 		dcBlockers[channel].process(std::span<float>(block.getChannelPointer(channel), block.getNumSamples()));
@@ -212,7 +270,7 @@ juce::AudioProcessorEditor* PluginProcessor::createEditor()
 }
 
 bool PluginProcessor::hasEditor() const { return true; }
-const juce::String PluginProcessor::getName() const { return "Vekt Saturator"; }
+const juce::String PluginProcessor::getName() const { return "Vekt Rav"; }
 bool PluginProcessor::acceptsMidi() const { return false; }
 bool PluginProcessor::producesMidi() const { return false; }
 bool PluginProcessor::isMidiEffect() const { return false; }
@@ -592,7 +650,13 @@ void PluginProcessor::applyPendingQualityChange()
 	{
 		suspendProcessing(true);
 		oversampling.activate(quality);
-		tanhStage.prepare(getSampleRate() * static_cast<double>(oversampling.getActiveFactor()));
+		const auto effectiveSampleRate = getSampleRate()
+			* static_cast<double>(oversampling.getActiveFactor());
+		for (auto& stage : bandStages)
+			stage.prepare(effectiveSampleRate);
+		crossover.prepare(
+			{ effectiveSampleRate, static_cast<juce::uint32>(maximumPreparedBlockSize * 4), 2 },
+			{ lowMidCutoffParameter->load(), midHighCutoffParameter->load() });
 		dryWetMixer.setWetLatency(oversampling.getActiveLatencySamples());
 		dryWetMixer.reset();
 		bypassDelay.setLatency(oversampling.getActiveLatencySamples());

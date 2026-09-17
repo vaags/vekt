@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "product": "com.vekt.saturator",
+  "product": "com.vekt.rav",
   "name": "Clean Heat",
   "parameters": {
     "inputGain": 0.0,
@@ -9,7 +9,16 @@
     "bias": 0.0,
     "autoGain": 0.0,
     "mix": 100.0,
-    "outputGain": 0.0
+    "outputGain": 0.0,
+    "lowBandMix": 100.0,
+    "midBandMix": 100.0,
+    "highBandMix": 100.0,
+    "lowMidCutoffHz": 250.0,
+    "midHighCutoffHz": 2500.0,
+    "mode": 0.0,
+    "character": 0.5,
+    "response": 0.5,
+    "texture": 0.5
   },
   "metadata": {
     "category": "Clean"

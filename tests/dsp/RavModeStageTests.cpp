@@ -1,0 +1,57 @@
+#include <RavModeStage.h>
+
+#include <catch2/catch_approx.hpp>
+#include <catch2/catch_test_macros.hpp>
+
+#include <array>
+#include <cmath>
+
+TEST_CASE("Rav mode stage keeps every mode finite", "[dsp][rav]")
+{
+	for (auto modeIndex = 0; modeIndex < 6; ++modeIndex)
+	{
+		vekt::saturator::RavModeStage stage;
+		stage.prepare(48'000.0);
+		stage.setParameters(static_cast<vekt::saturator::RavMode>(modeIndex),
+			24.0f, 0.2f, 0.7f, 0.4f, 0.8f);
+		std::array samples { -1.0f, -0.5f, 0.0f, 0.5f, 1.0f };
+		stage.process(samples);
+
+		for (const auto sample : samples)
+			REQUIRE(std::isfinite(sample));
+	}
+}
+
+TEST_CASE("Rav mode stage reset is deterministic", "[dsp][rav]")
+{
+	vekt::saturator::RavModeStage stage;
+	stage.prepare(48'000.0);
+	stage.setParameters(vekt::saturator::RavMode::saturation, 18.0f, 0.3f, 0.8f, 0.2f, 0.6f);
+	stage.reset();
+	std::array first { 0.25f, -0.5f, 0.75f };
+	stage.process(first);
+	stage.reset();
+	std::array second { 0.25f, -0.5f, 0.75f };
+	stage.process(second);
+
+	for (std::size_t index = 0; index < first.size(); ++index)
+		REQUIRE(second[index] == Catch::Approx(first[index]).margin(1.0e-6f));
+}
+
+TEST_CASE("Rav mode stage modes produce different textures", "[dsp][rav]")
+{
+	std::array<float, 6> outputs {};
+	for (auto modeIndex = 0; modeIndex < 6; ++modeIndex)
+	{
+		vekt::saturator::RavModeStage stage;
+		stage.prepare(48'000.0);
+		stage.setParameters(static_cast<vekt::saturator::RavMode>(modeIndex),
+			30.0f, 0.1f, 0.5f, 0.5f, 0.5f);
+		std::array samples { 0.37f };
+		stage.process(samples);
+		outputs[static_cast<std::size_t>(modeIndex)] = samples[0];
+	}
+
+	REQUIRE(std::abs(outputs[0] - outputs[4]) > 1.0e-3f);
+	REQUIRE(std::abs(outputs[2] - outputs[5]) > 1.0e-3f);
+}

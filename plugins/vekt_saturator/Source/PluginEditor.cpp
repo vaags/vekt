@@ -18,7 +18,7 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 	: ScalableEditor(plugin), pluginProcessor(plugin)
 {
 	setLookAndFeel(&lookAndFeel);
-	title.setText("VEKT  SATURATOR", juce::dontSendNotification);
+	title.setText("VEKT  RAV", juce::dontSendNotification);
 	title.setFont(juce::FontOptions(22.0f).withStyle("Bold"));
 	presetLabel.setJustificationType(juce::Justification::centred);
 	qualityLabel.setJustificationType(juce::Justification::centredRight);
@@ -29,19 +29,33 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 		static_cast<juce::Component*>(&nextButton), static_cast<juce::Component*>(&undoButton),
 		static_cast<juce::Component*>(&redoButton), static_cast<juce::Component*>(&bypassButton),
 		static_cast<juce::Component*>(&autoGainButton), static_cast<juce::Component*>(&factorBox),
-		static_cast<juce::Component*>(&phaseBox) })
+		static_cast<juce::Component*>(&phaseBox), static_cast<juce::Component*>(&modeBox) })
 		getContent().addAndMakeVisible(*component);
 
 	for (std::size_t index = 0; index < sliders.size(); ++index)
 		configureRotary(sliders[index], sliderLabels[index], parameterNames[index], parameterIds[index], sliderAttachments[index]);
+	for (std::size_t index = 0; index < bandMixSliders.size(); ++index)
+	{
+		constexpr std::array names { "Low Mix", "Mid Mix", "High Mix" };
+		constexpr std::array ids { parameters::lowBandMix, parameters::midBandMix, parameters::highBandMix };
+		configureRotary(bandMixSliders[index], bandMixLabels[index], names[index], ids[index], bandMixAttachments[index]);
+	}
+	for (std::size_t index = 0; index < cutoffSliders.size(); ++index)
+	{
+		constexpr std::array names { "Low-Mid Hz", "Mid-High Hz" };
+		constexpr std::array ids { parameters::lowMidCutoffHz, parameters::midHighCutoffHz };
+		configureRotary(cutoffSliders[index], cutoffLabels[index], names[index], ids[index], cutoffAttachments[index]);
+	}
 
 	factorBox.addItem("Off", 1);
 	factorBox.addItem("2x", 2);
 	factorBox.addItem("4x", 3);
+	modeBox.addItemList({ "Saturation", "Overdrive", "Distortion", "Fuzz", "Wavefold", "Bitcrush" }, 1);
 	phaseBox.addItem("Minimum Phase", 1);
 	phaseBox.addItem("Linear Phase", 2);
 	factorAttachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), parameters::oversamplingFactor, factorBox);
 	phaseAttachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), parameters::oversamplingPhase, phaseBox);
+	modeAttachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), parameters::mode, modeBox);
 	bypassAttachment = std::make_unique<ButtonAttachment>(pluginProcessor.getParameters(), parameters::bypass, bypassButton);
 	autoGainAttachment = std::make_unique<ButtonAttachment>(pluginProcessor.getParameters(), parameters::autoGain, autoGainButton);
 
@@ -79,6 +93,7 @@ void PluginEditor::resized()
 	undoButton.setBounds(514, 18, 54, 28);
 	redoButton.setBounds(572, 18, 54, 28);
 	bypassButton.setBounds(632, 18, 70, 28);
+	modeBox.setBounds(280, 62, 160, 26);
 	for (std::size_t index = 0; index < sliders.size(); ++index)
 	{
 		const auto column = static_cast<int>(index % 3);
@@ -87,6 +102,18 @@ void PluginEditor::resized()
 		const auto y = 90 + row * 130;
 		sliders[index].setBounds(x, y, 100, 96);
 		sliderLabels[index].setBounds(x - 25, y + 94, 150, 24);
+	}
+	for (std::size_t index = 0; index < bandMixSliders.size(); ++index)
+	{
+		const auto x = 30 + static_cast<int>(index) * 125;
+		bandMixSliders[index].setBounds(x, 340, 90, 70);
+		bandMixLabels[index].setBounds(x - 15, 407, 120, 22);
+	}
+	for (std::size_t index = 0; index < cutoffSliders.size(); ++index)
+	{
+		const auto x = 430 + static_cast<int>(index) * 125;
+		cutoffSliders[index].setBounds(x, 340, 90, 70);
+		cutoffLabels[index].setBounds(x - 15, 407, 120, 22);
 	}
 	autoGainButton.setBounds(30, 392, 100, 28);
 	factorBox.setBounds(150, 392, 100, 28);

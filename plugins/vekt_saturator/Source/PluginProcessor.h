@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Parameters.h"
+#include "RavModeStage.h"
 #include "StaticAutoGain.h"
 
 #include <vekt/dsp/DcBlocker.h>
@@ -10,6 +11,7 @@
 #include <vekt/dsp/OversamplingBank.h>
 #include <vekt/dsp/StereoPeakMeter.h>
 #include <vekt/dsp/TanhStage.h>
+#include <vekt/dsp/ThreeBandCrossover.h>
 #include <vekt/presets/FilePresetRepository.h>
 #include <vekt/presets/Preset.h>
 #include <vekt/presets/PresetCatalog.h>
@@ -119,6 +121,15 @@ private:
 	std::atomic<float>* bypassParameter;
 	std::atomic<float>* mixParameter;
 	std::atomic<float>* outputGainParameter;
+	std::atomic<float>* lowBandMixParameter;
+	std::atomic<float>* midBandMixParameter;
+	std::atomic<float>* highBandMixParameter;
+	std::atomic<float>* lowMidCutoffParameter;
+	std::atomic<float>* midHighCutoffParameter;
+	std::atomic<float>* modeParameter;
+	std::atomic<float>* characterParameter;
+	std::atomic<float>* responseParameter;
+	std::atomic<float>* textureParameter;
 	std::atomic<float>* oversamplingFactorParameter;
 	std::atomic<float>* oversamplingPhaseParameter;
 	std::atomic<float> requestedOversamplingFactor { 2.0f };
@@ -134,7 +145,10 @@ private:
 	dsp::LatencyAlignedBypass<float> bypassDelay;
 	dsp::LatencyAlignedMixer<float> dryWetMixer;
 	dsp::MatchedToneStage<float> toneStage;
-	dsp::TanhStage<float> tanhStage;
+	std::array<RavModeStage, 3> bandStages;
+	dsp::ThreeBandCrossover<float> crossover;
+	std::array<juce::AudioBuffer<float>, 3> bandBuffers;
+	std::array<juce::AudioBuffer<float>, 3> cleanBandBuffers;
 	std::array<dsp::DcBlocker<float>, 2> dcBlockers;
 	StaticAutoGain<float> autoGain;
 	dsp::StereoPeakMeter inputMeter;

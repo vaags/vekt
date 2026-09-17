@@ -101,10 +101,10 @@ TEST_CASE("Invalid preset documents do not partially change parameters", "[prese
 
 	vekt::presets::Preset malformedPreset;
 	REQUIRE(vekt::presets::PresetJsonCodec::decode(
-		R"({"schemaVersion":1,"product":"com.vekt.saturator","name":"Malformed","parameters":{"drive":"loud"}})",
+		R"({"schemaVersion":1,"product":"com.vekt.rav","name":"Malformed","parameters":{"drive":"loud"}})",
 		malformedPreset).failed());
 	REQUIRE(vekt::presets::PresetJsonCodec::decode(
-		R"({"schemaVersion":1,"product":"com.vekt.saturator","name":"Malformed","parameters":{"drive":true}})",
+		R"({"schemaVersion":1,"product":"com.vekt.rav","name":"Malformed","parameters":{"drive":true}})",
 		malformedPreset).failed());
 	REQUIRE(getParameter(processor, vekt::saturator::parameters::drive) == Catch::Approx(6.0f));
 }
@@ -219,12 +219,12 @@ TEST_CASE("Saturator user preset paths keep desktop and AUv3 storage separate", 
 {
 	const auto desktop = vekt::saturator::UserPresetPaths::desktop();
 	const auto expectedDesktop = juce::File::getSpecialLocation(juce::File::userHomeDirectory)
-		.getChildFile("Library/Audio/Presets/Vekt/Vekt Saturator");
+		.getChildFile("Library/Audio/Presets/Vekt/Vekt Rav");
 	REQUIRE(desktop == expectedDesktop);
 
 	const auto container = juce::File("/AppGroupContainer");
 	REQUIRE(vekt::saturator::UserPresetPaths::insideContainer(container)
-		== container.getChildFile("Library/Audio/Presets/Vekt/Vekt Saturator"));
+		== container.getChildFile("Library/Audio/Presets/Vekt/Vekt Rav"));
 
 	juce::File destination = desktop;
 	REQUIRE(vekt::saturator::UserPresetPaths::auv3AppGroup({}, destination).failed());

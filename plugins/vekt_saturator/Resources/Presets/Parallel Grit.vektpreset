@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "product": "com.vekt.saturator",
+  "product": "com.vekt.rav",
   "name": "Parallel Grit",
   "parameters": {
     "inputGain": 2.0,
@@ -9,7 +9,16 @@
     "bias": -0.12,
     "autoGain": 1.0,
     "mix": 35.0,
-    "outputGain": -1.0
+    "outputGain": -1.0,
+    "lowBandMix": 100.0,
+    "midBandMix": 100.0,
+    "highBandMix": 100.0,
+    "lowMidCutoffHz": 250.0,
+    "midHighCutoffHz": 2500.0,
+    "mode": 3.0,
+    "character": 0.7,
+    "response": 0.4,
+    "texture": 0.8
   },
   "metadata": {
     "category": "Parallel"

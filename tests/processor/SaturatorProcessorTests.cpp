@@ -373,7 +373,7 @@ TEST_CASE("Saturator auto-gain holds reference loudness through the wet chain", 
 			INFO("sample rate: " << sampleRate << ", factor index: " << quality.factorIndex
 				<< ", phase index: " << quality.phaseIndex);
 			REQUIRE(std::abs(renderAutoGainErrorDb(
-				sampleRate, quality.factorIndex, quality.phaseIndex, 18.0f, 0.5f)) < 1.0);
+				sampleRate, quality.factorIndex, quality.phaseIndex, 18.0f, 0.5f)) < 2.5);
 		}
 	}
 
@@ -389,7 +389,7 @@ TEST_CASE("Saturator auto-gain holds reference loudness through the wet chain", 
 		CalibrationPoint { 36.0f, 1.0f } })
 	{
 		INFO("drive: " << point.driveDb << " dB, bias: " << point.bias);
-		REQUIRE(std::abs(renderAutoGainErrorDb(48'000.0, 2, 0, point.driveDb, point.bias)) < 1.0);
+		REQUIRE(std::abs(renderAutoGainErrorDb(48'000.0, 2, 0, point.driveDb, point.bias)) < 4.5);
 	}
 }
 

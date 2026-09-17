@@ -3,6 +3,8 @@ add_executable(vekt_dsp_tests
     dsp/LatencyAlignedBypassTests.cpp
     dsp/LatencyAlignedMixerTests.cpp
     dsp/MatchedToneStageTests.cpp
+	dsp/ThreeBandCrossoverTests.cpp
+    dsp/RavModeStageTests.cpp
     dsp/OversamplingBankTests.cpp
 	 dsp/StereoPeakMeterTests.cpp
     presets/PresetTests.cpp

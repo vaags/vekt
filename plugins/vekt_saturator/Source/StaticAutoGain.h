@@ -33,7 +33,13 @@ public:
 
     void setParameters(Sample driveDecibels, Sample bias, bool enabled) noexcept
     {
-        gain.setTargetValue(enabled ? interpolatedGain(driveDecibels, bias) : Sample { 1 });
+        const auto compensatedGain = interpolatedGain(driveDecibels, bias) * topologyCompensation;
+        gain.setTargetValue(enabled ? std::min(compensatedGain, Sample { 1 }) : Sample { 1 });
+    }
+
+    void setTopologyCompensation(Sample compensation) noexcept
+    {
+        topologyCompensation = std::clamp(compensation, Sample { 0.25 }, Sample { 1.5 });
     }
 
     [[nodiscard]] Sample getTargetGain() const noexcept
@@ -127,6 +133,7 @@ private:
 
     std::array<Sample, drivePointCount * biasPointCount> calibration {};
     juce::SmoothedValue<Sample, juce::ValueSmoothingTypes::Linear> gain { Sample { 1 } };
+    Sample topologyCompensation { 1 };
     bool calibrated {};
 };
 }

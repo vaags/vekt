@@ -43,6 +43,35 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 	layout.add(std::make_unique<juce::AudioParameterFloat>(
 		juce::ParameterID { outputGain, parameterVersion }, "Output", decibelRange(), 0.0f,
 		juce::AudioParameterFloatAttributes {}.withLabel("dB")));
+	layout.add(std::make_unique<juce::AudioParameterFloat>(
+		juce::ParameterID { lowBandMix, parameterVersion }, "Low Mix",
+		juce::NormalisableRange<float> { 0.0f, 100.0f, 0.01f }, 100.0f,
+		juce::AudioParameterFloatAttributes {}.withLabel("%")));
+	layout.add(std::make_unique<juce::AudioParameterFloat>(
+		juce::ParameterID { midBandMix, parameterVersion }, "Mid Mix",
+		juce::NormalisableRange<float> { 0.0f, 100.0f, 0.01f }, 100.0f,
+		juce::AudioParameterFloatAttributes {}.withLabel("%")));
+	layout.add(std::make_unique<juce::AudioParameterFloat>(
+		juce::ParameterID { highBandMix, parameterVersion }, "High Mix",
+		juce::NormalisableRange<float> { 0.0f, 100.0f, 0.01f }, 100.0f,
+		juce::AudioParameterFloatAttributes {}.withLabel("%")));
+	layout.add(std::make_unique<juce::AudioParameterFloat>(
+		juce::ParameterID { lowMidCutoffHz, parameterVersion }, "Low-Mid Crossover",
+		juce::NormalisableRange<float> { 40.0f, 2'000.0f, 0.01f, 0.35f }, 250.0f,
+		juce::AudioParameterFloatAttributes {}.withLabel("Hz")));
+	layout.add(std::make_unique<juce::AudioParameterFloat>(
+		juce::ParameterID { midHighCutoffHz, parameterVersion }, "Mid-High Crossover",
+		juce::NormalisableRange<float> { 500.0f, 16'000.0f, 0.01f, 0.35f }, 2'500.0f,
+		juce::AudioParameterFloatAttributes {}.withLabel("Hz")));
+	layout.add(std::make_unique<juce::AudioParameterChoice>(
+		juce::ParameterID { mode, parameterVersion }, "Mode",
+		juce::StringArray { "Saturation", "Overdrive", "Distortion", "Fuzz", "Wavefold", "Bitcrush" }, 0));
+	for (const auto& parameter : std::array {
+		std::pair { character, "Character" }, std::pair { response, "Response" },
+		std::pair { texture, "Texture" } })
+		layout.add(std::make_unique<juce::AudioParameterFloat>(
+			juce::ParameterID { parameter.first, parameterVersion }, parameter.second,
+			juce::NormalisableRange<float> { 0.0f, 1.0f, 0.001f }, 0.5f));
 
 	const auto qualityAttributes = juce::AudioParameterChoiceAttributes {}.withAutomatable(false);
 	layout.add(std::make_unique<juce::AudioParameterChoice>(
