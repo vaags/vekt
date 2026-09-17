@@ -34,7 +34,8 @@ void setParameter(
 }
 
 double renderAutoGainErrorDb(
-	double sampleRate, int oversamplingFactorIndex, int oversamplingPhaseIndex, float driveDb, float bias)
+	double sampleRate, int oversamplingFactorIndex, int oversamplingPhaseIndex, float driveDb,
+	float bias, float modeIndex = 0.0f)
 {
 	constexpr auto blockSize = 256;
 	constexpr auto frequency = 1'000.0;
@@ -49,6 +50,7 @@ double renderAutoGainErrorDb(
 	setParameter(processor, vekt::rav::parameters::tone, 0.0f);
 	setParameter(processor, vekt::rav::parameters::mix, 100.0f);
 	setParameter(processor, vekt::rav::parameters::autoGain, 1.0f);
+	setParameter(processor, vekt::rav::parameters::mode, modeIndex);
 	setParameter(processor, vekt::rav::parameters::trackingOversampling,
 				 static_cast<float>(oversamplingFactorIndex));
 	juce::ignoreUnused(oversamplingPhaseIndex);
@@ -198,6 +200,13 @@ TEST_CASE("Rav processor renders every mode across tracking qualities", "[proces
 					REQUIRE(std::isfinite(buffer.getSample(channel, sample)));
 		}
 	}
+}
+
+TEST_CASE("Rav Bitcrush Auto Gain stays near reference loudness", "[processor][auto-gain][bitcrush]")
+{
+	const auto errorDb = renderAutoGainErrorDb(48'000.0, 2, 0, 18.0f, 0.5f, 5.0f);
+	INFO("Bitcrush Auto Gain error: " << errorDb << " dB");
+	REQUIRE(std::abs(errorDb) < 1.0);
 }
 
 TEST_CASE("Rav processor bounds oversized host blocks", "[processor]")

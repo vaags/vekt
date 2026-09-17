@@ -75,7 +75,7 @@ private:
     static constexpr int calibrationSamples = 2'048;
     inline static constexpr std::array modeCompensations {
         static_cast<Sample>(1.0), static_cast<Sample>(0.92), static_cast<Sample>(0.86),
-        static_cast<Sample>(0.55), static_cast<Sample>(0.90), static_cast<Sample>(0.78) };
+        static_cast<Sample>(0.55), static_cast<Sample>(0.90), static_cast<Sample>(0.72) };
 
     void calibrate() noexcept
     {
