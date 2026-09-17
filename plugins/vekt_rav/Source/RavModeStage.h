@@ -32,7 +32,7 @@ public:
 		bias.reset(processingSampleRate, biasRampDuration);
 		character.reset(processingSampleRate, 0.02);
 		response.reset(processingSampleRate, 0.02);
-		texture.reset(processingSampleRate, 0.02);
+		texture.reset(processingSampleRate, textureRampDuration);
 		tone.reset(processingSampleRate, 0.02);
 		postStage.prepare(processingSampleRate);
 		reset();
@@ -79,6 +79,19 @@ public:
 		bias.setCurrentAndTargetValue(current);
 		bias.setTargetValue(target);
 		biasRampDuration = seconds;
+	}
+
+	void setTextureRampDurationSeconds(double seconds) noexcept
+	{
+		if (std::abs(seconds - textureRampDuration) < 1.0e-9)
+			return;
+
+		const auto current = texture.getCurrentValue();
+		const auto target = texture.getTargetValue();
+		texture.reset(sampleRateHz, seconds);
+		texture.setCurrentAndTargetValue(current);
+		texture.setTargetValue(target);
+		textureRampDuration = seconds;
 	}
 
 	void process(std::span<float> samples) noexcept
@@ -136,7 +149,14 @@ private:
 				const auto envelopeRate = 0.001f + responseValue * 0.08f;
 				envelope += (std::abs(driven) - envelope) * envelopeRate;
 				const auto starvation = biasValue + (0.5f - envelope) * characterValue;
-				const auto gated = std::abs(driven) < textureValue * (0.05f + envelope) ? 0.0f : driven;
+				const auto threshold = textureValue * (0.05f + envelope);
+				const auto transitionWidth = 0.01f + textureValue * 0.08f;
+				const auto gatePosition = std::clamp(
+					(std::abs(driven) - threshold + transitionWidth) /
+					(2.0f * transitionWidth), 0.0f, 1.0f);
+				const auto smoothGate = gatePosition * gatePosition
+					* (3.0f - 2.0f * gatePosition);
+				const auto gated = driven * smoothGate;
 				output = std::clamp((gated + starvation) * 4.0f, -1.0f, 1.0f);
 				break;
 			}
@@ -206,5 +226,6 @@ private:
 	juce::SmoothedValue<float> texture { 0.5f };
 	juce::SmoothedValue<float> tone;
 	double biasRampDuration { 0.02 };
+	double textureRampDuration { 0.02 };
 };
 }

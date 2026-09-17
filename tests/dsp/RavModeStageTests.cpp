@@ -93,3 +93,16 @@ TEST_CASE("Rav mode stage supports slow Bias modulation", "[dsp][rav][bias]")
 	for (const auto sample : samples)
 		REQUIRE(std::isfinite(sample));
 }
+
+TEST_CASE("Rav mode stage supports slow Texture modulation", "[dsp][rav][texture]")
+{
+	vekt::rav::RavModeStage stage;
+	stage.prepare(48'000.0);
+	stage.setTextureRampDurationSeconds(0.15);
+	stage.setParameters(vekt::rav::RavMode::fuzz, 24.0f, 0.0f, 0.7f, 0.4f, 1.0f);
+	std::array samples { 0.25f, -0.25f, 0.25f, -0.25f };
+	stage.process(samples);
+
+	for (const auto sample : samples)
+		REQUIRE(std::isfinite(sample));
+}
