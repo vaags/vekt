@@ -19,6 +19,7 @@ target_link_libraries(vekt_project_options INTERFACE
 
 add_subdirectory(framework/dsp)
 add_subdirectory(framework/state)
+add_subdirectory(framework/presets)
 add_subdirectory(plugins/vekt_saturator)
 
 if(VEKT_BUILD_TESTS)

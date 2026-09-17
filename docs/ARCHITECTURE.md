@@ -61,6 +61,12 @@ separate versioned schemas with explicit migrations.
 Quality settings and editor geometry belong to project state, not sound presets.
 Host automation owns its history; local undo covers UI gestures and preset loads.
 
+Preset documents are UTF-8 JSON with product and schema identity. Each
+product supplies an explicit sound-parameter allowlist; missing, unknown,
+non-numeric, and out-of-range values reject the entire load before mutation.
+Repositories only perform message-thread file I/O and receive their storage root
+from the product, allowing VST3 and AUv3 containers to choose appropriate paths.
+
 ## Validation
 
 Each DSP primitive receives focused tests before integration. The release gates

@@ -39,5 +39,6 @@ target_link_libraries(VektSaturator
 		juce::juce_audio_utils
 	PUBLIC
 		vekt::dsp
+		vekt::presets
 		vekt::state
 		vekt_project_options)

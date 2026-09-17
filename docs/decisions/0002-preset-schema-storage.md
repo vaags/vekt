@@ -1,0 +1,32 @@
+# ADR 0002: Preset Schema and Storage
+
+## Status
+
+Accepted
+
+## Decision
+
+Sound presets use a versioned, human-readable UTF-8 JSON document with explicit
+product identity, preset name, parameter values keyed by stable IDs, and
+optional metadata. Each product provides an allowlist of sound parameter IDs.
+Validation is all-or-nothing before parameters are changed.
+
+Project-only quality settings, host bypass, editor geometry, and current preset
+navigation state are excluded. Loading a preset updates APVTS values on the
+message thread in one undo transaction.
+
+Storage is abstracted behind `PresetRepository`. `FilePresetRepository` receives
+its root directory from the caller and writes through a temporary file before
+atomic replacement. Product code selects the standard desktop location or an
+AUv3 app-group container; the reusable layer does not infer sandbox policy.
+
+Schema version 1 rejects other versions. A migration must be added before the
+schema version is incremented.
+
+## Consequences
+
+- Presets cannot accidentally alter quality, bypass, or editor state.
+- Invalid and partial documents fail without partially changing parameters.
+- Factory presets may use the same validated document format without filesystem
+  ownership.
+- File operations remain outside the audio callback.

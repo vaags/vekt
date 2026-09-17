@@ -1,8 +1,8 @@
 # Vekt
 
 Vekt is a reusable C++20/JUCE framework for macOS audio effects. The first
-reference effect is a `tanh` saturator; the current implementation contains its
-initial host-independent DSP primitives and tests.
+reference effect is a `tanh` saturator with reusable DSP, state, and preset
+infrastructure.
 
 ## Requirements
 
@@ -31,11 +31,13 @@ Tools alone are insufficient.
 
 ## Current Scope
 
-- Pinned JUCE 8.0.15 dependency
+- Pinned JUCE 9.0.2 dependency
 - Reusable centered `tanh` transfer stage
 - Preallocated Off/2x/4x minimum- and linear-phase oversampling paths
 - Integer oversampling latency reporting
 - Linear dry/wet mixing with dry-path latency alignment
+- Versioned project state with legacy migration
+- Versioned sound-only preset documents and filesystem repository abstraction
 - Focused Catch2 tests
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for module and real-time rules.

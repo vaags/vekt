@@ -4,6 +4,8 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
+#include <array>
+
 namespace vekt::saturator::parameters
 {
 inline constexpr auto inputGain = "inputGain";
@@ -20,6 +22,16 @@ inline constexpr auto oversamplingPhase = "oversamplingPhase";
 inline constexpr auto stateType = "VektSaturatorState";
 inline constexpr auto projectStateType = "VektSaturatorProjectState";
 inline constexpr auto projectStateVersion = 2;
+inline constexpr auto presetProductIdentifier = "com.vekt.saturator";
+inline constexpr std::array soundParameterIds {
+	inputGain,
+	drive,
+	tone,
+	bias,
+	autoGain,
+	mix,
+	outputGain
+};
 
 [[nodiscard]] juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
 [[nodiscard]] dsp::OversamplingQuality qualityFrom(float factorIndex, float phaseIndex) noexcept;

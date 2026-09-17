@@ -1,5 +1,7 @@
 #include "PluginProcessor.h"
 
+#include <vekt/presets/PresetSchema.h>
+
 #include <juce_audio_utils/juce_audio_utils.h>
 
 #include <span>
@@ -221,9 +223,45 @@ void PluginProcessor::setStateInformation(const void* data, int size)
 	stateManager.restoreState(state);
 }
 
+presets::Preset PluginProcessor::createPreset(
+	const juce::String& name, const juce::NamedValueSet& metadata) const
+{
+	return presets::PresetSchema::create(
+		parameters::presetProductIdentifier,
+		name,
+		parameterState,
+		parameters::soundParameterIds,
+		metadata);
+}
+
+juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
+{
+	jassert(juce::MessageManager::getInstanceWithoutCreating() == nullptr
+		|| juce::MessageManager::getInstanceWithoutCreating()->isThisTheMessageThread());
+	if (const auto result = presets::PresetSchema::validate(
+			preset,
+			parameters::presetProductIdentifier,
+			parameterState,
+			parameters::soundParameterIds);
+		result.failed())
+		return result;
+
+	undoManager.beginNewTransaction("Load preset: " + preset.name);
+	return presets::PresetSchema::apply(
+		preset,
+		parameters::presetProductIdentifier,
+		parameterState,
+		parameters::soundParameterIds);
+}
+
 juce::AudioProcessorValueTreeState& PluginProcessor::getParameters() noexcept
 {
 	return parameterState;
+}
+
+juce::UndoManager& PluginProcessor::getUndoManager() noexcept
+{
+	return undoManager;
 }
 
 juce::ValueTree& PluginProcessor::getProjectMetadata() noexcept
