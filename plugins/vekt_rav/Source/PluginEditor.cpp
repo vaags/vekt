@@ -71,6 +71,7 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 	redoButton.onClick = [this]
 	{ pluginProcessor.getUndoManager().redo(); refreshPresetLabel(); };
 	refreshPresetLabel();
+	resized();
 	startTimerHz(30);
 }
 
