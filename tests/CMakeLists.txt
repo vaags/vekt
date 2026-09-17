@@ -5,6 +5,7 @@ add_executable(vekt_dsp_tests
     dsp/MatchedToneStageTests.cpp
 	dsp/MatchedToneStageRampTests.cpp
 	dsp/ThreeBandCrossoverTests.cpp
+    dsp/ControlTransitionTests.cpp
     dsp/RavModeStageTests.cpp
 	dsp/RavPostStageTests.cpp
     dsp/OversamplingBankTests.cpp
