@@ -114,8 +114,9 @@ private:
 			}
 			case RavMode::overdrive:
 			{
-				const auto hpCoefficient = std::clamp(
-					0.001f + responseValue * 0.08f, 0.001f, 0.2f);
+				const auto cutoffHz = 80.0f + responseValue * 40.0f;
+				const auto hpCoefficient = 1.0f - std::exp(
+					-2.0f * juce::MathConstants<float>::pi * cutoffHz / sampleRateHz);
 				const auto highPassed = driven - highPassState;
 				highPassState += (driven - highPassState) * hpCoefficient;
 				const auto asymmetricBias = biasValue + (characterValue - 0.5f) * 0.8f;
