@@ -91,8 +91,11 @@ void PluginEditor::paint(juce::Graphics& graphics)
 {
 	graphics.fillAll(lookAndFeel.findColour(juce::ResizableWindow::backgroundColourId));
 	graphics.setColour(juce::Colour::fromRGB(54, 65, 70));
-	graphics.drawLine(20.0f, 58.0f, 700.0f, 58.0f);
-	graphics.drawLine(20.0f, 370.0f, 700.0f, 370.0f);
+	const auto scale = static_cast<float>(getWidth()) / ui::ScalableEditor::logicalWidth;
+	graphics.drawLine(20.0f * scale, 58.0f * scale,
+		700.0f * scale, 58.0f * scale);
+	graphics.drawLine(20.0f * scale, 370.0f * scale,
+		700.0f * scale, 370.0f * scale);
 }
 
 void PluginEditor::resized()

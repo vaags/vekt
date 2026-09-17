@@ -10,6 +10,7 @@ public:
 	explicit ScalableEditor(juce::AudioProcessor& processor);
 
 	[[nodiscard]] juce::Component& getContent() noexcept;
+	void setResizeHandleVisible(bool shouldBeVisible) noexcept;
 	void resized() override;
 
 	inline static constexpr auto logicalWidth = 720;

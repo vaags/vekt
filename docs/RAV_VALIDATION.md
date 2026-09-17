@@ -84,6 +84,7 @@ Standalone, VST3, or AUv3 targets. Launch it with:
 ./scripts/run-audio-lab.sh
 ```
 
-Choose Sine, Sweep, Impulse, Noise, or Silence and a Rav mode. Output starts
+Choose Sine, Sweep, Impulse, Noise, or Silence in the safety toolbar and use
+the embedded full Rav editor for mode and processing controls. Output starts
 muted and must be explicitly armed. The lab uses the default macOS audio
 device and does not connect hardware input to output automatically.

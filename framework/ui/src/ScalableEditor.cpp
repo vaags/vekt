@@ -18,6 +18,11 @@ ScalableEditor::ScalableEditor(juce::AudioProcessor& audioProcessor)
 
 juce::Component& ScalableEditor::getContent() noexcept { return content; }
 
+void ScalableEditor::setResizeHandleVisible(bool shouldBeVisible) noexcept
+{
+	resizeHandle.setVisible(shouldBeVisible);
+}
+
 void ScalableEditor::resized()
 {
 	const auto scale = static_cast<float>(getWidth()) / logicalWidth;

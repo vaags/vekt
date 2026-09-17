@@ -1,6 +1,7 @@
 #include "SignalSources.h"
 
 #include <PluginProcessor.h>
+#include <PluginEditor.h>
 
 #include <juce_audio_utils/juce_audio_utils.h>
 
@@ -17,23 +18,31 @@ class LiveLab final : public juce::AudioAppComponent,
 public:
 	LiveLab()
 	{
-		modeBox.addItemList({ "Saturation", "Overdrive", "Distortion", "Fuzz", "Wavefold", "Bitcrush" }, 1);
 		sourceBox.addItem("Sine", 2);
 		sourceBox.addItem("Sweep", 3);
 		sourceBox.addItem("Impulse", 4);
 		sourceBox.addItem("Noise", 5);
 		sourceBox.addItem("Silence", 1);
 		sourceBox.setSelectedId(2, juce::dontSendNotification);
-		for (auto* component : { static_cast<juce::Component*>(&modeBox),
-			static_cast<juce::Component*>(&sourceBox), static_cast<juce::Component*>(&armButton),
+		for (auto* component : { static_cast<juce::Component*>(&sourceBox),
+			static_cast<juce::Component*>(&armButton),
 			static_cast<juce::Component*>(&muteButton), static_cast<juce::Component*>(&statusLabel) })
 			addAndMakeVisible(*component);
 
-		modeBox.onChange = [this] { setMode(); };
 		sourceBox.onChange = [this] { requestedSource.store(sourceBox.getSelectedId() - 1); };
 		armButton.onClick = [this] { outputArmed.store(armButton.getToggleState()); };
 		muteButton.onClick = [this] { outputArmed.store(false); armButton.setToggleState(false, juce::dontSendNotification); };
-		setSize(480, 240);
+		editor.reset(processor.createEditor());
+		if (editor != nullptr)
+		{
+			addAndMakeVisible(*editor);
+			if (auto* scalableEditor = dynamic_cast<vekt::ui::ScalableEditor*>(editor.get()))
+			{
+				scalableEditor->setResizeHandleVisible(false);
+				scalableEditor->setResizable(false, false);
+			}
+		}
+		setSize(800, 640);
 		setAudioChannels(0, 2);
 		startTimerHz(15);
 	}
@@ -89,26 +98,30 @@ public:
 		graphics.fillAll(juce::Colour::fromRGB(20, 24, 28));
 		graphics.setColour(juce::Colours::white);
 		graphics.setFont(juce::FontOptions(22.0f).withStyle("Bold"));
-		graphics.drawText("VEKT RAV AUDIO LAB", 20, 18, 440, 30, juce::Justification::centredLeft);
+		graphics.drawText("VEKT RAV AUDIO LAB", 20, 4, 440, 24, juce::Justification::centredLeft);
+		graphics.setColour(juce::Colour::fromRGB(54, 65, 70));
+		graphics.drawLine(20.0f, 64.0f, 780.0f, 64.0f);
 	}
 
 	void resized() override
 	{
-		modeBox.setBounds(20, 70, 210, 30);
-		sourceBox.setBounds(250, 70, 210, 30);
-		armButton.setBounds(20, 120, 150, 36);
-		muteButton.setBounds(180, 120, 150, 36);
-		statusLabel.setBounds(20, 175, 440, 30);
+		sourceBox.setBounds(20, 33, 180, 26);
+		armButton.setBounds(215, 33, 130, 26);
+		muteButton.setBounds(355, 33, 100, 26);
+		statusLabel.setBounds(470, 33, 260, 26);
+		if (editor != nullptr)
+		{
+			const auto editorArea = getLocalBounds().withTop(75).reduced(20, 0);
+			const auto scale = std::min(
+				static_cast<float>(editorArea.getWidth()) / 720.0f,
+				static_cast<float>(editorArea.getHeight()) / 480.0f);
+			const auto editorWidth = static_cast<int>(720.0f * scale);
+			const auto editorHeight = static_cast<int>(480.0f * scale);
+			editor->setBounds(editorArea.withSizeKeepingCentre(editorWidth, editorHeight));
+		}
 	}
 
 private:
-	void setMode()
-	{
-		if (auto* parameter = processor.getParameters().getParameter(vekt::rav::parameters::mode))
-			parameter->setValueNotifyingHost(parameter->convertTo0to1(
-				static_cast<float>(modeBox.getSelectedId() - 1)));
-	}
-
 	void publishPeak(const juce::AudioBuffer<float>& buffer) noexcept
 	{
 		auto peak = 0.0f;
@@ -129,7 +142,7 @@ private:
 	}
 
 	vekt::rav::PluginProcessor processor;
-	juce::ComboBox modeBox;
+	std::unique_ptr<juce::AudioProcessorEditor> editor;
 	juce::ComboBox sourceBox;
 	juce::ToggleButton armButton { "Arm output" };
 	juce::TextButton muteButton { "MUTE" };
@@ -150,9 +163,12 @@ public:
 		: DocumentWindow("Vekt Rav Audio Lab", juce::Colours::black, closeButton)
 	{
 		setUsingNativeTitleBar(true);
-		setResizable(false, false);
+		constrainer.setMinimumSize(800, 620);
+		constrainer.setMaximumSize(1'600, 1'200);
+		setResizable(true, true);
+		setConstrainer(&constrainer);
 		setContentOwned(new LiveLab(), true);
-		centreWithSize(520, 300);
+		centreWithSize(840, 680);
 		setVisible(true);
 	}
 
@@ -160,6 +176,9 @@ public:
 	{
 		juce::JUCEApplication::getInstance()->systemRequestedQuit();
 	}
+
+private:
+	juce::ComponentBoundsConstrainer constrainer;
 };
 
 class Application final : public juce::JUCEApplication

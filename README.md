@@ -43,8 +43,9 @@ Audio Lab:
 ```
 
 It generates test signals internally and sends them to the selected default
-audio output. The lab starts muted; select a source and mode, then explicitly
-arm the output. Use headphones or safe monitoring when testing.
+audio output. The lab contains the full Rav editor; select a source, choose the
+mode and all processing controls in the editor, then explicitly arm output.
+Use headphones or safe monitoring when testing.
 
 The `xcode` configure preset is reserved for AUv3-capable builds. It requires a
 full Xcode installation selected through `xcode-select`; Apple Command Line

@@ -16,4 +16,5 @@ target_link_libraries(VektRavAudioLab PRIVATE
 	VektRav
 	juce::juce_audio_utils
 	juce::juce_gui_basics
+	vekt::ui
 	vekt_project_options)
