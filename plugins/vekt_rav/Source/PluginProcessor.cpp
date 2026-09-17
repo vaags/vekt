@@ -341,6 +341,7 @@ void PluginProcessor::changeProgramName(int index, const juce::String& name) { j
 
 void PluginProcessor::getStateInformation(juce::MemoryBlock& destination)
 {
+	stageChain.writeMetadata(stateManager.getMetadata());
 	const auto state = stateManager.createState();
 	if (const auto xml = state.createXml())
 		copyXmlToBinary(*xml, destination);
@@ -354,7 +355,10 @@ void PluginProcessor::setStateInformation(const void* data, int size)
 
 	auto state = juce::ValueTree::fromXml(*xml);
 	if (stateManager.restoreState(state))
+	{
+		stageChain = RavStageChain::readMetadata(stateManager.getMetadata());
 		restoreCurrentProgramFromMetadata();
+	}
 }
 
 presets::Preset PluginProcessor::createPreset(
