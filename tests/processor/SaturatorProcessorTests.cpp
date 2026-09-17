@@ -6,7 +6,9 @@
 
 #include <juce_audio_basics/juce_audio_basics.h>
 
+#include <array>
 #include <cmath>
+#include <numbers>
 
 namespace
 {
@@ -22,6 +24,79 @@ public:
 
 	bool playing {};
 };
+
+void setParameter(
+	vekt::saturator::PluginProcessor& processor, const char* identifier, float value)
+{
+	auto* parameter = processor.getParameters().getParameter(identifier);
+	REQUIRE(parameter != nullptr);
+	parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
+}
+
+double renderAutoGainErrorDb(
+	double sampleRate, int oversamplingFactorIndex, int oversamplingPhaseIndex, float driveDb, float bias)
+{
+	constexpr auto blockSize = 256;
+	constexpr auto frequency = 1'000.0;
+	constexpr auto inputPeak = 0.12589254117941673;
+	const auto settlingSamples = static_cast<int>(std::ceil(sampleRate * 0.15));
+	const auto measurementSamples = static_cast<int>(std::ceil(sampleRate * 0.1));
+	const auto totalSamples = settlingSamples + measurementSamples;
+
+	vekt::saturator::PluginProcessor processor;
+	setParameter(processor, vekt::saturator::parameters::drive, driveDb);
+	setParameter(processor, vekt::saturator::parameters::bias, bias);
+	setParameter(processor, vekt::saturator::parameters::tone, 0.0f);
+	setParameter(processor, vekt::saturator::parameters::mix, 100.0f);
+	setParameter(processor, vekt::saturator::parameters::autoGain, 1.0f);
+	setParameter(processor, vekt::saturator::parameters::oversamplingFactor,
+		static_cast<float>(oversamplingFactorIndex));
+	setParameter(processor, vekt::saturator::parameters::oversamplingPhase,
+		static_cast<float>(oversamplingPhaseIndex));
+	processor.prepareToPlay(sampleRate, blockSize);
+
+	juce::MidiBuffer midi;
+	auto inputSumOfSquares = 0.0;
+	auto outputSum = 0.0;
+	auto outputSumOfSquares = 0.0;
+	auto sampleIndex = 0;
+	while (sampleIndex < totalSamples)
+	{
+		const auto samplesThisBlock = std::min(blockSize, totalSamples - sampleIndex);
+		juce::AudioBuffer<float> buffer(2, samplesThisBlock);
+		for (auto sample = 0; sample < samplesThisBlock; ++sample)
+		{
+			const auto input = static_cast<float>(inputPeak * std::sin(
+				2.0 * std::numbers::pi * frequency * static_cast<double>(sampleIndex + sample)
+				/ sampleRate));
+			buffer.setSample(0, sample, input);
+			buffer.setSample(1, sample, input);
+		}
+
+		processor.processBlock(buffer, midi);
+		for (auto sample = 0; sample < samplesThisBlock; ++sample)
+		{
+			if (sampleIndex + sample < settlingSamples)
+				continue;
+
+			const auto input = inputPeak * std::sin(
+				2.0 * std::numbers::pi * frequency * static_cast<double>(sampleIndex + sample)
+				/ sampleRate);
+			const auto output = static_cast<double>(buffer.getSample(0, sample));
+			inputSumOfSquares += input * input;
+			outputSum += output;
+			outputSumOfSquares += output * output;
+		}
+
+		sampleIndex += samplesThisBlock;
+	}
+
+	const auto inputRms = std::sqrt(inputSumOfSquares / static_cast<double>(measurementSamples));
+	const auto outputMean = outputSum / static_cast<double>(measurementSamples);
+	const auto outputRms = std::sqrt(
+		(outputSumOfSquares / static_cast<double>(measurementSamples)) - (outputMean * outputMean));
+	return 20.0 * std::log10(outputRms / inputRms);
+}
 }
 
 TEST_CASE("Saturator processor defaults to quality-first oversampling", "[processor]")
@@ -157,4 +232,47 @@ TEST_CASE("Saturator processor defers quality changes during playback", "[proces
 	REQUIRE(processor.getActiveQuality().factor == vekt::dsp::OversamplingFactor::off);
 	REQUIRE(processor.getLatencySamples() == 0);
 	REQUIRE_FALSE(processor.hasPendingQualityChange());
+}
+
+TEST_CASE("Saturator auto-gain holds reference loudness through the wet chain", "[processor][auto-gain]")
+{
+	struct QualityMode
+	{
+		int factorIndex;
+		int phaseIndex;
+	};
+
+	constexpr std::array qualityModes {
+		QualityMode { 0, 0 },
+		QualityMode { 1, 0 },
+		QualityMode { 2, 0 },
+		QualityMode { 1, 1 },
+		QualityMode { 2, 1 }
+	};
+
+	for (const auto sampleRate : std::array { 44'100.0, 48'000.0, 96'000.0, 192'000.0 })
+	{
+		for (const auto quality : qualityModes)
+		{
+			INFO("sample rate: " << sampleRate << ", factor index: " << quality.factorIndex
+				<< ", phase index: " << quality.phaseIndex);
+			REQUIRE(std::abs(renderAutoGainErrorDb(
+				sampleRate, quality.factorIndex, quality.phaseIndex, 18.0f, 0.5f)) < 1.0);
+		}
+	}
+
+	struct CalibrationPoint
+	{
+		float driveDb;
+		float bias;
+	};
+
+	for (const auto point : std::array {
+		CalibrationPoint { 6.0f, 0.0f },
+		CalibrationPoint { 18.0f, 0.5f },
+		CalibrationPoint { 36.0f, 1.0f } })
+	{
+		INFO("drive: " << point.driveDb << " dB, bias: " << point.bias);
+		REQUIRE(std::abs(renderAutoGainErrorDb(48'000.0, 2, 0, point.driveDb, point.bias)) < 1.0);
+	}
 }
