@@ -10,6 +10,7 @@
 #include <vekt/dsp/OversamplingBank.h>
 #include <vekt/dsp/TanhStage.h>
 #include <vekt/presets/Preset.h>
+#include <vekt/presets/PresetCatalog.h>
 #include <vekt/state/StateManager.h>
 
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -79,10 +80,13 @@ private:
 		juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi, bool bypassed);
 	void processBypassedBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi);
 	void processEffectBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi);
+	void restoreCurrentProgramFromMetadata();
 
 	juce::UndoManager undoManager;
 	juce::AudioProcessorValueTreeState parameterState;
 	state::StateManager stateManager;
+	presets::PresetCatalog presetCatalog;
+	int currentProgram {};
 
 	std::atomic<float>* inputGainParameter;
 	std::atomic<float>* driveParameter;

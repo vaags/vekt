@@ -22,7 +22,15 @@ juce_add_plugin(VektSaturator
 	NEEDS_CURL FALSE
 	HARDENED_RUNTIME_ENABLED TRUE)
 
+juce_add_binary_data(VektSaturatorFactoryData
+	NAMESPACE VektSaturatorFactoryData
+	SOURCES
+		"Resources/Presets/Clean Heat.vektpreset"
+		"Resources/Presets/Warm Push.vektpreset"
+		"Resources/Presets/Parallel Grit.vektpreset")
+
 target_sources(VektSaturator PRIVATE
+	Source/FactoryPresets.cpp
 	Source/Parameters.cpp
 	Source/PluginProcessor.cpp)
 
@@ -37,6 +45,7 @@ target_compile_definitions(VektSaturator PUBLIC
 target_link_libraries(VektSaturator
 	PRIVATE
 		juce::juce_audio_utils
+		VektSaturatorFactoryData
 	PUBLIC
 		vekt::dsp
 		vekt::presets

@@ -1,5 +1,6 @@
 add_library(vekt_presets STATIC
 	src/FilePresetRepository.cpp
+	src/PresetCatalog.cpp
 	src/PresetJsonCodec.cpp
 	src/PresetSchema.cpp)
 add_library(vekt::presets ALIAS vekt_presets)

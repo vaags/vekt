@@ -1,5 +1,7 @@
 #include "PluginProcessor.h"
 
+#include "FactoryPresets.h"
+
 #include <vekt/presets/PresetSchema.h>
 
 #include <juce_audio_utils/juce_audio_utils.h>
@@ -39,6 +41,12 @@ PluginProcessor::PluginProcessor()
 	  oversamplingFactorParameter(requireParameter(parameterState, parameters::oversamplingFactor)),
 	  oversamplingPhaseParameter(requireParameter(parameterState, parameters::oversamplingPhase))
 {
+	const auto factoryPresetResult = addFactoryPresets(presetCatalog);
+	jassert(factoryPresetResult.wasOk());
+	juce::ignoreUnused(factoryPresetResult);
+	if (presetCatalog.factoryPresetCount() > 0)
+		stateManager.getMetadata().setProperty(
+			parameters::currentFactoryPreset, presetCatalog.factoryPresetName(0), nullptr);
 	requestedOversamplingFactor.store(oversamplingFactorParameter->load());
 	requestedOversamplingPhase.store(oversamplingPhaseParameter->load());
 	parameterState.addParameterListener(parameters::oversamplingFactor, this);
@@ -200,10 +208,36 @@ juce::AudioProcessorParameter* PluginProcessor::getBypassParameter() const
 {
 	return parameterState.getParameter(parameters::bypass);
 }
-int PluginProcessor::getNumPrograms() { return 1; }
-int PluginProcessor::getCurrentProgram() { return 0; }
-void PluginProcessor::setCurrentProgram(int index) { juce::ignoreUnused(index); }
-const juce::String PluginProcessor::getProgramName(int index) { juce::ignoreUnused(index); return {}; }
+int PluginProcessor::getNumPrograms()
+{
+	return static_cast<int>(presetCatalog.factoryPresetCount());
+}
+
+int PluginProcessor::getCurrentProgram() { return currentProgram; }
+
+void PluginProcessor::setCurrentProgram(int index)
+{
+	if (index < 0)
+		return;
+
+	presets::Preset preset;
+	if (presetCatalog.loadFactoryPreset(static_cast<std::size_t>(index), preset).failed())
+		return;
+	if (applyPreset(preset).wasOk())
+	{
+		currentProgram = index;
+		stateManager.getMetadata().setProperty(
+			parameters::currentFactoryPreset, preset.name, nullptr);
+	}
+}
+
+const juce::String PluginProcessor::getProgramName(int index)
+{
+	if (index < 0)
+		return {};
+	return presetCatalog.factoryPresetName(static_cast<std::size_t>(index));
+}
+
 void PluginProcessor::changeProgramName(int index, const juce::String& name) { juce::ignoreUnused(index, name); }
 
 void PluginProcessor::getStateInformation(juce::MemoryBlock& destination)
@@ -220,7 +254,8 @@ void PluginProcessor::setStateInformation(const void* data, int size)
 		return;
 
 	auto state = juce::ValueTree::fromXml(*xml);
-	stateManager.restoreState(state);
+	if (stateManager.restoreState(state))
+		restoreCurrentProgramFromMetadata();
 }
 
 presets::Preset PluginProcessor::createPreset(
@@ -267,6 +302,16 @@ juce::UndoManager& PluginProcessor::getUndoManager() noexcept
 juce::ValueTree& PluginProcessor::getProjectMetadata() noexcept
 {
 	return stateManager.getMetadata();
+}
+
+void PluginProcessor::restoreCurrentProgramFromMetadata()
+{
+	const auto name = stateManager.getMetadata()
+		.getProperty(parameters::currentFactoryPreset).toString();
+	if (const auto index = presetCatalog.findFactoryPreset(name))
+		currentProgram = static_cast<int>(*index);
+	else
+		currentProgram = 0;
 }
 
 dsp::OversamplingQuality PluginProcessor::getActiveQuality() const noexcept

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "product": "com.vekt.saturator",
+  "name": "Warm Push",
+  "parameters": {
+    "inputGain": 0.0,
+    "drive": 12.0,
+    "tone": -1.5,
+    "bias": 0.08,
+    "autoGain": 1.0,
+    "mix": 100.0,
+    "outputGain": 0.0
+  },
+  "metadata": {
+    "category": "Warm"
+  }
+}

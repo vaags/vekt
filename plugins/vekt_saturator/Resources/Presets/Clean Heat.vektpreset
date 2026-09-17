@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "product": "com.vekt.saturator",
+  "name": "Clean Heat",
+  "parameters": {
+    "inputGain": 0.0,
+    "drive": 6.0,
+    "tone": 0.0,
+    "bias": 0.0,
+    "autoGain": 0.0,
+    "mix": 100.0,
+    "outputGain": 0.0
+  },
+  "metadata": {
+    "category": "Clean"
+  }
+}

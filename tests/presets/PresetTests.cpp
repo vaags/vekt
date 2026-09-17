@@ -1,7 +1,9 @@
+#include <FactoryPresets.h>
 #include <Parameters.h>
 #include <PluginProcessor.h>
 
 #include <vekt/presets/FilePresetRepository.h>
+#include <vekt/presets/PresetCatalog.h>
 #include <vekt/presets/PresetJsonCodec.h>
 
 #include <catch2/catch_approx.hpp>
@@ -137,4 +139,96 @@ TEST_CASE("File preset repositories round trip human-readable documents", "[pres
 	REQUIRE(repository.list().isEmpty());
 	REQUIRE(repository.save(processor.createPreset("../Factory Warm")).failed());
 	REQUIRE(repository.save({}).failed());
+}
+
+TEST_CASE("Preset catalogs combine factory and user presets deterministically", "[presets]")
+{
+	ScopedTemporaryDirectory directory;
+	vekt::presets::FilePresetRepository repository(directory.get());
+	vekt::saturator::PluginProcessor processor;
+	REQUIRE(repository.save(processor.createPreset("User B")).wasOk());
+	REQUIRE(repository.save(processor.createPreset("User A")).wasOk());
+	REQUIRE(repository.save(processor.createPreset("factory first")).wasOk());
+
+	vekt::presets::Preset factoryPreset = processor.createPreset("Factory First");
+	juce::String factoryJson;
+	REQUIRE(vekt::presets::PresetJsonCodec::encode(factoryPreset, factoryJson).wasOk());
+
+	vekt::presets::PresetCatalog catalog(repository);
+	REQUIRE(catalog.addFactoryPreset(factoryJson).wasOk());
+	REQUIRE(catalog.addFactoryPreset(factoryJson).failed());
+	REQUIRE(catalog.entries().size() == 3);
+	REQUIRE(catalog.entries()[0].name == "Factory First");
+	REQUIRE(catalog.entries()[0].origin == vekt::presets::PresetOrigin::factory);
+	REQUIRE(catalog.entries()[1].name == "User A");
+	REQUIRE(catalog.entries()[1].origin == vekt::presets::PresetOrigin::user);
+	REQUIRE(catalog.entries()[2].name == "User B");
+	REQUIRE(catalog.factoryPresetCount() == 1);
+	REQUIRE(catalog.factoryPresetName(0) == "Factory First");
+	REQUIRE(catalog.factoryPresetName(1).isEmpty());
+	REQUIRE(catalog.findFactoryPreset("Factory First") == 0);
+	REQUIRE_FALSE(catalog.findFactoryPreset("Missing").has_value());
+
+	vekt::presets::Preset loaded;
+	REQUIRE(catalog.load(0, loaded).wasOk());
+	REQUIRE(loaded.name == "Factory First");
+	REQUIRE(catalog.load(1, loaded).wasOk());
+	REQUIRE(loaded.name == "User A");
+	REQUIRE(catalog.load(3, loaded).failed());
+	REQUIRE(catalog.loadFactoryPreset(0, loaded).wasOk());
+	REQUIRE(catalog.loadFactoryPreset(1, loaded).failed());
+	REQUIRE(catalog.nextIndex(2) == 0);
+	REQUIRE(catalog.previousIndex(0) == 2);
+}
+
+TEST_CASE("Embedded saturator factory presets use the public preset schema", "[presets]")
+{
+	ScopedTemporaryDirectory directory;
+	vekt::presets::FilePresetRepository repository(directory.get());
+	vekt::presets::PresetCatalog catalog(repository);
+	vekt::saturator::PluginProcessor processor;
+
+	REQUIRE(vekt::saturator::addFactoryPresets(catalog).wasOk());
+	REQUIRE(catalog.entries().size() == 3);
+	for (std::size_t index = 0; index < catalog.entries().size(); ++index)
+	{
+		vekt::presets::Preset preset;
+		REQUIRE(catalog.load(index, preset).wasOk());
+		REQUIRE(processor.applyPreset(preset).wasOk());
+	}
+}
+
+TEST_CASE("Saturator exposes factory presets through its host program API", "[presets]")
+{
+	vekt::saturator::PluginProcessor processor;
+
+	REQUIRE(processor.getNumPrograms() == 3);
+	REQUIRE(processor.getCurrentProgram() == 0);
+	REQUIRE(processor.getProgramName(0) == "Clean Heat");
+	REQUIRE(processor.getProgramName(1) == "Warm Push");
+	REQUIRE(processor.getProgramName(2) == "Parallel Grit");
+	REQUIRE(processor.getProgramName(3).isEmpty());
+
+	processor.setCurrentProgram(1);
+	REQUIRE(processor.getCurrentProgram() == 1);
+	REQUIRE(getParameter(processor, vekt::saturator::parameters::drive)
+		== Catch::Approx(12.0f));
+	processor.setCurrentProgram(8);
+	REQUIRE(processor.getCurrentProgram() == 1);
+}
+
+TEST_CASE("Saturator restores its current factory program identity", "[presets]")
+{
+	vekt::saturator::PluginProcessor source;
+	source.setCurrentProgram(1);
+	juce::MemoryBlock state;
+	source.getStateInformation(state);
+
+	vekt::saturator::PluginProcessor restored;
+	restored.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
+
+	REQUIRE(restored.getCurrentProgram() == 1);
+	REQUIRE(restored.getProgramName(restored.getCurrentProgram()) == "Warm Push");
+	REQUIRE(getParameter(restored, vekt::saturator::parameters::drive)
+		== Catch::Approx(12.0f));
 }

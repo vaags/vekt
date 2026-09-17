@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "product": "com.vekt.saturator",
+  "name": "Parallel Grit",
+  "parameters": {
+    "inputGain": 2.0,
+    "drive": 24.0,
+    "tone": 1.0,
+    "bias": -0.12,
+    "autoGain": 1.0,
+    "mix": 35.0,
+    "outputGain": -1.0
+  },
+  "metadata": {
+    "category": "Parallel"
+  }
+}

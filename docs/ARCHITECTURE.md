@@ -66,6 +66,12 @@ product supplies an explicit sound-parameter allowlist; missing, unknown,
 non-numeric, and out-of-range values reject the entire load before mutation.
 Repositories only perform message-thread file I/O and receive their storage root
 from the product, allowing VST3 and AUv3 containers to choose appropriate paths.
+`PresetCatalog` combines factory documents with an optional user repository.
+Factory presets are compiled into each product, decoded through the public JSON
+codec, and exposed as an immutable bank through the host program API. The
+selected factory name is persisted in project metadata. User presets remain a
+separate mutable editor-facing source, are listed in natural sort order, and
+cannot shadow a case-insensitively matching factory name.
 
 ## Validation
 

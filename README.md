@@ -37,7 +37,7 @@ Tools alone are insufficient.
 - Integer oversampling latency reporting
 - Linear dry/wet mixing with dry-path latency alignment
 - Versioned project state with legacy migration
-- Versioned sound-only preset documents and filesystem repository abstraction
+- Versioned sound-only JSON presets, embedded factory catalog, and filesystem repository
 - Focused Catch2 tests
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for module and real-time rules.

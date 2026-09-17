@@ -23,6 +23,7 @@ inline constexpr auto stateType = "VektSaturatorState";
 inline constexpr auto projectStateType = "VektSaturatorProjectState";
 inline constexpr auto projectStateVersion = 2;
 inline constexpr auto presetProductIdentifier = "com.vekt.saturator";
+inline constexpr auto currentFactoryPreset = "currentFactoryPreset";
 inline constexpr std::array soundParameterIds {
 	inputGain,
 	drive,
