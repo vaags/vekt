@@ -133,6 +133,28 @@ TEST_CASE("Saturator processor produces finite stereo audio", "[processor]")
 			REQUIRE(std::isfinite(buffer.getSample(channel, sample)));
 }
 
+TEST_CASE("Saturator processor bounds oversized host blocks", "[processor]")
+{
+	constexpr auto preparedBlockSize = 64;
+	constexpr auto hostBlockSize = 257;
+	vekt::saturator::PluginProcessor processor;
+	juce::AudioBuffer<float> buffer(2, hostBlockSize);
+	juce::MidiBuffer midi;
+	processor.prepareToPlay(48'000.0, preparedBlockSize);
+
+	for (auto channel = 0; channel < buffer.getNumChannels(); ++channel)
+		for (auto sample = 0; sample < buffer.getNumSamples(); ++sample)
+			buffer.setSample(channel, sample, std::sin(static_cast<float>(sample) * 0.1f));
+
+	processor.processBlock(buffer, midi);
+	setParameter(processor, vekt::saturator::parameters::bypass, 1.0f);
+	processor.processBlock(buffer, midi);
+
+	for (auto channel = 0; channel < buffer.getNumChannels(); ++channel)
+		for (auto sample = 0; sample < buffer.getNumSamples(); ++sample)
+			REQUIRE(std::isfinite(buffer.getSample(channel, sample)));
+}
+
 TEST_CASE("Saturator processor state round trips parameters", "[processor][state]")
 {
 	vekt::saturator::PluginProcessor source;

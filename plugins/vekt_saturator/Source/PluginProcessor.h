@@ -70,6 +70,9 @@ private:
 	void handleAsyncUpdate() override;
 	void timerCallback() override;
 	void observeTransport() noexcept;
+	void processPreparedBlocks(
+		juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi, bool bypassed);
+	void processBypassedBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi);
 	void processEffectBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi);
 
 	juce::UndoManager undoManager;
@@ -93,6 +96,7 @@ private:
 	std::atomic<std::uint64_t> processCounter {};
 	std::uint64_t lastObservedProcessCounter {};
 	std::atomic<bool> prepared {};
+	int maximumPreparedBlockSize {};
 
 	dsp::OversamplingBank<float> oversampling { 2 };
 	dsp::LatencyAlignedBypass<float> bypassDelay;

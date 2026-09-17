@@ -75,6 +75,7 @@ void PluginProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
 	bypassDelay.prepare(specification, oversampling.getMaximumLatencySamples());
 	bypassDelay.setLatency(oversampling.getActiveLatencySamples());
 	bypassScratch.setSize(2, maximumBlockSize, false, false, true);
+	maximumPreparedBlockSize = maximumBlockSize;
 	setLatencySamples(oversampling.getActiveLatencySamples());
 
 	inputGain.prepare(specification);
@@ -88,6 +89,7 @@ void PluginProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
 void PluginProcessor::releaseResources()
 {
 	prepared.store(false);
+	maximumPreparedBlockSize = 0;
 }
 
 bool PluginProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
@@ -98,20 +100,45 @@ bool PluginProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 
 void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
-	if (bypassParameter->load() >= 0.5f)
-	{
-		processBlockBypassed(buffer, midi);
-		return;
-	}
-
 	observeTransport();
-	bypassDelay.advance(juce::dsp::AudioBlock<const float>(buffer));
-	processEffectBlock(buffer, midi);
+	processPreparedBlocks(buffer, midi, bypassParameter->load() >= 0.5f);
 }
 
 void PluginProcessor::processBlockBypassed(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
 	observeTransport();
+	processPreparedBlocks(buffer, midi, true);
+}
+
+void PluginProcessor::processPreparedBlocks(
+	juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi, bool bypassed)
+{
+	jassert(maximumPreparedBlockSize > 0);
+	if (maximumPreparedBlockSize <= 0)
+	{
+		buffer.clear();
+		return;
+	}
+
+	for (auto offset = 0; offset < buffer.getNumSamples(); offset += maximumPreparedBlockSize)
+	{
+		const auto blockSize = std::min(maximumPreparedBlockSize, buffer.getNumSamples() - offset);
+		juce::AudioBuffer<float> block(
+			buffer.getArrayOfWritePointers(), buffer.getNumChannels(), offset, blockSize);
+
+		if (bypassed)
+			processBypassedBlock(block, midi);
+		else
+		{
+			bypassDelay.advance(juce::dsp::AudioBlock<const float>(block));
+			processEffectBlock(block, midi);
+		}
+	}
+}
+
+void PluginProcessor::processBypassedBlock(
+	juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
+{
 	for (auto channel = 0; channel < buffer.getNumChannels(); ++channel)
 		bypassScratch.copyFrom(channel, 0, buffer, channel, 0, buffer.getNumSamples());
 

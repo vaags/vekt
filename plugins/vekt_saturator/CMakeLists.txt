@@ -29,6 +29,7 @@ target_sources(VektSaturator PRIVATE
 target_include_directories(VektSaturator PUBLIC Source)
 
 target_compile_definitions(VektSaturator PUBLIC
+	JUCE_STRICT_REFCOUNTEDPOINTER=1
 	JUCE_WEB_BROWSER=0
 	JUCE_USE_CURL=0
 	JUCE_VST3_CAN_REPLACE_VST2=0)
