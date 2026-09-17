@@ -52,3 +52,25 @@ Record:
 - 8x and 16x FIR are available for offline rendering but are not selected for tracking by default.
 
 Host validation remains separate: run `pluginval` at strictness 10, `auval`, and DAW smoke tests in Ableton Live, Logic Pro, and GarageBand after signing the generated bundles.
+
+## Development Audio Lab
+
+The first Audio Lab milestone is a deterministic headless renderer. It is
+opt-in and does not modify the production Standalone, VST3, or AUv3 targets.
+
+Run it with:
+
+```sh
+./scripts/render-report.sh --source sine --seconds 1 --mode 0
+```
+
+Sources are `silence`, `sine`, `sweep`, `impulse`, and `noise`. Modes use the
+numeric order `0` through `5`: Saturation, Overdrive, Distortion, Fuzz,
+Wavefold, and Bitcrush. Additional options include `--sample-rate` and
+`--block-size`.
+
+The renderer invokes the real processor in offline mode and reports sample
+count, RMS, peak, and plugin latency. Peaks above 0 dBFS are intentionally
+reported rather than limited so aggressive mode behavior remains visible.
+Live device input/output, capture, and hardware loopback are future Audio Lab
+phases and are not enabled by this renderer.

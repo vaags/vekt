@@ -29,6 +29,12 @@ Build the Standalone and VST3 development artifacts with:
 ./scripts/build-dev.sh
 ```
 
+Run a deterministic offline processor report without opening a DAW:
+
+```sh
+./scripts/render-report.sh --source sine --seconds 1 --mode 0
+```
+
 The `xcode` configure preset is reserved for AUv3-capable builds. It requires a
 full Xcode installation selected through `xcode-select`; Apple Command Line
 Tools alone are insufficient.
