@@ -12,6 +12,7 @@ add_executable(vekt_dsp_tests
 	 dsp/StereoPeakMeterTests.cpp
     presets/PresetTests.cpp
     processor/RavProcessorTests.cpp
+	processor/RavStageChainTests.cpp
     processor/AdaptiveAutoGainTests.cpp
 	processor/ParametersTests.cpp
     dsp/TanhStageTests.cpp)

@@ -51,7 +51,13 @@ PluginProcessor::PluginProcessor()
 	  responseParameter(requireParameter(parameterState, parameters::response)),
 	  textureParameter(requireParameter(parameterState, parameters::texture)),
 	  trackingOversamplingParameter(requireParameter(parameterState, parameters::trackingOversampling)),
-	  offlineOversamplingParameter(requireParameter(parameterState, parameters::offlineOversampling))
+	offlineOversamplingParameter(requireParameter(parameterState, parameters::offlineOversampling)),
+	stageEnabledParameters { requireParameter(parameterState, parameters::stageEnabledSaturation),
+									 requireParameter(parameterState, parameters::stageEnabledOverdrive),
+									 requireParameter(parameterState, parameters::stageEnabledDistortion),
+									 requireParameter(parameterState, parameters::stageEnabledFuzz),
+									 requireParameter(parameterState, parameters::stageEnabledWavefold),
+									 requireParameter(parameterState, parameters::stageEnabledBitcrush) }
 {
 	const auto factoryPresetResult = addFactoryPresets(presetCatalog);
 	jassert(factoryPresetResult.wasOk());
@@ -98,8 +104,9 @@ void PluginProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
 	const auto effectiveFactor = oversampling.getActiveFactor();
 	const auto effectiveSampleRate = sampleRate * static_cast<double>(effectiveFactor);
 	for (auto& band : bandStages)
-		for (auto& stage : band)
-			stage.prepare(effectiveSampleRate, sampleRate);
+		for (auto& channel : band)
+			for (auto& stage : channel)
+				stage.prepare(effectiveSampleRate, sampleRate);
 	crossover.prepare(
 		{ effectiveSampleRate, static_cast<juce::uint32>(maximumBlockSize * 4), 2 },
 		{ lowMidCutoffParameter->load(), midHighCutoffParameter->load() });
@@ -244,18 +251,28 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 	{
 		for (auto channel = 0; channel < 2; ++channel)
 			cleanBandBuffers[band].copyFrom(channel, 0, bandBuffers[band], channel, 0, samples);
+		const auto compatibilityMode = stageEnabledParameters[0]->load() >= 0.5f
+			&& std::all_of(stageEnabledParameters.begin() + 1, stageEnabledParameters.end(),
+				[](const auto* parameter) { return parameter->load() < 0.5f; });
 		for (auto channel = 0; channel < 2; ++channel)
 		{
-			const auto artifactSafeMode = currentMode == RavMode::fuzz
-				|| currentMode == RavMode::wavefold;
-			bandStages[band][static_cast<std::size_t>(channel)].setArtifactSafePolicy(artifactSafeMode);
-			bandStages[band][static_cast<std::size_t>(channel)].setParameters(
-				static_cast<RavMode>(juce::jlimit(0, 5, juce::roundToInt(modeParameter->load()))),
-				driveParameter->load(), biasParameter->load(), characterParameter->load(),
-				responseParameter->load(), textureParameter->load(), toneParameter->load());
-			bandStages[band][static_cast<std::size_t>(channel)].process(
-				std::span<float>(bandBuffers[band].getWritePointer(channel),
-					static_cast<std::size_t>(samples)));
+			for (const auto mode : stageChain.getOrder())
+			{
+				const auto modeIndex = static_cast<std::size_t>(mode);
+				auto& stage = bandStages[band][static_cast<std::size_t>(channel)][modeIndex];
+				stage.setArtifactSafePolicy(currentMode == RavMode::fuzz
+					|| currentMode == RavMode::wavefold);
+				const auto enabled = compatibilityMode
+					? mode == currentMode
+					: stageEnabledParameters[modeIndex]->load() >= 0.5f;
+				if (!enabled)
+					continue;
+				stage.setParameters(mode, driveParameter->load(), biasParameter->load(),
+					characterParameter->load(), responseParameter->load(),
+					textureParameter->load(), toneParameter->load());
+				stage.process(std::span<float>(bandBuffers[band].getWritePointer(channel),
+					static_cast<std::size_t>(samples)), mode != RavMode::bitcrush);
+			}
 		}
 		bandAutoGain[band].process(
 			juce::dsp::AudioBlock<const float>(cleanBandBuffers[band]),
@@ -671,8 +688,9 @@ void PluginProcessor::applyPendingQualityChange()
 		const auto effectiveSampleRate = getSampleRate()
 			* static_cast<double>(oversampling.getActiveFactor());
 		for (auto& band : bandStages)
-			for (auto& stage : band)
-				stage.prepare(effectiveSampleRate, getSampleRate());
+			for (auto& channel : band)
+				for (auto& stage : channel)
+					stage.prepare(effectiveSampleRate, getSampleRate());
 		for (auto& gain : bandAutoGain)
 			gain.prepare(getSampleRate());
 		crossover.prepare(

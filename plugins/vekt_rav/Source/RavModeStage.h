@@ -82,15 +82,17 @@ public:
 		tone.setPolicy(policy);
 	}
 
-	void process(std::span<float> samples) noexcept
+	void process(std::span<float> samples, bool includeBitcrush = true) noexcept
 	{
 		for (auto& sample : samples)
-			sample = processSample(sample);
+			sample = processSample(sample, includeBitcrush);
 	}
 
 private:
-	[[nodiscard]] float processSample(float input) noexcept
+	[[nodiscard]] float processSample(float input, bool includeBitcrush) noexcept
 	{
+		if (mode == RavMode::bitcrush && !includeBitcrush)
+			return input;
 		const auto driveDb = drive.getNextValue();
 		const auto biasValue = bias.getNextValue();
 		const auto characterValue = character.getNextValue();

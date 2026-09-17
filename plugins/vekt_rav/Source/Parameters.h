@@ -28,6 +28,17 @@ inline constexpr auto response = "response";
 inline constexpr auto texture = "texture";
 inline constexpr auto trackingOversampling = "trackingOversampling";
 inline constexpr auto offlineOversampling = "offlineOversampling";
+inline constexpr auto stageEnabledSaturation = "stageEnabledSaturation";
+inline constexpr auto stageEnabledOverdrive = "stageEnabledOverdrive";
+inline constexpr auto stageEnabledDistortion = "stageEnabledDistortion";
+inline constexpr auto stageEnabledFuzz = "stageEnabledFuzz";
+inline constexpr auto stageEnabledWavefold = "stageEnabledWavefold";
+inline constexpr auto stageEnabledBitcrush = "stageEnabledBitcrush";
+
+inline constexpr std::array stageEnabledIds {
+	stageEnabledSaturation, stageEnabledOverdrive, stageEnabledDistortion,
+	stageEnabledFuzz, stageEnabledWavefold, stageEnabledBitcrush
+};
 
 inline constexpr auto stateType = "VektRavState";
 inline constexpr auto projectStateType = "VektRavProjectState";

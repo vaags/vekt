@@ -72,6 +72,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 		layout.add(std::make_unique<juce::AudioParameterFloat>(
 			juce::ParameterID { parameter.first, parameterVersion }, parameter.second,
 			juce::NormalisableRange<float> { 0.0f, 1.0f, 0.001f }, 0.5f));
+	for (std::size_t index = 0; index < stageEnabledIds.size(); ++index)
+		layout.add(std::make_unique<juce::AudioParameterBool>(
+			juce::ParameterID { stageEnabledIds[index], parameterVersion }, stageEnabledIds[index], index == 0));
 
 	const auto qualityAttributes = juce::AudioParameterChoiceAttributes {}.withAutomatable(false);
     layout.add(std::make_unique<juce::AudioParameterChoice>(
