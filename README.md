@@ -37,10 +37,12 @@ Tools alone are insufficient.
 - Integer oversampling latency reporting
 - Linear dry/wet mixing with dry-path latency alignment
 - Versioned project state with legacy migration
-- Versioned sound-only JSON presets, embedded factory catalog, and filesystem repository
+- Versioned sound-only JSON presets with factory/user catalogs and platform-aware storage
 - Focused Catch2 tests
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for module and real-time rules.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for module and real-time rules,
+[docs/UI_UX.md](docs/UI_UX.md) for shared editor conventions, and
+[docs/PRESET_UX.md](docs/PRESET_UX.md) for preset-specific interactions.
 
 ## License
 

@@ -22,9 +22,11 @@ FilePresetRepository::FilePresetRepository(juce::File directory)
 juce::StringArray FilePresetRepository::list() const
 {
 	juce::StringArray names;
-	for (const auto& file : rootDirectory.findChildFiles(
-			juce::File::findFiles, false, "*" + juce::String(fileExtension)))
-		names.add(file.getFileNameWithoutExtension());
+	auto files = rootDirectory.findChildFiles(
+		juce::File::findFiles, false, "*" + juce::String(fileExtension));
+	files.sort();
+	for (const auto& file : files)
+		names.addIfNotAlreadyThere(file.getFileNameWithoutExtension(), true);
 
 	names.sortNatural();
 	return names;
@@ -43,7 +45,7 @@ juce::Result FilePresetRepository::load(
 	return PresetJsonCodec::decode(file.loadFileAsString(), destination);
 }
 
-juce::Result FilePresetRepository::save(const Preset& preset)
+juce::Result FilePresetRepository::save(const Preset& preset, PresetSaveMode mode)
 {
 	if (const auto result = PresetSchema::validateEnvelope(preset); result.failed())
 		return result;
@@ -51,6 +53,17 @@ juce::Result FilePresetRepository::save(const Preset& preset)
 	const auto name = preset.name.trim();
 	if (!isValidPresetName(name))
 		return juce::Result::fail("Preset name is not valid for storage");
+
+	for (const auto& existingName : list())
+	{
+		if (!existingName.equalsIgnoreCase(name))
+			continue;
+		if (mode == PresetSaveMode::createOnly)
+			return juce::Result::fail("Preset already exists");
+		if (existingName != name)
+			return juce::Result::fail("Preset name differs only by letter case");
+	}
+
 	if (const auto result = rootDirectory.createDirectory(); result.failed())
 		return result;
 

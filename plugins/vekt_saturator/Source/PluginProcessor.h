@@ -9,6 +9,7 @@
 #include <vekt/dsp/MatchedToneStage.h>
 #include <vekt/dsp/OversamplingBank.h>
 #include <vekt/dsp/TanhStage.h>
+#include <vekt/presets/FilePresetRepository.h>
 #include <vekt/presets/Preset.h>
 #include <vekt/presets/PresetCatalog.h>
 #include <vekt/state/StateManager.h>
@@ -19,6 +20,8 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <memory>
+#include <optional>
 
 namespace vekt::saturator
 {
@@ -60,6 +63,17 @@ public:
 	[[nodiscard]] presets::Preset createPreset(
 		const juce::String& name, const juce::NamedValueSet& metadata = {}) const;
 	[[nodiscard]] juce::Result applyPreset(const presets::Preset& preset);
+	[[nodiscard]] juce::Result configureUserPresetDirectory(const juce::File& directory);
+	[[nodiscard]] juce::Result saveUserPreset(
+		const juce::String& name,
+		presets::PresetSaveMode mode = presets::PresetSaveMode::createOnly);
+	[[nodiscard]] juce::Result removeUserPreset(const juce::String& name);
+	[[nodiscard]] juce::Result loadPreset(std::size_t index);
+	[[nodiscard]] juce::Result loadNextPreset();
+	[[nodiscard]] juce::Result loadPreviousPreset();
+	[[nodiscard]] const std::vector<presets::PresetEntry>& getPresetEntries() const noexcept;
+	[[nodiscard]] std::optional<std::size_t> getCurrentPresetIndex() const noexcept;
+	[[nodiscard]] bool isCurrentPresetModified() const;
 	[[nodiscard]] juce::AudioProcessorValueTreeState& getParameters() noexcept;
 	[[nodiscard]] juce::UndoManager& getUndoManager() noexcept;
 	[[nodiscard]] juce::ValueTree& getProjectMetadata() noexcept;
@@ -72,6 +86,7 @@ private:
 
 	[[nodiscard]] static std::atomic<float>* requireParameter(
 		juce::AudioProcessorValueTreeState& state, const char* identifier);
+	static void assertMessageThread();
 	void parameterChanged(const juce::String& parameterId, float newValue) override;
 	void handleAsyncUpdate() override;
 	void timerCallback() override;
@@ -85,7 +100,10 @@ private:
 	juce::UndoManager undoManager;
 	juce::AudioProcessorValueTreeState parameterState;
 	state::StateManager stateManager;
+	std::unique_ptr<presets::FilePresetRepository> userPresetRepository;
 	presets::PresetCatalog presetCatalog;
+	std::optional<std::size_t> currentPresetIndex;
+	std::optional<presets::Preset> currentPresetSnapshot;
 	int currentProgram {};
 
 	std::atomic<float>* inputGainParameter;

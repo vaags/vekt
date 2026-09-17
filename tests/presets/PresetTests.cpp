@@ -1,6 +1,7 @@
 #include <FactoryPresets.h>
 #include <Parameters.h>
 #include <PluginProcessor.h>
+#include <UserPresetPaths.h>
 
 #include <vekt/presets/FilePresetRepository.h>
 #include <vekt/presets/PresetCatalog.h>
@@ -118,17 +119,27 @@ TEST_CASE("File preset repositories round trip human-readable documents", "[pres
 	const auto preset = processor.createPreset("Factory Warm", metadata);
 
 	REQUIRE(repository.save(preset).wasOk());
+	REQUIRE(repository.save(preset).failed());
+	auto differentlyCasedPreset = preset;
+	differentlyCasedPreset.name = "factory warm";
+	REQUIRE(repository.save(
+		differentlyCasedPreset, vekt::presets::PresetSaveMode::replaceExisting).failed());
+	setParameter(processor, vekt::saturator::parameters::drive, 18.0f);
+	const auto replacement = processor.createPreset("Factory Warm", metadata);
+	REQUIRE(repository.save(
+		replacement, vekt::presets::PresetSaveMode::replaceExisting).wasOk());
 	REQUIRE(repository.list() == juce::StringArray { "Factory Warm" });
 	vekt::presets::Preset restored;
 	REQUIRE(repository.load("Factory Warm", restored).wasOk());
-	REQUIRE(restored.schemaVersion == preset.schemaVersion);
-	REQUIRE(restored.productIdentifier == preset.productIdentifier);
-	REQUIRE(restored.name == preset.name);
-	REQUIRE(restored.parameters.size() == preset.parameters.size());
-	for (std::size_t index = 0; index < preset.parameters.size(); ++index)
+	REQUIRE(restored.schemaVersion == replacement.schemaVersion);
+	REQUIRE(restored.productIdentifier == replacement.productIdentifier);
+	REQUIRE(restored.name == replacement.name);
+	REQUIRE(restored.parameters.size() == replacement.parameters.size());
+	for (std::size_t index = 0; index < replacement.parameters.size(); ++index)
 	{
-		REQUIRE(restored.parameters[index].identifier == preset.parameters[index].identifier);
-		REQUIRE(restored.parameters[index].value == Catch::Approx(preset.parameters[index].value));
+		REQUIRE(restored.parameters[index].identifier == replacement.parameters[index].identifier);
+		REQUIRE(restored.parameters[index].value
+			== Catch::Approx(replacement.parameters[index].value));
 	}
 	REQUIRE(restored.metadata["category"].toString() == "Warm");
 	const auto text = directory.get().getChildFile("Factory Warm.vektpreset").loadFileAsString();
@@ -179,6 +190,114 @@ TEST_CASE("Preset catalogs combine factory and user presets deterministically", 
 	REQUIRE(catalog.loadFactoryPreset(1, loaded).failed());
 	REQUIRE(catalog.nextIndex(2) == 0);
 	REQUIRE(catalog.previousIndex(0) == 2);
+}
+
+TEST_CASE("Preset catalogs own user preset lifecycle and navigation", "[presets]")
+{
+	ScopedTemporaryDirectory directory;
+	vekt::presets::FilePresetRepository repository(directory.get());
+	vekt::presets::PresetCatalog catalog(repository);
+	vekt::saturator::PluginProcessor processor;
+	REQUIRE(vekt::saturator::addFactoryPresets(catalog).wasOk());
+
+	REQUIRE(catalog.saveUserPreset(processor.createPreset("My Drive")).wasOk());
+	const auto userIndex = catalog.find("My Drive", vekt::presets::PresetOrigin::user);
+	REQUIRE(userIndex.has_value());
+	REQUIRE(catalog.nextIndex(*userIndex) == 0);
+	REQUIRE(catalog.previousIndex(0) == *userIndex);
+	REQUIRE(catalog.saveUserPreset(processor.createPreset("clean heat")).failed());
+	REQUIRE(catalog.removeUserPreset("Clean Heat").failed());
+	REQUIRE(catalog.removeUserPreset("My Drive").wasOk());
+	REQUIRE_FALSE(catalog.find("My Drive", vekt::presets::PresetOrigin::user).has_value());
+
+	vekt::presets::PresetCatalog factoryOnly;
+	REQUIRE(factoryOnly.saveUserPreset(processor.createPreset("Unavailable")).failed());
+	REQUIRE(factoryOnly.removeUserPreset("Unavailable").failed());
+}
+
+TEST_CASE("Saturator user preset paths keep desktop and AUv3 storage separate", "[presets]")
+{
+	const auto desktop = vekt::saturator::UserPresetPaths::desktop();
+	const auto expectedDesktop = juce::File::getSpecialLocation(juce::File::userHomeDirectory)
+		.getChildFile("Library/Audio/Presets/Vekt/Vekt Saturator");
+	REQUIRE(desktop == expectedDesktop);
+
+	const auto container = juce::File("/AppGroupContainer");
+	REQUIRE(vekt::saturator::UserPresetPaths::insideContainer(container)
+		== container.getChildFile("Library/Audio/Presets/Vekt/Vekt Saturator"));
+
+	juce::File destination = desktop;
+	REQUIRE(vekt::saturator::UserPresetPaths::auv3AppGroup({}, destination).failed());
+	REQUIRE(destination == desktop);
+}
+
+TEST_CASE("Saturator user preset services do not change its host program bank", "[presets]")
+{
+	ScopedTemporaryDirectory directory;
+	vekt::saturator::PluginProcessor processor;
+	REQUIRE(processor.configureUserPresetDirectory(directory.get()).wasOk());
+	const auto hostProgramCount = processor.getNumPrograms();
+	REQUIRE(processor.getCurrentPresetIndex() == 0);
+	REQUIRE_FALSE(processor.isCurrentPresetModified());
+
+	setParameter(processor, vekt::saturator::parameters::drive, 18.0f);
+	REQUIRE(processor.isCurrentPresetModified());
+	REQUIRE(processor.saveUserPreset("My Drive").wasOk());
+	REQUIRE_FALSE(processor.isCurrentPresetModified());
+	REQUIRE(processor.saveUserPreset("My Drive").failed());
+	REQUIRE(processor.saveUserPreset(
+		"my drive", vekt::presets::PresetSaveMode::replaceExisting).failed());
+	setParameter(processor, vekt::saturator::parameters::drive, 24.0f);
+	REQUIRE(processor.isCurrentPresetModified());
+	REQUIRE(processor.saveUserPreset("Other Drive").wasOk());
+	REQUIRE_FALSE(processor.isCurrentPresetModified());
+	REQUIRE(processor.configureUserPresetDirectory(directory.get()).wasOk());
+	REQUIRE(processor.getCurrentPresetIndex()
+		== processor.getPresetEntries().size() - 1);
+	REQUIRE_FALSE(processor.isCurrentPresetModified());
+	REQUIRE(processor.getNumPrograms() == hostProgramCount);
+	REQUIRE(processor.getPresetEntries().size()
+		== static_cast<std::size_t>(hostProgramCount + 2));
+	REQUIRE(processor.removeUserPreset("My Drive").wasOk());
+	REQUIRE_FALSE(processor.isCurrentPresetModified());
+	REQUIRE(processor.loadNextPreset().wasOk());
+	REQUIRE_FALSE(processor.isCurrentPresetModified());
+	REQUIRE(getParameter(processor, vekt::saturator::parameters::drive)
+		== Catch::Approx(6.0f));
+	REQUIRE(processor.getUndoManager().undo());
+	REQUIRE(processor.isCurrentPresetModified());
+
+	processor.setCurrentProgram(0);
+	REQUIRE_FALSE(processor.isCurrentPresetModified());
+	REQUIRE(processor.loadPreviousPreset().wasOk());
+	REQUIRE_FALSE(processor.isCurrentPresetModified());
+	REQUIRE(getParameter(processor, vekt::saturator::parameters::drive)
+		== Catch::Approx(24.0f));
+	REQUIRE(processor.loadNextPreset().wasOk());
+	REQUIRE(getParameter(processor, vekt::saturator::parameters::drive)
+		== Catch::Approx(6.0f));
+
+	REQUIRE(processor.loadPreviousPreset().wasOk());
+	REQUIRE(processor.removeUserPreset("Other Drive").wasOk());
+	REQUIRE_FALSE(processor.getCurrentPresetIndex().has_value());
+	REQUIRE_FALSE(processor.isCurrentPresetModified());
+	REQUIRE(processor.getPresetEntries().size()
+		== static_cast<std::size_t>(hostProgramCount));
+	REQUIRE(processor.getNumPrograms() == hostProgramCount);
+	REQUIRE(processor.configureUserPresetDirectory({}).failed());
+}
+
+TEST_CASE("Direct preset application clears named preset selection", "[presets]")
+{
+	vekt::saturator::PluginProcessor source;
+	setParameter(source, vekt::saturator::parameters::drive, 18.0f);
+	const auto imported = source.createPreset("Imported");
+
+	vekt::saturator::PluginProcessor processor;
+	REQUIRE(processor.getCurrentPresetIndex() == 0);
+	REQUIRE(processor.applyPreset(imported).wasOk());
+	REQUIRE_FALSE(processor.getCurrentPresetIndex().has_value());
+	REQUIRE_FALSE(processor.isCurrentPresetModified());
 }
 
 TEST_CASE("Embedded saturator factory presets use the public preset schema", "[presets]")

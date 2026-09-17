@@ -72,6 +72,9 @@ codec, and exposed as an immutable bank through the host program API. The
 selected factory name is persisted in project metadata. User presets remain a
 separate mutable editor-facing source, are listed in natural sort order, and
 cannot shadow a case-insensitively matching factory name.
+Desktop user presets resolve beneath `~/Library/Audio/Presets/Vekt/Vekt
+Saturator`. AUv3 callers must provide an app-group identifier; failure to resolve
+its container is reported and never falls back to desktop storage.
 
 ## Validation
 
@@ -79,3 +82,7 @@ Each DSP primitive receives focused tests before integration. The release gates
 will additionally include allocation checks, FFT alias measurements, latency and
 null tests, state migration tests, pluginval strictness 10, `auval`, and host
 smoke tests for VST3 and AUv3.
+
+Shared editor behavior and validation criteria are defined in
+[`UI_UX.md`](UI_UX.md); preset-specific interaction rules are defined in
+[`PRESET_UX.md`](PRESET_UX.md).

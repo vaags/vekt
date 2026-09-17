@@ -4,6 +4,12 @@
 
 namespace vekt::presets
 {
+enum class PresetSaveMode
+{
+	createOnly,
+	replaceExisting
+};
+
 class PresetRepository
 {
 public:
@@ -12,7 +18,8 @@ public:
 	[[nodiscard]] virtual juce::StringArray list() const = 0;
 	[[nodiscard]] virtual juce::Result load(
 		const juce::String& name, Preset& destination) const = 0;
-	[[nodiscard]] virtual juce::Result save(const Preset& preset) = 0;
+	[[nodiscard]] virtual juce::Result save(
+		const Preset& preset, PresetSaveMode mode = PresetSaveMode::createOnly) = 0;
 	[[nodiscard]] virtual juce::Result remove(const juce::String& name) = 0;
 };
 }

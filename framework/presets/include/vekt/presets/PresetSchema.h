@@ -24,12 +24,18 @@ public:
 		const juce::AudioProcessorValueTreeState& parameters,
 		std::span<const char* const> soundParameterIds);
 	[[nodiscard]] static juce::Result validateEnvelope(const Preset& preset);
+	[[nodiscard]] static bool matches(
+		const Preset& preset,
+		const juce::String& expectedProductIdentifier,
+		const juce::AudioProcessorValueTreeState& parameters,
+		std::span<const char* const> soundParameterIds);
 
 	[[nodiscard]] static juce::Result apply(
 		const Preset& preset,
 		const juce::String& expectedProductIdentifier,
 		juce::AudioProcessorValueTreeState& parameters,
-		std::span<const char* const> soundParameterIds);
+		std::span<const char* const> soundParameterIds,
+		juce::UndoManager* undoManager = nullptr);
 
 	inline static constexpr auto currentSchemaVersion = 1;
 };

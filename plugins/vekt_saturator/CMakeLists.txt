@@ -32,7 +32,8 @@ juce_add_binary_data(VektSaturatorFactoryData
 target_sources(VektSaturator PRIVATE
 	Source/FactoryPresets.cpp
 	Source/Parameters.cpp
-	Source/PluginProcessor.cpp)
+	Source/PluginProcessor.cpp
+	Source/UserPresetPaths.cpp)
 
 target_include_directories(VektSaturator PUBLIC Source)
 

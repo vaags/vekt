@@ -28,9 +28,14 @@ public:
 	[[nodiscard]] juce::Result addFactoryPreset(const juce::String& json);
 	void setUserRepository(PresetRepository* userRepository);
 	void refresh();
+	[[nodiscard]] juce::Result saveUserPreset(
+		const Preset& preset, PresetSaveMode mode = PresetSaveMode::createOnly);
+	[[nodiscard]] juce::Result removeUserPreset(const juce::String& name);
 
 	[[nodiscard]] const std::vector<PresetEntry>& entries() const noexcept;
 	[[nodiscard]] juce::Result load(std::size_t index, Preset& destination) const;
+	[[nodiscard]] std::optional<std::size_t> find(
+		const juce::String& name, PresetOrigin origin) const noexcept;
 	[[nodiscard]] std::size_t factoryPresetCount() const noexcept;
 	[[nodiscard]] juce::String factoryPresetName(std::size_t index) const;
 	[[nodiscard]] juce::Result loadFactoryPreset(

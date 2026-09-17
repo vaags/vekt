@@ -56,6 +56,34 @@ void PresetCatalog::refresh()
 			catalogEntries.push_back({ name, PresetOrigin::user });
 }
 
+juce::Result PresetCatalog::saveUserPreset(const Preset& preset, PresetSaveMode mode)
+{
+	if (userPresets == nullptr)
+		return juce::Result::fail("User preset repository is unavailable");
+	if (containsName(factoryPresets, preset.name))
+		return juce::Result::fail("User preset name conflicts with a factory preset");
+
+	if (const auto result = userPresets->save(preset, mode); result.failed())
+		return result;
+
+	refresh();
+	return juce::Result::ok();
+}
+
+juce::Result PresetCatalog::removeUserPreset(const juce::String& name)
+{
+	if (userPresets == nullptr)
+		return juce::Result::fail("User preset repository is unavailable");
+	if (containsName(factoryPresets, name))
+		return juce::Result::fail("Factory presets cannot be removed");
+
+	if (const auto result = userPresets->remove(name); result.failed())
+		return result;
+
+	refresh();
+	return juce::Result::ok();
+}
+
 const std::vector<PresetEntry>& PresetCatalog::entries() const noexcept
 {
 	return catalogEntries;
@@ -75,6 +103,17 @@ juce::Result PresetCatalog::load(std::size_t index, Preset& destination) const
 	if (userPresets == nullptr)
 		return juce::Result::fail("User preset repository is unavailable");
 	return userPresets->load(catalogEntries[index].name, destination);
+}
+
+std::optional<std::size_t> PresetCatalog::find(
+	const juce::String& name, PresetOrigin origin) const noexcept
+{
+	for (std::size_t index = 0; index < catalogEntries.size(); ++index)
+		if (catalogEntries[index].origin == origin
+			&& catalogEntries[index].name.equalsIgnoreCase(name))
+			return index;
+
+	return std::nullopt;
 }
 
 std::size_t PresetCatalog::factoryPresetCount() const noexcept

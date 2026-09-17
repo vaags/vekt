@@ -45,8 +45,14 @@ PluginProcessor::PluginProcessor()
 	jassert(factoryPresetResult.wasOk());
 	juce::ignoreUnused(factoryPresetResult);
 	if (presetCatalog.factoryPresetCount() > 0)
+	{
+		currentPresetIndex = 0;
+		presets::Preset initialPreset;
+		if (presetCatalog.loadFactoryPreset(0, initialPreset).wasOk())
+			currentPresetSnapshot = std::move(initialPreset);
 		stateManager.getMetadata().setProperty(
 			parameters::currentFactoryPreset, presetCatalog.factoryPresetName(0), nullptr);
+	}
 	requestedOversamplingFactor.store(oversamplingFactorParameter->load());
 	requestedOversamplingPhase.store(oversamplingPhaseParameter->load());
 	parameterState.addParameterListener(parameters::oversamplingFactor, this);
@@ -220,15 +226,9 @@ void PluginProcessor::setCurrentProgram(int index)
 	if (index < 0)
 		return;
 
-	presets::Preset preset;
-	if (presetCatalog.loadFactoryPreset(static_cast<std::size_t>(index), preset).failed())
-		return;
-	if (applyPreset(preset).wasOk())
-	{
-		currentProgram = index;
-		stateManager.getMetadata().setProperty(
-			parameters::currentFactoryPreset, preset.name, nullptr);
-	}
+	const auto factoryIndex = static_cast<std::size_t>(index);
+	if (factoryIndex < presetCatalog.factoryPresetCount())
+		juce::ignoreUnused(loadPreset(factoryIndex));
 }
 
 const juce::String PluginProcessor::getProgramName(int index)
@@ -271,8 +271,7 @@ presets::Preset PluginProcessor::createPreset(
 
 juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 {
-	jassert(juce::MessageManager::getInstanceWithoutCreating() == nullptr
-		|| juce::MessageManager::getInstanceWithoutCreating()->isThisTheMessageThread());
+	assertMessageThread();
 	if (const auto result = presets::PresetSchema::validate(
 			preset,
 			parameters::presetProductIdentifier,
@@ -282,11 +281,139 @@ juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 		return result;
 
 	undoManager.beginNewTransaction("Load preset: " + preset.name);
-	return presets::PresetSchema::apply(
+	const auto result = presets::PresetSchema::apply(
 		preset,
 		parameters::presetProductIdentifier,
 		parameterState,
-		parameters::soundParameterIds);
+		parameters::soundParameterIds,
+		&undoManager);
+	if (result.wasOk())
+	{
+		currentPresetIndex.reset();
+		currentPresetSnapshot.reset();
+	}
+	return result;
+}
+
+juce::Result PluginProcessor::configureUserPresetDirectory(const juce::File& directory)
+{
+	assertMessageThread();
+	if (directory == juce::File {})
+		return juce::Result::fail("User preset directory is empty");
+
+	std::optional<presets::PresetEntry> selectedEntry;
+	if (currentPresetIndex && *currentPresetIndex < presetCatalog.entries().size())
+		selectedEntry = presetCatalog.entries()[*currentPresetIndex];
+	userPresetRepository = std::make_unique<presets::FilePresetRepository>(directory);
+	presetCatalog.setUserRepository(userPresetRepository.get());
+	currentPresetIndex = selectedEntry
+		? presetCatalog.find(selectedEntry->name, selectedEntry->origin)
+		: std::nullopt;
+	if (currentPresetIndex)
+	{
+		presets::Preset preset;
+		currentPresetSnapshot = presetCatalog.load(*currentPresetIndex, preset).wasOk()
+			? std::optional<presets::Preset> { std::move(preset) }
+			: std::nullopt;
+	}
+	else
+		currentPresetSnapshot.reset();
+	return juce::Result::ok();
+}
+
+juce::Result PluginProcessor::saveUserPreset(
+	const juce::String& name, presets::PresetSaveMode mode)
+{
+	assertMessageThread();
+	auto preset = createPreset(name);
+	if (const auto result = presetCatalog.saveUserPreset(preset, mode); result.failed())
+		return result;
+
+	currentPresetIndex = presetCatalog.find(name.trim(), presets::PresetOrigin::user);
+	currentPresetSnapshot = std::move(preset);
+	return juce::Result::ok();
+}
+
+juce::Result PluginProcessor::removeUserPreset(const juce::String& name)
+{
+	assertMessageThread();
+	std::optional<presets::PresetEntry> selectedEntry;
+	if (currentPresetIndex && *currentPresetIndex < presetCatalog.entries().size())
+		selectedEntry = presetCatalog.entries()[*currentPresetIndex];
+	if (const auto result = presetCatalog.removeUserPreset(name); result.failed())
+		return result;
+
+	if (!selectedEntry
+		|| (selectedEntry->origin == presets::PresetOrigin::user
+			&& selectedEntry->name.equalsIgnoreCase(name)))
+		currentPresetIndex.reset();
+	else
+		currentPresetIndex = presetCatalog.find(selectedEntry->name, selectedEntry->origin);
+	if (!currentPresetIndex)
+		currentPresetSnapshot.reset();
+	return juce::Result::ok();
+}
+
+juce::Result PluginProcessor::loadPreset(std::size_t index)
+{
+	assertMessageThread();
+	presets::Preset preset;
+	if (const auto result = presetCatalog.load(index, preset); result.failed())
+		return result;
+	if (const auto result = applyPreset(preset); result.failed())
+		return result;
+
+	currentPresetIndex = index;
+	currentPresetSnapshot = preset;
+	if (presetCatalog.entries()[index].origin == presets::PresetOrigin::factory)
+	{
+		currentProgram = static_cast<int>(index);
+		stateManager.getMetadata().setProperty(
+			parameters::currentFactoryPreset, preset.name, nullptr);
+	}
+	return juce::Result::ok();
+}
+
+juce::Result PluginProcessor::loadNextPreset()
+{
+	if (presetCatalog.entries().empty())
+		return juce::Result::fail("Preset catalog is empty");
+	if (!currentPresetIndex)
+		return loadPreset(0);
+
+	const auto next = presetCatalog.nextIndex(*currentPresetIndex);
+	return next ? loadPreset(*next) : juce::Result::fail("Current preset is unavailable");
+}
+
+juce::Result PluginProcessor::loadPreviousPreset()
+{
+	if (presetCatalog.entries().empty())
+		return juce::Result::fail("Preset catalog is empty");
+	if (!currentPresetIndex)
+		return loadPreset(presetCatalog.entries().size() - 1);
+
+	const auto previous = presetCatalog.previousIndex(*currentPresetIndex);
+	return previous ? loadPreset(*previous) : juce::Result::fail("Current preset is unavailable");
+}
+
+const std::vector<presets::PresetEntry>& PluginProcessor::getPresetEntries() const noexcept
+{
+	return presetCatalog.entries();
+}
+
+std::optional<std::size_t> PluginProcessor::getCurrentPresetIndex() const noexcept
+{
+	return currentPresetIndex;
+}
+
+bool PluginProcessor::isCurrentPresetModified() const
+{
+	return currentPresetSnapshot
+		&& !presets::PresetSchema::matches(
+			*currentPresetSnapshot,
+			parameters::presetProductIdentifier,
+			parameterState,
+			parameters::soundParameterIds);
 }
 
 juce::AudioProcessorValueTreeState& PluginProcessor::getParameters() noexcept
@@ -309,9 +436,22 @@ void PluginProcessor::restoreCurrentProgramFromMetadata()
 	const auto name = stateManager.getMetadata()
 		.getProperty(parameters::currentFactoryPreset).toString();
 	if (const auto index = presetCatalog.findFactoryPreset(name))
+	{
 		currentProgram = static_cast<int>(*index);
+		currentPresetIndex = index;
+		presets::Preset preset;
+		currentPresetSnapshot = presetCatalog.loadFactoryPreset(*index, preset).wasOk()
+			? std::optional<presets::Preset> { std::move(preset) }
+			: std::nullopt;
+	}
 	else
+	{
 		currentProgram = 0;
+		currentPresetIndex = presetCatalog.factoryPresetCount() > 0
+			? std::optional<std::size_t> { 0 }
+			: std::nullopt;
+		currentPresetSnapshot.reset();
+	}
 }
 
 dsp::OversamplingQuality PluginProcessor::getActiveQuality() const noexcept
@@ -330,6 +470,12 @@ std::atomic<float>* PluginProcessor::requireParameter(
 	auto* parameter = state.getRawParameterValue(identifier);
 	jassert(parameter != nullptr);
 	return parameter;
+}
+
+void PluginProcessor::assertMessageThread()
+{
+	jassert(juce::MessageManager::getInstanceWithoutCreating() == nullptr
+		|| juce::MessageManager::getInstanceWithoutCreating()->isThisTheMessageThread());
 }
 
 void PluginProcessor::parameterChanged(const juce::String& parameterId, float newValue)
