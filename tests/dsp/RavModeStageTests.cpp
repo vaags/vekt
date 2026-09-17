@@ -81,6 +81,27 @@ TEST_CASE("Rav Bitcrush hold timing is base-rate invariant", "[dsp][rav][bitcrus
 	}
 }
 
+TEST_CASE("Rav Bitcrush Bias controls quantizer asymmetry", "[dsp][rav][bitcrush]")
+{
+	vekt::rav::RavModeStage positiveBias;
+	vekt::rav::RavModeStage negativeBias;
+	positiveBias.prepare(48'000.0);
+	negativeBias.prepare(48'000.0);
+	positiveBias.setParameters(vekt::rav::RavMode::bitcrush, 12.0f, 1.0f, 0.5f, 0.5f, 0.0f);
+	negativeBias.setParameters(vekt::rav::RavMode::bitcrush, 12.0f, -1.0f, 0.5f, 0.5f, 0.0f);
+	positiveBias.reset();
+	negativeBias.reset();
+
+	std::array positiveSamples { 0.37f, -0.37f };
+	std::array negativeSamples { 0.37f, -0.37f };
+	positiveBias.process(positiveSamples);
+	negativeBias.process(negativeSamples);
+
+	REQUIRE(std::isfinite(positiveSamples[0]));
+	REQUIRE(std::isfinite(negativeSamples[0]));
+	REQUIRE(positiveSamples != negativeSamples);
+}
+
 TEST_CASE("Rav mode stage supports slow Bias modulation", "[dsp][rav][bias]")
 {
 	vekt::rav::RavModeStage stage;

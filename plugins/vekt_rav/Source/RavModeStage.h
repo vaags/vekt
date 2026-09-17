@@ -75,7 +75,7 @@ public:
 		const auto policy = enabled ? dsp::ControlTransitionPolicy::artifactSafe
 			: dsp::ControlTransitionPolicy::normal;
 		drive.setPolicy(policy);
-		bias.setPolicy(policy);
+		bias.setPolicy(enabled ? dsp::ControlTransitionPolicy::operatingPoint : policy);
 		character.setPolicy(policy);
 		response.setPolicy(policy);
 		texture.setPolicy(policy);
@@ -165,7 +165,12 @@ private:
 				if (holdPhase >= 1.0f)
 				{
 					holdPhase -= std::floor(holdPhase);
-					holdValue = std::round((driven + biasValue * textureValue) * levels) / levels;
+					const auto asymmetry = std::clamp(biasValue * 0.75f,
+						-0.75f, 0.75f);
+					const auto positiveLevels = levels * (1.0f + asymmetry);
+					const auto negativeLevels = levels * (1.0f - asymmetry);
+					const auto quantizerLevels = driven >= 0.0f ? positiveLevels : negativeLevels;
+					holdValue = std::round(driven * quantizerLevels) / quantizerLevels;
 				}
 				output = holdValue;
 				break;

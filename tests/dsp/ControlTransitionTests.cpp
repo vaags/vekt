@@ -6,7 +6,7 @@
 TEST_CASE("ControlTransition reaches its target without overshoot", "[dsp][control]")
 {
 	vekt::dsp::ControlTransition<float> transition;
-	transition.prepare(48'000.0, 0.01, 0.5);
+	transition.prepare(48'000.0, 0.01, 0.5, 1.0);
 	transition.setCurrentAndTargetValue(0.0f);
 	transition.setTargetValue(1.0f);
 
