@@ -11,6 +11,7 @@ inline constexpr auto drive = "drive";
 inline constexpr auto tone = "tone";
 inline constexpr auto bias = "bias";
 inline constexpr auto autoGain = "autoGain";
+inline constexpr auto bypass = "bypass";
 inline constexpr auto mix = "mix";
 inline constexpr auto outputGain = "outputGain";
 inline constexpr auto oversamplingFactor = "oversamplingFactor";

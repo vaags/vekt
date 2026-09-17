@@ -140,12 +140,15 @@ TEST_CASE("Saturator processor state round trips parameters", "[processor][state
 	auto* sourceDrive = source.getParameters().getParameter(vekt::saturator::parameters::drive);
 	auto* sourceTone = source.getParameters().getParameter(vekt::saturator::parameters::tone);
 	auto* sourceAutoGain = source.getParameters().getParameter(vekt::saturator::parameters::autoGain);
+	auto* sourceBypass = source.getParameters().getParameter(vekt::saturator::parameters::bypass);
 	REQUIRE(sourceDrive != nullptr);
 	REQUIRE(sourceTone != nullptr);
 	REQUIRE(sourceAutoGain != nullptr);
+	REQUIRE(sourceBypass != nullptr);
 	sourceDrive->setValueNotifyingHost(sourceDrive->convertTo0to1(18.0f));
 	sourceTone->setValueNotifyingHost(sourceTone->convertTo0to1(-3.0f));
 	sourceAutoGain->setValueNotifyingHost(1.0f);
+	sourceBypass->setValueNotifyingHost(1.0f);
 
 	juce::MemoryBlock state;
 	source.getStateInformation(state);
@@ -157,12 +160,16 @@ TEST_CASE("Saturator processor state round trips parameters", "[processor][state
 		vekt::saturator::parameters::tone);
 	const auto* restoredAutoGain = restored.getParameters().getRawParameterValue(
 		vekt::saturator::parameters::autoGain);
+	const auto* restoredBypass = restored.getParameters().getRawParameterValue(
+		vekt::saturator::parameters::bypass);
 	REQUIRE(restoredDrive != nullptr);
 	REQUIRE(restoredTone != nullptr);
 	REQUIRE(restoredAutoGain != nullptr);
+	REQUIRE(restoredBypass != nullptr);
 	REQUIRE(restoredDrive->load() == Catch::Approx(18.0f));
 	REQUIRE(restoredTone->load() == Catch::Approx(-3.0f));
 	REQUIRE(restoredAutoGain->load() == Catch::Approx(1.0f));
+	REQUIRE(restoredBypass->load() == Catch::Approx(1.0f));
 }
 
 TEST_CASE("Saturator processor bypass preserves reported latency across transitions", "[processor][bypass]")
@@ -186,6 +193,35 @@ TEST_CASE("Saturator processor bypass preserves reported latency across transiti
 
 	REQUIRE(buffer.getSample(0, latency - 1) == Catch::Approx(1.0f));
 	REQUIRE(buffer.getSample(1, latency - 1) == Catch::Approx(0.0f));
+}
+
+TEST_CASE("Saturator bypass parameter returns latency-aligned raw input", "[processor][bypass]")
+{
+	constexpr auto blockSize = 128;
+	vekt::saturator::PluginProcessor processor;
+	setParameter(processor, vekt::saturator::parameters::inputGain, 24.0f);
+	setParameter(processor, vekt::saturator::parameters::drive, 36.0f);
+	setParameter(processor, vekt::saturator::parameters::tone, 6.0f);
+	setParameter(processor, vekt::saturator::parameters::bias, 1.0f);
+	setParameter(processor, vekt::saturator::parameters::outputGain, 24.0f);
+	setParameter(processor, vekt::saturator::parameters::bypass, 1.0f);
+	processor.prepareToPlay(48'000.0, blockSize);
+
+	auto* bypassParameter = processor.getParameters().getParameter(
+		vekt::saturator::parameters::bypass);
+	REQUIRE(bypassParameter != nullptr);
+	REQUIRE(processor.getBypassParameter() == bypassParameter);
+
+	juce::AudioBuffer<float> buffer(2, blockSize);
+	juce::MidiBuffer midi;
+	buffer.clear();
+	buffer.setSample(0, 0, 0.25f);
+	buffer.setSample(1, 0, -0.5f);
+	processor.processBlock(buffer, midi);
+
+	const auto latency = processor.getLatencySamples();
+	REQUIRE(buffer.getSample(0, latency) == Catch::Approx(0.25f));
+	REQUIRE(buffer.getSample(1, latency) == Catch::Approx(-0.5f));
 }
 
 TEST_CASE("Saturator processor applies quality changes while stopped", "[processor][quality]")

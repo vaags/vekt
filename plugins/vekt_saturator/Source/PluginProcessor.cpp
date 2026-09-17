@@ -16,6 +16,7 @@ PluginProcessor::PluginProcessor()
 	  toneParameter(requireParameter(parameterState, parameters::tone)),
 	  biasParameter(requireParameter(parameterState, parameters::bias)),
 	  autoGainParameter(requireParameter(parameterState, parameters::autoGain)),
+	  bypassParameter(requireParameter(parameterState, parameters::bypass)),
 	  mixParameter(requireParameter(parameterState, parameters::mix)),
 	  outputGainParameter(requireParameter(parameterState, parameters::outputGain)),
 	  oversamplingFactorParameter(requireParameter(parameterState, parameters::oversamplingFactor)),
@@ -82,6 +83,12 @@ bool PluginProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 
 void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
+	if (bypassParameter->load() >= 0.5f)
+	{
+		processBlockBypassed(buffer, midi);
+		return;
+	}
+
 	observeTransport();
 	bypassDelay.advance(juce::dsp::AudioBlock<const float>(buffer));
 	processEffectBlock(buffer, midi);
@@ -145,6 +152,10 @@ bool PluginProcessor::acceptsMidi() const { return false; }
 bool PluginProcessor::producesMidi() const { return false; }
 bool PluginProcessor::isMidiEffect() const { return false; }
 double PluginProcessor::getTailLengthSeconds() const { return 0.0; }
+juce::AudioProcessorParameter* PluginProcessor::getBypassParameter() const
+{
+	return parameterState.getParameter(parameters::bypass);
+}
 int PluginProcessor::getNumPrograms() { return 1; }
 int PluginProcessor::getCurrentProgram() { return 0; }
 void PluginProcessor::setCurrentProgram(int index) { juce::ignoreUnused(index); }

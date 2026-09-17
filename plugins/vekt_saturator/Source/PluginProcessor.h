@@ -43,6 +43,7 @@ public:
 	[[nodiscard]] bool producesMidi() const override;
 	[[nodiscard]] bool isMidiEffect() const override;
 	[[nodiscard]] double getTailLengthSeconds() const override;
+	[[nodiscard]] juce::AudioProcessorParameter* getBypassParameter() const override;
 
 	int getNumPrograms() override;
 	int getCurrentProgram() override;
@@ -77,6 +78,7 @@ private:
 	std::atomic<float>* toneParameter;
 	std::atomic<float>* biasParameter;
 	std::atomic<float>* autoGainParameter;
+	std::atomic<float>* bypassParameter;
 	std::atomic<float>* mixParameter;
 	std::atomic<float>* outputGainParameter;
 	std::atomic<float>* oversamplingFactorParameter;
