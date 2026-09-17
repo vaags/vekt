@@ -26,6 +26,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 		juce::NormalisableRange<float> { 0.0f, 36.0f, 0.01f }, 6.0f,
 		juce::AudioParameterFloatAttributes {}.withLabel("dB")));
 	layout.add(std::make_unique<juce::AudioParameterFloat>(
+		juce::ParameterID { tone, parameterVersion }, "Tone",
+		juce::NormalisableRange<float> { -6.0f, 6.0f, 0.01f }, 0.0f,
+		juce::AudioParameterFloatAttributes {}.withLabel("dB/oct")));
+	layout.add(std::make_unique<juce::AudioParameterFloat>(
 		juce::ParameterID { bias, parameterVersion }, "Bias",
 		juce::NormalisableRange<float> { -1.0f, 1.0f, 0.001f }, 0.0f));
 	layout.add(std::make_unique<juce::AudioParameterFloat>(

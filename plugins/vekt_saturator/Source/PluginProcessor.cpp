@@ -13,6 +13,7 @@ PluginProcessor::PluginProcessor()
 	  parameterState(*this, &undoManager, parameters::stateType, parameters::createLayout()),
 	  inputGainParameter(requireParameter(parameterState, parameters::inputGain)),
 	  driveParameter(requireParameter(parameterState, parameters::drive)),
+	  toneParameter(requireParameter(parameterState, parameters::tone)),
 	  biasParameter(requireParameter(parameterState, parameters::bias)),
 	  mixParameter(requireParameter(parameterState, parameters::mix)),
 	  outputGainParameter(requireParameter(parameterState, parameters::outputGain)),
@@ -46,6 +47,7 @@ void PluginProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
 	requestedOversamplingPhase.store(oversamplingPhaseParameter->load());
 	oversampling.activate(parameters::qualityFrom(
 		requestedOversamplingFactor.load(), requestedOversamplingPhase.load()));
+	toneStage.prepare(sampleRate, 2);
 	tanhStage.prepare(sampleRate * static_cast<double>(oversampling.getActiveFactor()));
 	for (auto& dcBlocker : dcBlockers)
 		dcBlocker.prepare(sampleRate);
@@ -106,12 +108,14 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 	inputGain.setGainDecibels(inputGainParameter->load());
 	outputGain.setGainDecibels(outputGainParameter->load());
 	dryWetMixer.setWetProportion(mixParameter->load() * 0.01f);
+	toneStage.setSlopeDbPerOctave(toneParameter->load());
 	tanhStage.setDriveLinear(juce::Decibels::decibelsToGain(driveParameter->load()));
 	tanhStage.setBias(biasParameter->load());
 
 	juce::dsp::AudioBlock<float> block(buffer);
 	inputGain.process(juce::dsp::ProcessContextReplacing<float>(block));
 	dryWetMixer.pushDrySamples(juce::dsp::AudioBlock<const float>(block));
+	toneStage.processPre(block);
 
 	auto oversampled = oversampling.processSamplesUp(juce::dsp::AudioBlock<const float>(block));
 	for (std::size_t channel = 0; channel < oversampled.getNumChannels(); ++channel)
@@ -119,6 +123,7 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 	oversampling.processSamplesDown(block);
 	for (std::size_t channel = 0; channel < block.getNumChannels(); ++channel)
 		dcBlockers[channel].process(std::span<float>(block.getChannelPointer(channel), block.getNumSamples()));
+	toneStage.processPost(block);
 
 	dryWetMixer.mixWetSamples(block);
 	outputGain.process(juce::dsp::ProcessContextReplacing<float>(block));

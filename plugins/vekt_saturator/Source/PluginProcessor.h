@@ -5,6 +5,7 @@
 #include <vekt/dsp/DcBlocker.h>
 #include <vekt/dsp/LatencyAlignedBypass.h>
 #include <vekt/dsp/LatencyAlignedMixer.h>
+#include <vekt/dsp/MatchedToneStage.h>
 #include <vekt/dsp/OversamplingBank.h>
 #include <vekt/dsp/TanhStage.h>
 
@@ -72,6 +73,7 @@ private:
 
 	std::atomic<float>* inputGainParameter;
 	std::atomic<float>* driveParameter;
+	std::atomic<float>* toneParameter;
 	std::atomic<float>* biasParameter;
 	std::atomic<float>* mixParameter;
 	std::atomic<float>* outputGainParameter;
@@ -88,6 +90,7 @@ private:
 	dsp::OversamplingBank<float> oversampling { 2 };
 	dsp::LatencyAlignedBypass<float> bypassDelay;
 	dsp::LatencyAlignedMixer<float> dryWetMixer;
+	dsp::MatchedToneStage<float> toneStage;
 	dsp::TanhStage<float> tanhStage;
 	std::array<dsp::DcBlocker<float>, 2> dcBlockers;
 	juce::dsp::Gain<float> inputGain;

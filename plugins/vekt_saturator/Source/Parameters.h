@@ -8,6 +8,7 @@ namespace vekt::saturator::parameters
 {
 inline constexpr auto inputGain = "inputGain";
 inline constexpr auto drive = "drive";
+inline constexpr auto tone = "tone";
 inline constexpr auto bias = "bias";
 inline constexpr auto mix = "mix";
 inline constexpr auto outputGain = "outputGain";

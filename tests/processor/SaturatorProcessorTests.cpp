@@ -40,6 +40,9 @@ TEST_CASE("Saturator processor produces finite stereo audio", "[processor]")
 	juce::AudioBuffer<float> buffer(2, 128);
 	juce::MidiBuffer midi;
 	processor.prepareToPlay(48'000.0, buffer.getNumSamples());
+	auto* tone = processor.getParameters().getParameter(vekt::saturator::parameters::tone);
+	REQUIRE(tone != nullptr);
+	tone->setValueNotifyingHost(tone->convertTo0to1(6.0f));
 
 	for (auto channel = 0; channel < buffer.getNumChannels(); ++channel)
 		for (auto sample = 0; sample < buffer.getNumSamples(); ++sample)
@@ -57,8 +60,11 @@ TEST_CASE("Saturator processor state round trips parameters", "[processor][state
 	vekt::saturator::PluginProcessor source;
 	vekt::saturator::PluginProcessor restored;
 	auto* sourceDrive = source.getParameters().getParameter(vekt::saturator::parameters::drive);
+	auto* sourceTone = source.getParameters().getParameter(vekt::saturator::parameters::tone);
 	REQUIRE(sourceDrive != nullptr);
+	REQUIRE(sourceTone != nullptr);
 	sourceDrive->setValueNotifyingHost(sourceDrive->convertTo0to1(18.0f));
+	sourceTone->setValueNotifyingHost(sourceTone->convertTo0to1(-3.0f));
 
 	juce::MemoryBlock state;
 	source.getStateInformation(state);
@@ -66,8 +72,12 @@ TEST_CASE("Saturator processor state round trips parameters", "[processor][state
 
 	const auto* restoredDrive = restored.getParameters().getRawParameterValue(
 		vekt::saturator::parameters::drive);
+	const auto* restoredTone = restored.getParameters().getRawParameterValue(
+		vekt::saturator::parameters::tone);
 	REQUIRE(restoredDrive != nullptr);
+	REQUIRE(restoredTone != nullptr);
 	REQUIRE(restoredDrive->load() == Catch::Approx(18.0f));
+	REQUIRE(restoredTone->load() == Catch::Approx(-3.0f));
 }
 
 TEST_CASE("Saturator processor bypass preserves reported latency across transitions", "[processor][bypass]")

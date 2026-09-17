@@ -2,6 +2,7 @@ add_executable(vekt_dsp_tests
     dsp/DcBlockerTests.cpp
     dsp/LatencyAlignedBypassTests.cpp
     dsp/LatencyAlignedMixerTests.cpp
+    dsp/MatchedToneStageTests.cpp
     dsp/OversamplingBankTests.cpp
     processor/SaturatorProcessorTests.cpp
     dsp/TanhStageTests.cpp)
