@@ -108,8 +108,8 @@ void PluginProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
 		bands.setSize(2, maximumOversampledBlockSize, false, false, true);
 	for (auto& bands : cleanBandBuffers)
 		bands.setSize(2, maximumOversampledBlockSize, false, false, true);
-	autoGainReference.setSize(2, maximumBlockSize, false, false, true);
-	autoGain.prepare(sampleRate);
+	for (auto& gain : bandAutoGain)
+		gain.prepare(effectiveSampleRate);
 	for (auto& dcBlocker : dcBlockers)
 		dcBlocker.prepare(sampleRate);
 
@@ -217,9 +217,6 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 
 	juce::dsp::AudioBlock<float> block(buffer);
 	inputGain.process(juce::dsp::ProcessContextReplacing<float>(block));
-	for (std::size_t channel = 0; channel < block.getNumChannels(); ++channel)
-		autoGainReference.copyFrom(static_cast<int>(channel), 0, buffer,
-		static_cast<int>(channel), 0, buffer.getNumSamples());
 	dryWetMixer.pushDrySamples(juce::dsp::AudioBlock<const float>(block));
 	toneStage.processPre(block);
 
@@ -260,6 +257,10 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 				std::span<float>(bandBuffers[band].getWritePointer(channel),
 					static_cast<std::size_t>(samples)));
 		}
+		bandAutoGain[band].process(
+			juce::dsp::AudioBlock<const float>(cleanBandBuffers[band]),
+			juce::dsp::AudioBlock<float>(bandBuffers[band]),
+			autoGainParameter->load() >= 0.5f);
 		for (auto channel = 0; channel < 2; ++channel)
 			for (auto sample = 0; sample < samples; ++sample)
 				bandBuffers[band].setSample(channel, sample,
@@ -276,10 +277,6 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 	for (std::size_t channel = 0; channel < block.getNumChannels(); ++channel)
 		dcBlockers[channel].process(std::span<float>(block.getChannelPointer(channel), block.getNumSamples()));
 	toneStage.processPost(block);
-	autoGain.process(
-		juce::dsp::AudioBlock<const float>(autoGainReference), block,
-		autoGainParameter->load() >= 0.5f);
-
 	dryWetMixer.mixWetSamples(block);
 	outputGain.process(juce::dsp::ProcessContextReplacing<float>(block));
 }
@@ -676,6 +673,8 @@ void PluginProcessor::applyPendingQualityChange()
 		for (auto& band : bandStages)
 			for (auto& stage : band)
 				stage.prepare(effectiveSampleRate, getSampleRate());
+		for (auto& gain : bandAutoGain)
+			gain.prepare(getSampleRate());
 		crossover.prepare(
 			{ effectiveSampleRate, static_cast<juce::uint32>(maximumPreparedBlockSize * 4), 2 },
 			{ lowMidCutoffParameter->load(), midHighCutoffParameter->load() });

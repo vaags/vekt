@@ -149,9 +149,8 @@ private:
 	dsp::ThreeBandCrossover<float> crossover;
 	std::array<juce::AudioBuffer<float>, 3> bandBuffers;
 	std::array<juce::AudioBuffer<float>, 3> cleanBandBuffers;
-	juce::AudioBuffer<float> autoGainReference;
 	std::array<dsp::DcBlocker<float>, 2> dcBlockers;
-	AdaptiveAutoGain<float> autoGain;
+	std::array<AdaptiveAutoGain<float>, 3> bandAutoGain;
 	dsp::StereoPeakMeter inputMeter;
 	dsp::StereoPeakMeter outputMeter;
 	juce::dsp::Gain<float> inputGain;
