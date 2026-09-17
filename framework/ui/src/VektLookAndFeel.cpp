@@ -27,9 +27,10 @@ void VektLookAndFeel::drawRotarySlider(juce::Graphics& graphics, int x, int y, i
 	arc.addCentredArc(centre.x, centre.y, radius, radius, 0.0f, startAngle,
 		startAngle + position * (endAngle - startAngle), true);
 	graphics.strokePath(arc, juce::PathStrokeType(2.5f));
-    const auto angle = startAngle + position * (endAngle - startAngle);
+	const auto angle = startAngle + position * (endAngle - startAngle);
     graphics.drawLine(centre.x, centre.y,
-                      centre.x + std::cos(angle) * radius * 0.72f,
-                      centre.y + std::sin(angle) * radius * 0.72f, 3.0f);
+		centre.x + std::cos(angle - juce::MathConstants<float>::halfPi) * radius * 0.72f,
+		centre.y + std::sin(angle - juce::MathConstants<float>::halfPi) * radius * 0.72f,
+		3.0f);
 }
 }
