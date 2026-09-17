@@ -130,10 +130,10 @@ private:
 	std::atomic<float>* characterParameter;
 	std::atomic<float>* responseParameter;
 	std::atomic<float>* textureParameter;
-	std::atomic<float>* oversamplingFactorParameter;
-	std::atomic<float>* oversamplingPhaseParameter;
-	std::atomic<float> requestedOversamplingFactor { 2.0f };
-	std::atomic<float> requestedOversamplingPhase {};
+	std::atomic<float> *trackingOversamplingParameter;
+	std::atomic<float> *offlineOversamplingParameter;
+	std::atomic<float> requestedTrackingOversampling{2.0f};
+	std::atomic<float> requestedOfflineOversampling{4.0f};
 	std::atomic<bool> qualityChangePending {};
 	std::atomic<bool> transportPlaying {};
 	std::atomic<std::uint64_t> processCounter {};

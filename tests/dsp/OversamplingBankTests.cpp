@@ -10,14 +10,14 @@
 
 namespace
 {
-constexpr std::array qualities {
-    vekt::dsp::OversamplingQuality { vekt::dsp::OversamplingFactor::off, vekt::dsp::OversamplingPhase::minimum },
-    vekt::dsp::OversamplingQuality { vekt::dsp::OversamplingFactor::off, vekt::dsp::OversamplingPhase::linear },
-    vekt::dsp::OversamplingQuality { vekt::dsp::OversamplingFactor::x2, vekt::dsp::OversamplingPhase::minimum },
-    vekt::dsp::OversamplingQuality { vekt::dsp::OversamplingFactor::x2, vekt::dsp::OversamplingPhase::linear },
-    vekt::dsp::OversamplingQuality { vekt::dsp::OversamplingFactor::x4, vekt::dsp::OversamplingPhase::minimum },
-    vekt::dsp::OversamplingQuality { vekt::dsp::OversamplingFactor::x4, vekt::dsp::OversamplingPhase::linear }
-};
+    constexpr std::array qualities{
+        vekt::dsp::OversamplingQuality{vekt::dsp::OversamplingFactor::off, vekt::dsp::OversamplingFilter::polyphaseIIR},
+        vekt::dsp::OversamplingQuality{vekt::dsp::OversamplingFactor::x2, vekt::dsp::OversamplingFilter::polyphaseIIR},
+        vekt::dsp::OversamplingQuality{vekt::dsp::OversamplingFactor::x4, vekt::dsp::OversamplingFilter::polyphaseIIR},
+        vekt::dsp::OversamplingQuality{vekt::dsp::OversamplingFactor::x2, vekt::dsp::OversamplingFilter::polyphaseFIR},
+        vekt::dsp::OversamplingQuality{vekt::dsp::OversamplingFactor::x4, vekt::dsp::OversamplingFilter::polyphaseFIR},
+        vekt::dsp::OversamplingQuality{vekt::dsp::OversamplingFactor::x8, vekt::dsp::OversamplingFilter::polyphaseFIR},
+        vekt::dsp::OversamplingQuality{vekt::dsp::OversamplingFactor::x16, vekt::dsp::OversamplingFilter::polyphaseFIR}};
 }
 
 TEST_CASE("OversamplingBank exposes every configured quality path", "[dsp][oversampling]")

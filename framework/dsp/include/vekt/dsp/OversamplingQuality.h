@@ -8,19 +8,21 @@ enum class OversamplingFactor
 {
     off,
     x2,
-    x4
+    x4,
+    x8,
+    x16
 };
 
-enum class OversamplingPhase
+enum class OversamplingFilter
 {
-    minimum,
-    linear
+    polyphaseIIR,
+    polyphaseFIR
 };
 
 struct OversamplingQuality
 {
     OversamplingFactor factor { OversamplingFactor::x4 };
-    OversamplingPhase phase { OversamplingPhase::minimum };
+    OversamplingFilter filter{OversamplingFilter::polyphaseIIR};
 
     [[nodiscard]] constexpr std::size_t multiplier() const noexcept
     {
@@ -29,7 +31,11 @@ struct OversamplingQuality
             case OversamplingFactor::off: return 1;
             case OversamplingFactor::x2:  return 2;
             case OversamplingFactor::x4:  return 4;
-        }
+            case OversamplingFactor::x8:
+                return 8;
+            case OversamplingFactor::x16:
+                return 16;
+            }
 
         return 1;
     }

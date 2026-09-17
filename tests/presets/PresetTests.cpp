@@ -55,31 +55,30 @@ TEST_CASE("Preset documents apply only sound parameters", "[presets]")
 	setParameter(source, vekt::saturator::parameters::drive, 18.0f);
 	setParameter(source, vekt::saturator::parameters::bias, 0.25f);
 	setParameter(source, vekt::saturator::parameters::bypass, 1.0f);
-	setParameter(source, vekt::saturator::parameters::oversamplingFactor, 0.0f);
+    setParameter(source, vekt::saturator::parameters::trackingOversampling, 0.0f);
 
-	const auto preset = source.createPreset("Driven");
+    const auto preset = source.createPreset("Driven");
 	REQUIRE(preset.parameters.size()
 		== vekt::saturator::parameters::soundParameterIds.size());
 	for (const auto& value : preset.parameters)
 	{
 		REQUIRE(value.identifier != vekt::saturator::parameters::bypass);
-		REQUIRE(value.identifier != vekt::saturator::parameters::oversamplingFactor);
-		REQUIRE(value.identifier != vekt::saturator::parameters::oversamplingPhase);
-	}
+        REQUIRE(value.identifier != vekt::saturator::parameters::trackingOversampling);
+        REQUIRE(value.identifier != vekt::saturator::parameters::offlineOversampling);
+    }
 
 	vekt::saturator::PluginProcessor restored;
 	setParameter(restored, vekt::saturator::parameters::bypass, 1.0f);
-	setParameter(restored, vekt::saturator::parameters::oversamplingFactor, 1.0f);
-	restored.getProjectMetadata().setProperty("editorWidth", 900, nullptr);
+    setParameter(restored, vekt::saturator::parameters::trackingOversampling, 1.0f);
+    restored.getProjectMetadata().setProperty("editorWidth", 900, nullptr);
 	const auto result = restored.applyPreset(preset);
 
 	REQUIRE(result.wasOk());
 	REQUIRE(getParameter(restored, vekt::saturator::parameters::drive) == Catch::Approx(18.0f));
 	REQUIRE(getParameter(restored, vekt::saturator::parameters::bias) == Catch::Approx(0.25f));
 	REQUIRE(getParameter(restored, vekt::saturator::parameters::bypass) == Catch::Approx(1.0f));
-	REQUIRE(getParameter(restored, vekt::saturator::parameters::oversamplingFactor)
-		== Catch::Approx(1.0f));
-	REQUIRE(static_cast<int>(restored.getProjectMetadata().getProperty("editorWidth")) == 900);
+    REQUIRE(getParameter(restored, vekt::saturator::parameters::trackingOversampling) == Catch::Approx(1.0f));
+    REQUIRE(static_cast<int>(restored.getProjectMetadata().getProperty("editorWidth")) == 900);
 	REQUIRE(restored.getUndoManager().undo());
 	REQUIRE(getParameter(restored, vekt::saturator::parameters::drive) == Catch::Approx(6.0f));
 	REQUIRE(getParameter(restored, vekt::saturator::parameters::bias)

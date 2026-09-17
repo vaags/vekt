@@ -17,13 +17,14 @@ class OversamplingBank final
 {
 public:
     explicit OversamplingBank(std::size_t channelCount)
-        : paths {
-            std::make_unique<Oversampler>(channelCount),
-            makePath(channelCount, 1, FilterType::filterHalfBandPolyphaseIIR),
-            makePath(channelCount, 2, FilterType::filterHalfBandPolyphaseIIR),
-            makePath(channelCount, 1, FilterType::filterHalfBandFIREquiripple),
-            makePath(channelCount, 2, FilterType::filterHalfBandFIREquiripple)
-        }
+        : paths{
+              std::make_unique<Oversampler>(channelCount),
+              makePath(channelCount, 1, FilterType::filterHalfBandPolyphaseIIR),
+              makePath(channelCount, 2, FilterType::filterHalfBandPolyphaseIIR),
+              makePath(channelCount, 1, FilterType::filterHalfBandFIREquiripple),
+              makePath(channelCount, 2, FilterType::filterHalfBandFIREquiripple),
+              makePath(channelCount, 3, FilterType::filterHalfBandFIREquiripple),
+              makePath(channelCount, 4, FilterType::filterHalfBandFIREquiripple)}
     {
     }
 
@@ -60,6 +61,11 @@ public:
     [[nodiscard]] std::size_t getActiveFactor() const noexcept
     {
         return paths[activePathIndex]->getOversamplingFactor();
+    }
+
+    [[nodiscard]] std::size_t getMaximumFactor() const noexcept
+    {
+        return 16;
     }
 
     [[nodiscard]] int getActiveLatencySamples() const noexcept
@@ -100,9 +106,24 @@ private:
         if (quality.factor == OversamplingFactor::off)
             return 0;
 
-        const auto factorOffset = quality.factor == OversamplingFactor::x2 ? 0U : 1U;
-        const auto phaseOffset = quality.phase == OversamplingPhase::minimum ? 1U : 3U;
-        return phaseOffset + factorOffset;
+        if (quality.filter == OversamplingFilter::polyphaseIIR)
+            return quality.factor == OversamplingFactor::x2 ? 1U : 2U;
+
+        switch (quality.factor)
+        {
+        case OversamplingFactor::x2:
+            return 3U;
+        case OversamplingFactor::x4:
+            return 4U;
+        case OversamplingFactor::x8:
+            return 5U;
+        case OversamplingFactor::x16:
+            return 6U;
+        case OversamplingFactor::off:
+            break;
+        }
+
+        return 0;
     }
 
     [[nodiscard]] static int latencyOf(const Oversampler& path) noexcept
@@ -110,7 +131,7 @@ private:
         return static_cast<int>(std::lround(path.getLatencyInSamples()));
     }
 
-    std::array<std::unique_ptr<Oversampler>, 5> paths;
+    std::array<std::unique_ptr<Oversampler>, 7> paths;
     OversamplingQuality activeQuality {};
     std::size_t activePathIndex { pathIndex(activeQuality) };
     int maximumLatencySamples {};

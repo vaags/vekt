@@ -49,10 +49,9 @@ double renderAutoGainErrorDb(
 	setParameter(processor, vekt::saturator::parameters::tone, 0.0f);
 	setParameter(processor, vekt::saturator::parameters::mix, 100.0f);
 	setParameter(processor, vekt::saturator::parameters::autoGain, 1.0f);
-	setParameter(processor, vekt::saturator::parameters::oversamplingFactor,
-		static_cast<float>(oversamplingFactorIndex));
-	setParameter(processor, vekt::saturator::parameters::oversamplingPhase,
-		static_cast<float>(oversamplingPhaseIndex));
+	setParameter(processor, vekt::saturator::parameters::trackingOversampling,
+				 static_cast<float>(oversamplingFactorIndex));
+	juce::ignoreUnused(oversamplingPhaseIndex);
 	processor.prepareToPlay(sampleRate, blockSize);
 
 	juce::MidiBuffer midi;
@@ -107,6 +106,23 @@ TEST_CASE("Saturator processor defaults to quality-first oversampling", "[proces
 	REQUIRE(processor.getLatencySamples() > 0);
 	REQUIRE(processor.getTotalNumInputChannels() == 2);
 	REQUIRE(processor.getTotalNumOutputChannels() == 2);
+}
+
+TEST_CASE("Saturator processor selects tracking and offline oversampling profiles", "[processor][quality]")
+{
+	vekt::saturator::PluginProcessor processor;
+	setParameter(processor, vekt::saturator::parameters::trackingOversampling, 2.0f);
+	setParameter(processor, vekt::saturator::parameters::offlineOversampling, 4.0f);
+
+	processor.setNonRealtime(false);
+	processor.prepareToPlay(48'000.0, 64);
+	REQUIRE(processor.getActiveQuality().factor == vekt::dsp::OversamplingFactor::x4);
+	REQUIRE(processor.getActiveQuality().filter == vekt::dsp::OversamplingFilter::polyphaseIIR);
+
+	processor.setNonRealtime(true);
+	processor.prepareToPlay(48'000.0, 64);
+	REQUIRE(processor.getActiveQuality().factor == vekt::dsp::OversamplingFactor::x16);
+	REQUIRE(processor.getActiveQuality().filter == vekt::dsp::OversamplingFilter::polyphaseFIR);
 }
 
 TEST_CASE("Saturator processor produces finite stereo audio", "[processor]")
@@ -308,8 +324,8 @@ TEST_CASE("Saturator processor applies quality changes while stopped", "[process
 {
 	vekt::saturator::PluginProcessor processor;
 	processor.prepareToPlay(48'000.0, 128);
-	auto* factor = processor.getParameters().getParameter(
-		vekt::saturator::parameters::oversamplingFactor);
+	auto *factor = processor.getParameters().getParameter(
+		vekt::saturator::parameters::trackingOversampling);
 	REQUIRE(factor != nullptr);
 
 	factor->setValueNotifyingHost(0.0f);
@@ -332,8 +348,8 @@ TEST_CASE("Saturator processor defers quality changes during playback", "[proces
 	playHead.playing = true;
 	buffer.clear();
 	processor.processBlock(buffer, midi);
-	auto* factor = processor.getParameters().getParameter(
-		vekt::saturator::parameters::oversamplingFactor);
+	auto *factor = processor.getParameters().getParameter(
+		vekt::saturator::parameters::trackingOversampling);
 	REQUIRE(factor != nullptr);
 	factor->setValueNotifyingHost(0.0f);
 	processor.applyPendingQualityChange();

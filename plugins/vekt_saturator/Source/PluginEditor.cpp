@@ -23,14 +23,14 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 	presetLabel.setJustificationType(juce::Justification::centred);
 	qualityLabel.setJustificationType(juce::Justification::centredRight);
 	meterLabel.setJustificationType(juce::Justification::centred);
-	for (juce::Component* component : { static_cast<juce::Component*>(&title),
-		static_cast<juce::Component*>(&presetLabel), static_cast<juce::Component*>(&qualityLabel),
-		static_cast<juce::Component*>(&meterLabel), static_cast<juce::Component*>(&previousButton),
-		static_cast<juce::Component*>(&nextButton), static_cast<juce::Component*>(&undoButton),
-		static_cast<juce::Component*>(&redoButton), static_cast<juce::Component*>(&bypassButton),
-		static_cast<juce::Component*>(&autoGainButton), static_cast<juce::Component*>(&factorBox),
-		static_cast<juce::Component*>(&phaseBox), static_cast<juce::Component*>(&modeBox) })
-		getContent().addAndMakeVisible(*component);
+    for (juce::Component *component : {static_cast<juce::Component *>(&title),
+                                       static_cast<juce::Component *>(&presetLabel), static_cast<juce::Component *>(&qualityLabel),
+                                       static_cast<juce::Component *>(&meterLabel), static_cast<juce::Component *>(&previousButton),
+                                       static_cast<juce::Component *>(&nextButton), static_cast<juce::Component *>(&undoButton),
+                                       static_cast<juce::Component *>(&redoButton), static_cast<juce::Component *>(&bypassButton),
+                                       static_cast<juce::Component *>(&autoGainButton), static_cast<juce::Component *>(&trackingBox),
+                                       static_cast<juce::Component *>(&offlineBox), static_cast<juce::Component *>(&modeBox)})
+        getContent().addAndMakeVisible(*component);
 
 	for (std::size_t index = 0; index < sliders.size(); ++index)
 		configureRotary(sliders[index], sliderLabels[index], parameterNames[index], parameterIds[index], sliderAttachments[index]);
@@ -47,24 +47,27 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 		configureRotary(cutoffSliders[index], cutoffLabels[index], names[index], ids[index], cutoffAttachments[index]);
 	}
 
-	factorBox.addItem("Off", 1);
-	factorBox.addItem("2x", 2);
-	factorBox.addItem("4x", 3);
-	modeBox.addItemList({ "Saturation", "Overdrive", "Distortion", "Fuzz", "Wavefold", "Bitcrush" }, 1);
-	phaseBox.addItem("Minimum Phase", 1);
-	phaseBox.addItem("Linear Phase", 2);
-	factorAttachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), parameters::oversamplingFactor, factorBox);
-	phaseAttachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), parameters::oversamplingPhase, phaseBox);
-	modeAttachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), parameters::mode, modeBox);
+    trackingBox.addItem("Off", 1);
+    trackingBox.addItem("2x IIR", 2);
+    trackingBox.addItem("4x IIR", 3);
+    offlineBox.addItem("Off", 1);
+    offlineBox.addItem("2x FIR", 2);
+    offlineBox.addItem("4x FIR", 3);
+    offlineBox.addItem("8x FIR", 4);
+    offlineBox.addItem("16x FIR", 5);
+    modeBox.addItemList({"Saturation", "Overdrive", "Distortion", "Fuzz", "Wavefold", "Bitcrush"}, 1);
+    trackingAttachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), parameters::trackingOversampling, trackingBox);
+    offlineAttachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), parameters::offlineOversampling, offlineBox);
+    modeAttachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), parameters::mode, modeBox);
 	bypassAttachment = std::make_unique<ButtonAttachment>(pluginProcessor.getParameters(), parameters::bypass, bypassButton);
 	autoGainAttachment = std::make_unique<ButtonAttachment>(pluginProcessor.getParameters(), parameters::autoGain, autoGainButton);
 
 	previousButton.onClick = [this] { juce::ignoreUnused(pluginProcessor.loadPreviousPreset()); refreshPresetLabel(); };
 	nextButton.onClick = [this] { juce::ignoreUnused(pluginProcessor.loadNextPreset()); refreshPresetLabel(); };
 	undoButton.onClick = [this] { pluginProcessor.getUndoManager().undo(); refreshPresetLabel(); };
-	redoButton.onClick = [this] { pluginProcessor.getUndoManager().redo(); refreshPresetLabel(); };
-	factorBox.onChange = [this] { phaseBox.setEnabled(factorBox.getSelectedId() != 1); };
-	refreshPresetLabel();
+    redoButton.onClick = [this]
+    { pluginProcessor.getUndoManager().redo(); refreshPresetLabel(); };
+    refreshPresetLabel();
 	startTimerHz(30);
 }
 
@@ -116,9 +119,9 @@ void PluginEditor::resized()
 		cutoffLabels[index].setBounds(x - 15, 407, 120, 22);
 	}
 	autoGainButton.setBounds(30, 392, 100, 28);
-	factorBox.setBounds(150, 392, 100, 28);
-	phaseBox.setBounds(260, 392, 140, 28);
-	qualityLabel.setBounds(414, 392, 280, 28);
+    trackingBox.setBounds(150, 392, 110, 28);
+    offlineBox.setBounds(270, 392, 120, 28);
+    qualityLabel.setBounds(414, 392, 280, 28);
 	meterLabel.setBounds(30, 432, 660, 24);
 	juce::ignoreUnused(content);
 }
@@ -133,10 +136,8 @@ void PluginEditor::timerCallback()
 		outputPeaks[channel] = std::max(outputPeaks[channel] * 0.88f, newOutputPeaks[channel]);
 	}
 	const auto quality = pluginProcessor.getActiveQuality();
-	qualityLabel.setText("Quality: " + juce::String(static_cast<int>(quality.multiplier())) + "x "
-		+ (quality.phase == dsp::OversamplingPhase::linear ? "Linear" : "Minimum")
-		+ (pluginProcessor.hasPendingQualityChange() ? " (pending)" : ""), juce::dontSendNotification);
-	meterLabel.setText("In " + juce::String(juce::Decibels::gainToDecibels(std::max(inputPeaks[0], inputPeaks[1]), -100.0f), 1)
+    qualityLabel.setText("Quality: " + juce::String(static_cast<int>(quality.multiplier())) + "x " + (quality.filter == dsp::OversamplingFilter::polyphaseFIR ? "FIR" : "IIR") + (pluginProcessor.hasPendingQualityChange() ? " (pending)" : ""), juce::dontSendNotification);
+    meterLabel.setText("In " + juce::String(juce::Decibels::gainToDecibels(std::max(inputPeaks[0], inputPeaks[1]), -100.0f), 1)
 		+ " dB    Out " + juce::String(juce::Decibels::gainToDecibels(std::max(outputPeaks[0], outputPeaks[1]), -100.0f), 1) + " dB", juce::dontSendNotification);
 	undoButton.setEnabled(pluginProcessor.getUndoManager().canUndo());
 	redoButton.setEnabled(pluginProcessor.getUndoManager().canRedo());

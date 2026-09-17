@@ -28,11 +28,11 @@ bool migrateProjectState(juce::ValueTree& state, int sourceVersion)
 
 PluginProcessor::PluginProcessor()
 	: AudioProcessor(BusesProperties()
-		.withInput("Input", juce::AudioChannelSet::stereo(), true)
-		.withOutput("Output", juce::AudioChannelSet::stereo(), true)),
+						 .withInput("Input", juce::AudioChannelSet::stereo(), true)
+						 .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
 	  parameterState(*this, &undoManager, parameters::stateType, parameters::createLayout()),
 	  stateManager(parameterState, parameters::projectStateType,
-		  parameters::projectStateVersion, migrateProjectState),
+				   parameters::projectStateVersion, migrateProjectState),
 	  inputGainParameter(requireParameter(parameterState, parameters::inputGain)),
 	  driveParameter(requireParameter(parameterState, parameters::drive)),
 	  toneParameter(requireParameter(parameterState, parameters::tone)),
@@ -50,8 +50,8 @@ PluginProcessor::PluginProcessor()
 	  characterParameter(requireParameter(parameterState, parameters::character)),
 	  responseParameter(requireParameter(parameterState, parameters::response)),
 	  textureParameter(requireParameter(parameterState, parameters::texture)),
-	  oversamplingFactorParameter(requireParameter(parameterState, parameters::oversamplingFactor)),
-	  oversamplingPhaseParameter(requireParameter(parameterState, parameters::oversamplingPhase))
+	  trackingOversamplingParameter(requireParameter(parameterState, parameters::trackingOversampling)),
+	  offlineOversamplingParameter(requireParameter(parameterState, parameters::offlineOversampling))
 {
 	const auto factoryPresetResult = addFactoryPresets(presetCatalog);
 	jassert(factoryPresetResult.wasOk());
@@ -65,18 +65,18 @@ PluginProcessor::PluginProcessor()
 		stateManager.getMetadata().setProperty(
 			parameters::currentFactoryPreset, presetCatalog.factoryPresetName(0), nullptr);
 	}
-	requestedOversamplingFactor.store(oversamplingFactorParameter->load());
-	requestedOversamplingPhase.store(oversamplingPhaseParameter->load());
-	parameterState.addParameterListener(parameters::oversamplingFactor, this);
-	parameterState.addParameterListener(parameters::oversamplingPhase, this);
+	requestedTrackingOversampling.store(trackingOversamplingParameter->load());
+	requestedOfflineOversampling.store(offlineOversamplingParameter->load());
+	parameterState.addParameterListener(parameters::trackingOversampling, this);
+	parameterState.addParameterListener(parameters::offlineOversampling, this);
 }
 
 PluginProcessor::~PluginProcessor()
 {
 	stopTimer();
 	cancelPendingUpdate();
-	parameterState.removeParameterListener(parameters::oversamplingFactor, this);
-	parameterState.removeParameterListener(parameters::oversamplingPhase, this);
+	parameterState.removeParameterListener(parameters::trackingOversampling, this);
+	parameterState.removeParameterListener(parameters::offlineOversampling, this);
 }
 
 void PluginProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
@@ -88,10 +88,12 @@ void PluginProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
 	};
 
 	oversampling.prepare(static_cast<std::size_t>(maximumBlockSize));
-	requestedOversamplingFactor.store(oversamplingFactorParameter->load());
-	requestedOversamplingPhase.store(oversamplingPhaseParameter->load());
-	oversampling.activate(parameters::qualityFrom(
-		requestedOversamplingFactor.load(), requestedOversamplingPhase.load()));
+	requestedTrackingOversampling.store(trackingOversamplingParameter->load());
+	requestedOfflineOversampling.store(offlineOversamplingParameter->load());
+	const auto initialQuality = isNonRealtime()
+									? parameters::offlineQualityFrom(requestedOfflineOversampling.load())
+									: parameters::trackingQualityFrom(requestedTrackingOversampling.load());
+	oversampling.activate(initialQuality);
 	toneStage.prepare(sampleRate, 2);
 	const auto effectiveFactor = oversampling.getActiveFactor();
 	const auto effectiveSampleRate = sampleRate * static_cast<double>(effectiveFactor);
@@ -100,10 +102,11 @@ void PluginProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
 	crossover.prepare(
 		{ effectiveSampleRate, static_cast<juce::uint32>(maximumBlockSize * 4), 2 },
 		{ lowMidCutoffParameter->load(), midHighCutoffParameter->load() });
+	const auto maximumOversampledBlockSize = maximumBlockSize * static_cast<int>(oversampling.getMaximumFactor());
 	for (auto& bands : bandBuffers)
-		bands.setSize(2, maximumBlockSize * 4, false, false, true);
+		bands.setSize(2, maximumOversampledBlockSize, false, false, true);
 	for (auto& bands : cleanBandBuffers)
-		bands.setSize(2, maximumBlockSize * 4, false, false, true);
+		bands.setSize(2, maximumOversampledBlockSize, false, false, true);
 	autoGain.prepare(sampleRate);
 	for (auto& dcBlocker : dcBlockers)
 		dcBlocker.prepare(sampleRate);
@@ -579,10 +582,10 @@ void PluginProcessor::assertMessageThread()
 
 void PluginProcessor::parameterChanged(const juce::String& parameterId, float newValue)
 {
-	if (parameterId == parameters::oversamplingFactor)
-		requestedOversamplingFactor.store(newValue);
-	else if (parameterId == parameters::oversamplingPhase)
-		requestedOversamplingPhase.store(newValue);
+	if (parameterId == parameters::trackingOversampling)
+		requestedTrackingOversampling.store(newValue);
+	else if (parameterId == parameters::offlineOversampling)
+		requestedOfflineOversampling.store(newValue);
 	else
 		return;
 
@@ -644,8 +647,9 @@ void PluginProcessor::applyPendingQualityChange()
 		return;
 	}
 
-	const auto quality = parameters::qualityFrom(
-		requestedOversamplingFactor.load(), requestedOversamplingPhase.load());
+	const auto quality = isNonRealtime()
+							 ? parameters::offlineQualityFrom(requestedOfflineOversampling.load())
+							 : parameters::trackingQualityFrom(requestedTrackingOversampling.load());
 	if (quality != oversampling.getActiveQuality())
 	{
 		suspendProcessing(true);

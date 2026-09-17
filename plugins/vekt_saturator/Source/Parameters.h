@@ -25,8 +25,8 @@ inline constexpr auto mode = "mode";
 inline constexpr auto character = "character";
 inline constexpr auto response = "response";
 inline constexpr auto texture = "texture";
-inline constexpr auto oversamplingFactor = "oversamplingFactor";
-inline constexpr auto oversamplingPhase = "oversamplingPhase";
+inline constexpr auto trackingOversampling = "trackingOversampling";
+inline constexpr auto offlineOversampling = "offlineOversampling";
 
 inline constexpr auto stateType = "VektSaturatorState";
 inline constexpr auto projectStateType = "VektSaturatorProjectState";
@@ -46,5 +46,6 @@ inline constexpr std::array soundParameterIds {
 };
 
 [[nodiscard]] juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
-[[nodiscard]] dsp::OversamplingQuality qualityFrom(float factorIndex, float phaseIndex) noexcept;
+[[nodiscard]] dsp::OversamplingQuality trackingQualityFrom(float index) noexcept;
+[[nodiscard]] dsp::OversamplingQuality offlineQualityFrom(float index) noexcept;
 }

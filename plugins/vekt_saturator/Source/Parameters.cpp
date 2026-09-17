@@ -74,32 +74,43 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 			juce::NormalisableRange<float> { 0.0f, 1.0f, 0.001f }, 0.5f));
 
 	const auto qualityAttributes = juce::AudioParameterChoiceAttributes {}.withAutomatable(false);
-	layout.add(std::make_unique<juce::AudioParameterChoice>(
-		juce::ParameterID { oversamplingFactor, parameterVersion }, "Oversampling",
-		juce::StringArray { "Off", "2x", "4x" }, 2, qualityAttributes));
-	layout.add(std::make_unique<juce::AudioParameterChoice>(
-		juce::ParameterID { oversamplingPhase, parameterVersion }, "Filter Phase",
-		juce::StringArray { "Minimum Phase", "Linear Phase" }, 0, qualityAttributes));
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID{trackingOversampling, parameterVersion}, "Tracking Oversampling",
+        juce::StringArray{"Off", "2x IIR", "4x IIR"}, 2, qualityAttributes));
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID{offlineOversampling, parameterVersion}, "Offline Oversampling",
+        juce::StringArray{"Off", "2x FIR", "4x FIR", "8x FIR", "16x FIR"}, 4, qualityAttributes));
 
-	return layout;
+    return layout;
 }
 
-dsp::OversamplingQuality qualityFrom(float factorIndex, float phaseIndex) noexcept
+dsp::OversamplingQuality trackingQualityFrom(float index) noexcept
 {
-	const auto factor = [factorIndex]
-	{
-		switch (juce::roundToInt(factorIndex))
-		{
-			case 0: return dsp::OversamplingFactor::off;
-			case 1: return dsp::OversamplingFactor::x2;
-			default: return dsp::OversamplingFactor::x4;
-		}
-	}();
+    switch (juce::roundToInt(index))
+    {
+    case 0:
+        return {dsp::OversamplingFactor::off, dsp::OversamplingFilter::polyphaseIIR};
+    case 1:
+        return {dsp::OversamplingFactor::x2, dsp::OversamplingFilter::polyphaseIIR};
+    default:
+        return {dsp::OversamplingFactor::x4, dsp::OversamplingFilter::polyphaseIIR};
+    }
+}
 
-	const auto phase = juce::roundToInt(phaseIndex) == 1
-		? dsp::OversamplingPhase::linear
-		: dsp::OversamplingPhase::minimum;
-
-	return { factor, phase };
+dsp::OversamplingQuality offlineQualityFrom(float index) noexcept
+{
+    switch (juce::roundToInt(index))
+    {
+    case 0:
+        return {dsp::OversamplingFactor::off, dsp::OversamplingFilter::polyphaseIIR};
+    case 1:
+        return {dsp::OversamplingFactor::x2, dsp::OversamplingFilter::polyphaseFIR};
+    case 2:
+        return {dsp::OversamplingFactor::x4, dsp::OversamplingFilter::polyphaseFIR};
+    case 3:
+        return {dsp::OversamplingFactor::x8, dsp::OversamplingFilter::polyphaseFIR};
+    default:
+        return {dsp::OversamplingFactor::x16, dsp::OversamplingFilter::polyphaseFIR};
+    }
 }
 }

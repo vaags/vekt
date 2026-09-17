@@ -41,9 +41,9 @@ private:
 	juce::TextButton redoButton { "Redo" };
 	juce::ToggleButton bypassButton { "Bypass" };
 	juce::ToggleButton autoGainButton { "Auto gain" };
-	juce::ComboBox factorBox;
-	juce::ComboBox phaseBox;
-	juce::ComboBox modeBox;
+    juce::ComboBox trackingBox;
+    juce::ComboBox offlineBox;
+    juce::ComboBox modeBox;
 	std::array<juce::Slider, 6> sliders;
 	std::array<juce::Label, 6> sliderLabels;
 	std::array<std::unique_ptr<SliderAttachment>, 6> sliderAttachments;
@@ -55,9 +55,9 @@ private:
 	std::array<std::unique_ptr<SliderAttachment>, 2> cutoffAttachments;
 	std::unique_ptr<ButtonAttachment> bypassAttachment;
 	std::unique_ptr<ButtonAttachment> autoGainAttachment;
-	std::unique_ptr<ComboBoxAttachment> factorAttachment;
-	std::unique_ptr<ComboBoxAttachment> phaseAttachment;
-	std::unique_ptr<ComboBoxAttachment> modeAttachment;
+    std::unique_ptr<ComboBoxAttachment> trackingAttachment;
+    std::unique_ptr<ComboBoxAttachment> offlineAttachment;
+    std::unique_ptr<ComboBoxAttachment> modeAttachment;
 	std::array<float, 2> inputPeaks {};
 	std::array<float, 2> outputPeaks {};
 };
