@@ -26,7 +26,7 @@
 #include <memory>
 #include <optional>
 
-namespace vekt::saturator
+namespace vekt::rav
 {
 class PluginProcessor final : public juce::AudioProcessor,
 							  private juce::AudioProcessorValueTreeState::Listener,

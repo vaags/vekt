@@ -7,7 +7,7 @@
 #include <concepts>
 #include <span>
 
-namespace vekt::saturator
+namespace vekt::rav
 {
 enum class RavMode
 {
@@ -22,14 +22,15 @@ enum class RavMode
 class RavModeStage final
 {
 public:
-	void prepare(double sampleRate) noexcept
+	void prepare(double processingSampleRate, double timingSampleRate = 0.0) noexcept
 	{
-		sampleRateHz = static_cast<float>(sampleRate);
-		drive.reset(sampleRate, 0.02);
-		bias.reset(sampleRate, 0.02);
-		character.reset(sampleRate, 0.02);
-		response.reset(sampleRate, 0.02);
-		texture.reset(sampleRate, 0.02);
+		sampleRateHz = static_cast<float>(processingSampleRate);
+		timingRateHz = static_cast<float>(timingSampleRate > 0.0 ? timingSampleRate : processingSampleRate);
+		drive.reset(processingSampleRate, 0.02);
+		bias.reset(processingSampleRate, 0.02);
+		character.reset(processingSampleRate, 0.02);
+		response.reset(processingSampleRate, 0.02);
+		texture.reset(processingSampleRate, 0.02);
 		reset();
 	}
 
@@ -124,7 +125,8 @@ private:
 				const auto bits = 4.0f + characterValue * 12.0f;
 				const auto levels = std::pow(2.0f, bits - 1.0f);
 				const auto targetRate = 0.02f + responseValue * 0.98f;
-				holdPhase += targetRate;
+				const auto phaseIncrement = targetRate * timingRateHz / sampleRateHz;
+				holdPhase += phaseIncrement;
 				if (holdPhase >= 1.0f)
 				{
 					holdPhase -= std::floor(holdPhase);
@@ -139,6 +141,7 @@ private:
 
 	RavMode mode { RavMode::saturation };
 	float sampleRateHz { 48'000.0f };
+	float timingRateHz { 48'000.0f };
 	float previousOutput {};
 	float feedbackState {};
 	float envelope {};

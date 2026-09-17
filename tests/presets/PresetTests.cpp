@@ -13,7 +13,7 @@
 namespace
 {
 void setParameter(
-	vekt::saturator::PluginProcessor& processor, const char* identifier, float value)
+	vekt::rav::PluginProcessor& processor, const char* identifier, float value)
 {
 	auto* parameter = processor.getParameters().getParameter(identifier);
 	REQUIRE(parameter != nullptr);
@@ -21,7 +21,7 @@ void setParameter(
 }
 
 float getParameter(
-	vekt::saturator::PluginProcessor& processor, const char* identifier)
+	vekt::rav::PluginProcessor& processor, const char* identifier)
 {
 	const auto* parameter = processor.getParameters().getRawParameterValue(identifier);
 	REQUIRE(parameter != nullptr);
@@ -51,52 +51,52 @@ private:
 
 TEST_CASE("Preset documents apply only sound parameters", "[presets]")
 {
-	vekt::saturator::PluginProcessor source;
-	setParameter(source, vekt::saturator::parameters::drive, 18.0f);
-	setParameter(source, vekt::saturator::parameters::bias, 0.25f);
-	setParameter(source, vekt::saturator::parameters::bypass, 1.0f);
-    setParameter(source, vekt::saturator::parameters::trackingOversampling, 0.0f);
+	vekt::rav::PluginProcessor source;
+	setParameter(source, vekt::rav::parameters::drive, 18.0f);
+	setParameter(source, vekt::rav::parameters::bias, 0.25f);
+	setParameter(source, vekt::rav::parameters::bypass, 1.0f);
+    setParameter(source, vekt::rav::parameters::trackingOversampling, 0.0f);
 
     const auto preset = source.createPreset("Driven");
 	REQUIRE(preset.parameters.size()
-		== vekt::saturator::parameters::soundParameterIds.size());
+		== vekt::rav::parameters::soundParameterIds.size());
 	for (const auto& value : preset.parameters)
 	{
-		REQUIRE(value.identifier != vekt::saturator::parameters::bypass);
-        REQUIRE(value.identifier != vekt::saturator::parameters::trackingOversampling);
-        REQUIRE(value.identifier != vekt::saturator::parameters::offlineOversampling);
+		REQUIRE(value.identifier != vekt::rav::parameters::bypass);
+        REQUIRE(value.identifier != vekt::rav::parameters::trackingOversampling);
+        REQUIRE(value.identifier != vekt::rav::parameters::offlineOversampling);
     }
 
-	vekt::saturator::PluginProcessor restored;
-	setParameter(restored, vekt::saturator::parameters::bypass, 1.0f);
-    setParameter(restored, vekt::saturator::parameters::trackingOversampling, 1.0f);
+	vekt::rav::PluginProcessor restored;
+	setParameter(restored, vekt::rav::parameters::bypass, 1.0f);
+    setParameter(restored, vekt::rav::parameters::trackingOversampling, 1.0f);
     restored.getProjectMetadata().setProperty("editorWidth", 900, nullptr);
 	const auto result = restored.applyPreset(preset);
 
 	REQUIRE(result.wasOk());
-	REQUIRE(getParameter(restored, vekt::saturator::parameters::drive) == Catch::Approx(18.0f));
-	REQUIRE(getParameter(restored, vekt::saturator::parameters::bias) == Catch::Approx(0.25f));
-	REQUIRE(getParameter(restored, vekt::saturator::parameters::bypass) == Catch::Approx(1.0f));
-    REQUIRE(getParameter(restored, vekt::saturator::parameters::trackingOversampling) == Catch::Approx(1.0f));
+	REQUIRE(getParameter(restored, vekt::rav::parameters::drive) == Catch::Approx(18.0f));
+	REQUIRE(getParameter(restored, vekt::rav::parameters::bias) == Catch::Approx(0.25f));
+	REQUIRE(getParameter(restored, vekt::rav::parameters::bypass) == Catch::Approx(1.0f));
+    REQUIRE(getParameter(restored, vekt::rav::parameters::trackingOversampling) == Catch::Approx(1.0f));
     REQUIRE(static_cast<int>(restored.getProjectMetadata().getProperty("editorWidth")) == 900);
 	REQUIRE(restored.getUndoManager().undo());
-	REQUIRE(getParameter(restored, vekt::saturator::parameters::drive) == Catch::Approx(6.0f));
-	REQUIRE(getParameter(restored, vekt::saturator::parameters::bias)
+	REQUIRE(getParameter(restored, vekt::rav::parameters::drive) == Catch::Approx(6.0f));
+	REQUIRE(getParameter(restored, vekt::rav::parameters::bias)
 		== Catch::Approx(0.0f).margin(1.0e-6f));
-	REQUIRE(getParameter(restored, vekt::saturator::parameters::bypass) == Catch::Approx(1.0f));
+	REQUIRE(getParameter(restored, vekt::rav::parameters::bypass) == Catch::Approx(1.0f));
 }
 
 TEST_CASE("Invalid preset documents do not partially change parameters", "[presets]")
 {
-	vekt::saturator::PluginProcessor processor;
-	setParameter(processor, vekt::saturator::parameters::drive, 12.0f);
+	vekt::rav::PluginProcessor processor;
+	setParameter(processor, vekt::rav::parameters::drive, 12.0f);
 	auto preset = processor.createPreset("Invalid");
-	setParameter(processor, vekt::saturator::parameters::drive, 6.0f);
+	setParameter(processor, vekt::rav::parameters::drive, 6.0f);
 	preset.parameters.pop_back();
 
 	const auto result = processor.applyPreset(preset);
 	REQUIRE(result.failed());
-	REQUIRE(getParameter(processor, vekt::saturator::parameters::drive) == Catch::Approx(6.0f));
+	REQUIRE(getParameter(processor, vekt::rav::parameters::drive) == Catch::Approx(6.0f));
 
 	vekt::presets::Preset malformedPreset;
 	REQUIRE(vekt::presets::PresetJsonCodec::decode(
@@ -105,14 +105,14 @@ TEST_CASE("Invalid preset documents do not partially change parameters", "[prese
 	REQUIRE(vekt::presets::PresetJsonCodec::decode(
 		R"({"schemaVersion":1,"product":"com.vekt.rav","name":"Malformed","parameters":{"drive":true}})",
 		malformedPreset).failed());
-	REQUIRE(getParameter(processor, vekt::saturator::parameters::drive) == Catch::Approx(6.0f));
+	REQUIRE(getParameter(processor, vekt::rav::parameters::drive) == Catch::Approx(6.0f));
 }
 
 TEST_CASE("File preset repositories round trip human-readable documents", "[presets]")
 {
 	ScopedTemporaryDirectory directory;
 	vekt::presets::FilePresetRepository repository(directory.get());
-	vekt::saturator::PluginProcessor processor;
+	vekt::rav::PluginProcessor processor;
 	juce::NamedValueSet metadata;
 	metadata.set("category", "Warm");
 	const auto preset = processor.createPreset("Factory Warm", metadata);
@@ -123,7 +123,7 @@ TEST_CASE("File preset repositories round trip human-readable documents", "[pres
 	differentlyCasedPreset.name = "factory warm";
 	REQUIRE(repository.save(
 		differentlyCasedPreset, vekt::presets::PresetSaveMode::replaceExisting).failed());
-	setParameter(processor, vekt::saturator::parameters::drive, 18.0f);
+	setParameter(processor, vekt::rav::parameters::drive, 18.0f);
 	const auto replacement = processor.createPreset("Factory Warm", metadata);
 	REQUIRE(repository.save(
 		replacement, vekt::presets::PresetSaveMode::replaceExisting).wasOk());
@@ -155,7 +155,7 @@ TEST_CASE("Preset catalogs combine factory and user presets deterministically", 
 {
 	ScopedTemporaryDirectory directory;
 	vekt::presets::FilePresetRepository repository(directory.get());
-	vekt::saturator::PluginProcessor processor;
+	vekt::rav::PluginProcessor processor;
 	REQUIRE(repository.save(processor.createPreset("User B")).wasOk());
 	REQUIRE(repository.save(processor.createPreset("User A")).wasOk());
 	REQUIRE(repository.save(processor.createPreset("factory first")).wasOk());
@@ -196,8 +196,8 @@ TEST_CASE("Preset catalogs own user preset lifecycle and navigation", "[presets]
 	ScopedTemporaryDirectory directory;
 	vekt::presets::FilePresetRepository repository(directory.get());
 	vekt::presets::PresetCatalog catalog(repository);
-	vekt::saturator::PluginProcessor processor;
-	REQUIRE(vekt::saturator::addFactoryPresets(catalog).wasOk());
+	vekt::rav::PluginProcessor processor;
+	REQUIRE(vekt::rav::addFactoryPresets(catalog).wasOk());
 
 	REQUIRE(catalog.saveUserPreset(processor.createPreset("My Drive")).wasOk());
 	const auto userIndex = catalog.find("My Drive", vekt::presets::PresetOrigin::user);
@@ -214,39 +214,39 @@ TEST_CASE("Preset catalogs own user preset lifecycle and navigation", "[presets]
 	REQUIRE(factoryOnly.removeUserPreset("Unavailable").failed());
 }
 
-TEST_CASE("Saturator user preset paths keep desktop and AUv3 storage separate", "[presets]")
+TEST_CASE("Rav user preset paths keep desktop and AUv3 storage separate", "[presets]")
 {
-	const auto desktop = vekt::saturator::UserPresetPaths::desktop();
+	const auto desktop = vekt::rav::UserPresetPaths::desktop();
 	const auto expectedDesktop = juce::File::getSpecialLocation(juce::File::userHomeDirectory)
 		.getChildFile("Library/Audio/Presets/Vekt/Vekt Rav");
 	REQUIRE(desktop == expectedDesktop);
 
 	const auto container = juce::File("/AppGroupContainer");
-	REQUIRE(vekt::saturator::UserPresetPaths::insideContainer(container)
+	REQUIRE(vekt::rav::UserPresetPaths::insideContainer(container)
 		== container.getChildFile("Library/Audio/Presets/Vekt/Vekt Rav"));
 
 	juce::File destination = desktop;
-	REQUIRE(vekt::saturator::UserPresetPaths::auv3AppGroup({}, destination).failed());
+	REQUIRE(vekt::rav::UserPresetPaths::auv3AppGroup({}, destination).failed());
 	REQUIRE(destination == desktop);
 }
 
-TEST_CASE("Saturator user preset services do not change its host program bank", "[presets]")
+TEST_CASE("Rav user preset services do not change its host program bank", "[presets]")
 {
 	ScopedTemporaryDirectory directory;
-	vekt::saturator::PluginProcessor processor;
+	vekt::rav::PluginProcessor processor;
 	REQUIRE(processor.configureUserPresetDirectory(directory.get()).wasOk());
 	const auto hostProgramCount = processor.getNumPrograms();
 	REQUIRE(processor.getCurrentPresetIndex() == 0);
 	REQUIRE_FALSE(processor.isCurrentPresetModified());
 
-	setParameter(processor, vekt::saturator::parameters::drive, 18.0f);
+	setParameter(processor, vekt::rav::parameters::drive, 18.0f);
 	REQUIRE(processor.isCurrentPresetModified());
 	REQUIRE(processor.saveUserPreset("My Drive").wasOk());
 	REQUIRE_FALSE(processor.isCurrentPresetModified());
 	REQUIRE(processor.saveUserPreset("My Drive").failed());
 	REQUIRE(processor.saveUserPreset(
 		"my drive", vekt::presets::PresetSaveMode::replaceExisting).failed());
-	setParameter(processor, vekt::saturator::parameters::drive, 24.0f);
+	setParameter(processor, vekt::rav::parameters::drive, 24.0f);
 	REQUIRE(processor.isCurrentPresetModified());
 	REQUIRE(processor.saveUserPreset("Other Drive").wasOk());
 	REQUIRE_FALSE(processor.isCurrentPresetModified());
@@ -261,7 +261,7 @@ TEST_CASE("Saturator user preset services do not change its host program bank", 
 	REQUIRE_FALSE(processor.isCurrentPresetModified());
 	REQUIRE(processor.loadNextPreset().wasOk());
 	REQUIRE_FALSE(processor.isCurrentPresetModified());
-	REQUIRE(getParameter(processor, vekt::saturator::parameters::drive)
+	REQUIRE(getParameter(processor, vekt::rav::parameters::drive)
 		== Catch::Approx(6.0f));
 	REQUIRE(processor.getUndoManager().undo());
 	REQUIRE(processor.isCurrentPresetModified());
@@ -270,10 +270,10 @@ TEST_CASE("Saturator user preset services do not change its host program bank", 
 	REQUIRE_FALSE(processor.isCurrentPresetModified());
 	REQUIRE(processor.loadPreviousPreset().wasOk());
 	REQUIRE_FALSE(processor.isCurrentPresetModified());
-	REQUIRE(getParameter(processor, vekt::saturator::parameters::drive)
+	REQUIRE(getParameter(processor, vekt::rav::parameters::drive)
 		== Catch::Approx(24.0f));
 	REQUIRE(processor.loadNextPreset().wasOk());
-	REQUIRE(getParameter(processor, vekt::saturator::parameters::drive)
+	REQUIRE(getParameter(processor, vekt::rav::parameters::drive)
 		== Catch::Approx(6.0f));
 
 	REQUIRE(processor.loadPreviousPreset().wasOk());
@@ -288,25 +288,25 @@ TEST_CASE("Saturator user preset services do not change its host program bank", 
 
 TEST_CASE("Direct preset application clears named preset selection", "[presets]")
 {
-	vekt::saturator::PluginProcessor source;
-	setParameter(source, vekt::saturator::parameters::drive, 18.0f);
+	vekt::rav::PluginProcessor source;
+	setParameter(source, vekt::rav::parameters::drive, 18.0f);
 	const auto imported = source.createPreset("Imported");
 
-	vekt::saturator::PluginProcessor processor;
+	vekt::rav::PluginProcessor processor;
 	REQUIRE(processor.getCurrentPresetIndex() == 0);
 	REQUIRE(processor.applyPreset(imported).wasOk());
 	REQUIRE_FALSE(processor.getCurrentPresetIndex().has_value());
 	REQUIRE_FALSE(processor.isCurrentPresetModified());
 }
 
-TEST_CASE("Embedded saturator factory presets use the public preset schema", "[presets]")
+TEST_CASE("Embedded Rav factory presets use the public preset schema", "[presets]")
 {
 	ScopedTemporaryDirectory directory;
 	vekt::presets::FilePresetRepository repository(directory.get());
 	vekt::presets::PresetCatalog catalog(repository);
-	vekt::saturator::PluginProcessor processor;
+	vekt::rav::PluginProcessor processor;
 
-	REQUIRE(vekt::saturator::addFactoryPresets(catalog).wasOk());
+	REQUIRE(vekt::rav::addFactoryPresets(catalog).wasOk());
 	REQUIRE(catalog.entries().size() == 3);
 	for (std::size_t index = 0; index < catalog.entries().size(); ++index)
 	{
@@ -316,9 +316,9 @@ TEST_CASE("Embedded saturator factory presets use the public preset schema", "[p
 	}
 }
 
-TEST_CASE("Saturator exposes factory presets through its host program API", "[presets]")
+TEST_CASE("Rav exposes factory presets through its host program API", "[presets]")
 {
-	vekt::saturator::PluginProcessor processor;
+	vekt::rav::PluginProcessor processor;
 
 	REQUIRE(processor.getNumPrograms() == 3);
 	REQUIRE(processor.getCurrentProgram() == 0);
@@ -329,24 +329,24 @@ TEST_CASE("Saturator exposes factory presets through its host program API", "[pr
 
 	processor.setCurrentProgram(1);
 	REQUIRE(processor.getCurrentProgram() == 1);
-	REQUIRE(getParameter(processor, vekt::saturator::parameters::drive)
+	REQUIRE(getParameter(processor, vekt::rav::parameters::drive)
 		== Catch::Approx(12.0f));
 	processor.setCurrentProgram(8);
 	REQUIRE(processor.getCurrentProgram() == 1);
 }
 
-TEST_CASE("Saturator restores its current factory program identity", "[presets]")
+TEST_CASE("Rav restores its current factory program identity", "[presets]")
 {
-	vekt::saturator::PluginProcessor source;
+	vekt::rav::PluginProcessor source;
 	source.setCurrentProgram(1);
 	juce::MemoryBlock state;
 	source.getStateInformation(state);
 
-	vekt::saturator::PluginProcessor restored;
+	vekt::rav::PluginProcessor restored;
 	restored.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
 
 	REQUIRE(restored.getCurrentProgram() == 1);
 	REQUIRE(restored.getProgramName(restored.getCurrentProgram()) == "Warm Push");
-	REQUIRE(getParameter(restored, vekt::saturator::parameters::drive)
+	REQUIRE(getParameter(restored, vekt::rav::parameters::drive)
 		== Catch::Approx(12.0f));
 }

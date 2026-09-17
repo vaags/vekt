@@ -73,7 +73,7 @@ selected factory name is persisted in project metadata. User presets remain a
 separate mutable editor-facing source, are listed in natural sort order, and
 cannot shadow a case-insensitively matching factory name.
 Desktop user presets resolve beneath `~/Library/Audio/Presets/Vekt/Vekt
-Saturator`. AUv3 callers must provide an app-group identifier; failure to resolve
+Rav`. AUv3 callers must provide an app-group identifier; failure to resolve
 its container is reported and never falls back to desktop storage.
 
 ## Validation

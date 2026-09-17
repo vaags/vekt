@@ -8,7 +8,7 @@
 #include <concepts>
 #include <numbers>
 
-namespace vekt::saturator
+namespace vekt::rav
 {
 template <std::floating_point Sample>
 class StaticAutoGain final
@@ -31,10 +31,18 @@ public:
         gain.setCurrentAndTargetValue(gain.getTargetValue());
     }
 
+    void setParameters(Sample driveDecibels, Sample bias, int modeIndex, bool enabled) noexcept
+    {
+        const auto modeCompensation = modeCompensations[static_cast<std::size_t>(
+            std::clamp(modeIndex, 0, static_cast<int>(modeCompensations.size() - 1)))];
+        const auto compensatedGain = interpolatedGain(driveDecibels, bias)
+            * modeCompensation * topologyCompensation;
+        gain.setTargetValue(enabled ? std::min(compensatedGain, Sample { 1 }) : Sample { 1 });
+    }
+
     void setParameters(Sample driveDecibels, Sample bias, bool enabled) noexcept
     {
-        const auto compensatedGain = interpolatedGain(driveDecibels, bias) * topologyCompensation;
-        gain.setTargetValue(enabled ? std::min(compensatedGain, Sample { 1 }) : Sample { 1 });
+        setParameters(driveDecibels, bias, 0, enabled);
     }
 
     void setTopologyCompensation(Sample compensation) noexcept
@@ -65,6 +73,9 @@ private:
     static constexpr Sample minimumGain = static_cast<Sample>(0.06309573444801933);
     static constexpr double referencePeak = 0.12589254117941673;
     static constexpr int calibrationSamples = 2'048;
+    inline static constexpr std::array modeCompensations {
+        static_cast<Sample>(1.0), static_cast<Sample>(0.92), static_cast<Sample>(0.86),
+        static_cast<Sample>(0.55), static_cast<Sample>(0.90), static_cast<Sample>(0.78) };
 
     void calibrate() noexcept
     {

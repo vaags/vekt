@@ -8,13 +8,13 @@ add_executable(vekt_dsp_tests
     dsp/OversamplingBankTests.cpp
 	 dsp/StereoPeakMeterTests.cpp
     presets/PresetTests.cpp
-    processor/SaturatorProcessorTests.cpp
+    processor/RavProcessorTests.cpp
     processor/StaticAutoGainTests.cpp
     dsp/TanhStageTests.cpp)
 
 target_link_libraries(vekt_dsp_tests PRIVATE
     vekt::dsp
-    VektSaturator
+    VektRav
     Catch2::Catch2WithMain)
 
 if(APPLE AND CMAKE_GENERATOR STREQUAL "Xcode")

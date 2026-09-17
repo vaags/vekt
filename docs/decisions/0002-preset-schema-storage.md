@@ -19,7 +19,7 @@ Storage is abstracted behind `PresetRepository`. `FilePresetRepository` receives
 its root directory from the caller and writes through a temporary file before
 atomic replacement. Product code selects the standard desktop location or an
 AUv3 app-group container; the reusable layer does not infer sandbox policy.
-Desktop presets use `~/Library/Audio/Presets/Vekt/Vekt Saturator`. AUv3 storage
+Desktop presets use `~/Library/Audio/Presets/Vekt/Vekt Rav`. AUv3 storage
 requires an explicitly configured app-group container and never falls back to
 the desktop location. User save, delete, load, and navigation remain
 message-thread operations and do not alter the immutable factory host-program

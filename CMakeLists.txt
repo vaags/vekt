@@ -23,7 +23,7 @@ add_subdirectory(framework/dsp)
 add_subdirectory(framework/state)
 add_subdirectory(framework/presets)
 add_subdirectory(framework/ui)
-add_subdirectory(plugins/vekt_saturator)
+add_subdirectory(plugins/vekt_rav)
 
 if(VEKT_BUILD_TESTS)
     include(CTest)

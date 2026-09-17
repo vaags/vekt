@@ -2,7 +2,7 @@
 
 #include <vekt/presets/PresetCatalog.h>
 
-namespace vekt::saturator
+namespace vekt::rav
 {
 [[nodiscard]] juce::Result addFactoryPresets(presets::PresetCatalog& catalog);
 }

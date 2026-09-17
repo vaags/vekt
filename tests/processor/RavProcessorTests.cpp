@@ -26,7 +26,7 @@ public:
 };
 
 void setParameter(
-	vekt::saturator::PluginProcessor& processor, const char* identifier, float value)
+	vekt::rav::PluginProcessor& processor, const char* identifier, float value)
 {
 	auto* parameter = processor.getParameters().getParameter(identifier);
 	REQUIRE(parameter != nullptr);
@@ -43,13 +43,13 @@ double renderAutoGainErrorDb(
 	const auto measurementSamples = static_cast<int>(std::ceil(sampleRate * 0.1));
 	const auto totalSamples = settlingSamples + measurementSamples;
 
-	vekt::saturator::PluginProcessor processor;
-	setParameter(processor, vekt::saturator::parameters::drive, driveDb);
-	setParameter(processor, vekt::saturator::parameters::bias, bias);
-	setParameter(processor, vekt::saturator::parameters::tone, 0.0f);
-	setParameter(processor, vekt::saturator::parameters::mix, 100.0f);
-	setParameter(processor, vekt::saturator::parameters::autoGain, 1.0f);
-	setParameter(processor, vekt::saturator::parameters::trackingOversampling,
+	vekt::rav::PluginProcessor processor;
+	setParameter(processor, vekt::rav::parameters::drive, driveDb);
+	setParameter(processor, vekt::rav::parameters::bias, bias);
+	setParameter(processor, vekt::rav::parameters::tone, 0.0f);
+	setParameter(processor, vekt::rav::parameters::mix, 100.0f);
+	setParameter(processor, vekt::rav::parameters::autoGain, 1.0f);
+	setParameter(processor, vekt::rav::parameters::trackingOversampling,
 				 static_cast<float>(oversamplingFactorIndex));
 	juce::ignoreUnused(oversamplingPhaseIndex);
 	processor.prepareToPlay(sampleRate, blockSize);
@@ -98,9 +98,9 @@ double renderAutoGainErrorDb(
 }
 }
 
-TEST_CASE("Saturator processor defaults to quality-first oversampling", "[processor]")
+TEST_CASE("Rav processor defaults to quality-first oversampling", "[processor]")
 {
-	vekt::saturator::PluginProcessor processor;
+	vekt::rav::PluginProcessor processor;
 	processor.prepareToPlay(48'000.0, 128);
 
 	REQUIRE(processor.getLatencySamples() > 0);
@@ -108,11 +108,11 @@ TEST_CASE("Saturator processor defaults to quality-first oversampling", "[proces
 	REQUIRE(processor.getTotalNumOutputChannels() == 2);
 }
 
-TEST_CASE("Saturator processor selects tracking and offline oversampling profiles", "[processor][quality]")
+TEST_CASE("Rav processor selects tracking and offline oversampling profiles", "[processor][quality]")
 {
-	vekt::saturator::PluginProcessor processor;
-	setParameter(processor, vekt::saturator::parameters::trackingOversampling, 2.0f);
-	setParameter(processor, vekt::saturator::parameters::offlineOversampling, 4.0f);
+	vekt::rav::PluginProcessor processor;
+	setParameter(processor, vekt::rav::parameters::trackingOversampling, 2.0f);
+	setParameter(processor, vekt::rav::parameters::offlineOversampling, 4.0f);
 
 	processor.setNonRealtime(false);
 	processor.prepareToPlay(48'000.0, 64);
@@ -125,14 +125,14 @@ TEST_CASE("Saturator processor selects tracking and offline oversampling profile
 	REQUIRE(processor.getActiveQuality().filter == vekt::dsp::OversamplingFilter::polyphaseFIR);
 }
 
-TEST_CASE("Saturator processor produces finite stereo audio", "[processor]")
+TEST_CASE("Rav processor produces finite stereo audio", "[processor]")
 {
-	vekt::saturator::PluginProcessor processor;
+	vekt::rav::PluginProcessor processor;
 	juce::AudioBuffer<float> buffer(2, 128);
 	juce::MidiBuffer midi;
 	processor.prepareToPlay(48'000.0, buffer.getNumSamples());
-	auto* tone = processor.getParameters().getParameter(vekt::saturator::parameters::tone);
-	auto* autoGain = processor.getParameters().getParameter(vekt::saturator::parameters::autoGain);
+	auto* tone = processor.getParameters().getParameter(vekt::rav::parameters::tone);
+	auto* autoGain = processor.getParameters().getParameter(vekt::rav::parameters::autoGain);
 	REQUIRE(tone != nullptr);
 	REQUIRE(autoGain != nullptr);
 	tone->setValueNotifyingHost(tone->convertTo0to1(6.0f));
@@ -149,11 +149,39 @@ TEST_CASE("Saturator processor produces finite stereo audio", "[processor]")
 			REQUIRE(std::isfinite(buffer.getSample(channel, sample)));
 }
 
-TEST_CASE("Saturator processor bounds oversized host blocks", "[processor]")
+TEST_CASE("Rav processor renders every mode across tracking qualities", "[processor][rav]")
+{
+	for (auto qualityIndex : { 0.0f, 1.0f, 2.0f })
+	{
+		for (auto modeIndex = 0.0f; modeIndex < 6.0f; modeIndex += 1.0f)
+		{
+			vekt::rav::PluginProcessor processor;
+			setParameter(processor, vekt::rav::parameters::trackingOversampling, qualityIndex);
+			setParameter(processor, vekt::rav::parameters::mode, modeIndex);
+			setParameter(processor, vekt::rav::parameters::drive, 30.0f);
+			setParameter(processor, vekt::rav::parameters::bias, 0.5f);
+			setParameter(processor, vekt::rav::parameters::autoGain, 1.0f);
+			processor.prepareToPlay(48'000.0, 127);
+			juce::AudioBuffer<float> buffer(2, 127);
+			juce::MidiBuffer midi;
+			for (auto channel = 0; channel < 2; ++channel)
+				for (auto sample = 0; sample < buffer.getNumSamples(); ++sample)
+					buffer.setSample(channel, sample,
+						(channel == 0 ? 1.0f : -1.0f) * std::sin(static_cast<float>(sample) * 0.17f));
+
+			processor.processBlock(buffer, midi);
+			for (auto channel = 0; channel < 2; ++channel)
+				for (auto sample = 0; sample < buffer.getNumSamples(); ++sample)
+					REQUIRE(std::isfinite(buffer.getSample(channel, sample)));
+		}
+	}
+}
+
+TEST_CASE("Rav processor bounds oversized host blocks", "[processor]")
 {
 	constexpr auto preparedBlockSize = 64;
 	constexpr auto hostBlockSize = 257;
-	vekt::saturator::PluginProcessor processor;
+	vekt::rav::PluginProcessor processor;
 	juce::AudioBuffer<float> buffer(2, hostBlockSize);
 	juce::MidiBuffer midi;
 	processor.prepareToPlay(48'000.0, preparedBlockSize);
@@ -163,7 +191,7 @@ TEST_CASE("Saturator processor bounds oversized host blocks", "[processor]")
 			buffer.setSample(channel, sample, std::sin(static_cast<float>(sample) * 0.1f));
 
 	processor.processBlock(buffer, midi);
-	setParameter(processor, vekt::saturator::parameters::bypass, 1.0f);
+	setParameter(processor, vekt::rav::parameters::bypass, 1.0f);
 	processor.processBlock(buffer, midi);
 
 	for (auto channel = 0; channel < buffer.getNumChannels(); ++channel)
@@ -171,15 +199,15 @@ TEST_CASE("Saturator processor bounds oversized host blocks", "[processor]")
 			REQUIRE(std::isfinite(buffer.getSample(channel, sample)));
 }
 
-TEST_CASE("Saturator processor state round trips parameters", "[processor][state]")
+TEST_CASE("Rav processor state round trips parameters", "[processor][state]")
 {
-	vekt::saturator::PluginProcessor source;
-	vekt::saturator::PluginProcessor restored;
+	vekt::rav::PluginProcessor source;
+	vekt::rav::PluginProcessor restored;
 	auto restoredMetadata = restored.getProjectMetadata();
-	auto* sourceDrive = source.getParameters().getParameter(vekt::saturator::parameters::drive);
-	auto* sourceTone = source.getParameters().getParameter(vekt::saturator::parameters::tone);
-	auto* sourceAutoGain = source.getParameters().getParameter(vekt::saturator::parameters::autoGain);
-	auto* sourceBypass = source.getParameters().getParameter(vekt::saturator::parameters::bypass);
+	auto* sourceDrive = source.getParameters().getParameter(vekt::rav::parameters::drive);
+	auto* sourceTone = source.getParameters().getParameter(vekt::rav::parameters::tone);
+	auto* sourceAutoGain = source.getParameters().getParameter(vekt::rav::parameters::autoGain);
+	auto* sourceBypass = source.getParameters().getParameter(vekt::rav::parameters::bypass);
 	REQUIRE(sourceDrive != nullptr);
 	REQUIRE(sourceTone != nullptr);
 	REQUIRE(sourceAutoGain != nullptr);
@@ -196,22 +224,22 @@ TEST_CASE("Saturator processor state round trips parameters", "[processor][state
 		state.getData(), static_cast<int>(state.getSize()));
 	REQUIRE(xml != nullptr);
 	const auto projectState = juce::ValueTree::fromXml(*xml);
-	REQUIRE(projectState.hasType(vekt::saturator::parameters::projectStateType));
+	REQUIRE(projectState.hasType(vekt::rav::parameters::projectStateType));
 	REQUIRE(static_cast<int>(projectState.getProperty(
 		vekt::state::StateManager::schemaVersionProperty))
-		== vekt::saturator::parameters::projectStateVersion);
-	REQUIRE(projectState.getChildWithName(vekt::saturator::parameters::stateType).isValid());
+		== vekt::rav::parameters::projectStateVersion);
+	REQUIRE(projectState.getChildWithName(vekt::rav::parameters::stateType).isValid());
 	REQUIRE(projectState.getChildWithName(vekt::state::StateManager::metadataType).isValid());
 	restored.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
 
 	const auto* restoredDrive = restored.getParameters().getRawParameterValue(
-		vekt::saturator::parameters::drive);
+		vekt::rav::parameters::drive);
 	const auto* restoredTone = restored.getParameters().getRawParameterValue(
-		vekt::saturator::parameters::tone);
+		vekt::rav::parameters::tone);
 	const auto* restoredAutoGain = restored.getParameters().getRawParameterValue(
-		vekt::saturator::parameters::autoGain);
+		vekt::rav::parameters::autoGain);
 	const auto* restoredBypass = restored.getParameters().getRawParameterValue(
-		vekt::saturator::parameters::bypass);
+		vekt::rav::parameters::bypass);
 	REQUIRE(restoredDrive != nullptr);
 	REQUIRE(restoredTone != nullptr);
 	REQUIRE(restoredAutoGain != nullptr);
@@ -223,11 +251,11 @@ TEST_CASE("Saturator processor state round trips parameters", "[processor][state
 	REQUIRE(static_cast<int>(restoredMetadata.getProperty("editorWidth")) == 900);
 }
 
-TEST_CASE("Saturator processor migrates legacy version one state", "[processor][state]")
+TEST_CASE("Rav processor migrates legacy version one state", "[processor][state]")
 {
-	vekt::saturator::PluginProcessor source;
-	vekt::saturator::PluginProcessor restored;
-	auto* sourceDrive = source.getParameters().getParameter(vekt::saturator::parameters::drive);
+	vekt::rav::PluginProcessor source;
+	vekt::rav::PluginProcessor restored;
+	auto* sourceDrive = source.getParameters().getParameter(vekt::rav::parameters::drive);
 	REQUIRE(sourceDrive != nullptr);
 	sourceDrive->setValueNotifyingHost(sourceDrive->convertTo0to1(24.0f));
 
@@ -239,16 +267,16 @@ TEST_CASE("Saturator processor migrates legacy version one state", "[processor][
 	restored.setStateInformation(binary.getData(), static_cast<int>(binary.getSize()));
 
 	const auto* restoredDrive = restored.getParameters().getRawParameterValue(
-		vekt::saturator::parameters::drive);
+		vekt::rav::parameters::drive);
 	REQUIRE(restoredDrive != nullptr);
 	REQUIRE(restoredDrive->load() == Catch::Approx(24.0f));
 	REQUIRE(restored.getProjectMetadata().hasType(vekt::state::StateManager::metadataType));
 }
 
-TEST_CASE("Saturator processor rejects future project state", "[processor][state]")
+TEST_CASE("Rav processor rejects future project state", "[processor][state]")
 {
-	vekt::saturator::PluginProcessor processor;
-	setParameter(processor, vekt::saturator::parameters::drive, 12.0f);
+	vekt::rav::PluginProcessor processor;
+	setParameter(processor, vekt::rav::parameters::drive, 12.0f);
 	juce::MemoryBlock binary;
 	processor.getStateInformation(binary);
 
@@ -260,18 +288,18 @@ TEST_CASE("Saturator processor rejects future project state", "[processor][state
 	if (const auto futureXml = futureState.createXml())
 		juce::AudioProcessor::copyXmlToBinary(*futureXml, binary);
 
-	setParameter(processor, vekt::saturator::parameters::drive, 6.0f);
+	setParameter(processor, vekt::rav::parameters::drive, 6.0f);
 	processor.setStateInformation(binary.getData(), static_cast<int>(binary.getSize()));
 	const auto* drive = processor.getParameters().getRawParameterValue(
-		vekt::saturator::parameters::drive);
+		vekt::rav::parameters::drive);
 	REQUIRE(drive != nullptr);
 	REQUIRE(drive->load() == Catch::Approx(6.0f));
 }
 
-TEST_CASE("Saturator processor bypass preserves reported latency across transitions", "[processor][bypass]")
+TEST_CASE("Rav processor bypass preserves reported latency across transitions", "[processor][bypass]")
 {
 	constexpr auto blockSize = 128;
-	vekt::saturator::PluginProcessor processor;
+	vekt::rav::PluginProcessor processor;
 	juce::AudioBuffer<float> buffer(2, blockSize);
 	juce::MidiBuffer midi;
 	processor.prepareToPlay(48'000.0, blockSize);
@@ -291,20 +319,20 @@ TEST_CASE("Saturator processor bypass preserves reported latency across transiti
 	REQUIRE(buffer.getSample(1, latency - 1) == Catch::Approx(0.0f));
 }
 
-TEST_CASE("Saturator bypass parameter returns latency-aligned raw input", "[processor][bypass]")
+TEST_CASE("Rav bypass parameter returns latency-aligned raw input", "[processor][bypass]")
 {
 	constexpr auto blockSize = 128;
-	vekt::saturator::PluginProcessor processor;
-	setParameter(processor, vekt::saturator::parameters::inputGain, 24.0f);
-	setParameter(processor, vekt::saturator::parameters::drive, 36.0f);
-	setParameter(processor, vekt::saturator::parameters::tone, 6.0f);
-	setParameter(processor, vekt::saturator::parameters::bias, 1.0f);
-	setParameter(processor, vekt::saturator::parameters::outputGain, 24.0f);
-	setParameter(processor, vekt::saturator::parameters::bypass, 1.0f);
+	vekt::rav::PluginProcessor processor;
+	setParameter(processor, vekt::rav::parameters::inputGain, 24.0f);
+	setParameter(processor, vekt::rav::parameters::drive, 36.0f);
+	setParameter(processor, vekt::rav::parameters::tone, 6.0f);
+	setParameter(processor, vekt::rav::parameters::bias, 1.0f);
+	setParameter(processor, vekt::rav::parameters::outputGain, 24.0f);
+	setParameter(processor, vekt::rav::parameters::bypass, 1.0f);
 	processor.prepareToPlay(48'000.0, blockSize);
 
 	auto* bypassParameter = processor.getParameters().getParameter(
-		vekt::saturator::parameters::bypass);
+		vekt::rav::parameters::bypass);
 	REQUIRE(bypassParameter != nullptr);
 	REQUIRE(processor.getBypassParameter() == bypassParameter);
 
@@ -320,12 +348,12 @@ TEST_CASE("Saturator bypass parameter returns latency-aligned raw input", "[proc
 	REQUIRE(buffer.getSample(1, latency) == Catch::Approx(-0.5f));
 }
 
-TEST_CASE("Saturator processor applies quality changes while stopped", "[processor][quality]")
+TEST_CASE("Rav processor applies quality changes while stopped", "[processor][quality]")
 {
-	vekt::saturator::PluginProcessor processor;
+	vekt::rav::PluginProcessor processor;
 	processor.prepareToPlay(48'000.0, 128);
 	auto *factor = processor.getParameters().getParameter(
-		vekt::saturator::parameters::trackingOversampling);
+		vekt::rav::parameters::trackingOversampling);
 	REQUIRE(factor != nullptr);
 
 	factor->setValueNotifyingHost(0.0f);
@@ -336,9 +364,9 @@ TEST_CASE("Saturator processor applies quality changes while stopped", "[process
 	REQUIRE_FALSE(processor.hasPendingQualityChange());
 }
 
-TEST_CASE("Saturator processor defers quality changes during playback", "[processor][quality]")
+TEST_CASE("Rav processor defers quality changes during playback", "[processor][quality]")
 {
-	vekt::saturator::PluginProcessor processor;
+	vekt::rav::PluginProcessor processor;
 	TestPlayHead playHead;
 	juce::AudioBuffer<float> buffer(2, 128);
 	juce::MidiBuffer midi;
@@ -349,7 +377,7 @@ TEST_CASE("Saturator processor defers quality changes during playback", "[proces
 	buffer.clear();
 	processor.processBlock(buffer, midi);
 	auto *factor = processor.getParameters().getParameter(
-		vekt::saturator::parameters::trackingOversampling);
+		vekt::rav::parameters::trackingOversampling);
 	REQUIRE(factor != nullptr);
 	factor->setValueNotifyingHost(0.0f);
 	processor.applyPendingQualityChange();
@@ -366,7 +394,7 @@ TEST_CASE("Saturator processor defers quality changes during playback", "[proces
 	REQUIRE_FALSE(processor.hasPendingQualityChange());
 }
 
-TEST_CASE("Saturator auto-gain holds reference loudness through the wet chain", "[processor][auto-gain]")
+TEST_CASE("Rav auto-gain holds reference loudness through the wet chain", "[processor][auto-gain]")
 {
 	struct QualityMode
 	{
@@ -409,9 +437,9 @@ TEST_CASE("Saturator auto-gain holds reference loudness through the wet chain", 
 	}
 }
 
-TEST_CASE("Saturator processor publishes and consumes stereo peak snapshots", "[processor][meter]")
+TEST_CASE("Rav processor publishes and consumes stereo peak snapshots", "[processor][meter]")
 {
-	vekt::saturator::PluginProcessor processor;
+	vekt::rav::PluginProcessor processor;
 	juce::AudioBuffer<float> buffer(2, 32);
 	juce::MidiBuffer midi;
 	processor.prepareToPlay(48'000.0, buffer.getNumSamples());

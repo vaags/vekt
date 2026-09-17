@@ -1,7 +1,7 @@
 # Vekt
 
 Vekt is a reusable C++20/JUCE framework for macOS audio effects. The first
-reference effect is a `tanh` saturator with reusable DSP, state, and preset
+reference effect is Vekt Rav with reusable DSP, state, and preset
 infrastructure.
 
 ## Requirements
@@ -32,13 +32,23 @@ Tools alone are insufficient.
 ## Current Scope
 
 - Pinned JUCE 9.0.2 dependency
-- Reusable centered `tanh` transfer stage
-- Preallocated Off/2x/4x minimum- and linear-phase oversampling paths
+- Six Rav processing modes: saturation, overdrive, distortion, fuzz, wavefold,
+  and bitcrush
+- Reusable three-band crossover with configurable low-mid and mid-high cutoffs
+- Per-band low/mid/high wet controls followed by global dry/wet mixing
+- Preallocated tracking profiles from Off through 4x IIR and offline profiles
+  through 16x FIR
 - Integer oversampling latency reporting
 - Linear dry/wet mixing with dry-path latency alignment
-- Versioned project state with legacy migration
+- Vector-scalable Rav editor with mode, multiband, preset, bypass, and quality controls
+- Versioned project state and deterministic Rav preset catalogs
 - Versioned sound-only JSON presets with factory/user catalogs and platform-aware storage
-- Focused Catch2 tests
+- 53 focused Catch2 tests covering DSP, modes, multiband routing, state, presets,
+  latency, and tracking/offline quality selection
+
+Standalone, VST3, and AUv3 development builds are validated locally. Host
+registration, pluginval/auval, DAW smoke tests, signing/notarization, and
+Apple M4 performance measurements remain release-time validation gates.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for module and real-time rules,
 [docs/UI_UX.md](docs/UI_UX.md) for shared editor conventions, and

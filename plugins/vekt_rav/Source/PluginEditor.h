@@ -8,7 +8,7 @@
 #include <array>
 #include <memory>
 
-namespace vekt::saturator
+namespace vekt::rav
 {
 class PluginEditor final : public ui::ScalableEditor,
 						   private juce::Timer

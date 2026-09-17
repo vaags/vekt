@@ -36,7 +36,7 @@ Preset interactions must follow these rules across Vekt products.
 
 ## Storage and file access
 
-- VST3 and Standalone use `~/Library/Audio/Presets/Vekt/Vekt Saturator`.
+- VST3 and Standalone use `~/Library/Audio/Presets/Vekt/Vekt Rav`.
 - AUv3 requires its configured app-group container and must never fall back to
   desktop storage.
 - File chooser import/export is message-thread-only. Validate imported content

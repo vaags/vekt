@@ -11,7 +11,7 @@
 
 #include <span>
 
-namespace vekt::saturator
+namespace vekt::rav
 {
 namespace
 {
@@ -98,7 +98,7 @@ void PluginProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
 	const auto effectiveFactor = oversampling.getActiveFactor();
 	const auto effectiveSampleRate = sampleRate * static_cast<double>(effectiveFactor);
 	for (auto& stage : bandStages)
-		stage.prepare(effectiveSampleRate);
+		stage.prepare(effectiveSampleRate, sampleRate);
 	crossover.prepare(
 		{ effectiveSampleRate, static_cast<juce::uint32>(maximumBlockSize * 4), 2 },
 		{ lowMidCutoffParameter->load(), midHighCutoffParameter->load() });
@@ -207,7 +207,9 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 	toneStage.setSlopeDbPerOctave(toneParameter->load());
 	autoGain.setTopologyCompensation(1.0f);
 	autoGain.setParameters(
-		driveParameter->load(), biasParameter->load(), autoGainParameter->load() >= 0.5f);
+		driveParameter->load(), biasParameter->load(),
+		juce::jlimit(0, 5, juce::roundToInt(modeParameter->load())),
+		autoGainParameter->load() >= 0.5f);
 
 	juce::dsp::AudioBlock<float> block(buffer);
 	inputGain.process(juce::dsp::ProcessContextReplacing<float>(block));
@@ -657,7 +659,7 @@ void PluginProcessor::applyPendingQualityChange()
 		const auto effectiveSampleRate = getSampleRate()
 			* static_cast<double>(oversampling.getActiveFactor());
 		for (auto& stage : bandStages)
-			stage.prepare(effectiveSampleRate);
+			stage.prepare(effectiveSampleRate, getSampleRate());
 		crossover.prepare(
 			{ effectiveSampleRate, static_cast<juce::uint32>(maximumPreparedBlockSize * 4), 2 },
 			{ lowMidCutoffParameter->load(), midHighCutoffParameter->load() });
@@ -677,5 +679,5 @@ void PluginProcessor::applyPendingQualityChange()
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-	return new vekt::saturator::PluginProcessor();
+	return new vekt::rav::PluginProcessor();
 }

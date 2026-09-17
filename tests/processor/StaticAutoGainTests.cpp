@@ -37,7 +37,7 @@ double referenceGain(double driveDb, double bias)
 
 TEST_CASE("StaticAutoGain matches its reference calibration", "[processor][auto-gain]")
 {
-    vekt::saturator::StaticAutoGain<double> autoGain;
+    vekt::rav::StaticAutoGain<double> autoGain;
     autoGain.prepare(48'000.0, 0.0);
     autoGain.setParameters(18.0, 0.5, true);
 
@@ -46,7 +46,7 @@ TEST_CASE("StaticAutoGain matches its reference calibration", "[processor][auto-
 
 TEST_CASE("StaticAutoGain is symmetric in bias and never boosts", "[processor][auto-gain]")
 {
-    vekt::saturator::StaticAutoGain<double> autoGain;
+    vekt::rav::StaticAutoGain<double> autoGain;
     autoGain.prepare(48'000.0, 0.0);
     autoGain.setParameters(12.0, 0.75, true);
     const auto positiveBiasGain = autoGain.getTargetGain();
@@ -58,7 +58,7 @@ TEST_CASE("StaticAutoGain is symmetric in bias and never boosts", "[processor][a
 
 TEST_CASE("StaticAutoGain bypasses compensation when disabled", "[processor][auto-gain]")
 {
-    vekt::saturator::StaticAutoGain<double> autoGain;
+    vekt::rav::StaticAutoGain<double> autoGain;
     autoGain.prepare(48'000.0, 0.0);
     autoGain.setParameters(36.0, 0.0, false);
 
@@ -71,7 +71,7 @@ TEST_CASE("StaticAutoGain applies calibrated gain to every channel", "[processor
     for (auto channel = 0; channel < buffer.getNumChannels(); ++channel)
         juce::FloatVectorOperations::fill(buffer.getWritePointer(channel), 1.0, buffer.getNumSamples());
 
-    vekt::saturator::StaticAutoGain<double> autoGain;
+    vekt::rav::StaticAutoGain<double> autoGain;
     autoGain.prepare(48'000.0, 0.0);
     autoGain.setParameters(18.0, 0.5, true);
     const auto expected = autoGain.getTargetGain();

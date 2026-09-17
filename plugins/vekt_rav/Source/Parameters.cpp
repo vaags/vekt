@@ -2,7 +2,7 @@
 
 #include <memory>
 
-namespace vekt::saturator::parameters
+namespace vekt::rav::parameters
 {
 namespace
 {

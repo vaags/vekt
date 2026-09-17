@@ -6,7 +6,7 @@
 
 #include <array>
 
-namespace vekt::saturator::parameters
+namespace vekt::rav::parameters
 {
 inline constexpr auto inputGain = "inputGain";
 inline constexpr auto drive = "drive";
@@ -28,8 +28,8 @@ inline constexpr auto texture = "texture";
 inline constexpr auto trackingOversampling = "trackingOversampling";
 inline constexpr auto offlineOversampling = "offlineOversampling";
 
-inline constexpr auto stateType = "VektSaturatorState";
-inline constexpr auto projectStateType = "VektSaturatorProjectState";
+inline constexpr auto stateType = "VektRavState";
+inline constexpr auto projectStateType = "VektRavProjectState";
 inline constexpr auto projectStateVersion = 2;
 inline constexpr auto presetProductIdentifier = "com.vekt.rav";
 inline constexpr auto currentFactoryPreset = "currentFactoryPreset";

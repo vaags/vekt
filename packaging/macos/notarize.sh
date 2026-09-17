@@ -5,7 +5,7 @@ set -euo pipefail
 : "${VEKT_NOTARY_PROFILE:?Set VEKT_NOTARY_PROFILE to a notarytool keychain profile}"
 
 if (( $# != 1 )); then
-	print -u2 "Usage: $0 /path/to/VektSaturator.pkg"
+	print -u2 "Usage: $0 /path/to/VektRav.pkg"
 	exit 64
 fi
 

@@ -2,7 +2,7 @@
 
 #include "Parameters.h"
 
-namespace vekt::saturator
+namespace vekt::rav
 {
 namespace
 {
@@ -23,14 +23,16 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 	presetLabel.setJustificationType(juce::Justification::centred);
 	qualityLabel.setJustificationType(juce::Justification::centredRight);
 	meterLabel.setJustificationType(juce::Justification::centred);
-    for (juce::Component *component : {static_cast<juce::Component *>(&title),
+	for (juce::Component *component : {static_cast<juce::Component *>(&title),
                                        static_cast<juce::Component *>(&presetLabel), static_cast<juce::Component *>(&qualityLabel),
                                        static_cast<juce::Component *>(&meterLabel), static_cast<juce::Component *>(&previousButton),
                                        static_cast<juce::Component *>(&nextButton), static_cast<juce::Component *>(&undoButton),
                                        static_cast<juce::Component *>(&redoButton), static_cast<juce::Component *>(&bypassButton),
                                        static_cast<juce::Component *>(&autoGainButton), static_cast<juce::Component *>(&trackingBox),
                                        static_cast<juce::Component *>(&offlineBox), static_cast<juce::Component *>(&modeBox)})
-        getContent().addAndMakeVisible(*component);
+	{
+		getContent().addAndMakeVisible(*component);
+	}
 
 	for (std::size_t index = 0; index < sliders.size(); ++index)
 		configureRotary(sliders[index], sliderLabels[index], parameterNames[index], parameterIds[index], sliderAttachments[index]);

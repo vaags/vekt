@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if (( $# != 2 )); then
-	print -u2 "Usage: $0 /path/to/VektSaturator.vst3 /path/to/VektSaturator.appex"
+	print -u2 "Usage: $0 /path/to/VektRav.vst3 /path/to/VektRav.appex"
 	exit 64
 fi
 
