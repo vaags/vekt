@@ -18,6 +18,7 @@ target_link_libraries(vekt_project_options INTERFACE
     $<$<CONFIG:Release>:juce::juce_recommended_lto_flags>)
 
 add_subdirectory(framework/dsp)
+add_subdirectory(plugins/vekt_saturator)
 
 if(VEKT_BUILD_TESTS)
     include(CTest)

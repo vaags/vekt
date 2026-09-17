@@ -49,3 +49,19 @@ TEST_CASE("TanhStage processes buffers in place", "[dsp][tanh]")
     REQUIRE(samples[2] == Catch::Approx(0.0f));
     REQUIRE(samples.back() == Catch::Approx(std::tanh(2.0f)));
 }
+
+TEST_CASE("TanhStage smooths drive changes", "[dsp][tanh][smoothing]")
+{
+    vekt::dsp::TanhStage<double> stage;
+    stage.prepare(1'000.0, 0.01);
+    stage.setDriveLinear(2.0);
+
+    const auto first = stage.processSample(0.5);
+    for (auto sample = 1; sample < 10; ++sample)
+        static_cast<void>(stage.processSample(0.5));
+    const auto settled = stage.processSample(0.5);
+
+    REQUIRE(first > std::tanh(0.5));
+    REQUIRE(first < std::tanh(1.0));
+    REQUIRE(settled == Catch::Approx(std::tanh(1.0)));
+}
