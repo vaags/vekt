@@ -6,11 +6,26 @@
 
 namespace vekt::saturator
 {
+namespace
+{
+bool migrateProjectState(juce::ValueTree& state, int sourceVersion)
+{
+	if (sourceVersion != 1)
+		return false;
+
+	if (!state.getChildWithName(state::StateManager::metadataType).isValid())
+		state.addChild(juce::ValueTree(state::StateManager::metadataType), -1, nullptr);
+	return true;
+}
+}
+
 PluginProcessor::PluginProcessor()
 	: AudioProcessor(BusesProperties()
 		.withInput("Input", juce::AudioChannelSet::stereo(), true)
 		.withOutput("Output", juce::AudioChannelSet::stereo(), true)),
 	  parameterState(*this, &undoManager, parameters::stateType, parameters::createLayout()),
+	  stateManager(parameterState, parameters::projectStateType,
+		  parameters::projectStateVersion, migrateProjectState),
 	  inputGainParameter(requireParameter(parameterState, parameters::inputGain)),
 	  driveParameter(requireParameter(parameterState, parameters::drive)),
 	  toneParameter(requireParameter(parameterState, parameters::tone)),
@@ -164,9 +179,7 @@ void PluginProcessor::changeProgramName(int index, const juce::String& name) { j
 
 void PluginProcessor::getStateInformation(juce::MemoryBlock& destination)
 {
-	auto state = parameterState.copyState();
-	state.setProperty("stateVersion", parameters::stateVersion, nullptr);
-
+	const auto state = stateManager.createState();
 	if (const auto xml = state.createXml())
 		copyXmlToBinary(*xml, destination);
 }
@@ -178,13 +191,17 @@ void PluginProcessor::setStateInformation(const void* data, int size)
 		return;
 
 	auto state = juce::ValueTree::fromXml(*xml);
-	if (state.isValid() && state.hasType(parameters::stateType))
-		parameterState.replaceState(state);
+	stateManager.restoreState(state);
 }
 
 juce::AudioProcessorValueTreeState& PluginProcessor::getParameters() noexcept
 {
 	return parameterState;
+}
+
+juce::ValueTree& PluginProcessor::getProjectMetadata() noexcept
+{
+	return stateManager.getMetadata();
 }
 
 dsp::OversamplingQuality PluginProcessor::getActiveQuality() const noexcept

@@ -35,7 +35,8 @@ target_compile_definitions(VektSaturator PUBLIC
 
 target_link_libraries(VektSaturator
 	PRIVATE
-		vekt::dsp
 		juce::juce_audio_utils
 	PUBLIC
+		vekt::dsp
+		vekt::state
 		vekt_project_options)

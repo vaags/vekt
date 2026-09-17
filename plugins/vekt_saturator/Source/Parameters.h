@@ -18,7 +18,8 @@ inline constexpr auto oversamplingFactor = "oversamplingFactor";
 inline constexpr auto oversamplingPhase = "oversamplingPhase";
 
 inline constexpr auto stateType = "VektSaturatorState";
-inline constexpr auto stateVersion = 1;
+inline constexpr auto projectStateType = "VektSaturatorProjectState";
+inline constexpr auto projectStateVersion = 2;
 
 [[nodiscard]] juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
 [[nodiscard]] dsp::OversamplingQuality qualityFrom(float factorIndex, float phaseIndex) noexcept;

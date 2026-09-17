@@ -137,6 +137,7 @@ TEST_CASE("Saturator processor state round trips parameters", "[processor][state
 {
 	vekt::saturator::PluginProcessor source;
 	vekt::saturator::PluginProcessor restored;
+	auto restoredMetadata = restored.getProjectMetadata();
 	auto* sourceDrive = source.getParameters().getParameter(vekt::saturator::parameters::drive);
 	auto* sourceTone = source.getParameters().getParameter(vekt::saturator::parameters::tone);
 	auto* sourceAutoGain = source.getParameters().getParameter(vekt::saturator::parameters::autoGain);
@@ -149,9 +150,20 @@ TEST_CASE("Saturator processor state round trips parameters", "[processor][state
 	sourceTone->setValueNotifyingHost(sourceTone->convertTo0to1(-3.0f));
 	sourceAutoGain->setValueNotifyingHost(1.0f);
 	sourceBypass->setValueNotifyingHost(1.0f);
+	source.getProjectMetadata().setProperty("editorWidth", 900, nullptr);
 
 	juce::MemoryBlock state;
 	source.getStateInformation(state);
+	const auto xml = juce::AudioProcessor::getXmlFromBinary(
+		state.getData(), static_cast<int>(state.getSize()));
+	REQUIRE(xml != nullptr);
+	const auto projectState = juce::ValueTree::fromXml(*xml);
+	REQUIRE(projectState.hasType(vekt::saturator::parameters::projectStateType));
+	REQUIRE(static_cast<int>(projectState.getProperty(
+		vekt::state::StateManager::schemaVersionProperty))
+		== vekt::saturator::parameters::projectStateVersion);
+	REQUIRE(projectState.getChildWithName(vekt::saturator::parameters::stateType).isValid());
+	REQUIRE(projectState.getChildWithName(vekt::state::StateManager::metadataType).isValid());
 	restored.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
 
 	const auto* restoredDrive = restored.getParameters().getRawParameterValue(
@@ -170,6 +182,52 @@ TEST_CASE("Saturator processor state round trips parameters", "[processor][state
 	REQUIRE(restoredTone->load() == Catch::Approx(-3.0f));
 	REQUIRE(restoredAutoGain->load() == Catch::Approx(1.0f));
 	REQUIRE(restoredBypass->load() == Catch::Approx(1.0f));
+	REQUIRE(static_cast<int>(restoredMetadata.getProperty("editorWidth")) == 900);
+}
+
+TEST_CASE("Saturator processor migrates legacy version one state", "[processor][state]")
+{
+	vekt::saturator::PluginProcessor source;
+	vekt::saturator::PluginProcessor restored;
+	auto* sourceDrive = source.getParameters().getParameter(vekt::saturator::parameters::drive);
+	REQUIRE(sourceDrive != nullptr);
+	sourceDrive->setValueNotifyingHost(sourceDrive->convertTo0to1(24.0f));
+
+	auto legacyState = source.getParameters().copyState();
+	legacyState.setProperty(vekt::state::StateManager::legacyVersionProperty, 1, nullptr);
+	juce::MemoryBlock binary;
+	if (const auto xml = legacyState.createXml())
+		juce::AudioProcessor::copyXmlToBinary(*xml, binary);
+	restored.setStateInformation(binary.getData(), static_cast<int>(binary.getSize()));
+
+	const auto* restoredDrive = restored.getParameters().getRawParameterValue(
+		vekt::saturator::parameters::drive);
+	REQUIRE(restoredDrive != nullptr);
+	REQUIRE(restoredDrive->load() == Catch::Approx(24.0f));
+	REQUIRE(restored.getProjectMetadata().hasType(vekt::state::StateManager::metadataType));
+}
+
+TEST_CASE("Saturator processor rejects future project state", "[processor][state]")
+{
+	vekt::saturator::PluginProcessor processor;
+	setParameter(processor, vekt::saturator::parameters::drive, 12.0f);
+	juce::MemoryBlock binary;
+	processor.getStateInformation(binary);
+
+	const auto xml = juce::AudioProcessor::getXmlFromBinary(
+		binary.getData(), static_cast<int>(binary.getSize()));
+	REQUIRE(xml != nullptr);
+	auto futureState = juce::ValueTree::fromXml(*xml);
+	futureState.setProperty(vekt::state::StateManager::schemaVersionProperty, 999, nullptr);
+	if (const auto futureXml = futureState.createXml())
+		juce::AudioProcessor::copyXmlToBinary(*futureXml, binary);
+
+	setParameter(processor, vekt::saturator::parameters::drive, 6.0f);
+	processor.setStateInformation(binary.getData(), static_cast<int>(binary.getSize()));
+	const auto* drive = processor.getParameters().getRawParameterValue(
+		vekt::saturator::parameters::drive);
+	REQUIRE(drive != nullptr);
+	REQUIRE(drive->load() == Catch::Approx(6.0f));
 }
 
 TEST_CASE("Saturator processor bypass preserves reported latency across transitions", "[processor][bypass]")

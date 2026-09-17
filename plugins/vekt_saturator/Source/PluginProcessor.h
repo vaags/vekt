@@ -9,6 +9,7 @@
 #include <vekt/dsp/MatchedToneStage.h>
 #include <vekt/dsp/OversamplingBank.h>
 #include <vekt/dsp/TanhStage.h>
+#include <vekt/state/StateManager.h>
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
@@ -55,6 +56,7 @@ public:
 	void setStateInformation(const void* data, int size) override;
 
 	[[nodiscard]] juce::AudioProcessorValueTreeState& getParameters() noexcept;
+	[[nodiscard]] juce::ValueTree& getProjectMetadata() noexcept;
 	[[nodiscard]] dsp::OversamplingQuality getActiveQuality() const noexcept;
 	[[nodiscard]] bool hasPendingQualityChange() const noexcept;
 	void applyPendingQualityChange();
@@ -72,6 +74,7 @@ private:
 
 	juce::UndoManager undoManager;
 	juce::AudioProcessorValueTreeState parameterState;
+	state::StateManager stateManager;
 
 	std::atomic<float>* inputGainParameter;
 	std::atomic<float>* driveParameter;
