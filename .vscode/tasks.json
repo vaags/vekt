@@ -1,0 +1,35 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Vekt: Run Audio Lab",
+      "type": "shell",
+      "command": "${workspaceFolder}/scripts/run-audio-lab.sh",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": false,
+        "clear": true
+      }
+    },
+    {
+      "label": "Vekt: Test and Run Audio Lab",
+      "type": "shell",
+      "command": "${workspaceFolder}/scripts/test.sh && ${workspaceFolder}/scripts/run-audio-lab.sh",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": false,
+        "clear": true
+      }
+    }
+  ]
+}

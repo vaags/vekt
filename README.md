@@ -42,6 +42,15 @@ Audio Lab:
 ./scripts/run-audio-lab.sh
 ```
 
+To run the full test suite before launching the lab:
+
+```sh
+./scripts/test-and-run-audio-lab.sh
+```
+
+The same workflows are available in VS Code through **Tasks: Run Task** as
+`Vekt: Run Audio Lab` and `Vekt: Test and Run Audio Lab`.
+
 It generates test signals internally and sends them to the selected default
 audio output. The lab contains the full Rav editor; select a source, choose the
 mode and all processing controls in the editor, then explicitly arm output.
