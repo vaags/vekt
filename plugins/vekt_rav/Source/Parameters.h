@@ -5,6 +5,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include <array>
+#include <cmath>
 
 namespace vekt::rav::parameters
 {
@@ -48,4 +49,11 @@ inline constexpr std::array soundParameterIds {
 [[nodiscard]] juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
 [[nodiscard]] dsp::OversamplingQuality trackingQualityFrom(float index) noexcept;
 [[nodiscard]] dsp::OversamplingQuality offlineQualityFrom(float index) noexcept;
+
+[[nodiscard]] inline float toneSlopeFromUserValue(float value) noexcept
+{
+	const auto normalized = std::clamp(value / 6.0f, -1.0f, 1.0f);
+	const auto shaped = std::tanh(1.5f * normalized) / std::tanh(1.5f);
+	return shaped * 6.0f;
+}
 }

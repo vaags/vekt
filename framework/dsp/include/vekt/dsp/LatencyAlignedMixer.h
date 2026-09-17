@@ -35,6 +35,12 @@ public:
             mixer->setWetMixProportion(wetProportion);
     }
 
+    void setRampLength(double seconds)
+    {
+        if (mixer != nullptr)
+            mixer->setRampLength(juce::Seconds { seconds });
+    }
+
     void setWetLatency(int newWetLatencySamples)
     {
         wetLatency = std::clamp(newWetLatencySamples, 0, maximumLatency);

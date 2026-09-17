@@ -114,6 +114,7 @@ void PluginProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
 		dcBlocker.prepare(sampleRate);
 
 	dryWetMixer.prepare(specification, oversampling.getMaximumLatencySamples());
+	dryWetMixer.setRampLength(0.1);
 	dryWetMixer.setWetLatency(oversampling.getActiveLatencySamples());
 	bypassDelay.prepare(specification, oversampling.getMaximumLatencySamples());
 	bypassDelay.setLatency(oversampling.getActiveLatencySamples());
@@ -211,7 +212,8 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 	toneStage.setRampDurationSeconds(0.02);
 	const auto usesDedicatedTone = currentMode == RavMode::fuzz
 		|| currentMode == RavMode::wavefold;
-	toneStage.setSlopeDbPerOctave(usesDedicatedTone ? 0.0f : -toneParameter->load());
+	toneStage.setSlopeDbPerOctave(usesDedicatedTone ? 0.0f
+		: -parameters::toneSlopeFromUserValue(toneParameter->load()));
 
 	juce::dsp::AudioBlock<float> block(buffer);
 	inputGain.process(juce::dsp::ProcessContextReplacing<float>(block));
