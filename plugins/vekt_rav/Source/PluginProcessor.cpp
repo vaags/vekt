@@ -206,7 +206,10 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 	inputGain.setGainDecibels(inputGainParameter->load());
 	outputGain.setGainDecibels(outputGainParameter->load());
 	dryWetMixer.setWetProportion(mixParameter->load() * 0.01f);
-	toneStage.setSlopeDbPerOctave(-toneParameter->load());
+	const auto currentMode = static_cast<RavMode>(
+		juce::jlimit(0, 5, juce::roundToInt(modeParameter->load())));
+	toneStage.setRampDurationSeconds(0.02);
+	toneStage.setSlopeDbPerOctave(currentMode == RavMode::fuzz ? 0.0f : -toneParameter->load());
 
 	juce::dsp::AudioBlock<float> block(buffer);
 	inputGain.process(juce::dsp::ProcessContextReplacing<float>(block));
@@ -245,7 +248,7 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 			bandStages[band][static_cast<std::size_t>(channel)].setParameters(
 				static_cast<RavMode>(juce::jlimit(0, 5, juce::roundToInt(modeParameter->load()))),
 				driveParameter->load(), biasParameter->load(), characterParameter->load(),
-				responseParameter->load(), textureParameter->load());
+				responseParameter->load(), textureParameter->load(), toneParameter->load());
 			bandStages[band][static_cast<std::size_t>(channel)].process(
 				std::span<float>(bandBuffers[band].getWritePointer(channel),
 					static_cast<std::size_t>(samples)));

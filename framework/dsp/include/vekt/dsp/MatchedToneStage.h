@@ -30,6 +30,7 @@ public:
         const auto currentSlope = preSlope.getTargetValue();
         preSlope.reset(sampleRate, rampDurationSeconds);
         postSlope.reset(sampleRate, rampDurationSeconds);
+        rampDuration = rampDurationSeconds;
         preSlope.setCurrentAndTargetValue(currentSlope);
         postSlope.setCurrentAndTargetValue(currentSlope);
         preStates.assign(channelCount, {});
@@ -49,6 +50,24 @@ public:
         const auto slope = std::clamp(newSlope, static_cast<Sample>(-6), static_cast<Sample>(6));
         preSlope.setTargetValue(slope);
         postSlope.setTargetValue(slope);
+    }
+
+    void setRampDurationSeconds(double seconds) noexcept
+    {
+        if (std::abs(seconds - rampDuration) < 1.0e-9)
+            return;
+
+        const auto currentPre = preSlope.getCurrentValue();
+        const auto targetPre = preSlope.getTargetValue();
+        const auto currentPost = postSlope.getCurrentValue();
+        const auto targetPost = postSlope.getTargetValue();
+        preSlope.reset(sampleRateHz, seconds);
+        postSlope.reset(sampleRateHz, seconds);
+        preSlope.setCurrentAndTargetValue(currentPre);
+        postSlope.setCurrentAndTargetValue(currentPost);
+        preSlope.setTargetValue(targetPre);
+        postSlope.setTargetValue(targetPost);
+        rampDuration = seconds;
     }
 
     void processPre(juce::dsp::AudioBlock<Sample> block) noexcept
@@ -134,5 +153,6 @@ private:
     Sample sampleRateHz { static_cast<Sample>(48'000) };
     Sample warpedPivot {};
     Sample warpSlope { 1 };
+    double rampDuration { 0.02 };
 };
 }

@@ -33,6 +33,7 @@ public:
 		character.reset(processingSampleRate, 0.02);
 		response.reset(processingSampleRate, 0.02);
 		texture.reset(processingSampleRate, 0.02);
+		tone.reset(processingSampleRate, 0.02);
 		postStage.prepare(processingSampleRate);
 		reset();
 	}
@@ -45,16 +46,18 @@ public:
 		highPassState = 0.0f;
 		holdValue = 0.0f;
 		holdPhase = 1.0f;
+		fuzzToneState = 0.0f;
 		postStage.reset();
 		drive.setCurrentAndTargetValue(drive.getTargetValue());
 		bias.setCurrentAndTargetValue(bias.getTargetValue());
 		character.setCurrentAndTargetValue(character.getTargetValue());
 		response.setCurrentAndTargetValue(response.getTargetValue());
 		texture.setCurrentAndTargetValue(texture.getTargetValue());
+		tone.setCurrentAndTargetValue(tone.getTargetValue());
 	}
 
 	void setParameters(RavMode newMode, float newDrive, float newBias,
-		float newCharacter, float newResponse, float newTexture) noexcept
+		float newCharacter, float newResponse, float newTexture, float newTone = 0.0f) noexcept
 	{
 		mode = newMode;
 		drive.setTargetValue(std::clamp(newDrive, 0.0f, 64.0f));
@@ -62,6 +65,7 @@ public:
 		character.setTargetValue(std::clamp(newCharacter, 0.0f, 1.0f));
 		response.setTargetValue(std::clamp(newResponse, 0.0f, 1.0f));
 		texture.setTargetValue(std::clamp(newTexture, 0.0f, 1.0f));
+		tone.setTargetValue(std::clamp(newTone, -6.0f, 6.0f));
 	}
 
 	void process(std::span<float> samples) noexcept
@@ -78,6 +82,7 @@ private:
 		const auto characterValue = character.getNextValue();
 		const auto responseValue = response.getNextValue();
 		const auto textureValue = texture.getNextValue();
+		const auto toneValue = tone.getNextValue();
 		const auto driven = input * juce::Decibels::decibelsToGain(driveDb);
 
 		auto output = input;
@@ -146,6 +151,12 @@ private:
 			}
 		}
 
+		if (mode == RavMode::fuzz)
+		{
+			const auto tilt = std::clamp(toneValue / 6.0f, -0.8f, 0.8f);
+			fuzzToneState += 0.08f * (output - fuzzToneState);
+			output += tilt * (output - fuzzToneState);
+		}
 		return postStage.process(output, postCutoffHz(mode, textureValue));
 	}
 
@@ -173,11 +184,13 @@ private:
 	float highPassState {};
 	float holdValue {};
 	float holdPhase { 1.0f };
+	float fuzzToneState {};
 	RavPostStage postStage;
 	juce::SmoothedValue<float> drive { 6.0f };
 	juce::SmoothedValue<float> bias;
 	juce::SmoothedValue<float> character { 0.5f };
 	juce::SmoothedValue<float> response { 0.5f };
 	juce::SmoothedValue<float> texture { 0.5f };
+	juce::SmoothedValue<float> tone;
 };
 }
