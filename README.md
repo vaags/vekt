@@ -29,6 +29,27 @@ The `xcode` configure preset is reserved for AUv3-capable builds. It requires a
 full Xcode installation selected through `xcode-select`; Apple Command Line
 Tools alone are insufficient.
 
+## Install In A DAW
+
+For Ableton Live on macOS, use the VST3 build. After building with the `dev`
+preset, install the bundle in the user VST3 directory:
+
+```sh
+mkdir -p "$HOME/Library/Audio/Plug-Ins/VST3"
+ditto "build/dev/plugins/vekt_rav/VektRav_artefacts/Debug/VST3/Vekt Rav.vst3" \
+  "$HOME/Library/Audio/Plug-Ins/VST3/Vekt Rav.vst3"
+```
+
+In Ableton Live, open **Settings > Plug-Ins**, enable **Use VST3 Plug-In
+System Folders**, then trigger a plug-in rescan. Find **Vekt Rav** under the
+Audio Effects browser and drag it onto an audio track.
+
+Development builds may be ad-hoc signed and can be rejected by Gatekeeper or
+the host. For normal use, install a signed release bundle instead. The AUv3
+build is intended for AUv3-compatible hosts such as Logic Pro and GarageBand;
+Ableton Live should use the VST3 bundle. Remove an older copy from the VST3
+folder before rescanning if Live shows duplicate versions.
+
 ## Current Scope
 
 - Pinned JUCE 9.0.2 dependency
