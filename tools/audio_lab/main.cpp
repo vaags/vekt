@@ -37,8 +37,10 @@ struct Options final
 		std::string value;
 		if (valueFor(index, argc, argv, "--source", value))
 		{
-			if (value == "silence") options.source = vekt::audio_lab::Source::silence;
-			else if (value == "sine") options.source = vekt::audio_lab::Source::sine;
+			if (value == "sine")
+				options.source = vekt::audio_lab::Source::sine;
+			else if (value == "sawtooth")
+				options.source = vekt::audio_lab::Source::sawtooth;
 			else if (value == "sweep") options.source = vekt::audio_lab::Source::sweep;
 			else if (value == "impulse") options.source = vekt::audio_lab::Source::impulse;
 			else if (value == "noise") options.source = vekt::audio_lab::Source::noise;
@@ -62,7 +64,7 @@ int main(int argc, char** argv)
 	Options options;
 	if (!parseOptions(argc, argv, options))
 	{
-		std::cerr << "Usage: VektRavRender [--source silence|sine|sweep|impulse|noise|kick] "
+		std::cerr << "Usage: VektRavRender [--source sine|sawtooth|sweep|impulse|noise|kick] "
 					 "[--sample-rate Hz] [--block-size samples] [--seconds duration] [--mode 0-5]\n";
 		return 64;
 	}

@@ -18,26 +18,43 @@ class LiveLab final : public juce::AudioAppComponent,
 public:
 	LiveLab()
 	{
-		sourceBox.addItem("Sine", 2);
-		sourceBox.addItem("Sweep", 3);
+        sourceBox.addItem("Sine", 1);
+        sourceBox.addItem("Sawtooth", 2);
+        sourceBox.addItem("Sweep", 3);
 		sourceBox.addItem("Impulse", 4);
 		sourceBox.addItem("Noise", 5);
         sourceBox.addItem("Kick", 6);
-        sourceBox.addItem("Silence", 1);
-		sourceBox.setSelectedId(2, juce::dontSendNotification);
-		for (auto* component : { static_cast<juce::Component*>(&sourceBox),
-			static_cast<juce::Component*>(&armButton),
-			static_cast<juce::Component*>(&muteButton), static_cast<juce::Component*>(&statusLabel) })
-			addAndMakeVisible(*component);
+        sourceBox.setSelectedId(1, juce::dontSendNotification);
+        for (auto *component : {static_cast<juce::Component *>(&sourceBox),
+                                static_cast<juce::Component *>(&octaveDownButton), static_cast<juce::Component *>(&octaveUpButton),
+                                static_cast<juce::Component *>(&armButton),
+                                static_cast<juce::Component *>(&muteButton), static_cast<juce::Component *>(&restartButton),
+                                static_cast<juce::Component *>(&statusLabel)})
+            addAndMakeVisible(*component);
 
 		sourceBox.onChange = [this] { requestedSource.store(sourceBox.getSelectedId() - 1); };
-		armButton.setClickingTogglesState(true);
+        octaveDownButton.onClick = [this]
+        { requestedOctave.store(std::max(-3, requestedOctave.load() - 1)); };
+        octaveUpButton.onClick = [this]
+        { requestedOctave.store(std::min(3, requestedOctave.load() + 1)); };
+        armButton.setClickingTogglesState(true);
 		armButton.onClick = [this]
 		{
 			outputArmed.store(armButton.getToggleState());
 			armButton.setButtonText(outputArmed.load() ? "Output armed" : "Arm output");
 		};
 		muteButton.onClick = [this] { outputArmed.store(false); armButton.setToggleState(false, juce::dontSendNotification); };
+		restartButton.onClick = []
+		{
+			const auto executable = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
+			const auto appBundle = executable.getParentDirectory().getParentDirectory().getParentDirectory();
+			juce::Timer::callAfterDelay(250, [appBundle]
+			{
+				juce::ChildProcess launcher;
+				launcher.start({ "/usr/bin/open", "-n", appBundle.getFullPathName() });
+				juce::JUCEApplication::getInstance()->quit();
+			});
+		};
 		editor.reset(processor.createEditor());
 		if (editor != nullptr)
 		{
@@ -74,10 +91,12 @@ public:
 		{
 			currentSource = sourceType;
 			source.prepare(sourceType, sampleRateHz);
-			sampleIndex = 0;
+            source.setOctave(requestedOctave.load());
+            sampleIndex = 0;
 		}
+        source.setOctave(requestedOctave.load());
 
-		for (auto sample = 0; sample < info.numSamples; ++sample)
+        for (auto sample = 0; sample < info.numSamples; ++sample)
 		{
 			const auto value = source.next(sampleIndex++);
 			generatedPeak.store(std::max(generatedPeak.load(), std::abs(value)));
@@ -113,10 +132,13 @@ public:
 	void resized() override
 	{
 		sourceBox.setBounds(20, 33, 180, 26);
-		armButton.setBounds(215, 33, 130, 26);
-		muteButton.setBounds(355, 33, 100, 26);
-		statusLabel.setBounds(470, 33, 260, 26);
-		if (editor != nullptr)
+        octaveDownButton.setBounds(215, 33, 34, 26);
+        octaveUpButton.setBounds(253, 33, 34, 26);
+        armButton.setBounds(295, 33, 130, 26);
+        muteButton.setBounds(435, 33, 100, 26);
+        restartButton.setBounds(545, 33, 115, 26);
+        statusLabel.setBounds(670, 33, 100, 26);
+        if (editor != nullptr)
 		{
 			const auto editorArea = getLocalBounds().withTop(75).reduced(20, 0);
 			const auto scale = std::min(
@@ -151,13 +173,17 @@ private:
 	vekt::rav::PluginProcessor processor;
 	std::unique_ptr<juce::AudioProcessorEditor> editor;
 	juce::ComboBox sourceBox;
-	juce::ToggleButton armButton { "Arm output" };
+    juce::TextButton octaveDownButton{"-"};
+    juce::TextButton octaveUpButton{"+"};
+    juce::ToggleButton armButton { "Arm output" };
 	juce::TextButton muteButton { "MUTE" };
+	juce::TextButton restartButton { "Restart App" };
 	juce::Label statusLabel;
 	vekt::audio_lab::SignalSource source;
 	vekt::audio_lab::Source currentSource { static_cast<vekt::audio_lab::Source>(-1) };
-	std::atomic<int> requestedSource { 1 };
-	double sampleRateHz { 48'000.0 };
+    std::atomic<int> requestedSource{};
+    std::atomic<int> requestedOctave{};
+    double sampleRateHz { 48'000.0 };
 	std::int64_t sampleIndex {};
 	std::atomic<bool> outputArmed {};
 	std::atomic<float> outputPeak {};
@@ -194,7 +220,7 @@ class Application final : public juce::JUCEApplication
 public:
 	const juce::String getApplicationName() override { return "Vekt Rav Audio Lab"; }
 	const juce::String getApplicationVersion() override { return "0.1.0"; }
-	bool moreThanOneInstanceAllowed() override { return false; }
+	bool moreThanOneInstanceAllowed() override { return true; }
 
 	void initialise(const juce::String&) override
 	{
