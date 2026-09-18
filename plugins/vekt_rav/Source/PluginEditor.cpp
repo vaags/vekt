@@ -311,10 +311,12 @@ void PluginEditor::resized()
 	const auto shapingContent = shapingPanel.getContentBounds();
 	const auto bandMixContent = bandMixPanel.getContentBounds();
 	const auto outputContent = outputPanel.getContentBounds();
-	layoutRotaryRow(sliders, 1, 2, primaryContent.withHeight(layout::primaryControlHeight),
-		layout::primaryControlHeight, layout::labelHeight);
-	layoutRotaryRow(sliders, 3, 2, primaryContent.withTrimmedTop(layout::primaryControlHeight + layout::rowGap).withHeight(layout::primaryControlHeight),
-		layout::primaryControlHeight, layout::labelHeight);
+	const auto primaryRowHeight = std::min(layout::primaryControlHeight,
+		(primaryContent.getHeight() - layout::rowGap) / 2);
+	layoutRotaryRow(sliders, 1, 2, primaryContent.withHeight(primaryRowHeight),
+		primaryRowHeight, layout::labelHeight);
+	layoutRotaryRow(sliders, 3, 2, primaryContent.withTrimmedTop(primaryRowHeight + layout::rowGap).withHeight(primaryRowHeight),
+		primaryRowHeight, layout::labelHeight);
 	const auto shapingHeight = std::min(shapingContent.getHeight(), layout::shapingControlHeight);
 	layoutRotaryRow(macroSliders, 0, macroSliders.size(),
 		shapingContent.withY(shapingContent.getY() + (shapingContent.getHeight() - shapingHeight) / 2)
