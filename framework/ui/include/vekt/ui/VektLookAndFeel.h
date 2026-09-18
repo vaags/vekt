@@ -8,6 +8,7 @@ class VektLookAndFeel final : public juce::LookAndFeel_V4
 {
 public:
 	VektLookAndFeel();
+	juce::Label* createSliderTextBox(juce::Slider&) override;
 	void drawRotarySlider(juce::Graphics&, int, int, int, int, float, float, float,
 		juce::Slider&) override;
 };

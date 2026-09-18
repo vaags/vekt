@@ -32,7 +32,10 @@ public:
 	void resized() override;
 
 private:
+	void updateValueText();
+
 	juce::Slider slider;
+	juce::Label valueLabel;
 	juce::Label label;
 };
 }

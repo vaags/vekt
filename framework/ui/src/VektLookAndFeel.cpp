@@ -14,6 +14,16 @@ VektLookAndFeel::VektLookAndFeel()
 	setColour(juce::ComboBox::textColourId, juce::Colour::fromRGB(222, 224, 219));
 }
 
+juce::Label* VektLookAndFeel::createSliderTextBox(juce::Slider& slider)
+{
+	auto* textBox = juce::LookAndFeel_V4::createSliderTextBox(slider);
+	auto valueFont = juce::Font(juce::FontOptions(14.0f));
+	valueFont.setTypefaceName(juce::Font::getDefaultMonospacedFontName());
+	textBox->setFont(valueFont);
+	textBox->setJustificationType(juce::Justification::centred);
+	return textBox;
+}
+
 void VektLookAndFeel::drawRotarySlider(juce::Graphics& graphics, int x, int y, int width,
 	int height, float position, float startAngle, float endAngle, juce::Slider&)
 {
