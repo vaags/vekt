@@ -5,6 +5,7 @@
 
 #include <array>
 #include <cmath>
+#include <vector>
 
 TEST_CASE("Rav mode stage keeps every mode finite", "[dsp][rav]")
 {
@@ -91,6 +92,46 @@ TEST_CASE("Rav mode stage supports slow Texture modulation", "[dsp][rav][texture
 
 	for (const auto sample : samples)
 		REQUIRE(std::isfinite(sample));
+}
+
+TEST_CASE("Rav Fuzz state response is consistent across processing rates", "[dsp][rav][rate]")
+{
+	const auto renderStep = [](double sampleRate)
+	{
+		vekt::rav::RavModeStage stage;
+		stage.prepare(sampleRate);
+		stage.setParameters(vekt::rav::RavMode::fuzz, 24.0f, 0.2f, 0.7f, 0.4f, 0.8f, 6.0f);
+		std::array<float, 38'400> settlingSamples {};
+		stage.process(settlingSamples);
+		stage.reset();
+		std::vector<float> stepSamples(static_cast<std::size_t>(sampleRate * 0.002), 0.25f);
+		stage.process(stepSamples);
+		return stepSamples.back();
+	};
+
+	const auto reference = renderStep(192'000.0);
+	const auto lowerRate = renderStep(48'000.0);
+	REQUIRE(lowerRate == Catch::Approx(reference).margin(1.0e-4f));
+}
+
+TEST_CASE("Rav Saturation feedback response is consistent across processing rates", "[dsp][rav][rate]")
+{
+	const auto renderStep = [](double sampleRate)
+	{
+		vekt::rav::RavModeStage stage;
+		stage.prepare(sampleRate);
+		stage.setParameters(vekt::rav::RavMode::saturation, 12.0f, 0.2f, 0.9f, 0.4f, 0.5f);
+		std::array<float, 38'400> settlingSamples {};
+		stage.process(settlingSamples);
+		stage.reset();
+		std::vector<float> stepSamples(static_cast<std::size_t>(sampleRate * 0.0005), 0.25f);
+		stage.process(stepSamples);
+		return stepSamples.back();
+	};
+
+	const auto reference = renderStep(192'000.0);
+	const auto lowerRate = renderStep(48'000.0);
+	REQUIRE(lowerRate == Catch::Approx(reference).margin(0.02f));
 }
 
 TEST_CASE("Rav Fuzz supports artifact-safe Drive transitions", "[dsp][rav][drive]")

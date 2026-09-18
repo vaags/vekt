@@ -15,8 +15,9 @@ namespace vekt::audio_lab
 		sweep,
 		impulse,
 		noise,
-		kick
-		, unison
+		kick,
+		unison,
+		twoTone
 	};
 
 class SignalSource final
@@ -41,6 +42,11 @@ public:
 		octaveOffset = std::clamp(octave, -3, 3);
 	}
 
+	void setFrequency(double frequency) noexcept
+	{
+		frequencyHz = std::max(1.0, frequency);
+	}
+
 	[[nodiscard]] float next(std::int64_t sampleIndex) noexcept
 	{
 		return next(sampleIndex, 0);
@@ -51,8 +57,8 @@ public:
 		switch (source)
 		{
 		case Source::sine:
-			return static_cast<float>(0.12589254117941673 * std::sin(
-																2.0 * pi * 1'000.0 * std::exp2(octaveOffset) * static_cast<double>(sampleIndex) / sampleRate));
+			return static_cast<float>(0.12589254117941673 * std::sin(2.0 * pi
+				* frequencyHz * std::exp2(octaveOffset) * static_cast<double>(sampleIndex) / sampleRate));
 		case Source::sawtooth:
 		{
 			const auto phase = std::fmod(static_cast<double>(sampleIndex) * 110.0 * std::exp2(octaveOffset) / sampleRate, 1.0);
@@ -109,6 +115,15 @@ public:
 			const auto click = std::sin(2.0 * pi * 3'200.0 * time) * std::exp(-420.0 * time);
 			return static_cast<float>(0.8 * body + 0.24 * click);
 		}
+		case Source::twoTone:
+		{
+			const auto firstFrequency = frequencyHz * std::exp2(octaveOffset);
+			const auto secondFrequency = firstFrequency * 1.4142135623730951;
+			const auto time = static_cast<double>(sampleIndex) / sampleRate;
+			return static_cast<float>(0.06294627058970837
+				* (std::sin(2.0 * pi * firstFrequency * time)
+					+ std::sin(2.0 * pi * secondFrequency * time)));
+		}
 		}
 
 		return 0.0f;
@@ -127,5 +142,6 @@ private:
 	double sampleRate;
 	std::uint32_t randomState;
 	int octaveOffset{};
+	double frequencyHz { 1'000.0 };
 };
 }

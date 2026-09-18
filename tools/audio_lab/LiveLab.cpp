@@ -25,6 +25,7 @@ public:
 		sourceBox.addItem("Noise", 5);
         sourceBox.addItem("Kick", 6);
 		sourceBox.addItem("Unison", 7);
+		sourceBox.addItem("Two Tone", 8);
         sourceBox.setSelectedId(1, juce::dontSendNotification);
         for (auto *component : {static_cast<juce::Component *>(&sourceBox),
                                 static_cast<juce::Component *>(&octaveDownButton), static_cast<juce::Component *>(&octaveUpButton),

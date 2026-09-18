@@ -27,6 +27,8 @@ public:
 	void prepare(double processingSampleRate) noexcept
 	{
 		sampleRateHz = static_cast<float>(processingSampleRate);
+		stateRateScale = referenceProcessingRateHz / sampleRateHz;
+		fuzzToneCoefficient = timeCorrectedCoefficient(0.08f);
 		drive.prepare(processingSampleRate, 0.02, 0.15);
 		bias.prepare(processingSampleRate, 0.02, 0.15);
 		shape.prepare(processingSampleRate, 0.02, 0.15);
@@ -99,7 +101,7 @@ private:
 		{
 			case RavMode::saturation:
 			{
-				const auto rollOff = 0.005f + dynamicsValue * 0.2f;
+				const auto rollOff = timeCorrectedCoefficient(0.005f + dynamicsValue * 0.2f);
 				feedbackState += (previousOutput - feedbackState) * rollOff;
 				const auto memory = shapeValue * feedbackState;
 				output = std::tanh(driven + memory + biasValue * textureValue)
@@ -130,7 +132,7 @@ private:
 			}
 			case RavMode::fuzz:
 			{
-				const auto envelopeRate = 0.001f + dynamicsValue * 0.08f;
+				const auto envelopeRate = timeCorrectedCoefficient(0.001f + dynamicsValue * 0.08f);
 				envelope += (std::abs(driven) - envelope) * envelopeRate;
 				const auto starvation = biasValue + (0.5f - envelope) * shapeValue;
 				const auto threshold = textureValue * (0.05f + envelope);
@@ -141,7 +143,8 @@ private:
 				const auto smoothGate = gatePosition * gatePosition
 					* (3.0f - 2.0f * gatePosition);
 				const auto gated = driven * smoothGate;
-				output = std::clamp((gated + starvation) * 4.0f, -1.0f, 1.0f);
+				const auto clipInput = (gated + starvation) * 4.0f;
+				output = std::clamp(clipInput, -1.0f, 1.0f);
 				break;
 			}
 		}
@@ -149,10 +152,17 @@ private:
 		if (mode == RavMode::fuzz)
 		{
 			const auto tilt = std::clamp(toneValue / 6.0f, -0.8f, 0.8f);
-			fuzzToneState += 0.08f * (output - fuzzToneState);
+			fuzzToneState += fuzzToneCoefficient * (output - fuzzToneState);
 			output += tilt * (output - fuzzToneState);
 		}
 		return postStage.process(output, postCutoffHz(mode, textureValue));
+	}
+
+	[[nodiscard]] float timeCorrectedCoefficient(float referenceCoefficient) const noexcept
+	{
+		if (stateRateScale == 1.0f)
+			return referenceCoefficient;
+		return -std::expm1(std::log1p(-referenceCoefficient) * stateRateScale);
 	}
 
 	[[nodiscard]] static float postCutoffHz(RavMode currentMode, float textureValue) noexcept
@@ -169,7 +179,10 @@ private:
 	}
 
 	RavMode mode { RavMode::saturation };
+	inline static constexpr float referenceProcessingRateHz { 192'000.0f };
 	float sampleRateHz { 48'000.0f };
+	float stateRateScale { referenceProcessingRateHz / sampleRateHz };
+	float fuzzToneCoefficient { timeCorrectedCoefficient(0.08f) };
 	float previousOutput {};
 	float feedbackState {};
 	float envelope {};
