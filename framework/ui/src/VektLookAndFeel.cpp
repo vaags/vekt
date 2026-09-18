@@ -42,9 +42,8 @@ void VektLookAndFeel::drawRotarySlider(juce::Graphics& graphics, int x, int y, i
 	const auto angle = startAngle + position * (endAngle - startAngle);
 	graphics.setColour(juce::Colour::fromRGB(242, 239, 225));
 	graphics.drawLine(centre.x, centre.y,
-		centre.x + std::cos(angle - juce::MathConstants<float>::halfPi) * dialRadius * 0.72f,
-		centre.y + std::sin(angle - juce::MathConstants<float>::halfPi) * dialRadius * 0.72f,
-		2.0f);
-	graphics.fillEllipse(juce::Rectangle<float>(centre.x - 2.5f, centre.y - 2.5f, 5.0f, 5.0f));
+		centre.x + std::cos(angle - juce::MathConstants<float>::halfPi) * dialRadius * 0.88f,
+		centre.y + std::sin(angle - juce::MathConstants<float>::halfPi) * dialRadius * 0.88f,
+		3.0f);
 }
 }
