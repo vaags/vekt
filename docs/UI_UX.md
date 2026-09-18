@@ -18,8 +18,14 @@ Preset workflows are specified separately in [PRESET_UX.md](PRESET_UX.md).
 
 ## Editor frame and layout
 
-- Use a 720 x 480 logical canvas with a 3:2 aspect ratio. Constrain resizing to
-  540 x 360 through 1440 x 960 and provide a visible bottom-right resize handle.
+- Use a 1040 x 650 logical canvas with a 16:10 aspect ratio. Constrain resizing to
+  1040 x 650 through 2080 x 1300 and provide a visible bottom-right resize handle.
+- Rav uses a single row of standard-size Drive, Tone, Bias, and Mix controls,
+  with standard-size Shape, Dynamics, and Texture beneath. Compact band mix and
+  crossover controls occupy the middle column; input/output faders and meters
+  remain visible in a full-height right strip. Global bypass is in the command bar.
+- Tracking and Offline quality selectors open in an anchored Settings panel.
+  Active quality and pending changes remain visible in the I/O strip.
 - Scale the logical canvas uniformly. Do not scale font sizes independently with
   viewport width or rearrange controls merely because the host changed size.
 - Use three stable regions: a compact command bar, the primary sound workspace,

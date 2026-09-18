@@ -13,8 +13,8 @@ public:
 	void setResizeHandleVisible(bool shouldBeVisible) noexcept;
 	void resized() override;
 
-	inline static constexpr auto logicalWidth = 920;
-	inline static constexpr auto logicalHeight = 820;
+	inline static constexpr auto logicalWidth = 1040;
+	inline static constexpr auto logicalHeight = 650;
 
 private:
 	juce::Component content;

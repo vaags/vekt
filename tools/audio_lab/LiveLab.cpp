@@ -12,6 +12,9 @@
 
 namespace
 {
+constexpr int labWidth = vekt::ui::ScalableEditor::logicalWidth + 32;
+constexpr int labHeight = vekt::ui::ScalableEditor::logicalHeight + 140;
+
 class LiveLab final : public juce::AudioAppComponent,
 						 private juce::Timer
 {
@@ -67,7 +70,7 @@ public:
 				scalableEditor->setResizable(false, false);
 			}
 		}
-		setSize(952, 980);
+		setSize(labWidth, labHeight);
 		setAudioChannels(0, 2);
 		startTimerHz(15);
 	}
@@ -159,7 +162,7 @@ public:
 		statusLabel.setBounds(720, 56, getWidth() - 736, 44);
         if (editor != nullptr)
 		{
-			const auto editorArea = getLocalBounds().withTop(124).reduced(16, 0);
+			const auto editorArea = getLocalBounds().withTop(124).withTrimmedBottom(16).reduced(16, 0);
 			const auto scale = std::min(
 				static_cast<float>(editorArea.getWidth()) / vekt::ui::ScalableEditor::logicalWidth,
 				static_cast<float>(editorArea.getHeight()) / vekt::ui::ScalableEditor::logicalHeight);
@@ -218,12 +221,12 @@ public:
 		: DocumentWindow("Vekt Rav Audio Lab", juce::Colours::black, closeButton)
 	{
 		setUsingNativeTitleBar(true);
-		constrainer.setMinimumSize(952, 980);
-		constrainer.setMaximumSize(1'900, 1'900);
+		constrainer.setMinimumSize(labWidth, labHeight);
+		constrainer.setMaximumSize(labWidth * 2, labHeight * 2);
 		setResizable(true, true);
 		setConstrainer(&constrainer);
 		setContentOwned(new LiveLab(), true);
-		centreWithSize(952, 980);
+		centreWithSize(getWidth(), getHeight());
 		setVisible(true);
 	}
 

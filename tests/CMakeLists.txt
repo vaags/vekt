@@ -15,10 +15,12 @@ add_executable(vekt_dsp_tests
 	processor/RavStageChainTests.cpp
     processor/AdaptiveAutoGainTests.cpp
 	processor/ParametersTests.cpp
+	processor/EditorLayoutTests.cpp
     dsp/TanhStageTests.cpp)
 
 target_link_libraries(vekt_dsp_tests PRIVATE
     vekt::dsp
+    vekt::ui
     VektRav
     Catch2::Catch2WithMain)
 
