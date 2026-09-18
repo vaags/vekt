@@ -372,11 +372,49 @@ TEST_CASE("Rav processor applies quality changes while stopped", "[processor][qu
 	REQUIRE(factor != nullptr);
 
 	factor->setValueNotifyingHost(0.0f);
-	processor.applyPendingQualityChange();
+	juce::AudioBuffer<float> buffer(2, 128);
+	juce::MidiBuffer midi;
+	processor.processBlock(buffer, midi);
 
 	REQUIRE(processor.getActiveQuality().factor == vekt::dsp::OversamplingFactor::off);
 	REQUIRE(processor.getLatencySamples() == 0);
 	REQUIRE_FALSE(processor.hasPendingQualityChange());
+}
+
+TEST_CASE("Rav processor keeps audio flowing across tracking quality changes", "[processor][quality]")
+{
+	constexpr auto blockSize = 128;
+	vekt::rav::PluginProcessor processor;
+	processor.prepareToPlay(48'000.0, blockSize);
+	auto* factor = processor.getParameters().getParameter(
+		vekt::rav::parameters::trackingOversampling);
+	REQUIRE(factor != nullptr);
+	juce::MidiBuffer midi;
+
+	for (const auto quality : { 1.0f, 0.0f, 2.0f })
+	{
+		factor->setValueNotifyingHost(factor->convertTo0to1(quality));
+		auto peak = 0.0f;
+		for (auto block = 0; block < 8; ++block)
+		{
+			juce::AudioBuffer<float> buffer(2, blockSize);
+			for (auto sample = 0; sample < blockSize; ++sample)
+			{
+				const auto value = std::sin(static_cast<float>(block * blockSize + sample) * 0.13f);
+				buffer.setSample(0, sample, value);
+				buffer.setSample(1, sample, value);
+			}
+			processor.processBlock(buffer, midi);
+			for (auto channel = 0; channel < buffer.getNumChannels(); ++channel)
+				for (auto sample = 0; sample < buffer.getNumSamples(); ++sample)
+				{
+					REQUIRE(std::isfinite(buffer.getSample(channel, sample)));
+					peak = std::max(peak, std::abs(buffer.getSample(channel, sample)));
+				}
+		}
+
+		REQUIRE(peak > 0.01f);
+	}
 }
 
 TEST_CASE("Rav processor defers quality changes during playback", "[processor][quality]")
@@ -395,14 +433,12 @@ TEST_CASE("Rav processor defers quality changes during playback", "[processor][q
 		vekt::rav::parameters::trackingOversampling);
 	REQUIRE(factor != nullptr);
 	factor->setValueNotifyingHost(0.0f);
-	processor.applyPendingQualityChange();
 
 	REQUIRE(processor.getActiveQuality().factor == vekt::dsp::OversamplingFactor::x4);
 	REQUIRE(processor.hasPendingQualityChange());
 
 	playHead.playing = false;
 	processor.processBlock(buffer, midi);
-	processor.applyPendingQualityChange();
 
 	REQUIRE(processor.getActiveQuality().factor == vekt::dsp::OversamplingFactor::off);
 	REQUIRE(processor.getLatencySamples() == 0);

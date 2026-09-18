@@ -63,14 +63,13 @@ PluginProcessor::PluginProcessor()
 
 PluginProcessor::~PluginProcessor()
 {
-	stopTimer();
-	cancelPendingUpdate();
 	parameterState.removeParameterListener(parameters::trackingOversampling, this);
 	parameterState.removeParameterListener(parameters::offlineOversampling, this);
 }
 
 void PluginProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
 {
+	preparedSampleRate = sampleRate;
 	const juce::dsp::ProcessSpec specification {
 		sampleRate,
 		static_cast<juce::uint32>(maximumBlockSize),
@@ -145,6 +144,8 @@ bool PluginProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
 	observeTransport();
+	if (!transportPlaying.load())
+		applyPendingQualityChange();
 	inputMeter.publish(buffer);
 	processPreparedBlocks(buffer, midi, bypassParameter->load() >= 0.5f);
 	outputMeter.publish(buffer);
@@ -153,6 +154,8 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
 void PluginProcessor::processBlockBypassed(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
 	observeTransport();
+	if (!transportPlaying.load())
+		applyPendingQualityChange();
 	inputMeter.publish(buffer);
 	processPreparedBlocks(buffer, midi, true);
 	outputMeter.publish(buffer);
@@ -637,38 +640,6 @@ void PluginProcessor::parameterChanged(const juce::String& parameterId, float ne
 		return;
 
 	qualityChangePending.store(true);
-	triggerAsyncUpdate();
-}
-
-void PluginProcessor::handleAsyncUpdate()
-{
-	applyPendingQualityChange();
-}
-
-void PluginProcessor::timerCallback()
-{
-	if (!qualityChangePending.load())
-	{
-		stopTimer();
-		return;
-	}
-
-	const auto currentProcessCounter = processCounter.load();
-	if (!transportPlaying.load())
-	{
-		stopTimer();
-		applyPendingQualityChange();
-		return;
-	}
-	if (currentProcessCounter == lastObservedProcessCounter)
-	{
-		transportPlaying.store(false);
-		stopTimer();
-		applyPendingQualityChange();
-		return;
-	}
-
-	lastObservedProcessCounter = currentProcessCounter;
 }
 
 void PluginProcessor::observeTransport() noexcept
@@ -679,7 +650,6 @@ void PluginProcessor::observeTransport() noexcept
 			isPlaying = position->getIsPlaying();
 
 	transportPlaying.store(isPlaying);
-	processCounter.fetch_add(1);
 }
 
 void PluginProcessor::applyPendingQualityChange()
@@ -689,8 +659,6 @@ void PluginProcessor::applyPendingQualityChange()
 
 	if (transportPlaying.load())
 	{
-		lastObservedProcessCounter = processCounter.load();
-		startTimer(transportPollIntervalMs);
 		return;
 	}
 
@@ -699,16 +667,17 @@ void PluginProcessor::applyPendingQualityChange()
 							 : parameters::trackingQualityFrom(requestedTrackingOversampling.load());
 	if (quality != oversampling.getActiveQuality())
 	{
-		suspendProcessing(true);
 		oversampling.activate(quality);
-		const auto effectiveSampleRate = getSampleRate()
+		const auto effectiveSampleRate = preparedSampleRate
 			* static_cast<double>(oversampling.getActiveFactor());
 		for (auto& band : bandStages)
 			for (auto& channel : band)
 				for (auto& stage : channel)
 						stage.prepare(effectiveSampleRate);
 		for (auto& gain : bandAutoGain)
-			gain.prepare(getSampleRate());
+			gain.prepare(effectiveSampleRate);
+		for (auto& bandMix : bandMixSmoothers)
+			bandMix.prepare(effectiveSampleRate);
 		crossover.prepare(
 			{ effectiveSampleRate, static_cast<juce::uint32>(maximumPreparedBlockSize * 4), 2 },
 			{ lowMidCutoffParameter->load(), midHighCutoffParameter->load() });
@@ -719,7 +688,6 @@ void PluginProcessor::applyPendingQualityChange()
 		for (auto& dcBlocker : dcBlockers)
 			dcBlocker.reset();
 		setLatencySamples(oversampling.getActiveLatencySamples());
-		suspendProcessing(false);
 	}
 
 	qualityChangePending.store(false);

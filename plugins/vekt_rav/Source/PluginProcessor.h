@@ -31,9 +31,7 @@
 namespace vekt::rav
 {
 class PluginProcessor final : public juce::AudioProcessor,
-							  private juce::AudioProcessorValueTreeState::Listener,
-							  private juce::AsyncUpdater,
-							  private juce::Timer
+							  private juce::AudioProcessorValueTreeState::Listener
 {
 public:
 	PluginProcessor();
@@ -90,22 +88,18 @@ public:
 	[[nodiscard]] bool reorderStage(std::size_t index, int delta) noexcept;
 	[[nodiscard]] dsp::OversamplingQuality getActiveQuality() const noexcept;
 	[[nodiscard]] bool hasPendingQualityChange() const noexcept;
-	void applyPendingQualityChange();
 
 private:
-	static constexpr auto transportPollIntervalMs = 250;
-
 	[[nodiscard]] static std::atomic<float>* requireParameter(
 		juce::AudioProcessorValueTreeState& state, const char* identifier);
 	static void assertMessageThread();
 	void parameterChanged(const juce::String& parameterId, float newValue) override;
-	void handleAsyncUpdate() override;
-	void timerCallback() override;
 	void observeTransport() noexcept;
 	void processPreparedBlocks(
 		juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi, bool bypassed);
 	void processBypassedBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi);
 	void processEffectBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi);
+	void applyPendingQualityChange();
 	void restoreCurrentProgramFromMetadata();
 
 	juce::UndoManager undoManager;
@@ -141,9 +135,8 @@ private:
 	std::atomic<float> requestedOfflineOversampling{4.0f};
 	std::atomic<bool> qualityChangePending {};
 	std::atomic<bool> transportPlaying {};
-	std::atomic<std::uint64_t> processCounter {};
-	std::uint64_t lastObservedProcessCounter {};
 	std::atomic<bool> prepared {};
+	double preparedSampleRate {};
 	int maximumPreparedBlockSize {};
 
 	dsp::OversamplingBank<float> oversampling { 2 };
