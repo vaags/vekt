@@ -21,8 +21,8 @@ public:
 		switch (size)
 		{
 		case Size::compact: return 120;
-		case Size::standard: return 144;
-		case Size::large: return 168;
+		case Size::standard: return 140;
+		case Size::large: return 160;
 		}
 		return 144;
 	}
