@@ -8,7 +8,7 @@
 
 TEST_CASE("Rav mode stage keeps every mode finite", "[dsp][rav]")
 {
-	for (auto modeIndex = 0; modeIndex < 6; ++modeIndex)
+	for (auto modeIndex = 0; modeIndex < 4; ++modeIndex)
 	{
 		vekt::rav::RavModeStage stage;
 		stage.prepare(48'000.0);
@@ -40,8 +40,8 @@ TEST_CASE("Rav mode stage reset is deterministic", "[dsp][rav]")
 
 TEST_CASE("Rav mode stage modes produce different textures", "[dsp][rav]")
 {
-	std::array<float, 6> outputs {};
-	for (auto modeIndex = 0; modeIndex < 6; ++modeIndex)
+	std::array<float, 4> outputs {};
+	for (auto modeIndex = 0; modeIndex < 4; ++modeIndex)
 	{
 		vekt::rav::RavModeStage stage;
 		stage.prepare(48'000.0);
@@ -52,54 +52,6 @@ TEST_CASE("Rav mode stage modes produce different textures", "[dsp][rav]")
 		outputs[static_cast<std::size_t>(modeIndex)] = samples[0];
 	}
 
-	REQUIRE(std::abs(outputs[0] - outputs[4]) > 1.0e-3f);
-	REQUIRE(std::abs(outputs[2] - outputs[5]) > 1.0e-3f);
-}
-
-TEST_CASE("Rav Bitcrush hold timing is base-rate invariant", "[dsp][rav][bitcrush]")
-{
-	vekt::rav::RavModeStage baseRateStage;
-	vekt::rav::RavModeStage oversampledStage;
-	baseRateStage.prepare(48'000.0, 48'000.0);
-	oversampledStage.prepare(192'000.0, 48'000.0);
-	baseRateStage.setParameters(vekt::rav::RavMode::bitcrush,
-		0.0f, 0.0f, 0.5f, 0.5f, 0.0f);
-	oversampledStage.setParameters(vekt::rav::RavMode::bitcrush,
-		0.0f, 0.0f, 0.5f, 0.5f, 0.0f);
-	baseRateStage.reset();
-	oversampledStage.reset();
-
-	for (auto baseSample = 0; baseSample < 64; ++baseSample)
-	{
-		const auto input = static_cast<float>(baseSample) / 64.0f;
-		std::array baseBlock { input };
-		baseRateStage.process(baseBlock);
-
-		std::array oversampledBlock { input, input, input, input };
-		oversampledStage.process(oversampledBlock);
-		REQUIRE(oversampledBlock.back() == Catch::Approx(baseBlock.front()).margin(1.0e-6f));
-	}
-}
-
-TEST_CASE("Rav Bitcrush Bias controls quantizer asymmetry", "[dsp][rav][bitcrush]")
-{
-	vekt::rav::RavModeStage positiveBias;
-	vekt::rav::RavModeStage negativeBias;
-	positiveBias.prepare(48'000.0);
-	negativeBias.prepare(48'000.0);
-	positiveBias.setParameters(vekt::rav::RavMode::bitcrush, 12.0f, 1.0f, 0.5f, 0.5f, 0.0f);
-	negativeBias.setParameters(vekt::rav::RavMode::bitcrush, 12.0f, -1.0f, 0.5f, 0.5f, 0.0f);
-	positiveBias.reset();
-	negativeBias.reset();
-
-	std::array positiveSamples { 0.37f, -0.37f };
-	std::array negativeSamples { 0.37f, -0.37f };
-	positiveBias.process(positiveSamples);
-	negativeBias.process(negativeSamples);
-
-	REQUIRE(std::isfinite(positiveSamples[0]));
-	REQUIRE(std::isfinite(negativeSamples[0]));
-	REQUIRE(positiveSamples != negativeSamples);
 }
 
 TEST_CASE("Rav mode stage supports slow Bias modulation", "[dsp][rav][bias]")

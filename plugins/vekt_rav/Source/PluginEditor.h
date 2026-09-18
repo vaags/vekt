@@ -52,10 +52,10 @@ private:
     juce::ComboBox trackingBox;
     juce::ComboBox offlineBox;
     juce::ComboBox modeBox;
-	std::array<juce::ToggleButton, 6> stageButtons;
-	std::array<juce::TextButton, 6> stageUpButtons;
-	std::array<juce::TextButton, 6> stageDownButtons;
-	std::array<std::unique_ptr<ButtonAttachment>, 6> stageButtonAttachments;
+	std::array<juce::ToggleButton, 4> stageButtons;
+	std::array<juce::TextButton, 4> stageUpButtons;
+	std::array<juce::TextButton, 4> stageDownButtons;
+	std::array<std::unique_ptr<ButtonAttachment>, 4> stageButtonAttachments;
 	std::array<ui::RotaryControl, 6> sliders;
 	std::array<std::unique_ptr<SliderAttachment>, 6> sliderAttachments;
 	std::array<ui::RotaryControl, 3> macroSliders;

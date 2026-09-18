@@ -12,14 +12,14 @@ namespace vekt::rav
 class RavStageChain final
 {
 public:
-	inline static constexpr std::size_t stageCount = 6;
+	inline static constexpr std::size_t stageCount = 4;
 	inline static constexpr auto metadataPropertyName = "stageOrder";
 
 	using Order = std::array<RavMode, stageCount>;
 
 	RavStageChain() noexcept
 		: order { RavMode::saturation, RavMode::overdrive, RavMode::distortion,
-			RavMode::fuzz, RavMode::wavefold, RavMode::bitcrush }
+			RavMode::fuzz }
 	{
 	}
 

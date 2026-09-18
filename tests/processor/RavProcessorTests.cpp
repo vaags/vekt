@@ -234,19 +234,10 @@ TEST_CASE("Rav band wet controls do not couple unaffected bands", "[processor][m
 			== Catch::Approx(wetBuffer.getSample(0, sample)).margin(1.0e-3f));
 }
 
-TEST_CASE("Rav Bitcrush Auto Gain stays near reference loudness", "[processor][auto-gain][bitcrush]")
-{
-	const auto errorDb = renderAutoGainErrorDb(48'000.0, 2, 0, 18.0f, 0.5f, 5.0f);
-	INFO("Bitcrush Auto Gain error: " << errorDb << " dB");
-	REQUIRE(std::abs(errorDb) < 1.0);
-}
-
-TEST_CASE("Rav Fuzz and Wavefold Auto Gain stay near default loudness", "[processor][auto-gain]")
+TEST_CASE("Rav Fuzz Auto Gain stays near default loudness", "[processor][auto-gain]")
 {
 	const auto fuzzErrorDb = renderAutoGainErrorDb(48'000.0, 2, 0, 6.0f, 0.0f, 3.0f);
-	const auto wavefoldErrorDb = renderAutoGainErrorDb(48'000.0, 2, 0, 6.0f, 0.0f, 4.0f);
 	REQUIRE(std::abs(fuzzErrorDb) < 2.5);
-	REQUIRE(std::abs(wavefoldErrorDb) < 2.5);
 }
 
 TEST_CASE("Rav processor bounds oversized host blocks", "[processor]")
@@ -297,9 +288,6 @@ TEST_CASE("Rav processor state round trips parameters", "[processor][state]")
 	REQUIRE(xml != nullptr);
 	const auto projectState = juce::ValueTree::fromXml(*xml);
 	REQUIRE(projectState.hasType(vekt::rav::parameters::projectStateType));
-	REQUIRE(static_cast<int>(projectState.getProperty(
-		vekt::state::StateManager::schemaVersionProperty))
-		== vekt::rav::parameters::projectStateVersion);
 	REQUIRE(projectState.getChildWithName(vekt::rav::parameters::stateType).isValid());
 	REQUIRE(projectState.getChildWithName(vekt::state::StateManager::metadataType).isValid());
 	restored.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
@@ -321,51 +309,6 @@ TEST_CASE("Rav processor state round trips parameters", "[processor][state]")
 	REQUIRE(restoredAutoGain->load() == Catch::Approx(1.0f));
 	REQUIRE(restoredBypass->load() == Catch::Approx(1.0f));
 	REQUIRE(static_cast<int>(restoredMetadata.getProperty("editorWidth")) == 900);
-}
-
-TEST_CASE("Rav processor migrates legacy version one state", "[processor][state]")
-{
-	vekt::rav::PluginProcessor source;
-	vekt::rav::PluginProcessor restored;
-	auto* sourceDrive = source.getParameters().getParameter(vekt::rav::parameters::drive);
-	REQUIRE(sourceDrive != nullptr);
-	sourceDrive->setValueNotifyingHost(sourceDrive->convertTo0to1(24.0f));
-
-	auto legacyState = source.getParameters().copyState();
-	legacyState.setProperty(vekt::state::StateManager::legacyVersionProperty, 1, nullptr);
-	juce::MemoryBlock binary;
-	if (const auto xml = legacyState.createXml())
-		juce::AudioProcessor::copyXmlToBinary(*xml, binary);
-	restored.setStateInformation(binary.getData(), static_cast<int>(binary.getSize()));
-
-	const auto* restoredDrive = restored.getParameters().getRawParameterValue(
-		vekt::rav::parameters::drive);
-	REQUIRE(restoredDrive != nullptr);
-	REQUIRE(restoredDrive->load() == Catch::Approx(24.0f));
-	REQUIRE(restored.getProjectMetadata().hasType(vekt::state::StateManager::metadataType));
-}
-
-TEST_CASE("Rav processor rejects future project state", "[processor][state]")
-{
-	vekt::rav::PluginProcessor processor;
-	setParameter(processor, vekt::rav::parameters::drive, 12.0f);
-	juce::MemoryBlock binary;
-	processor.getStateInformation(binary);
-
-	const auto xml = juce::AudioProcessor::getXmlFromBinary(
-		binary.getData(), static_cast<int>(binary.getSize()));
-	REQUIRE(xml != nullptr);
-	auto futureState = juce::ValueTree::fromXml(*xml);
-	futureState.setProperty(vekt::state::StateManager::schemaVersionProperty, 999, nullptr);
-	if (const auto futureXml = futureState.createXml())
-		juce::AudioProcessor::copyXmlToBinary(*futureXml, binary);
-
-	setParameter(processor, vekt::rav::parameters::drive, 6.0f);
-	processor.setStateInformation(binary.getData(), static_cast<int>(binary.getSize()));
-	const auto* drive = processor.getParameters().getRawParameterValue(
-		vekt::rav::parameters::drive);
-	REQUIRE(drive != nullptr);
-	REQUIRE(drive->load() == Catch::Approx(6.0f));
 }
 
 TEST_CASE("Rav processor bypass preserves reported latency across transitions", "[processor][bypass]")

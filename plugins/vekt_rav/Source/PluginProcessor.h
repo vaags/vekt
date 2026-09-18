@@ -135,7 +135,7 @@ private:
 	std::atomic<float>* textureParameter;
 	std::atomic<float> *trackingOversamplingParameter;
 	std::atomic<float> *offlineOversamplingParameter;
-	std::array<std::atomic<float> *, 6> stageEnabledParameters;
+	std::array<std::atomic<float> *, 4> stageEnabledParameters;
 	std::atomic<float> requestedTrackingOversampling{2.0f};
 	std::atomic<float> requestedOfflineOversampling{4.0f};
 	std::atomic<bool> qualityChangePending {};
@@ -148,7 +148,7 @@ private:
 	dsp::OversamplingBank<float> oversampling { 2 };
 	dsp::LatencyAlignedBypass<float> bypassDelay;
 	dsp::LatencyAlignedMixer<float> dryWetMixer;
-	dsp::MatchedToneStage<float> toneStage;  RavStageChain stageChain;	std::array<std::array<std::array<RavModeStage, 6>, 2>, 3> bandStages;
+	dsp::MatchedToneStage<float> toneStage;  RavStageChain stageChain;	std::array<std::array<std::array<RavModeStage, 4>, 2>, 3> bandStages;
 	dsp::ThreeBandCrossover<float> crossover;
 	std::array<juce::AudioBuffer<float>, 3> bandBuffers;
 	std::array<juce::AudioBuffer<float>, 3> cleanBandBuffers;

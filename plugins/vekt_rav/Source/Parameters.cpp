@@ -65,7 +65,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 		juce::AudioParameterFloatAttributes {}.withLabel("Hz")));
 	layout.add(std::make_unique<juce::AudioParameterChoice>(
 		juce::ParameterID { mode, parameterVersion }, "Mode",
-		juce::StringArray { "Saturation", "Overdrive", "Distortion", "Fuzz", "Wavefold", "Bitcrush" }, 0));
+		juce::StringArray { "Saturation", "Overdrive", "Distortion", "Fuzz" }, 0));
 	for (const auto& parameter : std::array {
 		std::pair { character, "Character" }, std::pair { response, "Response" },
 		std::pair { texture, "Texture" } })

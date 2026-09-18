@@ -18,18 +18,15 @@ enum class RavMode
 	saturation,
 	overdrive,
 	distortion,
-	fuzz,
-	wavefold,
-	bitcrush
+	fuzz
 };
 
 class RavModeStage final
 {
 public:
-	void prepare(double processingSampleRate, double timingSampleRate = 0.0) noexcept
+	void prepare(double processingSampleRate) noexcept
 	{
 		sampleRateHz = static_cast<float>(processingSampleRate);
-		timingRateHz = static_cast<float>(timingSampleRate > 0.0 ? timingSampleRate : processingSampleRate);
 		drive.prepare(processingSampleRate, 0.02, 0.15);
 		bias.prepare(processingSampleRate, 0.02, 0.15);
 		character.prepare(processingSampleRate, 0.02, 0.15);
@@ -46,8 +43,6 @@ public:
 		feedbackState = 0.0f;
 		envelope = 0.0f;
 		highPassState = 0.0f;
-		holdValue = 0.0f;
-		holdPhase = 1.0f;
 		fuzzToneState = 0.0f;
 		postStage.reset();
 		drive.setCurrentAndTargetValue(drive.getTargetValue());
@@ -82,17 +77,15 @@ public:
 		tone.setPolicy(policy);
 	}
 
-	void process(std::span<float> samples, bool includeBitcrush = true) noexcept
+	void process(std::span<float> samples) noexcept
 	{
 		for (auto& sample : samples)
-			sample = processSample(sample, includeBitcrush);
+			sample = processSample(sample);
 	}
 
 private:
-	[[nodiscard]] float processSample(float input, bool includeBitcrush) noexcept
+	[[nodiscard]] float processSample(float input) noexcept
 	{
-		if (mode == RavMode::bitcrush && !includeBitcrush)
-			return input;
 		const auto driveDb = drive.getNextValue();
 		const auto biasValue = bias.getNextValue();
 		const auto characterValue = character.getNextValue();
@@ -151,36 +144,9 @@ private:
 				output = std::clamp((gated + starvation) * 4.0f, -1.0f, 1.0f);
 				break;
 			}
-			case RavMode::wavefold:
-			{
-				const auto folds = 1.0f + characterValue * 7.0f;
-				const auto offset = biasValue * responseValue;
-				output = std::sin((driven + offset) * folds) * (0.6f + textureValue * 0.4f);
-				break;
-			}
-			case RavMode::bitcrush:
-			{
-				const auto bits = 4.0f + characterValue * 12.0f;
-				const auto levels = std::pow(2.0f, bits - 1.0f);
-				const auto targetRate = 0.02f + responseValue * 0.98f;
-				const auto phaseIncrement = targetRate * timingRateHz / sampleRateHz;
-				holdPhase += phaseIncrement;
-				if (holdPhase >= 1.0f)
-				{
-					holdPhase -= std::floor(holdPhase);
-					const auto asymmetry = std::clamp(biasValue * 0.75f,
-						-0.75f, 0.75f);
-					const auto positiveLevels = levels * (1.0f + asymmetry);
-					const auto negativeLevels = levels * (1.0f - asymmetry);
-					const auto quantizerLevels = driven >= 0.0f ? positiveLevels : negativeLevels;
-					holdValue = std::round(driven * quantizerLevels) / quantizerLevels;
-				}
-				output = holdValue;
-				break;
-			}
 		}
 
-		if (mode == RavMode::fuzz || mode == RavMode::wavefold)
+		if (mode == RavMode::fuzz)
 		{
 			const auto tilt = std::clamp(toneValue / 6.0f, -0.8f, 0.8f);
 			fuzzToneState += 0.08f * (output - fuzzToneState);
@@ -197,8 +163,6 @@ private:
 			case RavMode::overdrive: return 11'000.0f + textureValue * 7'000.0f;
 			case RavMode::distortion: return 5'000.0f + textureValue * 8'000.0f;
 			case RavMode::fuzz: return 4'000.0f + textureValue * 6'000.0f;
-			case RavMode::wavefold: return 5'000.0f + textureValue * 8'000.0f;
-			case RavMode::bitcrush: return 0.0f;
 		}
 
 		return 0.0f;
@@ -206,13 +170,10 @@ private:
 
 	RavMode mode { RavMode::saturation };
 	float sampleRateHz { 48'000.0f };
-	float timingRateHz { 48'000.0f };
 	float previousOutput {};
 	float feedbackState {};
 	float envelope {};
 	float highPassState {};
-	float holdValue {};
-	float holdPhase { 1.0f };
 	float fuzzToneState {};
 	RavPostStage postStage;
 	dsp::ControlTransition<float> drive;

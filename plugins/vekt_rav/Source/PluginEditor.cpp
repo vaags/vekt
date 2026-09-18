@@ -69,7 +69,7 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 	}
 	for (std::size_t index = 0; index < stageButtons.size(); ++index)
 	{
-		constexpr std::array names { "Saturation", "Overdrive", "Distortion", "Fuzz", "Wavefold", "Bitcrush" };
+		constexpr std::array names { "Saturation", "Overdrive", "Distortion", "Fuzz" };
 		stageButtons[index].setButtonText(names[index]);
 		stageButtons[index].setToggleState(pluginProcessor.getParameters().getParameter(parameters::stageEnabledIds[index])->getValue() > 0.5f, juce::dontSendNotification);
 		getContent().addAndMakeVisible(stageButtons[index]);
@@ -126,7 +126,7 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 	offlineBox.addItem("4x FIR", 3);
 	offlineBox.addItem("8x FIR", 4);
 	offlineBox.addItem("16x FIR", 5);
-	modeBox.addItemList({"Saturation", "Overdrive", "Distortion", "Fuzz", "Wavefold", "Bitcrush"}, 1);
+	modeBox.addItemList({"Saturation", "Overdrive", "Distortion", "Fuzz"}, 1);
 	trackingAttachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), parameters::trackingOversampling, trackingBox);
 	offlineAttachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), parameters::offlineOversampling, offlineBox);
 	modeAttachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), parameters::mode, modeBox);

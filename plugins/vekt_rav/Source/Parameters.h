@@ -32,17 +32,14 @@ inline constexpr auto stageEnabledSaturation = "stageEnabledSaturation";
 inline constexpr auto stageEnabledOverdrive = "stageEnabledOverdrive";
 inline constexpr auto stageEnabledDistortion = "stageEnabledDistortion";
 inline constexpr auto stageEnabledFuzz = "stageEnabledFuzz";
-inline constexpr auto stageEnabledWavefold = "stageEnabledWavefold";
-inline constexpr auto stageEnabledBitcrush = "stageEnabledBitcrush";
 
 inline constexpr std::array stageEnabledIds {
 	stageEnabledSaturation, stageEnabledOverdrive, stageEnabledDistortion,
-	stageEnabledFuzz, stageEnabledWavefold, stageEnabledBitcrush
+	stageEnabledFuzz
 };
 
 inline constexpr auto stateType = "VektRavState";
 inline constexpr auto projectStateType = "VektRavProjectState";
-inline constexpr auto projectStateVersion = 2;
 inline constexpr auto presetProductIdentifier = "com.vekt.rav";
 inline constexpr auto currentFactoryPreset = "currentFactoryPreset";
 inline constexpr std::array soundParameterIds {
