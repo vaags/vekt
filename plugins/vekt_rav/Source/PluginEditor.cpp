@@ -246,11 +246,20 @@ void PluginEditor::timerCallback()
 {
 	const auto newInputPeaks = pluginProcessor.consumeInputPeaks();
 	const auto newOutputPeaks = pluginProcessor.consumeOutputPeaks();
+	const auto newInputPeak = std::max(newInputPeaks[0], newInputPeaks[1]);
+	const auto newOutputPeak = std::max(newOutputPeaks[0], newOutputPeaks[1]);
+	const auto clearIfSilent = [](std::array<float, 2>& peaks, float newPeak)
+	{
+		if (newPeak < layout::meterSilenceFloor)
+			peaks.fill(0.0f);
+	};
 	for (std::size_t channel = 0; channel < inputPeaks.size(); ++channel)
 	{
 		inputPeaks[channel] = std::max(inputPeaks[channel] * 0.88f, newInputPeaks[channel]);
 		outputPeaks[channel] = std::max(outputPeaks[channel] * 0.88f, newOutputPeaks[channel]);
 	}
+	clearIfSilent(inputPeaks, newInputPeak);
+	clearIfSilent(outputPeaks, newOutputPeak);
 	const auto inputPeak = std::max(inputPeaks[0], inputPeaks[1]);
 	const auto outputPeak = std::max(outputPeaks[0], outputPeaks[1]);
 	const auto displayedInputPeak = inputPeak < layout::meterSilenceFloor ? 0.0f : inputPeak;

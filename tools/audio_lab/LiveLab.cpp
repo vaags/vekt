@@ -87,6 +87,14 @@ public:
 
 	void getNextAudioBlock(const juce::AudioSourceChannelInfo& info) override
 	{
+		if (!outputArmed.load())
+		{
+			info.clearActiveBufferRegion();
+			generatedPeak.store(0.0f);
+			outputPeak.store(0.0f);
+			return;
+		}
+
 		const auto sourceType = static_cast<vekt::audio_lab::Source>(requestedSource.load());
 		if (sourceType != currentSource)
 		{
@@ -112,10 +120,7 @@ public:
 		juce::AudioBuffer<float> block(info.buffer->getArrayOfWritePointers(),
 			info.buffer->getNumChannels(), info.startSample, info.numSamples);
 		processor.processBlock(block, midi);
-		if (!outputArmed.load())
-			info.clearActiveBufferRegion();
-		else
-			publishPeak(block);
+		publishPeak(block);
 	}
 
 	void releaseResources() override
