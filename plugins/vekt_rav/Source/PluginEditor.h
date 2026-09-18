@@ -82,8 +82,12 @@ private:
 	std::array<std::unique_ptr<SliderAttachment>, 3> bandMixAttachments;
 	std::array<ui::RotaryControl, 2> cutoffSliders;
 	std::array<std::unique_ptr<SliderAttachment>, 2> cutoffAttachments;
-	ui::LevelMeter inputMeter { "IN", juce::Colour::fromRGB(91, 162, 150) };
-	ui::LevelMeter outputMeter { "OUT", juce::Colour::fromRGB(227, 156, 75) };
+	ui::LevelMeter inputMeter { "IN", juce::Colour::fromRGB(91, 162, 150), ui::LevelMeter::Orientation::vertical };
+	ui::LevelMeter outputMeter { "OUT", juce::Colour::fromRGB(227, 156, 75), ui::LevelMeter::Orientation::vertical };
+	juce::Slider inputFader;
+	juce::Slider outputFader;
+	std::unique_ptr<SliderAttachment> inputFaderAttachment;
+	std::unique_ptr<SliderAttachment> outputFaderAttachment;
 	std::unique_ptr<ButtonAttachment> bypassAttachment;
 	std::unique_ptr<ButtonAttachment> autoGainAttachment;
     std::unique_ptr<ComboBoxAttachment> trackingAttachment;

@@ -5,8 +5,8 @@ namespace vekt::ui
 namespace
 {
 constexpr int cornerRadius = 6;
-constexpr int headerHeight = 24;
-constexpr int contentPadding = 12;
+constexpr int headerHeight = 32;
+constexpr int contentPadding = 16;
 }
 
 Panel::Panel(juce::String title)
@@ -35,7 +35,7 @@ void Panel::paint(juce::Graphics& graphics)
 	graphics.setColour(juce::Colour::fromRGB(227, 156, 75));
 	graphics.fillRect(bounds.removeFromTop(2.0f));
 	graphics.setColour(juce::Colour::fromRGB(232, 225, 208));
-	graphics.setFont(juce::FontOptions(14.0f).withStyle("Bold"));
+	graphics.setFont(juce::FontOptions(16.0f).withStyle("Bold"));
 	graphics.drawText(titleText, getLocalBounds().withHeight(headerHeight).reduced(contentPadding, 0),
 		juce::Justification::centredLeft);
 }

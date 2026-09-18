@@ -4,14 +4,15 @@ namespace vekt::ui
 {
 namespace
 {
-constexpr int labelHeight = 20;
-constexpr int valueHeight = 22;
+constexpr int labelHeight = 24;
+constexpr int valueHeight = 28;
 }
 
 RotaryControl::RotaryControl()
 {
 	slider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-	slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 100, valueHeight);
+	slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 120, valueHeight);
+	label.setFont(juce::FontOptions(14.0f));
 	label.setJustificationType(juce::Justification::centred);
 	addAndMakeVisible(slider);
 	addAndMakeVisible(label);

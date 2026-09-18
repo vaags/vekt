@@ -66,7 +66,7 @@ public:
 				scalableEditor->setResizable(false, false);
 			}
 		}
-		setSize(800, 640);
+		setSize(952, 980);
 		setAudioChannels(0, 2);
 		startTimerHz(15);
 	}
@@ -133,28 +133,28 @@ public:
 		graphics.fillAll(juce::Colour::fromRGB(20, 24, 28));
 		graphics.setColour(juce::Colours::white);
 		graphics.setFont(juce::FontOptions(22.0f).withStyle("Bold"));
-		graphics.drawText("VEKT RAV AUDIO LAB", 20, 4, 440, 24, juce::Justification::centredLeft);
+		graphics.drawText("VEKT RAV AUDIO LAB", 16, 12, 440, 32, juce::Justification::centredLeft);
 		graphics.setColour(juce::Colour::fromRGB(54, 65, 70));
-		graphics.drawLine(20.0f, 64.0f, 780.0f, 64.0f);
+		graphics.drawLine(16.0f, 108.0f, static_cast<float>(getWidth() - 16), 108.0f);
 	}
 
 	void resized() override
 	{
-		sourceBox.setBounds(20, 33, 180, 26);
-        octaveDownButton.setBounds(215, 33, 34, 26);
-        octaveUpButton.setBounds(253, 33, 34, 26);
-        armButton.setBounds(295, 33, 130, 26);
-        muteButton.setBounds(435, 33, 100, 26);
-        restartButton.setBounds(545, 33, 115, 26);
-        statusLabel.setBounds(670, 33, 100, 26);
+		sourceBox.setBounds(16, 56, 180, 44);
+		octaveDownButton.setBounds(212, 56, 44, 44);
+		octaveUpButton.setBounds(264, 56, 44, 44);
+		armButton.setBounds(316, 56, 140, 44);
+		muteButton.setBounds(464, 56, 100, 44);
+		restartButton.setBounds(572, 56, 132, 44);
+		statusLabel.setBounds(720, 56, getWidth() - 736, 44);
         if (editor != nullptr)
 		{
-			const auto editorArea = getLocalBounds().withTop(75).reduced(20, 0);
+			const auto editorArea = getLocalBounds().withTop(124).reduced(16, 0);
 			const auto scale = std::min(
-				static_cast<float>(editorArea.getWidth()) / 720.0f,
-				static_cast<float>(editorArea.getHeight()) / 480.0f);
-			const auto editorWidth = static_cast<int>(720.0f * scale);
-			const auto editorHeight = static_cast<int>(480.0f * scale);
+				static_cast<float>(editorArea.getWidth()) / vekt::ui::ScalableEditor::logicalWidth,
+				static_cast<float>(editorArea.getHeight()) / vekt::ui::ScalableEditor::logicalHeight);
+			const auto editorWidth = static_cast<int>(vekt::ui::ScalableEditor::logicalWidth * scale);
+			const auto editorHeight = static_cast<int>(vekt::ui::ScalableEditor::logicalHeight * scale);
 			editor->setBounds(editorArea.withSizeKeepingCentre(editorWidth, editorHeight));
 		}
 	}
@@ -206,12 +206,12 @@ public:
 		: DocumentWindow("Vekt Rav Audio Lab", juce::Colours::black, closeButton)
 	{
 		setUsingNativeTitleBar(true);
-		constrainer.setMinimumSize(800, 620);
-		constrainer.setMaximumSize(1'600, 1'200);
+		constrainer.setMinimumSize(952, 980);
+		constrainer.setMaximumSize(1'900, 1'900);
 		setResizable(true, true);
 		setConstrainer(&constrainer);
 		setContentOwned(new LiveLab(), true);
-		centreWithSize(840, 680);
+		centreWithSize(952, 980);
 		setVisible(true);
 	}
 

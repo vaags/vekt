@@ -4,8 +4,8 @@
 
 namespace vekt::ui
 {
-LevelMeter::LevelMeter(juce::String meterName, juce::Colour colour)
-	: name(std::move(meterName)), meterColour(colour)
+LevelMeter::LevelMeter(juce::String meterName, juce::Colour colour, Orientation meterOrientation)
+	: name(std::move(meterName)), meterColour(colour), orientation(meterOrientation)
 {
 }
 
@@ -24,10 +24,14 @@ void LevelMeter::paint(juce::Graphics& graphics)
 	if (level > 0.0f)
 	{
 		graphics.setColour(meterColour);
-		graphics.fillRoundedRectangle(bounds.withWidth(bounds.getWidth() * level), 2.0f);
+		const auto fillBounds = orientation == Orientation::horizontal
+			? bounds.withWidth(bounds.getWidth() * level)
+			: bounds.withTop(bounds.getBottom() - bounds.getHeight() * level);
+		graphics.fillRoundedRectangle(fillBounds, 2.0f);
 	}
 	graphics.setColour(juce::Colour::fromRGB(218, 220, 214));
-	graphics.setFont(juce::FontOptions(10.0f).withStyle("Bold"));
-	graphics.drawText(name, getLocalBounds().reduced(4, 0), juce::Justification::centredLeft);
+	graphics.setFont(juce::FontOptions(14.0f).withStyle("Bold"));
+	graphics.drawText(name, getLocalBounds().reduced(4, 0),
+		orientation == Orientation::horizontal ? juce::Justification::centredLeft : juce::Justification::centred);
 }
 }
