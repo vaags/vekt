@@ -79,10 +79,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 	const auto qualityAttributes = juce::AudioParameterChoiceAttributes {}.withAutomatable(false);
     layout.add(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID{trackingOversampling, parameterVersion}, "Tracking Oversampling",
-        juce::StringArray{"Off", "2x IIR", "4x IIR"}, 2, qualityAttributes));
+		juce::StringArray{"Off", "2x IIR", "4x IIR", "2x FIR", "4x FIR", "8x FIR", "16x FIR"}, 2, qualityAttributes));
     layout.add(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID{offlineOversampling, parameterVersion}, "Offline Oversampling",
-        juce::StringArray{"Off", "2x FIR", "4x FIR", "8x FIR", "16x FIR"}, 4, qualityAttributes));
+		juce::StringArray{"Off", "2x FIR", "4x FIR", "8x FIR", "16x FIR", "2x IIR", "4x IIR"}, 4, qualityAttributes));
 
     return layout;
 }
@@ -95,8 +95,16 @@ dsp::OversamplingQuality trackingQualityFrom(float index) noexcept
         return {dsp::OversamplingFactor::off, dsp::OversamplingFilter::polyphaseIIR};
     case 1:
         return {dsp::OversamplingFactor::x2, dsp::OversamplingFilter::polyphaseIIR};
-    default:
+	case 2:
         return {dsp::OversamplingFactor::x4, dsp::OversamplingFilter::polyphaseIIR};
+	case 3:
+		return {dsp::OversamplingFactor::x2, dsp::OversamplingFilter::polyphaseFIR};
+	case 4:
+		return {dsp::OversamplingFactor::x4, dsp::OversamplingFilter::polyphaseFIR};
+	case 5:
+		return {dsp::OversamplingFactor::x8, dsp::OversamplingFilter::polyphaseFIR};
+	default:
+		return {dsp::OversamplingFactor::x16, dsp::OversamplingFilter::polyphaseFIR};
     }
 }
 
@@ -112,8 +120,12 @@ dsp::OversamplingQuality offlineQualityFrom(float index) noexcept
         return {dsp::OversamplingFactor::x4, dsp::OversamplingFilter::polyphaseFIR};
     case 3:
         return {dsp::OversamplingFactor::x8, dsp::OversamplingFilter::polyphaseFIR};
-    default:
+	case 4:
         return {dsp::OversamplingFactor::x16, dsp::OversamplingFilter::polyphaseFIR};
+	case 5:
+		return {dsp::OversamplingFactor::x2, dsp::OversamplingFilter::polyphaseIIR};
+	default:
+		return {dsp::OversamplingFactor::x4, dsp::OversamplingFilter::polyphaseIIR};
     }
 }
 }

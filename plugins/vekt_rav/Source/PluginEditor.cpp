@@ -213,11 +213,17 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 	trackingBox.addItem("Off", 1);
 	trackingBox.addItem("2x IIR", 2);
 	trackingBox.addItem("4x IIR", 3);
+	trackingBox.addItem("2x FIR", 4);
+	trackingBox.addItem("4x FIR", 5);
+	trackingBox.addItem("8x FIR", 6);
+	trackingBox.addItem("16x FIR", 7);
 	offlineBox.addItem("Off", 1);
 	offlineBox.addItem("2x FIR", 2);
 	offlineBox.addItem("4x FIR", 3);
 	offlineBox.addItem("8x FIR", 4);
 	offlineBox.addItem("16x FIR", 5);
+	offlineBox.addItem("2x IIR", 6);
+	offlineBox.addItem("4x IIR", 7);
 	modeBox.addItemList({"Saturation", "Overdrive", "Distortion", "Fuzz"}, 1);
 	trackingAttachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), parameters::trackingOversampling, trackingBox);
 	offlineAttachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), parameters::offlineOversampling, offlineBox);

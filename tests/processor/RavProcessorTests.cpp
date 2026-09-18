@@ -125,6 +125,18 @@ TEST_CASE("Rav processor selects tracking and offline oversampling profiles", "[
 	processor.prepareToPlay(48'000.0, 64);
 	REQUIRE(processor.getActiveQuality().factor == vekt::dsp::OversamplingFactor::x16);
 	REQUIRE(processor.getActiveQuality().filter == vekt::dsp::OversamplingFilter::polyphaseFIR);
+
+	setParameter(processor, vekt::rav::parameters::trackingOversampling, 5.0f);
+	processor.setNonRealtime(false);
+	processor.prepareToPlay(48'000.0, 64);
+	REQUIRE(processor.getActiveQuality().factor == vekt::dsp::OversamplingFactor::x8);
+	REQUIRE(processor.getActiveQuality().filter == vekt::dsp::OversamplingFilter::polyphaseFIR);
+
+	setParameter(processor, vekt::rav::parameters::offlineOversampling, 5.0f);
+	processor.setNonRealtime(true);
+	processor.prepareToPlay(48'000.0, 64);
+	REQUIRE(processor.getActiveQuality().factor == vekt::dsp::OversamplingFactor::x2);
+	REQUIRE(processor.getActiveQuality().filter == vekt::dsp::OversamplingFilter::polyphaseIIR);
 }
 
 TEST_CASE("Rav processor produces finite stereo audio", "[processor]")
