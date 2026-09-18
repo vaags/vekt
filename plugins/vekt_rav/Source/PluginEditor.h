@@ -35,6 +35,11 @@ private:
 	juce::Label presetLabel;
 	juce::Label qualityLabel;
 	juce::Label meterLabel;
+	juce::Label primaryHeader;
+	juce::Label characterHeader;
+	juce::Label mixHeader;
+	juce::Label stageHeader;
+	juce::Label outputHeader;
 	juce::TextButton previousButton { "<" };
 	juce::TextButton nextButton { ">" };
 	juce::TextButton undoButton { "Undo" };

@@ -5,8 +5,8 @@ namespace vekt::ui
 ScalableEditor::ScalableEditor(juce::AudioProcessor& audioProcessor)
 	: AudioProcessorEditor(audioProcessor)
 {
-	constrainer.setMinimumSize(540, 360);
-	constrainer.setMaximumSize(1440, 960);
+	constrainer.setMinimumSize(720, 540);
+	constrainer.setMaximumSize(1600, 1100);
 	constrainer.setFixedAspectRatio(static_cast<double>(logicalWidth) / logicalHeight);
 	setResizable(true, true);
     setConstrainer(&constrainer);
