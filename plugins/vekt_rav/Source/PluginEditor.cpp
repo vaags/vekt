@@ -36,6 +36,7 @@ constexpr int qualityControlHeight = 26;
 constexpr int meterHeight = 14;
 constexpr int meterGap = 12;
 constexpr int meterRowGap = 8;
+constexpr float meterSilenceFloor = 0.0001f;
 constexpr int headerHeight = 22;
 constexpr int footerReserve = 100;
 constexpr int footerLine = ui::ScalableEditor::logicalHeight - footerReserve;
@@ -250,12 +251,16 @@ void PluginEditor::timerCallback()
 		inputPeaks[channel] = std::max(inputPeaks[channel] * 0.88f, newInputPeaks[channel]);
 		outputPeaks[channel] = std::max(outputPeaks[channel] * 0.88f, newOutputPeaks[channel]);
 	}
-	inputMeter.setLevel(std::max(inputPeaks[0], inputPeaks[1]));
-	outputMeter.setLevel(std::max(outputPeaks[0], outputPeaks[1]));
+	const auto inputPeak = std::max(inputPeaks[0], inputPeaks[1]);
+	const auto outputPeak = std::max(outputPeaks[0], outputPeaks[1]);
+	const auto displayedInputPeak = inputPeak < layout::meterSilenceFloor ? 0.0f : inputPeak;
+	const auto displayedOutputPeak = outputPeak < layout::meterSilenceFloor ? 0.0f : outputPeak;
+	inputMeter.setLevel(displayedInputPeak);
+	outputMeter.setLevel(displayedOutputPeak);
 	const auto quality = pluginProcessor.getActiveQuality();
 	qualityLabel.setText("Quality: " + juce::String(static_cast<int>(quality.multiplier())) + "x " + (quality.filter == dsp::OversamplingFilter::polyphaseFIR ? "FIR" : "IIR") + (pluginProcessor.hasPendingQualityChange() ? " (pending)" : ""), juce::dontSendNotification);
-	meterLabel.setText("In " + juce::String(juce::Decibels::gainToDecibels(std::max(inputPeaks[0], inputPeaks[1]), -100.0f), 1)
-		+ " dB    Out " + juce::String(juce::Decibels::gainToDecibels(std::max(outputPeaks[0], outputPeaks[1]), -100.0f), 1) + " dB", juce::dontSendNotification);
+	meterLabel.setText("In " + juce::String(juce::Decibels::gainToDecibels(displayedInputPeak, -100.0f), 1)
+		+ " dB    Out " + juce::String(juce::Decibels::gainToDecibels(displayedOutputPeak, -100.0f), 1) + " dB", juce::dontSendNotification);
 	undoButton.setEnabled(pluginProcessor.getUndoManager().canUndo());
 	redoButton.setEnabled(pluginProcessor.getUndoManager().canRedo());
 	repaint();
