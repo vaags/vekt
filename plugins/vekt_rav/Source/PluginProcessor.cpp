@@ -101,6 +101,15 @@ void PluginProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
 		bands.setSize(2, maximumOversampledBlockSize, false, false, true);
 	for (auto& gain : bandAutoGain)
 		gain.prepare(effectiveSampleRate);
+	const auto initialBandMixes = std::array {
+		lowBandMixParameter->load() * 0.01f,
+		midBandMixParameter->load() * 0.01f,
+		highBandMixParameter->load() * 0.01f };
+	for (std::size_t band = 0; band < bandMixSmoothers.size(); ++band)
+	{
+		bandMixSmoothers[band].reset(effectiveSampleRate, 0.02);
+		bandMixSmoothers[band].setCurrentAndTargetValue(initialBandMixes[band]);
+	}
 	for (auto& dcBlocker : dcBlockers)
 		dcBlocker.prepare(sampleRate);
 
@@ -230,6 +239,8 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 		lowBandMixParameter->load() * 0.01f,
 		midBandMixParameter->load() * 0.01f,
 		highBandMixParameter->load() * 0.01f };
+	for (std::size_t band = 0; band < bandMixSmoothers.size(); ++band)
+		bandMixSmoothers[band].setTargetValue(bandMixes[band]);
 	for (std::size_t band = 0; band < bandCount; ++band)
 	{
 		for (auto channel = 0; channel < 2; ++channel)
@@ -262,9 +273,13 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 			autoGainParameter->load() >= 0.5f);
 		for (auto channel = 0; channel < 2; ++channel)
 			for (auto sample = 0; sample < samples; ++sample)
+			{
+				const auto bandMix = channel == 0 ? bandMixSmoothers[band].getNextValue()
+					: bandMixSmoothers[band].getCurrentValue();
 				bandBuffers[band].setSample(channel, sample,
-					cleanBandBuffers[band].getSample(channel, sample) * (1.0f - bandMixes[band])
-					+ bandBuffers[band].getSample(channel, sample) * bandMixes[band]);
+					cleanBandBuffers[band].getSample(channel, sample) * (1.0f - bandMix)
+					+ bandBuffers[band].getSample(channel, sample) * bandMix);
+			}
 	}
 	for (auto channel = 0; channel < 2; ++channel)
 		for (auto sample = 0; sample < samples; ++sample)

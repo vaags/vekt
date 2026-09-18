@@ -154,6 +154,7 @@ private:
 	std::array<juce::AudioBuffer<float>, 3> cleanBandBuffers;
 	std::array<dsp::DcBlocker<float>, 2> dcBlockers;
 	std::array<AdaptiveAutoGain<float>, 3> bandAutoGain;
+	std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 3> bandMixSmoothers;
 	dsp::StereoPeakMeter inputMeter;
 	dsp::StereoPeakMeter outputMeter;
 	juce::dsp::Gain<float> inputGain;
