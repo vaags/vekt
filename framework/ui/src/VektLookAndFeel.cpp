@@ -26,6 +26,7 @@ void VektLookAndFeel::drawRotarySlider(juce::Graphics& graphics, int x, int y, i
 	const auto centre = bounds.getCentre();
 	const auto dialBounds = bounds.reduced(8.0f);
 	const auto dialRadius = std::min(dialBounds.getWidth(), dialBounds.getHeight()) * 0.5f;
+	const auto needleThickness = juce::jlimit(2.5f, 5.0f, dialSide * 0.035f);
 	graphics.setColour(juce::Colour::fromRGB(19, 24, 27));
 	graphics.fillEllipse(dialBounds);
 	graphics.setColour(juce::Colour::fromRGB(70, 82, 86));
@@ -44,6 +45,6 @@ void VektLookAndFeel::drawRotarySlider(juce::Graphics& graphics, int x, int y, i
 	graphics.drawLine(centre.x, centre.y,
 		centre.x + std::cos(angle - juce::MathConstants<float>::halfPi) * dialRadius * 0.88f,
 		centre.y + std::sin(angle - juce::MathConstants<float>::halfPi) * dialRadius * 0.88f,
-		3.0f);
+		needleThickness);
 }
 }

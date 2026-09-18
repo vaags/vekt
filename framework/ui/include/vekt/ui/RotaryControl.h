@@ -20,11 +20,11 @@ public:
 	{
 		switch (size)
 		{
-		case Size::compact: return 112;
-		case Size::standard: return 128;
-		case Size::large: return 192;
+		case Size::compact: return 120;
+		case Size::standard: return 144;
+		case Size::large: return 168;
 		}
-		return 128;
+		return 144;
 	}
 
 	void setLabel(juce::String text);
