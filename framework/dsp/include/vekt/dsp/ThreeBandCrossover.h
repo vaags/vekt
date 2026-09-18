@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vekt/dsp/ControlTransition.h>
+
 #include <juce_dsp/juce_dsp.h>
 
 #include <algorithm>
@@ -33,8 +35,8 @@ public:
 		sampleRate = static_cast<Sample>(specification.sampleRate);
 		channelCount = std::min<std::size_t>(specification.numChannels, maxChannels);
 		const auto bounded = clampCutoffs(initialCutoffs);
-		lowMidCutoff.reset(specification.sampleRate, cutoffRampSeconds);
-		midHighCutoff.reset(specification.sampleRate, cutoffRampSeconds);
+		lowMidCutoff.prepare(specification.sampleRate);
+		midHighCutoff.prepare(specification.sampleRate);
 		lowMidCutoff.setCurrentAndTargetValue(bounded.lowMidHz);
 		midHighCutoff.setCurrentAndTargetValue(bounded.midHighHz);
 		requested = active = bounded;
@@ -92,8 +94,6 @@ public:
 
 private:
 	static constexpr std::size_t maxChannels = 2;
-	static constexpr double cutoffRampSeconds = 0.02;
-
 	struct Biquad
 	{
 		struct State
@@ -177,8 +177,8 @@ private:
 
 	Sample sampleRate { static_cast<Sample>(48'000) };
 	std::size_t channelCount {};
-	juce::SmoothedValue<Sample> lowMidCutoff;
-	juce::SmoothedValue<Sample> midHighCutoff;
+	ControlTransition<Sample> lowMidCutoff;
+	ControlTransition<Sample> midHighCutoff;
 	Cutoffs active {};
 	Cutoffs requested {};
 	std::array<Split, 2> splits;

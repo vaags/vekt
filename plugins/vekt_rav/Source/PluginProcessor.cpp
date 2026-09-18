@@ -107,7 +107,7 @@ void PluginProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
 		highBandMixParameter->load() * 0.01f };
 	for (std::size_t band = 0; band < bandMixSmoothers.size(); ++band)
 	{
-		bandMixSmoothers[band].reset(effectiveSampleRate, 0.02);
+		bandMixSmoothers[band].prepare(effectiveSampleRate);
 		bandMixSmoothers[band].setCurrentAndTargetValue(initialBandMixes[band]);
 	}
 	for (auto& dcBlocker : dcBlockers)
