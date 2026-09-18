@@ -56,7 +56,7 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 	qualityLabel.setJustificationType(juce::Justification::centredRight);
 	meterLabel.setJustificationType(juce::Justification::centred);
 	stageHeader.setText("Stage Order", juce::dontSendNotification);
-	for (auto* panel : { static_cast<juce::Component*>(&primaryPanel), static_cast<juce::Component*>(&characterPanel),
+	for (auto* panel : { static_cast<juce::Component*>(&primaryPanel), static_cast<juce::Component*>(&shapingPanel),
 		static_cast<juce::Component*>(&bandMixPanel), static_cast<juce::Component*>(&outputPanel) })
 		getContent().addAndMakeVisible(*panel);
 	for (auto* component : { static_cast<juce::Component*>(&title),
@@ -96,9 +96,9 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 	sliders[2].getSlider().setTooltip("Tone: positive values brighten, negative values darken");
 	for (std::size_t index = 0; index < macroSliders.size(); ++index)
 	{
-		constexpr std::array names { "Character", "Response", "Texture" };
-		constexpr std::array ids { parameters::character, parameters::response, parameters::texture };
-		configureRotary(characterPanel, macroSliders[index], names[index], ids[index], macroAttachments[index]);
+		constexpr std::array names { "Shape", "Dynamics", "Texture" };
+		constexpr std::array ids { parameters::shape, parameters::dynamics, parameters::texture };
+		configureRotary(shapingPanel, macroSliders[index], names[index], ids[index], macroAttachments[index]);
 	}
 	for (std::size_t index = 0; index < bandMixSliders.size(); ++index)
 	{
@@ -165,7 +165,7 @@ void PluginEditor::resized()
 	const auto rightArea = centerArea.withX(centerArea.getRight() + layout::sectionGap)
 		.withWidth(layout::rightWidth);
 	primaryPanel.setBounds(centerArea.withHeight(layout::panelHeight));
-	characterPanel.setBounds(centerArea.withY(layout::lowerPanelTop).withHeight(layout::panelHeight));
+	shapingPanel.setBounds(centerArea.withY(layout::lowerPanelTop).withHeight(layout::panelHeight));
 	bandMixPanel.setBounds(rightArea.withHeight(layout::panelHeight));
 	outputPanel.setBounds(rightArea.withY(layout::lowerPanelTop).withHeight(layout::panelHeight));
 
@@ -207,14 +207,14 @@ void PluginEditor::resized()
 	};
 
 	const auto primaryContent = primaryPanel.getContentBounds();
-	const auto characterContent = characterPanel.getContentBounds();
+	const auto shapingContent = shapingPanel.getContentBounds();
 	const auto bandMixContent = bandMixPanel.getContentBounds();
 	const auto outputContent = outputPanel.getContentBounds();
 	layoutRotaryRow(sliders, 0, 3, primaryContent.withHeight(layout::controlHeight),
 		layout::controlHeight, layout::labelHeight);
 	layoutRotaryRow(sliders, 3, 3, primaryContent.withTrimmedTop(layout::controlHeight + layout::rowGap).withHeight(layout::controlHeight),
 		layout::controlHeight, layout::labelHeight);
-	layoutRotaryRow(macroSliders, 0, macroSliders.size(), characterContent.withHeight(layout::controlHeight),
+	layoutRotaryRow(macroSliders, 0, macroSliders.size(), shapingContent.withHeight(layout::controlHeight),
 		layout::controlHeight, layout::labelHeight);
 
 	layoutRotaryRow(bandMixSliders, 0, bandMixSliders.size(), bandMixContent.withHeight(layout::controlHeight), layout::controlHeight, layout::bandLabelHeight);

@@ -23,8 +23,8 @@ inline constexpr auto highBandMix = "highBandMix";
 inline constexpr auto lowMidCutoffHz = "lowMidCutoffHz";
 inline constexpr auto midHighCutoffHz = "midHighCutoffHz";
 inline constexpr auto mode = "mode";
-inline constexpr auto character = "character";
-inline constexpr auto response = "response";
+inline constexpr auto shape = "shape";
+inline constexpr auto dynamics = "dynamics";
 inline constexpr auto texture = "texture";
 inline constexpr auto trackingOversampling = "trackingOversampling";
 inline constexpr auto offlineOversampling = "offlineOversampling";
@@ -51,7 +51,7 @@ inline constexpr std::array soundParameterIds {
 	mix,
 	outputGain
 	, lowBandMix, midBandMix, highBandMix, lowMidCutoffHz, midHighCutoffHz,
-	mode, character, response, texture
+	mode, shape, dynamics, texture
 };
 
 [[nodiscard]] juce::AudioProcessorValueTreeState::ParameterLayout createLayout();

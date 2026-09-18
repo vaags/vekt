@@ -33,8 +33,8 @@ PluginProcessor::PluginProcessor()
 	  lowMidCutoffParameter(requireParameter(parameterState, parameters::lowMidCutoffHz)),
 	  midHighCutoffParameter(requireParameter(parameterState, parameters::midHighCutoffHz)),
 	  modeParameter(requireParameter(parameterState, parameters::mode)),
-	  characterParameter(requireParameter(parameterState, parameters::character)),
-	  responseParameter(requireParameter(parameterState, parameters::response)),
+	  shapeParameter(requireParameter(parameterState, parameters::shape)),
+	  dynamicsParameter(requireParameter(parameterState, parameters::dynamics)),
 	  textureParameter(requireParameter(parameterState, parameters::texture)),
 	  trackingOversamplingParameter(requireParameter(parameterState, parameters::trackingOversampling)),
 	offlineOversamplingParameter(requireParameter(parameterState, parameters::offlineOversampling)),
@@ -250,7 +250,7 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 				if (!enabled)
 					continue;
 				stage.setParameters(mode, driveParameter->load(), biasParameter->load(),
-					characterParameter->load(), responseParameter->load(),
+					shapeParameter->load(), dynamicsParameter->load(),
 					textureParameter->load(), toneParameter->load());
 				stage.process(std::span<float>(bandBuffers[band].getWritePointer(channel),
 					static_cast<std::size_t>(samples)));

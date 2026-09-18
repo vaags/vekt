@@ -39,7 +39,7 @@ private:
 	juce::Label qualityLabel;
 	juce::Label meterLabel;
 	ui::Panel primaryPanel { "Primary" };
-	ui::Panel characterPanel { "Character" };
+	ui::Panel shapingPanel { "Shaping" };
 	ui::Panel bandMixPanel { "Band Mix" };
 	ui::Panel outputPanel { "Output" };
 	juce::Label stageHeader;

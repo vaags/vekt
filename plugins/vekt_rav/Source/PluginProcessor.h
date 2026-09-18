@@ -130,8 +130,8 @@ private:
 	std::atomic<float>* lowMidCutoffParameter;
 	std::atomic<float>* midHighCutoffParameter;
 	std::atomic<float>* modeParameter;
-	std::atomic<float>* characterParameter;
-	std::atomic<float>* responseParameter;
+	std::atomic<float>* shapeParameter;
+	std::atomic<float>* dynamicsParameter;
 	std::atomic<float>* textureParameter;
 	std::atomic<float> *trackingOversamplingParameter;
 	std::atomic<float> *offlineOversamplingParameter;

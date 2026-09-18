@@ -29,8 +29,8 @@ public:
 		sampleRateHz = static_cast<float>(processingSampleRate);
 		drive.prepare(processingSampleRate, 0.02, 0.15);
 		bias.prepare(processingSampleRate, 0.02, 0.15);
-		character.prepare(processingSampleRate, 0.02, 0.15);
-		response.prepare(processingSampleRate, 0.02, 0.15);
+		shape.prepare(processingSampleRate, 0.02, 0.15);
+		dynamics.prepare(processingSampleRate, 0.02, 0.15);
 		texture.prepare(processingSampleRate, 0.02, 0.15);
 		tone.prepare(processingSampleRate, 0.02, 0.15);
 		postStage.prepare(processingSampleRate);
@@ -47,20 +47,20 @@ public:
 		postStage.reset();
 		drive.setCurrentAndTargetValue(drive.getTargetValue());
 		bias.setCurrentAndTargetValue(bias.getTargetValue());
-		character.setCurrentAndTargetValue(character.getTargetValue());
-		response.setCurrentAndTargetValue(response.getTargetValue());
+		shape.setCurrentAndTargetValue(shape.getTargetValue());
+		dynamics.setCurrentAndTargetValue(dynamics.getTargetValue());
 		texture.setCurrentAndTargetValue(texture.getTargetValue());
 		tone.setCurrentAndTargetValue(tone.getTargetValue());
 	}
 
 	void setParameters(RavMode newMode, float newDrive, float newBias,
-		float newCharacter, float newResponse, float newTexture, float newTone = 0.0f) noexcept
+		float newShape, float newDynamics, float newTexture, float newTone = 0.0f) noexcept
 	{
 		mode = newMode;
 		drive.setTargetValue(std::clamp(newDrive, 0.0f, 64.0f));
 		bias.setTargetValue(std::clamp(newBias, -1.0f, 1.0f));
-		character.setTargetValue(std::clamp(newCharacter, 0.0f, 1.0f));
-		response.setTargetValue(std::clamp(newResponse, 0.0f, 1.0f));
+		shape.setTargetValue(std::clamp(newShape, 0.0f, 1.0f));
+		dynamics.setTargetValue(std::clamp(newDynamics, 0.0f, 1.0f));
 		texture.setTargetValue(std::clamp(newTexture, 0.0f, 1.0f));
 		tone.setTargetValue(std::clamp(newTone, -6.0f, 6.0f));
 	}
@@ -71,8 +71,8 @@ public:
 			: dsp::ControlTransitionPolicy::normal;
 		drive.setPolicy(policy);
 		bias.setPolicy(enabled ? dsp::ControlTransitionPolicy::operatingPoint : policy);
-		character.setPolicy(policy);
-		response.setPolicy(policy);
+		shape.setPolicy(policy);
+		dynamics.setPolicy(policy);
 		texture.setPolicy(policy);
 		tone.setPolicy(policy);
 	}
@@ -88,8 +88,8 @@ private:
 	{
 		const auto driveDb = drive.getNextValue();
 		const auto biasValue = bias.getNextValue();
-		const auto characterValue = character.getNextValue();
-		const auto responseValue = response.getNextValue();
+		const auto shapeValue = shape.getNextValue();
+		const auto dynamicsValue = dynamics.getNextValue();
 		const auto textureValue = texture.getNextValue();
 		const auto toneValue = tone.getNextValue();
 		const auto driven = input * juce::Decibels::decibelsToGain(driveDb);
@@ -99,9 +99,9 @@ private:
 		{
 			case RavMode::saturation:
 			{
-				const auto rollOff = 0.005f + responseValue * 0.2f;
+				const auto rollOff = 0.005f + dynamicsValue * 0.2f;
 				feedbackState += (previousOutput - feedbackState) * rollOff;
-				const auto memory = characterValue * feedbackState;
+				const auto memory = shapeValue * feedbackState;
 				output = std::tanh(driven + memory + biasValue * textureValue)
 					- std::tanh(biasValue * textureValue);
 				previousOutput = output;
@@ -109,12 +109,12 @@ private:
 			}
 			case RavMode::overdrive:
 			{
-				const auto cutoffHz = 80.0f + responseValue * 40.0f;
+				const auto cutoffHz = 80.0f + dynamicsValue * 40.0f;
 				const auto hpCoefficient = 1.0f - std::exp(
 					-2.0f * juce::MathConstants<float>::pi * cutoffHz / sampleRateHz);
 				const auto highPassed = driven - highPassState;
 				highPassState += (driven - highPassState) * hpCoefficient;
-				const auto asymmetricBias = biasValue + (characterValue - 0.5f) * 0.8f;
+				const auto asymmetricBias = biasValue + (shapeValue - 0.5f) * 0.8f;
 				const auto shaped = std::tanh(highPassed + asymmetricBias)
 					- std::tanh(asymmetricBias);
 				output = std::tanh(shaped * (1.0f + textureValue * 3.0f));
@@ -122,7 +122,7 @@ private:
 			}
 			case RavMode::distortion:
 			{
-				const auto exponent = 1.2f + characterValue * 6.0f;
+				const auto exponent = 1.2f + shapeValue * 6.0f;
 				const auto magnitude = std::abs(driven + biasValue * textureValue);
 				output = std::copysign(magnitude / std::pow(1.0f + std::pow(magnitude, exponent),
 					1.0f / exponent), driven + biasValue * textureValue);
@@ -130,9 +130,9 @@ private:
 			}
 			case RavMode::fuzz:
 			{
-				const auto envelopeRate = 0.001f + responseValue * 0.08f;
+				const auto envelopeRate = 0.001f + dynamicsValue * 0.08f;
 				envelope += (std::abs(driven) - envelope) * envelopeRate;
-				const auto starvation = biasValue + (0.5f - envelope) * characterValue;
+				const auto starvation = biasValue + (0.5f - envelope) * shapeValue;
 				const auto threshold = textureValue * (0.05f + envelope);
 				const auto transitionWidth = 0.01f + textureValue * 0.08f;
 				const auto gatePosition = std::clamp(
@@ -178,8 +178,8 @@ private:
 	RavPostStage postStage;
 	dsp::ControlTransition<float> drive;
 	dsp::ControlTransition<float> bias;
-	dsp::ControlTransition<float> character;
-	dsp::ControlTransition<float> response;
+	dsp::ControlTransition<float> shape;
+	dsp::ControlTransition<float> dynamics;
 	dsp::ControlTransition<float> texture;
 	dsp::ControlTransition<float> tone;
 };

@@ -16,8 +16,8 @@
     "lowMidCutoffHz": 250.0,
     "midHighCutoffHz": 2500.0,
     "mode": 3.0,
-    "character": 0.7,
-    "response": 0.4,
+    "shape": 0.7,
+    "dynamics": 0.4,
     "texture": 0.8
   },
   "metadata": {
