@@ -92,6 +92,7 @@ public:
 			info.clearActiveBufferRegion();
 			generatedPeak.store(0.0f);
 			outputPeak.store(0.0f);
+			pluginCpuLoadPercent.store(0.0f);
 			return;
 		}
 
@@ -119,7 +120,15 @@ public:
 		juce::MidiBuffer midi;
 		juce::AudioBuffer<float> block(info.buffer->getArrayOfWritePointers(),
 			info.buffer->getNumChannels(), info.startSample, info.numSamples);
+		const auto startTicks = juce::Time::getHighResolutionTicks();
 		processor.processBlock(block, midi);
+		const auto elapsedTicks = juce::Time::getHighResolutionTicks() - startTicks;
+		const auto blockDurationTicks = static_cast<double>(info.numSamples)
+			* static_cast<double>(juce::Time::getHighResolutionTicksPerSecond()) / sampleRateHz;
+		const auto instantaneousLoad = static_cast<float>(100.0 * static_cast<double>(elapsedTicks)
+			/ blockDurationTicks);
+		const auto previousLoad = pluginCpuLoadPercent.load();
+		pluginCpuLoadPercent.store(previousLoad + 0.1f * (instantaneousLoad - previousLoad));
 		publishPeak(block);
 	}
 
@@ -175,7 +184,8 @@ private:
 			(outputArmed.load() ? "OUTPUT ARMED" : "Muted") + juce::String("  In ")
 			+ juce::String(generatedPeak.load(), 3) + "  Out "
 			+ juce::String(outputPeak.load(), 3) + "  Latency "
-			+ juce::String(processor.getLatencySamples()),
+			+ juce::String(processor.getLatencySamples()) + "  CPU "
+			+ juce::String(pluginCpuLoadPercent.load(), 1) + "%",
             juce::dontSendNotification);
     }
 
@@ -197,6 +207,7 @@ private:
 	std::atomic<bool> outputArmed {};
 	std::atomic<float> outputPeak {};
 	std::atomic<float> generatedPeak {};
+	std::atomic<float> pluginCpuLoadPercent {};
 };
 
 class MainWindow final : public juce::DocumentWindow
