@@ -31,7 +31,6 @@ constexpr int labelHeight = 20;
 constexpr int bandLabelHeight = 30;
 constexpr int rowGap = 12;
 constexpr int controlGap = 18;
-constexpr int sectionInset = 8;
 constexpr int outputButtonHeight = 28;
 constexpr int qualityControlHeight = 26;
 constexpr int meterHeight = 14;
@@ -44,9 +43,6 @@ constexpr int panelContentHeight = footerLine - headerTop;
 constexpr int panelHeight = (panelContentHeight - panelGap) / 2;
 constexpr int bodyHeight = panelContentHeight;
 constexpr int lowerPanelTop = headerTop + panelHeight + panelGap;
-constexpr int outputRowTop = lowerPanelTop + headerHeight + sectionInset;
-constexpr int qualityTop = outputRowTop + outputButtonHeight + controlGap;
-constexpr int qualityControlsTop = qualityTop + headerHeight;
 }
 }
 
