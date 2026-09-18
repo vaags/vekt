@@ -4,6 +4,60 @@
 
 namespace vekt::rav
 {
+PluginEditor::StageBox::StageBox(juce::String name)
+	: Button(std::move(name))
+{
+	setClickingTogglesState(true);
+	setTooltip("Drag to change this mode's position in the signal path");
+}
+
+void PluginEditor::StageBox::paintButton(juce::Graphics& graphics, bool isMouseOverButton,
+	bool isButtonDown)
+{
+	const auto bounds = getLocalBounds().toFloat().reduced(0.5f);
+	const auto fill = getToggleState() ? juce::Colour::fromRGB(82, 116, 108)
+		: juce::Colour::fromRGB(31, 36, 38);
+	graphics.setColour(isButtonDown ? fill.brighter(0.12f)
+		: isMouseOverButton ? fill.brighter(0.06f) : fill);
+	graphics.fillRoundedRectangle(bounds, 4.0f);
+	graphics.setColour(getToggleState() ? juce::Colour::fromRGB(123, 191, 173)
+		: juce::Colour::fromRGB(75, 84, 87));
+	graphics.drawRoundedRectangle(bounds, 4.0f, 1.0f);
+	graphics.setColour(juce::Colour::fromRGB(224, 226, 220));
+	graphics.setFont(juce::FontOptions(12.0f).withStyle("Bold"));
+	graphics.drawText(getButtonText(), getLocalBounds().reduced(8, 0), juce::Justification::centred);
+}
+
+void PluginEditor::StageBox::mouseDown(const juce::MouseEvent& event)
+{
+	wasDragged = false;
+	dragOffset = event.getPosition();
+}
+
+void PluginEditor::StageBox::mouseDrag(const juce::MouseEvent& event)
+{
+	if (event.getDistanceFromDragStart() > 4)
+	{
+		wasDragged = true;
+		setAlpha(0.65f);
+		toFront(false);
+		if (onDrag != nullptr && getParentComponent() != nullptr)
+			onDrag(*this, event.getEventRelativeTo(getParentComponent()).getPosition() - dragOffset);
+	}
+}
+
+void PluginEditor::StageBox::mouseUp(const juce::MouseEvent& event)
+{
+	setAlpha(1.0f);
+	if (wasDragged)
+	{
+		if (onDrop != nullptr && getParentComponent() != nullptr)
+			onDrop(*this, event.getEventRelativeTo(getParentComponent()).getPosition());
+		return;
+	}
+	triggerClick();
+}
+
 namespace
 {
 constexpr std::array parameterIds {
@@ -56,7 +110,7 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 	presetLabel.setJustificationType(juce::Justification::centred);
 	qualityLabel.setJustificationType(juce::Justification::centredRight);
 	meterLabel.setJustificationType(juce::Justification::centred);
-	stageHeader.setText("Stage Order", juce::dontSendNotification);
+	stageHeader.setText("Signal Path", juce::dontSendNotification);
 	for (auto* panel : { static_cast<juce::Component*>(&primaryPanel), static_cast<juce::Component*>(&shapingPanel),
 		static_cast<juce::Component*>(&bandMixPanel), static_cast<juce::Component*>(&outputPanel) })
 		getContent().addAndMakeVisible(*panel);
@@ -70,26 +124,48 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 	}
 	for (std::size_t index = 0; index < stageButtons.size(); ++index)
 	{
-		constexpr std::array names { "Saturation", "Overdrive", "Distortion", "Fuzz" };
-		stageButtons[index].setButtonText(names[index]);
 		stageButtons[index].setToggleState(pluginProcessor.getParameters().getParameter(parameters::stageEnabledIds[index])->getValue() > 0.5f, juce::dontSendNotification);
 		getContent().addAndMakeVisible(stageButtons[index]);
 		stageButtonAttachments[index] = std::make_unique<ButtonAttachment>(
 			pluginProcessor.getParameters(), parameters::stageEnabledIds[index], stageButtons[index]);
-		stageUpButtons[index].setButtonText("↑");
-		stageUpButtons[index].setVisible(index > 0);
-		stageUpButtons[index].onClick = [this, index]
+		stageButtons[index].onDrag = [this](StageBox& box, juce::Point<int> position)
 		{
-			juce::ignoreUnused(pluginProcessor.reorderStage(index, -1));
+			const auto minimumX = layout::margin;
+			const auto maximumX = getContent().getWidth() - layout::margin - box.getWidth();
+			const auto x = juce::jlimit(minimumX, maximumX, position.x);
+			box.setTopLeftPosition(x, layout::modeTop);
+			const auto contentWidth = getContent().getWidth() - layout::margin * 2;
+			const auto target = juce::jlimit(0, static_cast<int>(RavStageChain::stageCount) - 1,
+				(x + box.getWidth() / 2 - layout::margin) * static_cast<int>(RavStageChain::stageCount) / contentWidth);
+			const auto& order = pluginProcessor.getStageOrder();
+			const auto mode = static_cast<RavMode>(std::distance(stageButtons.data(), &box));
+			auto current = static_cast<int>(std::distance(order.begin(), std::find(order.begin(), order.end(), mode)));
+			while (current != target)
+			{
+				const auto direction = target > current ? 1 : -1;
+				if (!pluginProcessor.reorderStage(static_cast<std::size_t>(current), direction))
+					break;
+				current += direction;
+			}
+			layoutStageBoxes(&box);
 		};
-		getContent().addAndMakeVisible(stageUpButtons[index]);
-		stageDownButtons[index].setButtonText("↓");
-		stageDownButtons[index].setVisible(index < stageDownButtons.size() - 1);
-		stageDownButtons[index].onClick = [this, index]
+		stageButtons[index].onDrop = [this, index](StageBox&, juce::Point<int> dropPosition)
 		{
-			juce::ignoreUnused(pluginProcessor.reorderStage(index, 1));
+			constexpr auto stageCount = static_cast<int>(RavStageChain::stageCount);
+			const auto contentWidth = getContent().getWidth() - layout::margin * 2;
+			const auto target = juce::jlimit(0, stageCount - 1,
+				(dropPosition.x - layout::margin) * stageCount / contentWidth);
+			const auto& order = pluginProcessor.getStageOrder();
+			auto current = static_cast<int>(std::distance(order.begin(), std::find(order.begin(), order.end(), static_cast<RavMode>(index))));
+			while (current != target)
+			{
+				const auto direction = target > current ? 1 : -1;
+				if (!pluginProcessor.reorderStage(static_cast<std::size_t>(current), direction))
+					break;
+				current += direction;
+			}
+			layoutStageBoxes();
 		};
-		getContent().addAndMakeVisible(stageDownButtons[index]);
 	}
 
 	for (std::size_t index = 0; index < sliders.size(); ++index)
@@ -155,6 +231,19 @@ void PluginEditor::paint(juce::Graphics& graphics)
 	graphics.fillAll(lookAndFeel.findColour(juce::ResizableWindow::backgroundColourId));
 }
 
+void PluginEditor::layoutStageBoxes(StageBox* draggedBox)
+{
+	const auto cellWidth = (getContent().getWidth() - layout::margin * 2)
+		/ static_cast<int>(stageButtons.size());
+	for (std::size_t position = 0; position < stageButtons.size(); ++position)
+	{
+		const auto modeIndex = static_cast<std::size_t>(pluginProcessor.getStageOrder()[position]);
+		if (&stageButtons[modeIndex] != draggedBox)
+			stageButtons[modeIndex].setBounds(layout::margin + static_cast<int>(position) * cellWidth,
+				layout::modeTop, cellWidth - 8, layout::modeHeight + 4);
+	}
+}
+
 void PluginEditor::resized()
 {
 	ScalableEditor::resized();
@@ -184,15 +273,9 @@ void PluginEditor::resized()
 	modeBox.setBounds({});
 	modeBox.setVisible(false);
 
-	stageHeader.setVisible(false);
-	for (std::size_t index = 0; index < stageButtons.size(); ++index)
-	{
-		const auto cellWidth = (contentBounds.getWidth() - layout::margin * 2) / static_cast<int>(stageButtons.size());
-		const auto x = layout::margin + static_cast<int>(index) * cellWidth;
-		stageButtons[index].setBounds(x, layout::modeTop, cellWidth - 40, layout::modeHeight);
-		stageUpButtons[index].setBounds(x + cellWidth - 36, layout::modeTop, 16, layout::modeHeight);
-		stageDownButtons[index].setBounds(x + cellWidth - 18, layout::modeTop, 16, layout::modeHeight);
-	}
+	stageHeader.setVisible(true);
+	stageHeader.setBounds(layout::margin, layout::modeTop - 18, 100, 16);
+	layoutStageBoxes();
 
 	auto layoutRotaryRow = [](auto& controls, std::size_t first, std::size_t count,
 		juce::Rectangle<int> area, int controlHeight, int labelHeight)

@@ -9,6 +9,7 @@
 #include <vekt/ui/VektLookAndFeel.h>
 
 #include <array>
+#include <functional>
 #include <memory>
 
 namespace vekt::rav
@@ -23,12 +24,30 @@ public:
 	void resized() override;
 
 private:
+	class StageBox final : public juce::Button
+	{
+	public:
+		explicit StageBox(juce::String name);
+
+		std::function<void(StageBox&, juce::Point<int>)> onDrag;
+		std::function<void(StageBox&, juce::Point<int>)> onDrop;
+		void paintButton(juce::Graphics&, bool isMouseOverButton, bool isButtonDown) override;
+		void mouseDown(const juce::MouseEvent&) override;
+		void mouseDrag(const juce::MouseEvent&) override;
+		void mouseUp(const juce::MouseEvent&) override;
+
+	private:
+		bool wasDragged {};
+		juce::Point<int> dragOffset;
+	};
+
 	using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
 	using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
 	using ComboBoxAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
 
 	void timerCallback() override;
 	void refreshPresetLabel();
+	void layoutStageBoxes(StageBox* draggedBox = nullptr);
 	void configureRotary(juce::Component& parent, ui::RotaryControl& control, const juce::String& name,
 		const char* parameterId, std::unique_ptr<SliderAttachment>& attachment);
 
@@ -52,9 +71,8 @@ private:
     juce::ComboBox trackingBox;
     juce::ComboBox offlineBox;
     juce::ComboBox modeBox;
-	std::array<juce::ToggleButton, 4> stageButtons;
-	std::array<juce::TextButton, 4> stageUpButtons;
-	std::array<juce::TextButton, 4> stageDownButtons;
+	std::array<StageBox, 4> stageButtons { StageBox { "Saturation" },
+		StageBox { "Overdrive" }, StageBox { "Distortion" }, StageBox { "Fuzz" } };
 	std::array<std::unique_ptr<ButtonAttachment>, 4> stageButtonAttachments;
 	std::array<ui::RotaryControl, 6> sliders;
 	std::array<std::unique_ptr<SliderAttachment>, 6> sliderAttachments;
