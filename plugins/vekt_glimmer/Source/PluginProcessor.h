@@ -3,7 +3,7 @@
 #include <vekt/glimmer/Parameters.h>
 
 #include "AutoSpeedDetector.h"
-#include "RotorMotion.h"
+#include "RotaryEngine.h"
 
 #include <vekt/dsp/AdaptiveAutoGain.h>
 #include <vekt/dsp/DcBlocker.h>
@@ -46,7 +46,7 @@ public:
 	[[nodiscard]] bool acceptsMidi() const override { return false; }
 	[[nodiscard]] bool producesMidi() const override { return false; }
 	[[nodiscard]] bool isMidiEffect() const override { return false; }
-	[[nodiscard]] double getTailLengthSeconds() const override { return 0.0; }
+	[[nodiscard]] double getTailLengthSeconds() const override { return 0.5; }
 	[[nodiscard]] juce::AudioProcessorParameter* getBypassParameter() const override;
 
 	int getNumPrograms() override { return 1; }
@@ -68,6 +68,9 @@ public:
 	[[nodiscard]] bool isAutoTargetFast() const noexcept { return autoTargetFast.load(); }
 	[[nodiscard]] dsp::OversamplingQuality getActiveQuality() const noexcept;
 	[[nodiscard]] bool hasPendingQualityChange() const noexcept;
+	[[nodiscard]] int getActiveModel() const noexcept { return activeModel.load(); }
+	[[nodiscard]] bool hasPendingModelChange() const noexcept { return modelPending.load(); }
+	[[nodiscard]] std::array<float, 2> getRotorSpeeds() const noexcept { return { hornRpm.load(), drumRpm.load() }; }
 
 private:
 	[[nodiscard]] static std::atomic<float>* requireParameter(
@@ -76,6 +79,8 @@ private:
 	void parameterChanged(const juce::String& parameterId, float newValue) override;
 	void observeTransport() noexcept;
 	void applyPendingQualityChange();
+	void updateLatency();
+	[[nodiscard]] RotarySettings rotarySettings() const noexcept;
 	[[nodiscard]] juce::Result validatePresetSound(const presets::Preset& preset) const;
 	[[nodiscard]] bool matchesPresetSound(const presets::Preset& preset) const;
 
@@ -104,24 +109,40 @@ private:
 	std::atomic<float>* outputGainParameter;
 	std::atomic<float>* trackingOversamplingParameter;
 	std::atomic<float>* offlineOversamplingParameter;
+	std::atomic<float>* modelParameter;
+	std::atomic<float>* brakeParameter;
+	std::atomic<float>* widthParameter;
+	std::atomic<float>* manualParameter;
+	std::atomic<float>* positionParameter;
 	std::atomic<float> requestedTrackingOversampling { 2.0f };
 	std::atomic<float> requestedOfflineOversampling { 4.0f };
 	std::atomic<bool> qualityChangePending {};
 	std::atomic<bool> transportPlaying {};
 	std::atomic<bool> prepared {};
 
-	RotorMotion hornMotion;
-	RotorMotion drumMotion;
+	std::array<RotaryEngine, 2> engines;
+	std::size_t activeEngine {};
+	int modelWarmup {};
+	int modelFade {};
+	bool switchingModel {};
+	std::atomic<int> activeModel {};
+	std::atomic<bool> modelPending {};
+	std::atomic<float> hornRpm {};
+	std::atomic<float> drumRpm {};
+	dsp::ControlTransition<float> inputTransition;
+	dsp::ControlTransition<float> outputTransition;
+	dsp::ControlTransition<float> driveTransition;
+	dsp::ControlTransition<float> widthTransition;
+	dsp::ControlTransition<float> bypassTransition;
+	bool hasProcessed {};
+	std::array<float, 2> preampLow {};
+	std::array<float, 2> preampHigh {};
 	AutoSpeedDetector autoDetector;
-	juce::dsp::LinkwitzRileyFilter<float> crossover;
 	std::array<dsp::DcBlocker<float>, 2> dcBlockers;
 	dsp::AdaptiveAutoGain<float> autoGain;
 	dsp::OversamplingBank<float> oversampling { 2 };
 	dsp::LatencyAlignedBypass<float> bypassDelay;
 	dsp::LatencyAlignedMixer<float> dryWetMixer;
-	using MicDelay = juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Lagrange3rd>;
-	std::array<MicDelay, 2> hornMicDelays;
-	std::array<MicDelay, 2> drumMicDelays;
 	dsp::StereoPeakMeter inputMeter;
 	dsp::StereoPeakMeter outputMeter;
 	juce::AudioBuffer<float> referenceBuffer;

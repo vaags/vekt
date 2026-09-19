@@ -55,3 +55,39 @@ TEST_CASE("RotorMotion uses the auto target without changing the selected mode",
 	REQUIRE(rotor.getCurrentRpm() == Catch::Approx(100.0f));
 	REQUIRE(rotor.getMode() == vekt::glimmer::RotarySpeedMode::autoMode);
 }
+
+TEST_CASE("RotorMotion brake holds phase and overrides manual and Auto", "[glimmer][rotor]")
+{
+	using vekt::glimmer::RotarySpeedMode;
+	vekt::glimmer::RotorMotion rotor;
+	rotor.prepare(100.0, 60.0f);
+	rotor.configure(60, 120, 1, 1, RotarySpeedMode::autoMode, true, true, 1, 1);
+	rotor.setAutoFast(true);
+	for (int sample = 0; sample < 100; ++sample) (void) rotor.advance();
+	REQUIRE(rotor.getCurrentRpm() == Catch::Approx(0.0f));
+	const auto stoppedPhase = rotor.getPhaseTurns();
+	for (int sample = 0; sample < 100; ++sample) (void) rotor.advance();
+	REQUIRE(rotor.getPhaseTurns() == Catch::Approx(stoppedPhase));
+	rotor.configure(60, 120, 1, 1, RotarySpeedMode::autoMode, false, true, 0, 1);
+	for (int sample = 0; sample < 100; ++sample) (void) rotor.advance();
+	REQUIRE(rotor.getCurrentRpm() == Catch::Approx(60.0f));
+	rotor.configure(60, 120, 1, 1, RotarySpeedMode::autoMode, false, false, 0, 1);
+	for (int sample = 0; sample < 100; ++sample) (void) rotor.advance();
+	REQUIRE(rotor.getCurrentRpm() == Catch::Approx(120.0f));
+}
+
+TEST_CASE("RotorMotion manual target changes use bounded slew and signed motion", "[glimmer][rotor]")
+{
+	vekt::glimmer::RotorMotion rotor;
+	rotor.prepare(100.0, 20.0f);
+	for (int sample = 0; sample < 100; ++sample)
+	{
+		const auto previous = rotor.getCurrentRpm();
+		rotor.configure(20, 120, 1, 1, vekt::glimmer::RotarySpeedMode::slow,
+			false, true, static_cast<float>(sample) / 99.0f, -1);
+		(void) rotor.advance();
+		REQUIRE(std::abs(rotor.getCurrentRpm() - previous) <= 1.001f);
+	}
+	for (int sample = 0; sample < 100; ++sample) (void) rotor.advance();
+	REQUIRE(rotor.getCurrentRpm() == Catch::Approx(-120.0f));
+}

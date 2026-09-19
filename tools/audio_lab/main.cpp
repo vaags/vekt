@@ -24,6 +24,7 @@ struct Options final
 {
 	juce::String product { "rav" };
 	juce::String rack;
+	juce::StringArray glimmerOverrides;
 	vekt::audio_lab::Source source { vekt::audio_lab::Source::sine };
 	double sampleRate { 48'000.0 };
 	int blockSize { 128 };
@@ -140,6 +141,12 @@ struct ChannelMeasurements final
 				if (value != "rav,glimmer" && value != "glimmer,rav") return false;
 				options.rack = value;
 			}
+			else if (valueFor(index, argc, argv, "--param", value))
+			{
+				const juce::String assignment(value);
+				if (!assignment.startsWith("glimmer.") || !assignment.containsChar('=')) return false;
+				options.glimmerOverrides.add(assignment.substring(8));
+			}
 			else if (valueFor(index, argc, argv, "--source", value))
 			{
 				if (value == "sine") options.source = vekt::audio_lab::Source::sine;
@@ -202,6 +209,8 @@ struct ChannelMeasurements final
 		return false;
 	}
 	if (options.rack.isNotEmpty() && options.product != "rav")
+		return false;
+	if (!options.glimmerOverrides.isEmpty() && options.product != "glimmer" && options.rack.isEmpty())
 		return false;
 	return options.sampleRate > 0.0 && options.blockSize > 0 && options.seconds > 0.0
 		&& options.warmupSeconds >= 0.0 && options.frequencyHz > 0.0
@@ -300,6 +309,98 @@ void setParameter(vekt::glimmer::PluginProcessor& processor, const char* identif
 		parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
 }
 
+bool applyGlimmerOverrides(vekt::glimmer::PluginProcessor& processor, const Options& options)
+{
+	std::vector<std::pair<juce::RangedAudioParameter*, float>> pending;
+	for (const auto& assignment : options.glimmerOverrides)
+	{
+		const auto identifier = assignment.upToFirstOccurrenceOf("=", false, false);
+		const auto text = assignment.fromFirstOccurrenceOf("=", false, false).trim();
+		auto* parameter = processor.getParameters().getParameter(identifier);
+		try
+		{
+			if (parameter == nullptr || text.isEmpty()) throw std::invalid_argument("unknown parameter or empty value");
+			float value {};
+			const auto* choice = dynamic_cast<juce::AudioParameterChoice*>(parameter);
+			const auto choiceIndex = choice == nullptr ? -1 : choice->choices.indexOf(text, true);
+			if (choiceIndex >= 0) value = static_cast<float>(choiceIndex);
+			else if (dynamic_cast<juce::AudioParameterBool*>(parameter) != nullptr && text.equalsIgnoreCase("true")) value = 1;
+			else if (dynamic_cast<juce::AudioParameterBool*>(parameter) != nullptr && text.equalsIgnoreCase("false")) value = 0;
+			else
+			{
+				std::size_t consumed {};
+				const auto number = text.toStdString();
+				value = std::stof(number, &consumed);
+				if (consumed != number.size()) throw std::invalid_argument("trailing characters");
+			}
+			const auto& range = parameter->getNormalisableRange();
+			if (!std::isfinite(value) || value < range.start || value > range.end
+				|| ((choice != nullptr || dynamic_cast<juce::AudioParameterBool*>(parameter) != nullptr)
+					&& std::abs(value - std::round(value)) > 1.0e-6f))
+				throw std::invalid_argument("value outside parameter range");
+			pending.emplace_back(parameter, value);
+		}
+		catch (const std::exception& error)
+		{
+			std::cerr << "Invalid Glimmer override " << assignment << ": " << error.what() << '\n';
+			return false;
+		}
+	}
+	for (const auto& [parameter, value] : pending)
+		parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
+	return true;
+}
+
+struct RenderTiming
+{
+	std::vector<double> milliseconds;
+	double total {};
+	double maximum {};
+	int overBudget {};
+
+	void add(double elapsed, double budget)
+	{
+		milliseconds.push_back(elapsed);
+		total += elapsed;
+		maximum = std::max(maximum, elapsed);
+		if (elapsed > budget) ++overBudget;
+	}
+
+	juce::var report(double seconds)
+	{
+		std::sort(milliseconds.begin(), milliseconds.end());
+		auto* result = new juce::DynamicObject;
+		result->setProperty("dsp_percent", total / (seconds * 10.0));
+		result->setProperty("max_callback_ms", maximum);
+		result->setProperty("p99_callback_ms", milliseconds.empty() ? 0.0
+			: milliseconds[std::min(milliseconds.size() - 1, static_cast<std::size_t>(0.99 * static_cast<double>(milliseconds.size())))]);
+		result->setProperty("callbacks_over_budget", overBudget);
+		return juce::var(result);
+	}
+};
+
+juce::var glimmerSettingsReport(vekt::glimmer::PluginProcessor& processor)
+{
+	auto* report = new juce::DynamicObject;
+	juce::var result(report);
+	auto* settings = new juce::DynamicObject;
+	report->setProperty("parameters", juce::var(settings));
+	for (const auto* identifier : vekt::glimmer::parameters::soundParameterIds)
+		settings->setProperty(identifier, processor.getParameters().getRawParameterValue(identifier)->load());
+	for (const auto* identifier : { vekt::glimmer::parameters::trackingOversampling,
+		vekt::glimmer::parameters::offlineOversampling, vekt::glimmer::parameters::bypass })
+		settings->setProperty(identifier, processor.getParameters().getRawParameterValue(identifier)->load());
+	const std::array<juce::String, 3> names { "Classic", "Drum", "Wide" };
+	report->setProperty("active_model", names[static_cast<std::size_t>(processor.getActiveModel())]);
+	report->setProperty("model_pending", processor.hasPendingModelChange());
+	report->setProperty("latency_samples", processor.getLatencySamples());
+	const auto speeds = processor.getRotorSpeeds();
+	report->setProperty("horn_rpm", speeds[0]);
+	report->setProperty("drum_rpm", speeds[1]);
+	report->setProperty("auto_target_fast", processor.isAutoTargetFast());
+	return result;
+}
+
 int renderGlimmer(const Options& options, const std::optional<InputFile>& inputFile)
 {
 	vekt::glimmer::PluginProcessor processor;
@@ -308,6 +409,10 @@ int renderGlimmer(const Options& options, const std::optional<InputFile>& inputF
 	setParameter(processor, vekt::glimmer::parameters::hornTone, options.tone);
 	setParameter(processor, vekt::glimmer::parameters::autoGain, options.autoGain ? 1.0f : 0.0f);
 	setParameter(processor, vekt::glimmer::parameters::mix, options.mix);
+	if (options.qualityIndex >= 0)
+		setParameter(processor, options.offlineProfile ? vekt::glimmer::parameters::offlineOversampling
+			: vekt::glimmer::parameters::trackingOversampling, static_cast<float>(options.qualityIndex));
+	if (!applyGlimmerOverrides(processor, options)) return 64;
 	processor.setNonRealtime(options.offlineProfile);
 	processor.prepareToPlay(options.sampleRate, options.blockSize);
 
@@ -317,6 +422,7 @@ int renderGlimmer(const Options& options, const std::optional<InputFile>& inputF
 	source.setFrequency(options.frequencyHz);
 	juce::MidiBuffer midi;
 	std::array<ChannelMeasurements, 2> measurements;
+	RenderTiming timing;
 	juce::WavAudioFormat wavFormat;
 	std::unique_ptr<juce::AudioFormatWriter> wavWriter;
 	if (options.wavPath.isNotEmpty())
@@ -343,8 +449,11 @@ int renderGlimmer(const Options& options, const std::optional<InputFile>& inputF
 				buffer.setSample(1, sample, source.next(offset + sample, 1));
 			}
 		}
+		const auto start = juce::Time::getMillisecondCounterHiRes();
 		processor.processBlock(buffer, midi);
+		const auto elapsed = juce::Time::getMillisecondCounterHiRes() - start;
 		if (!measure) return true;
+		timing.add(elapsed, static_cast<double>(blockSize) * 1000.0 / options.sampleRate);
 		for (int sample = 0; sample < blockSize; ++sample)
 		{
 			measurements[0].add(buffer.getSample(0, sample));
@@ -364,10 +473,17 @@ int renderGlimmer(const Options& options, const std::optional<InputFile>& inputF
 		<< " latency=" << processor.getLatencySamples() << '\n';
 	if (options.reportPath.isNotEmpty())
 	{
-		const auto report = "{\n  \"product\": \"glimmer\",\n  \"samples\": " + juce::String(totalSamples)
-			+ ",\n  \"mix_percent\": " + juce::String(options.mix)
-			+ ",\n  \"latency_samples\": " + juce::String(processor.getLatencySamples()) + "\n}\n";
-		if (!juce::File(options.reportPath).replaceWithText(report)) return 1;
+		auto report = glimmerSettingsReport(processor);
+		auto* object = report.getDynamicObject();
+		object->setProperty("product", "glimmer");
+		object->setProperty("samples", totalSamples);
+		object->setProperty("mix_percent", processor.getParameters().getRawParameterValue(vekt::glimmer::parameters::mix)->load());
+		object->setProperty("timing", timing.report(options.seconds));
+		object->setProperty("rms_left", measurements[0].rms(totalSamples));
+		object->setProperty("rms_right", measurements[1].rms(totalSamples));
+		object->setProperty("peak_left", measurements[0].peak);
+		object->setProperty("peak_right", measurements[1].peak);
+		if (!juce::File(options.reportPath).replaceWithText(juce::JSON::toString(report))) return 1;
 	}
 	return 0;
 }
@@ -376,6 +492,7 @@ int renderRack(const Options& options, const std::optional<InputFile>& inputFile
 {
 	vekt::rav::PluginProcessor rav;
 	vekt::glimmer::PluginProcessor glimmer;
+	if (!applyGlimmerOverrides(glimmer, options)) return 64;
 	rav.setNonRealtime(options.offlineProfile);
 	glimmer.setNonRealtime(options.offlineProfile);
 	rav.prepareToPlay(options.sampleRate, options.blockSize);
@@ -387,6 +504,7 @@ int renderRack(const Options& options, const std::optional<InputFile>& inputFile
 	source.setFrequency(options.frequencyHz);
 	juce::MidiBuffer midi;
 	std::array<ChannelMeasurements, 2> measurements;
+	RenderTiming timing;
 	juce::WavAudioFormat wavFormat;
 	std::unique_ptr<juce::AudioFormatWriter> wavWriter;
 	if (options.wavPath.isNotEmpty())
@@ -413,9 +531,12 @@ int renderRack(const Options& options, const std::optional<InputFile>& inputFile
 				buffer.setSample(1, sample, source.next(offset + sample, 1));
 			}
 		}
+		const auto start = juce::Time::getMillisecondCounterHiRes();
 		if (glimmerFirst) { glimmer.processBlock(buffer, midi); rav.processBlock(buffer, midi); }
 		else { rav.processBlock(buffer, midi); glimmer.processBlock(buffer, midi); }
+		const auto elapsed = juce::Time::getMillisecondCounterHiRes() - start;
 		if (!measure) return true;
+		timing.add(elapsed, static_cast<double>(blockSize) * 1000.0 / options.sampleRate);
 		for (int sample = 0; sample < blockSize; ++sample)
 		{
 			measurements[0].add(buffer.getSample(0, sample));
@@ -433,11 +554,14 @@ int renderRack(const Options& options, const std::optional<InputFile>& inputFile
 		<< " latency=" << rav.getLatencySamples() + glimmer.getLatencySamples() << '\n';
 	if (options.reportPath.isNotEmpty())
 	{
-		const auto report = "{\n  \"rack\": " + juce::JSON::toString(options.rack)
-			+ ",\n  \"samples\": " + juce::String(totalSamples)
-			+ ",\n  \"latency_samples\": " + juce::String(rav.getLatencySamples() + glimmer.getLatencySamples())
-			+ "\n}\n";
-		if (!juce::File(options.reportPath).replaceWithText(report)) return 1;
+		auto* object = new juce::DynamicObject;
+		juce::var report(object);
+		object->setProperty("rack", options.rack);
+		object->setProperty("samples", totalSamples);
+		object->setProperty("latency_samples", rav.getLatencySamples() + glimmer.getLatencySamples());
+		object->setProperty("glimmer", glimmerSettingsReport(glimmer));
+		object->setProperty("timing", timing.report(options.seconds));
+		if (!juce::File(options.reportPath).replaceWithText(juce::JSON::toString(report))) return 1;
 	}
 	return 0;
 }
@@ -456,7 +580,7 @@ int main(int argc, char** argv)
 					 "[--drive dB] [--bias value] [--shape value] [--dynamics value] [--texture value] "
 					 "[--tone dB] [--mix percent] [--low-mix percent] [--mid-mix percent] "
 					 "[--high-mix percent] [--input-gain dB] [--stages 0000-1111] [--stage-order 0,1,2,3] "
-					 "[--auto-gain] [--seed value] [--report path] [--wav path]\n";
+					 "[--auto-gain] [--seed value] [--report path] [--wav path] [--param glimmer.id=value]\n";
 		return 64;
 	}
 	std::optional<InputFile> inputFile;

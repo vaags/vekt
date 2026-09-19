@@ -143,7 +143,18 @@ Preset workflows are specified separately in [PRESET_UX.md](PRESET_UX.md).
   synchronization. File operations are initiated and completed on the message
   thread.
 
-## Audio Lab file input
+## Glimmer Controls
+
+Glimmer keeps its existing I/O strip and 1040 x 650 canvas. Classic/Drum/Wide
+selection lives in the command bar; the status region shows actual rotor speed
+and active/requested model transitions. Brake and Manual are separate overrides,
+not new indices in the existing Slow/Fast/Auto choice. Sensitivity is active only
+for unoverridden Auto; the continuous Speed slider is active in Manual when not
+braking. Drum disables Horn Tone and Horn/Drum Balance without losing their values.
+Width is below the microphone controls and affects wet audio only. All controls
+retain APVTS attachments/gestures and stable bounds during state changes.
+
+## Audio Lab File Input
 
 - Audio Lab accepts one local WAV, MP3, FLAC, or AIFF/AIF file via drag-and-drop
   or Open File. Other formats are deliberately excluded.

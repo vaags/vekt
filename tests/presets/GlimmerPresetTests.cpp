@@ -27,13 +27,26 @@ TEST_CASE("Glimmer shared presets restore only Glimmer sound parameters", "[glim
 {
 	vekt::glimmer::PluginProcessor processor;
 	setParameter(processor, vekt::glimmer::parameters::micAngle, 210.0f);
+	setParameter(processor, vekt::glimmer::parameters::cabinetModel, 2);
+	setParameter(processor, vekt::glimmer::parameters::brake, 1);
+	setParameter(processor, vekt::glimmer::parameters::stereoWidth, 143);
+	setParameter(processor, vekt::glimmer::parameters::manualSpeedEnabled, 1);
+	setParameter(processor, vekt::glimmer::parameters::speedPosition, 67);
 	auto preset = processor.createPreset("Rotating Glass");
 	setParameter(processor, vekt::glimmer::parameters::micAngle, 30.0f);
+	for (const auto* identifier : { vekt::glimmer::parameters::cabinetModel, vekt::glimmer::parameters::brake,
+		vekt::glimmer::parameters::stereoWidth, vekt::glimmer::parameters::manualSpeedEnabled, vekt::glimmer::parameters::speedPosition })
+		setParameter(processor, identifier, 0);
 
 	REQUIRE(processor.applyPreset(preset).wasOk());
 	const auto* angle = processor.getParameters().getRawParameterValue(vekt::glimmer::parameters::micAngle);
 	REQUIRE(angle != nullptr);
 	REQUIRE(angle->load() == Catch::Approx(210.0f));
+	REQUIRE(getParameter(processor, vekt::glimmer::parameters::cabinetModel) == Catch::Approx(2));
+	REQUIRE(getParameter(processor, vekt::glimmer::parameters::brake) == Catch::Approx(1));
+	REQUIRE(getParameter(processor, vekt::glimmer::parameters::stereoWidth) == Catch::Approx(143));
+	REQUIRE(getParameter(processor, vekt::glimmer::parameters::manualSpeedEnabled) == Catch::Approx(1));
+	REQUIRE(getParameter(processor, vekt::glimmer::parameters::speedPosition) == Catch::Approx(67));
 }
 
 TEST_CASE("Glimmer rejects presets from another product", "[glimmer][presets]")

@@ -1,6 +1,7 @@
 add_library(VektGlimmerCore STATIC
 	Source/Parameters.cpp
 	Source/PluginEditor.cpp
+	Source/RotaryEngine.cpp
 	Source/PluginProcessor.cpp)
 target_include_directories(VektGlimmerCore PUBLIC
 	include

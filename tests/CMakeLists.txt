@@ -7,6 +7,7 @@ add_executable(vekt_dsp_tests
 	dsp/ThreeBandCrossoverTests.cpp
     dsp/ControlTransitionTests.cpp
     dsp/RotorMotionTests.cpp
+    dsp/RotaryEngineTests.cpp
     dsp/AutoSpeedDetectorTests.cpp
     dsp/RavModeStageTests.cpp
 	dsp/RavPostStageTests.cpp

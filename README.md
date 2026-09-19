@@ -40,7 +40,13 @@ Render Glimmer alone or the fixed two-effect serial rack with:
 ```sh
 ./scripts/render-report.sh --product glimmer --source sine --seconds 1
 ./scripts/render-report.sh --rack rav,glimmer --source sine --seconds 1
+./scripts/render-report.sh --product glimmer --param glimmer.cabinetModel=Drum --param glimmer.brake=true
 ```
+
+Glimmer offers Classic, Drum and Wide speaker models, Brake, continuous Manual
+speed and wet-only stereo Width. `--param glimmer.id=value` accepts native units
+and named choices, also in either rack order. See
+[Glimmer validation](docs/GLIMMER_VALIDATION.md) for control semantics and gates.
 
 For live listening without BlackHole or other routing tools, run the opt-in
 Audio Lab:
@@ -98,8 +104,9 @@ folder before rescanning if Live shows duplicate versions.
 - Integer oversampling latency reporting
 - Linear dry/wet mixing with dry-path latency alignment
 - Vector-scalable Rav editor with mode, multiband, preset, bypass, and quality controls
-- Vector-scalable Glimmer editor with linked horn/drum rotation, fixed stereo mic placement,
-  preamp drive, tone, and Auto speed sensitivity
+- Vector-scalable Glimmer editor with Classic/Drum/Wide models, independent rotor
+  mechanics, mic geometry, shelf tone controls, preamp, Mix, Width, Auto sensitivity,
+  Brake and continuous Manual speed
 - Versioned project state and deterministic Rav preset catalogs
 - Versioned sound-only JSON presets with factory/user catalogs and platform-aware storage
 - 53 focused Catch2 tests covering DSP, modes, multiband routing, state, presets,

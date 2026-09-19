@@ -12,13 +12,6 @@ namespace vekt::glimmer
 {
 namespace
 {
-constexpr float crossoverHz = 800.0f;
-constexpr float drumSpeedRatio = 0.82f;
-constexpr float drumInertiaRatio = 1.5f;
-constexpr double maximumMicDelaySeconds = 0.012;
-constexpr double commonMicDelaySeconds = 0.008;
-constexpr double maximumMicDifferentialDelaySeconds = 0.003;
-
 float gainFromDb(float decibels) noexcept
 {
 	return std::pow(10.0f, decibels / 20.0f);
@@ -68,9 +61,13 @@ PluginProcessor::PluginProcessor()
 	  mixParameter(requireParameter(parameterState, parameters::mix)),
 	  outputGainParameter(requireParameter(parameterState, parameters::outputGain)),
 	  trackingOversamplingParameter(requireParameter(parameterState, parameters::trackingOversampling)),
-	  offlineOversamplingParameter(requireParameter(parameterState, parameters::offlineOversampling))
+	  offlineOversamplingParameter(requireParameter(parameterState, parameters::offlineOversampling)),
+	  modelParameter(requireParameter(parameterState, parameters::cabinetModel)),
+	  brakeParameter(requireParameter(parameterState, parameters::brake)),
+	  widthParameter(requireParameter(parameterState, parameters::stereoWidth)),
+	  manualParameter(requireParameter(parameterState, parameters::manualSpeedEnabled)),
+	  positionParameter(requireParameter(parameterState, parameters::speedPosition))
 {
-	crossover.setCutoffFrequency(crossoverHz);
 	requestedTrackingOversampling.store(trackingOversamplingParameter->load());
 	requestedOfflineOversampling.store(offlineOversamplingParameter->load());
 	parameterState.addParameterListener(parameters::trackingOversampling, this);
@@ -89,40 +86,60 @@ void PluginProcessor::prepareToPlay(double newSampleRate, int newMaximumBlockSiz
 	sampleRateHz = newSampleRate;
 	maximumBlockSize = std::max(newMaximumBlockSize, 1);
 	const juce::dsp::ProcessSpec spec { sampleRateHz, static_cast<juce::uint32>(maximumBlockSize), 2 };
-	crossover.prepare(spec);
-	crossover.setCutoffFrequency(crossoverHz);
-	crossover.reset();
 	oversampling.prepare(static_cast<std::size_t>(maximumBlockSize));
 	requestedTrackingOversampling.store(trackingOversamplingParameter->load());
 	requestedOfflineOversampling.store(offlineOversamplingParameter->load());
 	oversampling.activate(isNonRealtime()
 		? parameters::offlineQualityFrom(requestedOfflineOversampling.load())
 		: parameters::trackingQualityFrom(requestedTrackingOversampling.load()));
-	juce::dsp::ProcessSpec micDelaySpec = spec;
-	micDelaySpec.numChannels = 1;
-	micLatencySamples = static_cast<int>(std::ceil(maximumMicDelaySeconds * sampleRateHz));
+	micLatencySamples = RotaryEngine::latencySamples(sampleRateHz);
 	bypassDelay.prepare(spec, oversampling.getMaximumLatencySamples() + micLatencySamples);
 	dryWetMixer.prepare(spec, oversampling.getMaximumLatencySamples() + micLatencySamples);
 	dryWetMixer.setRampLength(0.1);
-	for (auto* delay : { hornMicDelays.data(), drumMicDelays.data() })
-		for (std::size_t channel = 0; channel < 2; ++channel)
-		{
-			delay[channel].setMaximumDelayInSamples(micLatencySamples);
-			delay[channel].prepare(micDelaySpec);
-		}
-	bypassDelay.setLatency(oversampling.getActiveLatencySamples() + micLatencySamples);
-	dryWetMixer.setWetLatency(oversampling.getActiveLatencySamples() + micLatencySamples);
+	updateLatency();
+	for (auto& engine : engines) engine.prepare(sampleRateHz, maximumBlockSize);
+	activeEngine = 0;
+	switchingModel = false;
+	modelWarmup = modelFade = 0;
+	const auto selectedModel = juce::jlimit(0, 2, juce::roundToInt(modelParameter->load()));
+	for (auto& engine : engines) engine.start(static_cast<CabinetModel>(selectedModel), rotarySettings());
+	activeModel.store(selectedModel);
+	modelPending.store(false);
+	inputTransition.prepare(sampleRateHz);
+	outputTransition.prepare(sampleRateHz);
+	widthTransition.prepare(sampleRateHz, 0.05);
+	bypassTransition.prepare(sampleRateHz, 0.01);
+	hasProcessed = false;
+	driveTransition.prepare(sampleRateHz * static_cast<double>(oversampling.getActiveFactor()));
+	inputTransition.setCurrentAndTargetValue(inputGainParameter->load());
+	outputTransition.setCurrentAndTargetValue(outputGainParameter->load());
+	widthTransition.setCurrentAndTargetValue(widthParameter->load() * 0.01f);
+	driveTransition.setCurrentAndTargetValue(preampDriveParameter->load());
+	preampLow = preampHigh = {};
 	for (auto& blocker : dcBlockers)
 		blocker.prepare(sampleRateHz);
 	autoGain.prepare(sampleRateHz);
-	hornMotion.prepare(sampleRateHz, slowSpeedParameter->load());
-	drumMotion.prepare(sampleRateHz, slowSpeedParameter->load() * drumSpeedRatio);
 	autoDetector.prepare(sampleRateHz);
 	referenceBuffer.setSize(2, maximumBlockSize, false, false, true);
 	bypassBuffer.setSize(2, maximumBlockSize, false, false, true);
 	qualityChangePending.store(false);
 	prepared.store(true);
-	setLatencySamples(oversampling.getActiveLatencySamples() + micLatencySamples);
+}
+
+void PluginProcessor::updateLatency()
+{
+	const auto latency = oversampling.getActiveLatencySamples() + micLatencySamples;
+	bypassDelay.setLatency(latency);
+	dryWetMixer.setWetLatency(latency);
+	setLatencySamples(latency);
+}
+
+RotarySettings PluginProcessor::rotarySettings() const noexcept
+{
+	return { balanceParameter->load(), micAngleParameter->load(), micDistanceParameter->load(),
+		hornToneParameter->load(), drumToneParameter->load(), slowSpeedParameter->load(), fastSpeedParameter->load(),
+		accelerationParameter->load(), decelerationParameter->load(), speedModeFrom(speedModeParameter->load()),
+		brakeParameter->load() >= 0.5f, manualParameter->load() >= 0.5f, positionParameter->load() * 0.01f };
 }
 
 void PluginProcessor::releaseResources()
@@ -167,104 +184,118 @@ void PluginProcessor::process(juce::AudioBuffer<float>& buffer, bool bypassed)
 	}
 
 	juce::ScopedNoDenormals noDenormals;
+	if (!hasProcessed && buffer.getNumSamples() > 0)
+	{
+		bypassTransition.setCurrentAndTargetValue(bypassed ? 1.0f : 0.0f);
+		hasProcessed = true;
+	}
+	bypassTransition.setTargetValue(bypassed ? 1.0f : 0.0f);
 	for (int offset = 0; offset < buffer.getNumSamples(); offset += maximumBlockSize)
 	{
 		const auto samples = std::min(maximumBlockSize, buffer.getNumSamples() - offset);
 		juce::AudioBuffer<float> block(buffer.getArrayOfWritePointers(), 2, offset, samples);
-		if (bypassed)
-			for (int channel = 0; channel < 2; ++channel)
-				bypassBuffer.copyFrom(channel, 0, block, channel, 0, samples);
-		else
-			bypassDelay.advance(juce::dsp::AudioBlock<const float>(block));
-
-		const auto inputGain = gainFromDb(inputGainParameter->load());
-		const auto outputGain = gainFromDb(outputGainParameter->load());
-		dryWetMixer.setWetProportion(mixParameter->load() * 0.01f);
-		const auto drive = gainFromDb(preampDriveParameter->load());
-		const auto hornGain = gainFromDb(hornToneParameter->load());
-		const auto drumGain = gainFromDb(drumToneParameter->load());
-		const auto balance = juce::jlimit(-1.0f, 1.0f, balanceParameter->load() * 0.01f);
-		const auto hornBalance = std::sqrt(0.5f * (1.0f + balance));
-		const auto drumBalance = std::sqrt(0.5f * (1.0f - balance));
-		const auto angleTurns = micAngleParameter->load() / 360.0f;
-		const auto distance = micDistanceParameter->load();
-		const auto depth = juce::jmap(distance, 0.3f, 3.0f, 0.68f, 0.2f);
-		const auto airGain = juce::jmap(distance, 0.3f, 3.0f, 1.0f, 0.72f);
-		const auto differentialDelay = static_cast<float>(juce::jmap(static_cast<double>(distance), 0.3, 3.0,
-			0.0003, maximumMicDifferentialDelaySeconds) * sampleRateHz);
-		const auto commonDelay = static_cast<float>(commonMicDelaySeconds * sampleRateHz);
-
-		autoDetector.setSensitivity(sensitivityParameter->load() * 0.01f);
-		hornMotion.setSpeeds(slowSpeedParameter->load(), fastSpeedParameter->load());
-		hornMotion.setTransitionTimes(accelerationParameter->load(), decelerationParameter->load());
-		drumMotion.setSpeeds(slowSpeedParameter->load() * drumSpeedRatio,
-			fastSpeedParameter->load() * drumSpeedRatio);
-		drumMotion.setTransitionTimes(accelerationParameter->load() * drumInertiaRatio,
-			decelerationParameter->load() * drumInertiaRatio);
-		const auto mode = speedModeFrom(speedModeParameter->load());
-		hornMotion.setMode(mode);
-		drumMotion.setMode(mode);
 		for (int channel = 0; channel < 2; ++channel)
-			for (int sample = 0; sample < samples; ++sample)
+			bypassBuffer.copyFrom(channel, 0, block, channel, 0, samples);
+		auto rawBlock = juce::dsp::AudioBlock<float>(bypassBuffer).getSubBlock(0, static_cast<std::size_t>(samples));
+		bypassDelay.processReplacing(rawBlock);
+
+		inputTransition.setTargetValue(inputGainParameter->load());
+		outputTransition.setTargetValue(outputGainParameter->load());
+		driveTransition.setTargetValue(preampDriveParameter->load());
+		widthTransition.setTargetValue(widthParameter->load() * 0.01f);
+		dryWetMixer.setWetProportion(mixParameter->load() * 0.01f);
+		const auto settings = rotarySettings();
+		const auto requestedModel = static_cast<CabinetModel>(juce::jlimit(0, 2, juce::roundToInt(modelParameter->load())));
+		if (!switchingModel && requestedModel != engines[activeEngine].getModel())
+		{
+			engines[1 - activeEngine].start(requestedModel, settings, &engines[activeEngine]);
+			modelWarmup = static_cast<int>(std::ceil(sampleRateHz * 0.1));
+			modelFade = 0;
+			switchingModel = true;
+		}
+		engines[activeEngine].setSettings(settings);
+		if (switchingModel) engines[1 - activeEngine].setSettings(settings);
+		modelPending.store(switchingModel || requestedModel != engines[activeEngine].getModel());
+		autoDetector.setSensitivity(sensitivityParameter->load() * 0.01f);
+		for (int sample = 0; sample < samples; ++sample)
+		{
+			const auto inputGain = gainFromDb(inputTransition.getNextValue());
+			for (int channel = 0; channel < 2; ++channel)
 			{
 				const auto input = block.getSample(channel, sample) * inputGain;
 				referenceBuffer.setSample(channel, sample, input);
 				block.setSample(channel, sample, input);
 			}
+		}
 		dryWetMixer.pushDrySamples(juce::dsp::AudioBlock<const float>(block));
 		auto oversampled = oversampling.processSamplesUp(juce::dsp::AudioBlock<const float>(block));
-		for (std::size_t channel = 0; channel < oversampled.getNumChannels(); ++channel)
+		const auto preampRate = static_cast<float>(sampleRateHz * static_cast<double>(oversampling.getActiveFactor()));
+		const auto lowCoefficient = 1.0f - std::exp(-2.0f * std::numbers::pi_v<float> * 1200.0f / preampRate);
+		const auto highCoefficient = 1.0f - std::exp(-2.0f * std::numbers::pi_v<float> * 15000.0f / preampRate);
+		for (std::size_t sample = 0; sample < oversampled.getNumSamples(); ++sample)
 		{
-			for (std::size_t sample = 0; sample < oversampled.getNumSamples(); ++sample)
-				oversampled.getChannelPointer(channel)[sample] = std::tanh(oversampled.getChannelPointer(channel)[sample] * drive);
+			const auto drive = gainFromDb(driveTransition.getNextValue());
+			for (std::size_t channel = 0; channel < oversampled.getNumChannels(); ++channel)
+			{
+				auto& input = oversampled.getChannelPointer(channel)[sample];
+				preampLow[channel] += lowCoefficient * (input - preampLow[channel]);
+				const auto driven = std::tanh((input + 0.15f * (input - preampLow[channel])) * drive);
+				preampHigh[channel] += highCoefficient * (driven - preampHigh[channel]);
+				input = preampHigh[channel];
+			}
 		}
-			auto preampOutput = juce::dsp::AudioBlock<float>(block);
-			oversampling.processSamplesDown(preampOutput);
+		auto preampOutput = juce::dsp::AudioBlock<float>(block);
+		oversampling.processSamplesDown(preampOutput);
 		autoGain.process(juce::dsp::AudioBlock<const float>(referenceBuffer.getArrayOfReadPointers(), 2,
 			static_cast<std::size_t>(samples)),
 			juce::dsp::AudioBlock<float>(block), autoGainParameter->load() >= 0.5f);
 
 		for (int sample = 0; sample < samples; ++sample)
 		{
-			autoTargetFast.store(autoDetector.advance(referenceBuffer.getSample(0, sample), referenceBuffer.getSample(1, sample)), std::memory_order_relaxed);
-			hornMotion.setAutoFast(autoTargetFast.load(std::memory_order_relaxed));
-			drumMotion.setAutoFast(autoTargetFast.load(std::memory_order_relaxed));
-			const auto hornPhase = hornMotion.advance() + angleTurns;
-			const auto drumPhase = drumMotion.advance() + angleTurns;
-
-			for (int channel = 0; channel < 2; ++channel)
+			const auto fastTarget = autoDetector.advance(referenceBuffer.getSample(0, sample), referenceBuffer.getSample(1, sample));
+			autoTargetFast.store(fastTarget, std::memory_order_relaxed);
+			const std::array input { block.getSample(0, sample), block.getSample(1, sample) };
+			auto output = engines[activeEngine].process(input, fastTarget);
+			if (switchingModel)
 			{
-				float low {};
-				float high {};
-				crossover.processSample(channel, block.getSample(channel, sample), low, high);
-				const auto side = channel == 0 ? 0.0f : 0.25f;
-				const auto hornMotionGain = 1.0f - depth * 0.5f
-					+ depth * 0.5f * std::cos(2.0f * std::numbers::pi_v<float> * (hornPhase + side));
-				const auto drumMotionGain = 1.0f - depth * 0.3f
-					+ depth * 0.3f * std::cos(2.0f * std::numbers::pi_v<float> * (drumPhase + side));
-				const auto horn = high * hornGain * hornBalance * hornMotionGain * airGain;
-				const auto drum = low * drumGain * drumBalance * drumMotionGain;
-				const auto hornDelay = commonDelay + differentialDelay
-					* std::cos(2.0f * std::numbers::pi_v<float> * (hornPhase + side));
-				const auto drumDelay = commonDelay + differentialDelay
-					* std::cos(2.0f * std::numbers::pi_v<float> * (drumPhase + side));
-				hornMicDelays[static_cast<std::size_t>(channel)].pushSample(0, horn);
-				drumMicDelays[static_cast<std::size_t>(channel)].pushSample(0, drum);
-				const auto output = hornMicDelays[static_cast<std::size_t>(channel)].popSample(0, hornDelay)
-					+ drumMicDelays[static_cast<std::size_t>(channel)].popSample(0, drumDelay);
-				block.setSample(channel, sample, dcBlockers[static_cast<std::size_t>(channel)].processSample(output));
+				const auto incoming = engines[1 - activeEngine].process(input, fastTarget);
+				if (modelWarmup > 0) --modelWarmup;
+				else
+				{
+					const auto duration = std::max(1, static_cast<int>(std::lround(sampleRateHz * 0.05)));
+					const auto blend = static_cast<float>(++modelFade) / static_cast<float>(duration);
+					for (std::size_t channel = 0; channel < 2; ++channel)
+						output[channel] += blend * (incoming[channel] - output[channel]);
+					if (modelFade >= duration)
+					{
+						activeEngine = 1 - activeEngine;
+						switchingModel = false;
+						activeModel.store(static_cast<int>(engines[activeEngine].getModel()));
+					}
+				}
 			}
+			for (std::size_t channel = 0; channel < 2; ++channel)
+				output[channel] = dcBlockers[channel].processSample(output[channel]);
+			output = RotaryEngine::applyWidth(output, widthTransition.getNextValue());
+			for (int channel = 0; channel < 2; ++channel)
+				block.setSample(channel, sample, output[static_cast<std::size_t>(channel)]);
 		}
+		const auto speeds = engines[activeEngine].speeds();
+		modelPending.store(switchingModel || requestedModel != engines[activeEngine].getModel());
+		hornRpm.store(speeds[0]);
+		drumRpm.store(speeds[1]);
 		auto wetBlock = juce::dsp::AudioBlock<float>(block);
 		dryWetMixer.mixWetSamples(wetBlock);
-		for (int channel = 0; channel < 2; ++channel)
-			for (int sample = 0; sample < samples; ++sample)
-				block.setSample(channel, sample, block.getSample(channel, sample) * outputGain);
-		if (bypassed)
+		for (int sample = 0; sample < samples; ++sample)
 		{
+			const auto outputGain = gainFromDb(outputTransition.getNextValue());
+			const auto bypassBlend = bypassTransition.getNextValue();
 			for (int channel = 0; channel < 2; ++channel)
-				block.copyFrom(channel, 0, bypassBuffer, channel, 0, samples);
-			bypassDelay.processReplacing(juce::dsp::AudioBlock<float>(block));
+			{
+				const auto wet = block.getSample(channel, sample) * outputGain;
+				const auto raw = bypassBuffer.getSample(channel, sample);
+				block.setSample(channel, sample, (1.0f - bypassBlend) * wet + bypassBlend * raw);
+			}
 		}
 	}
 }
@@ -288,13 +319,27 @@ void PluginProcessor::getStateInformation(juce::MemoryBlock& destination)
 
 void PluginProcessor::setStateInformation(const void* data, int size)
 {
-	if (const auto restored = juce::ValueTree::readFromData(data, static_cast<size_t>(size)); restored.isValid())
+	if (auto restored = juce::ValueTree::readFromData(data, static_cast<size_t>(size)); restored.isValid())
+	{
+		auto sound = restored.hasType(parameters::stateType) ? restored : restored.getChildWithName(parameters::stateType);
+		if (sound.isValid())
+			for (const auto* identifier : { parameters::cabinetModel, parameters::brake, parameters::stereoWidth,
+				parameters::manualSpeedEnabled, parameters::speedPosition })
+				if (!sound.getChildWithProperty("id", identifier).isValid())
+				{
+					auto* parameter = parameterState.getParameter(identifier);
+					juce::ValueTree value("PARAM");
+					value.setProperty("id", identifier, nullptr);
+					value.setProperty("value", parameter->convertFrom0to1(parameter->getDefaultValue()), nullptr);
+					sound.appendChild(value, nullptr);
+				}
 		if (stateManager.restoreState(restored) && stateManager.getMetadata().hasProperty("vektPresetSelection"))
 		{
 			presetSession.clear();
 			juce::ignoreUnused(presetSession.restoreSelection(
 				stateManager.getMetadata().getProperty("vektPresetSelection").toString()));
 		}
+	}
 }
 
 presets::Preset PluginProcessor::createPreset(const juce::String& name) const
@@ -382,13 +427,14 @@ void PluginProcessor::applyPendingQualityChange()
 	if (quality != oversampling.getActiveQuality())
 	{
 		oversampling.activate(quality);
-		bypassDelay.setLatency(oversampling.getActiveLatencySamples() + micLatencySamples);
+		updateLatency();
 		bypassDelay.reset();
-		dryWetMixer.setWetLatency(oversampling.getActiveLatencySamples() + micLatencySamples);
 		dryWetMixer.reset();
+		driveTransition.prepare(sampleRateHz * static_cast<double>(oversampling.getActiveFactor()));
+		driveTransition.setCurrentAndTargetValue(preampDriveParameter->load());
+		preampLow = preampHigh = {};
 		autoGain.reset();
 		for (auto& blocker : dcBlockers) blocker.reset();
-		setLatencySamples(oversampling.getActiveLatencySamples() + micLatencySamples);
 	}
 	qualityChangePending.store(false);
 }

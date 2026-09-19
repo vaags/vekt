@@ -93,6 +93,21 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 		juce::StringArray { "Off", "2x FIR", "4x FIR", "8x FIR", "16x FIR", "2x IIR", "4x IIR" },
 		4, qualityAttributes()));
 
+	layout.add(std::make_unique<juce::AudioParameterChoice>(
+		juce::ParameterID { cabinetModel, 2 }, "Model", juce::StringArray { "Classic", "Drum", "Wide" }, 0));
+	layout.add(std::make_unique<juce::AudioParameterBool>(
+		juce::ParameterID { brake, 2 }, "Brake", false));
+	layout.add(std::make_unique<juce::AudioParameterFloat>(
+		juce::ParameterID { stereoWidth, 2 }, "Width",
+		juce::NormalisableRange<float> { 0.0f, 200.0f, 0.01f }, 100.0f,
+		juce::AudioParameterFloatAttributes {}.withLabel("%")));
+	layout.add(std::make_unique<juce::AudioParameterBool>(
+		juce::ParameterID { manualSpeedEnabled, 2 }, "Manual Speed", false));
+	layout.add(std::make_unique<juce::AudioParameterFloat>(
+		juce::ParameterID { speedPosition, 2 }, "Speed Position",
+		juce::NormalisableRange<float> { 0.0f, 100.0f, 0.01f }, 0.0f,
+		juce::AudioParameterFloatAttributes {}.withLabel("%")));
+
 	return layout;
 }
 

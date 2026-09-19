@@ -27,6 +27,11 @@ inline constexpr auto mix = "mix";
 inline constexpr auto outputGain = "outputGain";
 inline constexpr auto trackingOversampling = "trackingOversampling";
 inline constexpr auto offlineOversampling = "offlineOversampling";
+inline constexpr auto cabinetModel = "cabinetModel";
+inline constexpr auto brake = "brake";
+inline constexpr auto stereoWidth = "stereoWidth";
+inline constexpr auto manualSpeedEnabled = "manualSpeedEnabled";
+inline constexpr auto speedPosition = "speedPosition";
 
 inline constexpr auto stateType = "VektGlimmerState";
 inline constexpr auto projectStateType = "VektGlimmerProjectState";
@@ -49,7 +54,12 @@ inline constexpr std::array soundParameterIds {
 	sensitivity,
 	autoGain,
 	mix,
-	outputGain
+	outputGain,
+	cabinetModel,
+	brake,
+	stereoWidth,
+	manualSpeedEnabled,
+	speedPosition
 };
 
 [[nodiscard]] juce::AudioProcessorValueTreeState::ParameterLayout createLayout();

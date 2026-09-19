@@ -161,12 +161,41 @@ TEST_CASE("Glimmer editor keeps stereo meters within its canvas", "[processor][u
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
 	vekt::glimmer::PluginProcessor processor;
 	vekt::glimmer::PluginEditor editor(processor);
+	bool foundTone = false;
+	for (auto* panel : editor.getContent().getChildren())
+		for (auto* child : panel->getChildren())
+			if (auto* control = dynamic_cast<vekt::ui::RotaryControl*>(child); control != nullptr && control->getName() == "Horn Tone")
+			{
+				foundTone = true;
+				auto* value = dynamic_cast<juce::Label*>(control->getChildComponent(1));
+				REQUIRE(value != nullptr);
+				REQUIRE(value->getText() == "0.0 dB");
+			}
+	REQUIRE(foundTone);
 
 	for (const auto width : { 1040, 1560, 2080 })
 	{
 		editor.setSize(width, width * 10 / 16);
 		checkVisibleBounds(editor.getContent());
 		checkMeterBounds(editor.getContent(), 28);
+	}
+	for (auto* panel : editor.getContent().getChildren())
+		if (dynamic_cast<vekt::ui::Panel*>(panel) != nullptr)
+			for (int first = 0; first < panel->getNumChildComponents(); ++first)
+				for (int second = first + 1; second < panel->getNumChildComponents(); ++second)
+				{
+					auto* firstChild = panel->getChildComponent(first);
+					auto* secondChild = panel->getChildComponent(second);
+					INFO(firstChild->getName().toStdString() << " / " << secondChild->getName().toStdString());
+					REQUIRE_FALSE(firstChild->getBounds().intersects(secondChild->getBounds()));
+				}
+	if (const auto* path = std::getenv("VEKT_GLIMMER_SNAPSHOT"))
+	{
+		editor.setSize(1040, 650);
+		const auto image = editor.createComponentSnapshot(editor.getLocalBounds(), true, 2.0f);
+		juce::FileOutputStream stream { juce::File(juce::String(path)) };
+		REQUIRE(stream.openedOk());
+		REQUIRE(juce::PNGImageFormat().writeImageToStream(image, stream));
 	}
 }
 

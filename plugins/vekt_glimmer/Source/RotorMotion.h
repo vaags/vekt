@@ -41,14 +41,43 @@ public:
 	void setTransitionTimes(float newAccelerationSeconds,
 		float newDecelerationSeconds) noexcept
 	{
+		const auto changed = std::abs(accelerationSeconds - newAccelerationSeconds) > 1.0e-6f
+			|| std::abs(decelerationSeconds - newDecelerationSeconds) > 1.0e-6f;
 		accelerationSeconds = std::max(newAccelerationSeconds, 0.001f);
 		decelerationSeconds = std::max(newDecelerationSeconds, 0.001f);
-		retarget();
+		retarget(changed);
 	}
 
 	void setMode(RotarySpeedMode newMode) noexcept
 	{
 		mode = newMode;
+		retarget();
+	}
+
+	void configure(float slow, float fast, float acceleration, float deceleration,
+		RotarySpeedMode selection, bool braking, bool manual, float position, float rotationDirection) noexcept
+	{
+		const auto changed = manualEnabled != manual || brake != braking
+			|| std::abs(accelerationSeconds - acceleration) > 1.0e-6f
+			|| std::abs(decelerationSeconds - deceleration) > 1.0e-6f;
+		slowRpm = clampRpm(slow);
+		fastRpm = std::max(slowRpm, clampRpm(fast));
+		accelerationSeconds = std::max(acceleration, 0.001f);
+		decelerationSeconds = std::max(deceleration, 0.001f);
+		mode = selection;
+		brake = braking;
+		manualEnabled = manual;
+		manualPosition = std::clamp(position, 0.0f, 1.0f);
+		direction = rotationDirection < 0.0f ? -1.0f : 1.0f;
+		retarget(changed);
+	}
+
+	void seed(float phase, float rpm) noexcept
+	{
+		phaseTurns = wrapTurns(phase);
+		currentRpm = rpm;
+		targetRpm = rpm;
+		rampSamplesRemaining = 0;
 		retarget();
 	}
 
@@ -63,7 +92,14 @@ public:
 
 	[[nodiscard]] float advance() noexcept
 	{
-		if (rampSamplesRemaining > 0)
+		if (manualEnabled && !brake)
+		{
+			const auto seconds = std::abs(targetRpm) > std::abs(currentRpm)
+				? accelerationSeconds : decelerationSeconds;
+			const auto step = std::max(1.0f, fastRpm - slowRpm) / (seconds * static_cast<float>(sampleRate));
+			currentRpm += std::clamp(targetRpm - currentRpm, -step, step);
+		}
+		else if (rampSamplesRemaining > 0)
 		{
 			currentRpm += rampStep;
 			--rampSamplesRemaining;
@@ -96,21 +132,23 @@ private:
 
 	[[nodiscard]] float requestedRpm() const noexcept
 	{
+		if (brake) return 0.0f;
+		if (manualEnabled) return direction * (slowRpm + manualPosition * (fastRpm - slowRpm));
 		if (mode == RotarySpeedMode::slow)
-			return slowRpm;
+			return direction * slowRpm;
 		if (mode == RotarySpeedMode::fast)
-			return fastRpm;
-		return autoFast ? fastRpm : slowRpm;
+			return direction * fastRpm;
+		return direction * (autoFast ? fastRpm : slowRpm);
 	}
 
-	void retarget() noexcept
+	void retarget(bool force = false) noexcept
 	{
 		const auto newTarget = requestedRpm();
-		if (std::abs(newTarget - targetRpm) <= 0.0001f)
+		if (!force && std::abs(newTarget - targetRpm) <= 0.0001f)
 			return;
 
 		targetRpm = newTarget;
-		const auto transitionSeconds = targetRpm > currentRpm
+		const auto transitionSeconds = std::abs(targetRpm) > std::abs(currentRpm)
 			? accelerationSeconds : decelerationSeconds;
 		rampSamplesRemaining = std::max<std::int64_t>(1,
 			static_cast<std::int64_t>(std::llround(sampleRate * transitionSeconds)));
@@ -130,5 +168,9 @@ private:
 	std::int64_t rampSamplesRemaining {};
 	RotarySpeedMode mode { RotarySpeedMode::slow };
 	bool autoFast {};
+	bool brake {};
+	bool manualEnabled {};
+	float manualPosition {};
+	float direction { 1.0f };
 };
 }

@@ -47,6 +47,13 @@ private:
 	std::array<ui::RotaryControl, 4> toneControls;
 	std::array<std::unique_ptr<SliderAttachment>, 4> toneAttachments;
 	juce::ComboBox speedModeBox;
+	std::array<juce::TextButton, 3> modelButtons;
+	juce::ToggleButton brakeButton { "Brake" };
+	juce::ToggleButton manualButton { "Manual" };
+	juce::Slider speedSlider;
+	juce::Slider widthSlider;
+	juce::Label speedLabel;
+	juce::Label widthLabel;
 	juce::ComboBox trackingQualityBox;
 	juce::ComboBox offlineQualityBox;
 	juce::Label qualityLabel;
@@ -63,5 +70,10 @@ private:
 	std::unique_ptr<SliderAttachment> outputAttachment;
 	std::unique_ptr<ButtonAttachment> bypassAttachment;
 	std::unique_ptr<ButtonAttachment> autoGainAttachment;
+	std::unique_ptr<juce::ParameterAttachment> modelAttachment;
+	std::unique_ptr<ButtonAttachment> brakeAttachment;
+	std::unique_ptr<ButtonAttachment> manualAttachment;
+	std::unique_ptr<SliderAttachment> speedAttachment;
+	std::unique_ptr<SliderAttachment> widthAttachment;
 };
 }

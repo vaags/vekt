@@ -52,6 +52,19 @@ and then resume processing.
 - Mix at 0% preserves the post-input-gain dry signal after active wet latency.
 - Host bypass preserves raw input after reported plugin latency.
 
+## Glimmer Engine
+
+Glimmer's product-local `RotaryEngine` owns cabinet profiles, tone/directivity
+filters and microphone geometry. Classic/Wide use separate horn and drum paths;
+Drum routes the full input through one rotating speaker. Model switching uses
+two preallocated instances with warmup and a linear crossfade, not duplicated
+algorithms. Raw stereo information is retained until an explicit wet-only Width
+transform. Only the preamp is oversampled, and Auto Gain acts before rotary
+modulation. Dry and bypass align to the fixed 8 ms pickup center plus active
+oversampling latency, independently of delay-buffer capacity. Intentional travel
+modulation and cabinet filter phase are not compensated away. See
+[GLIMMER_VALIDATION.md](GLIMMER_VALIDATION.md) for the signal and state contracts.
+
 ## Compatibility
 
 Published parameter IDs, manufacturer codes, plugin codes, and bundle IDs are
