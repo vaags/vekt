@@ -35,7 +35,7 @@ struct PluginProcessor::Settings
 	float noiseLevel {}, cutoff {}, resonance {}, tracking {}, envelopeAmount {}, drive {};
 	float ampAttack {}, ampDecay {}, ampSustain {}, ampRelease {};
 	float filterAttack {}, filterDecay {}, filterSustain {}, filterRelease {};
-	float ampVelocity {}, filterVelocity {}, calibration {}, pitchBendRange {};
+	float ampVelocity {}, filterVelocity {}, calibration {};
 	float detune {}, unisonSpread {}, voiceWidth {}, glideTime {}, drift {};
 	int unison {}, glideMode {}, noiseType {};
 };
@@ -76,7 +76,6 @@ PluginProcessor::Settings PluginProcessor::snapshotSettings() const
 	settings.ampVelocity = value(parameters::ampVelocity) * 0.01f;
 	settings.filterVelocity = value(parameters::filterVelocity) * 0.01f;
 	settings.calibration = value(parameters::calibration);
-	settings.pitchBendRange = value(parameters::pitchBendRange);
 	settings.unison = choiceToUnison(value(parameters::unison));
 	settings.detune = value(parameters::unisonDetune);
 	settings.unisonSpread = value(parameters::unisonSpread) * 0.01f;

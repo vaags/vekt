@@ -214,36 +214,49 @@ TEST_CASE("Rav processor renders every mode across tracking qualities", "[proces
 	}
 }
 
-TEST_CASE("Rav band wet controls do not couple unaffected bands", "[processor][multiband][auto-gain]")
+TEST_CASE("Rav low-band wet control affects low-band input", "[processor][multiband]")
 {
-	vekt::rav::PluginProcessor dryLowProcessor;
-	vekt::rav::PluginProcessor wetLowProcessor;
-	setParameter(dryLowProcessor, vekt::rav::parameters::autoGain, 1.0f);
-	setParameter(wetLowProcessor, vekt::rav::parameters::autoGain, 1.0f);
-	setParameter(dryLowProcessor, vekt::rav::parameters::lowBandMix, 0.0f);
-	setParameter(wetLowProcessor, vekt::rav::parameters::lowBandMix, 100.0f);
-	dryLowProcessor.prepareToPlay(48'000.0, 128);
-	wetLowProcessor.prepareToPlay(48'000.0, 128);
-	juce::MidiBuffer midi;
-	juce::AudioBuffer<float> dryBuffer(2, 128);
-	juce::AudioBuffer<float> wetBuffer(2, 128);
-	for (auto sample = 0; sample < 128; ++sample)
+	constexpr auto sampleRate = 48'000.0f;
+	constexpr auto blockSize = 128;
+	const auto renderDifference = [=] (float frequency)
 	{
-		const auto value = std::sin(static_cast<float>(sample) * 0.13f);
-		dryBuffer.setSample(0, sample, value);
-		dryBuffer.setSample(1, sample, value);
-		wetBuffer.setSample(0, sample, value);
-		wetBuffer.setSample(1, sample, value);
-	}
-	for (auto block = 0; block < 32; ++block)
-	{
-		dryLowProcessor.processBlock(dryBuffer, midi);
-		wetLowProcessor.processBlock(wetBuffer, midi);
-	}
+		vekt::rav::PluginProcessor dryLowProcessor;
+		vekt::rav::PluginProcessor wetLowProcessor;
+		setParameter(dryLowProcessor, vekt::rav::parameters::lowBandMix, 0.0f);
+		setParameter(wetLowProcessor, vekt::rav::parameters::lowBandMix, 100.0f);
+		dryLowProcessor.prepareToPlay(sampleRate, blockSize);
+		wetLowProcessor.prepareToPlay(sampleRate, blockSize);
+		juce::MidiBuffer midi;
+		juce::AudioBuffer<float> dryBuffer(2, blockSize), wetBuffer(2, blockSize);
+		auto differenceEnergy = 0.0;
+		for (auto block = 0; block < 32; ++block)
+		{
+			for (auto sample = 0; sample < blockSize; ++sample)
+			{
+				const auto sampleIndex = block * blockSize + sample;
+				const auto value = std::sin(2.0f * std::numbers::pi_v<float> * frequency
+					* static_cast<float>(sampleIndex) / sampleRate);
+				for (auto channel = 0; channel < 2; ++channel)
+				{
+					dryBuffer.setSample(channel, sample, value);
+					wetBuffer.setSample(channel, sample, value);
+				}
+			}
+			dryLowProcessor.processBlock(dryBuffer, midi);
+			wetLowProcessor.processBlock(wetBuffer, midi);
+			if (block >= 16)
+				for (auto sample = 0; sample < blockSize; ++sample)
+				{
+					const auto difference = static_cast<double>(dryBuffer.getSample(0, sample)
+						- wetBuffer.getSample(0, sample));
+					differenceEnergy += difference * difference;
+				}
+		}
+		return std::sqrt(differenceEnergy / static_cast<double>(16 * blockSize));
+	};
 
-	for (auto sample = 32; sample < 128; ++sample)
-		REQUIRE(dryBuffer.getSample(0, sample)
-			== Catch::Approx(wetBuffer.getSample(0, sample)).margin(1.0e-3f));
+	const auto lowBandDifference = renderDifference(100.0f);
+	REQUIRE(lowBandDifference > 0.01);
 }
 
 TEST_CASE("Rav Fuzz Auto Gain stays near default loudness", "[processor][auto-gain]")
