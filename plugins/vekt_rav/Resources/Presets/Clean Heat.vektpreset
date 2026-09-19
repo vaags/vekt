@@ -3,14 +3,16 @@
   "schemaVersion": 2,
   "id": "rav-clean-heat",
   "product": "com.vekt.rav",
-  "soundSchemaVersion": 2,
+  "soundSchemaVersion": 3,
   "name": "Clean Heat",
   "tags": [
     "Clean",
     "Subtle",
     "Warm"
   ],
-  "soundState": {},
+  "soundState": {
+    "stageOrder": "0,1,2,3"
+  },
   "parameters": {
     "inputGain": 0.0,
     "drive": 6.0,
@@ -29,7 +31,7 @@
     "dynamics": 0.5,
     "texture": 0.5,
     "stageEnabledSaturation": 1.0,
-    "stageEnabledOverdrive": 1.0,
+    "stageEnabledOverdrive": 0.0,
     "stageEnabledDistortion": 0.0,
     "stageEnabledFuzz": 0.0
   }

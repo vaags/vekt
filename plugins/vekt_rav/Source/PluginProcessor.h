@@ -104,6 +104,8 @@ private:
 	void applyPendingQualityChange();
 	void restoreCurrentProgramFromMetadata();
 	[[nodiscard]] static juce::Result migratePresetSound(presets::Preset& preset);
+	[[nodiscard]] juce::Result validatePresetSound(const presets::Preset& preset) const;
+	[[nodiscard]] bool matchesPresetSound(const presets::Preset& preset) const;
 
 	juce::UndoManager undoManager;
 	juce::AudioProcessorValueTreeState parameterState;

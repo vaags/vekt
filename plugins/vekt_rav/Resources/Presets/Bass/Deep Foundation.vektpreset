@@ -1,5 +1,39 @@
 {
-  "format": "vekt.preset", "schemaVersion": 2, "id": "rav-bass-deep-foundation", "product": "com.vekt.rav", "soundSchemaVersion": 2,
-  "name": "Deep Foundation", "tags": ["Bass", "Warm", "Clean", "Sub"], "soundState": {},
-  "parameters": { "inputGain": 0.0, "drive": 8.0, "tone": -2.0, "bias": 0.04, "autoGain": 1.0, "mix": 100.0, "outputGain": 0.0, "lowBandMix": 100.0, "midBandMix": 65.0, "highBandMix": 35.0, "lowMidCutoffHz": 180.0, "midHighCutoffHz": 2200.0, "mode": 0.0, "shape": 0.42, "dynamics": 0.58, "texture": 0.35, "stageEnabledSaturation": 1.0, "stageEnabledOverdrive": 1.0, "stageEnabledDistortion": 0.0, "stageEnabledFuzz": 0.0 }
+  "format": "vekt.preset",
+  "schemaVersion": 2,
+  "id": "rav-bass-deep-foundation",
+  "product": "com.vekt.rav",
+  "soundSchemaVersion": 3,
+  "name": "Deep Foundation",
+  "tags": [
+    "Bass",
+    "Warm",
+    "Clean",
+    "Sub"
+  ],
+  "soundState": {
+    "stageOrder": "1,0,2,3"
+  },
+  "parameters": {
+    "inputGain": 0.0,
+    "drive": 8.0,
+    "tone": -2.0,
+    "bias": 0.04,
+    "autoGain": 1.0,
+    "mix": 100.0,
+    "outputGain": 0.0,
+    "lowBandMix": 100.0,
+    "midBandMix": 65.0,
+    "highBandMix": 35.0,
+    "lowMidCutoffHz": 180.0,
+    "midHighCutoffHz": 2200.0,
+    "mode": 0.0,
+    "shape": 0.42,
+    "dynamics": 0.58,
+    "texture": 0.35,
+    "stageEnabledSaturation": 1.0,
+    "stageEnabledOverdrive": 1.0,
+    "stageEnabledDistortion": 0.0,
+    "stageEnabledFuzz": 0.0
+  }
 }

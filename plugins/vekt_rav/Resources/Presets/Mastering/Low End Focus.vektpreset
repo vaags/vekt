@@ -1,5 +1,39 @@
 {
-  "format": "vekt.preset", "schemaVersion": 2, "id": "rav-mastering-low-end-focus", "product": "com.vekt.rav", "soundSchemaVersion": 2,
-  "name": "Low End Focus", "tags": ["Mastering", "Low End", "Subtle", "Focus"], "soundState": {},
-  "parameters": { "inputGain": 0.0, "drive": 5.0, "tone": -0.5, "bias": 0.04, "autoGain": 1.0, "mix": 28.0, "outputGain": 0.0, "lowBandMix": 42.0, "midBandMix": 12.0, "highBandMix": 8.0, "lowMidCutoffHz": 170.0, "midHighCutoffHz": 3000.0, "mode": 0.0, "shape": 0.38, "dynamics": 0.59, "texture": 0.28, "stageEnabledSaturation": 1.0, "stageEnabledOverdrive": 1.0, "stageEnabledDistortion": 0.0, "stageEnabledFuzz": 0.0 }
+  "format": "vekt.preset",
+  "schemaVersion": 2,
+  "id": "rav-mastering-low-end-focus",
+  "product": "com.vekt.rav",
+  "soundSchemaVersion": 3,
+  "name": "Low End Focus",
+  "tags": [
+    "Mastering",
+    "Low End",
+    "Subtle",
+    "Focus"
+  ],
+  "soundState": {
+    "stageOrder": "1,0,2,3"
+  },
+  "parameters": {
+    "inputGain": 0.0,
+    "drive": 5.0,
+    "tone": -0.5,
+    "bias": 0.04,
+    "autoGain": 1.0,
+    "mix": 28.0,
+    "outputGain": 0.0,
+    "lowBandMix": 42.0,
+    "midBandMix": 12.0,
+    "highBandMix": 8.0,
+    "lowMidCutoffHz": 170.0,
+    "midHighCutoffHz": 3000.0,
+    "mode": 0.0,
+    "shape": 0.38,
+    "dynamics": 0.59,
+    "texture": 0.28,
+    "stageEnabledSaturation": 1.0,
+    "stageEnabledOverdrive": 1.0,
+    "stageEnabledDistortion": 0.0,
+    "stageEnabledFuzz": 0.0
+  }
 }

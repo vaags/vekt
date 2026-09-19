@@ -1,5 +1,39 @@
 {
-  "format": "vekt.preset", "schemaVersion": 2, "id": "rav-bass-grind-line", "product": "com.vekt.rav", "soundSchemaVersion": 2,
-  "name": "Grind Line", "tags": ["Bass", "Aggressive", "Midrange", "Rock"], "soundState": {},
-  "parameters": { "inputGain": 1.5, "drive": 19.0, "tone": 1.2, "bias": -0.08, "autoGain": 1.0, "mix": 82.0, "outputGain": -1.0, "lowBandMix": 60.0, "midBandMix": 100.0, "highBandMix": 72.0, "lowMidCutoffHz": 210.0, "midHighCutoffHz": 1850.0, "mode": 1.0, "shape": 0.64, "dynamics": 0.46, "texture": 0.67, "stageEnabledSaturation": 1.0, "stageEnabledOverdrive": 1.0, "stageEnabledDistortion": 0.0, "stageEnabledFuzz": 0.0 }
+  "format": "vekt.preset",
+  "schemaVersion": 2,
+  "id": "rav-bass-grind-line",
+  "product": "com.vekt.rav",
+  "soundSchemaVersion": 3,
+  "name": "Grind Line",
+  "tags": [
+    "Bass",
+    "Aggressive",
+    "Midrange",
+    "Rock"
+  ],
+  "soundState": {
+    "stageOrder": "1,0,2,3"
+  },
+  "parameters": {
+    "inputGain": 1.5,
+    "drive": 19.0,
+    "tone": 1.2,
+    "bias": -0.08,
+    "autoGain": 1.0,
+    "mix": 82.0,
+    "outputGain": -1.0,
+    "lowBandMix": 60.0,
+    "midBandMix": 100.0,
+    "highBandMix": 72.0,
+    "lowMidCutoffHz": 210.0,
+    "midHighCutoffHz": 1850.0,
+    "mode": 1.0,
+    "shape": 0.64,
+    "dynamics": 0.46,
+    "texture": 0.67,
+    "stageEnabledSaturation": 1.0,
+    "stageEnabledOverdrive": 1.0,
+    "stageEnabledDistortion": 0.0,
+    "stageEnabledFuzz": 0.0
+  }
 }

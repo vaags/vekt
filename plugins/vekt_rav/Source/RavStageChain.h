@@ -25,6 +25,33 @@ public:
 
 	[[nodiscard]] const Order& getOrder() const noexcept { return order; }
 
+	[[nodiscard]] static juce::String serialise(Order source)
+	{
+		juce::StringArray values;
+		for (const auto mode : source)
+			values.add(juce::String(static_cast<int>(mode)));
+		return values.joinIntoString(",");
+	}
+
+	[[nodiscard]] static bool deserialise(const juce::String& text, Order& destination) noexcept
+	{
+		juce::StringArray tokens;
+		tokens.addTokens(text, juce::String { "," }, juce::String {});
+		if (tokens.size() != static_cast<int>(stageCount)) return false;
+
+		Order candidate {};
+		for (int index = 0; index < static_cast<int>(stageCount); ++index)
+		{
+			const auto value = tokens[index].getIntValue();
+			if (value < 0 || value >= static_cast<int>(stageCount)) return false;
+			candidate[static_cast<std::size_t>(index)] = static_cast<RavMode>(value);
+		}
+		RavStageChain validator;
+		if (!validator.setOrder(candidate)) return false;
+		destination = candidate;
+		return true;
+	}
+
 	[[nodiscard]] bool setOrder(Order candidate) noexcept
 	{
 		std::array<bool, stageCount> seen {};
@@ -55,10 +82,7 @@ public:
 
 	void writeMetadata(juce::ValueTree& metadata) const
 	{
-		juce::StringArray values;
-		for (const auto mode : order)
-			values.add(juce::String(static_cast<int>(mode)));
-		metadata.setProperty(metadataPropertyName, values.joinIntoString(","), nullptr);
+		metadata.setProperty(metadataPropertyName, serialise(order), nullptr);
 	}
 
 	[[nodiscard]] static RavStageChain readMetadata(const juce::ValueTree& metadata)
@@ -69,22 +93,8 @@ public:
 		if (text.isEmpty())
 			return chain;
 
-		juce::StringArray tokens;
-		tokens.addTokens(text, juce::String { "," }, juce::String {});
-		if (tokens.size() != static_cast<int>(stageCount))
-			return chain;
-
 		Order candidate {};
-		for (int index = 0; index < static_cast<int>(stageCount); ++index)
-		{
-			const auto value = tokens[index].getIntValue();
-			if (value < 0 || value >= static_cast<int>(stageCount))
-				return chain;
-			candidate[static_cast<std::size_t>(index)] = static_cast<RavMode>(value);
-		}
-
-		if (!chain.setOrder(candidate))
-			return RavStageChain {};
+		if (!deserialise(text, candidate) || !chain.setOrder(candidate)) return RavStageChain {};
 		return chain;
 	}
 

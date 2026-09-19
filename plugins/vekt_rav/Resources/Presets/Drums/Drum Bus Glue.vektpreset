@@ -1,5 +1,39 @@
 {
-  "format": "vekt.preset", "schemaVersion": 2, "id": "rav-drums-drum-bus-glue", "product": "com.vekt.rav", "soundSchemaVersion": 2,
-  "name": "Drum Bus Glue", "tags": ["Drums", "Bus", "Glue", "Punch"], "soundState": {},
-  "parameters": { "inputGain": 0.0, "drive": 10.0, "tone": 0.4, "bias": 0.02, "autoGain": 1.0, "mix": 58.0, "outputGain": 0.0, "lowBandMix": 62.0, "midBandMix": 78.0, "highBandMix": 65.0, "lowMidCutoffHz": 190.0, "midHighCutoffHz": 3200.0, "mode": 0.0, "shape": 0.45, "dynamics": 0.62, "texture": 0.4, "stageEnabledSaturation": 1.0, "stageEnabledOverdrive": 1.0, "stageEnabledDistortion": 0.0, "stageEnabledFuzz": 0.0 }
+  "format": "vekt.preset",
+  "schemaVersion": 2,
+  "id": "rav-drums-drum-bus-glue",
+  "product": "com.vekt.rav",
+  "soundSchemaVersion": 3,
+  "name": "Drum Bus Glue",
+  "tags": [
+    "Drums",
+    "Bus",
+    "Glue",
+    "Punch"
+  ],
+  "soundState": {
+    "stageOrder": "1,0,2,3"
+  },
+  "parameters": {
+    "inputGain": 0.0,
+    "drive": 10.0,
+    "tone": 0.4,
+    "bias": 0.02,
+    "autoGain": 1.0,
+    "mix": 58.0,
+    "outputGain": 0.0,
+    "lowBandMix": 62.0,
+    "midBandMix": 78.0,
+    "highBandMix": 65.0,
+    "lowMidCutoffHz": 190.0,
+    "midHighCutoffHz": 3200.0,
+    "mode": 0.0,
+    "shape": 0.45,
+    "dynamics": 0.62,
+    "texture": 0.4,
+    "stageEnabledSaturation": 1.0,
+    "stageEnabledOverdrive": 1.0,
+    "stageEnabledDistortion": 0.0,
+    "stageEnabledFuzz": 0.0
+  }
 }

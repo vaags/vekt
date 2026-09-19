@@ -20,14 +20,12 @@ PluginProcessor::PluginProcessor()
 						 .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
 	  parameterState(*this, &undoManager, parameters::stateType, parameters::createLayout()),
 	  stateManager(parameterState, parameters::projectStateType, 1),
-	  presetSession(presetCatalog, { parameters::presetProductIdentifier, "Vekt Rav", 2 }, {
+	  presetSession(presetCatalog, { parameters::presetProductIdentifier, "Vekt Rav", 3 }, {
 		[this](const juce::String& name) { return createPreset(name); },
 		[](presets::Preset& preset) { return migratePresetSound(preset); },
-		[this](const presets::Preset& preset) { return presets::PresetSchema::validate(preset,
-			parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds); },
+		[this](const presets::Preset& preset) { return validatePresetSound(preset); },
 		[this](const presets::Preset& preset) { return applyPreset(preset); },
-		[this](const presets::Preset& preset) { return presets::PresetSchema::matches(preset,
-			parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds); } }),
+		[this](const presets::Preset& preset) { return matchesPresetSound(preset); } }),
 	  inputGainParameter(requireParameter(parameterState, parameters::inputGain)),
 	  driveParameter(requireParameter(parameterState, parameters::drive)),
 	  toneParameter(requireParameter(parameterState, parameters::tone)),
@@ -75,6 +73,12 @@ PluginProcessor::PluginProcessor()
 				parameters::presetProductIdentifier, parameterState,
 				parameters::soundParameterIds).wasOk())
 		{
+			RavStageChain::Order initialOrder {};
+			const auto parsedOrder = RavStageChain::deserialise(
+				initialPreset.soundState[RavStageChain::metadataPropertyName].toString(), initialOrder);
+			jassert(parsedOrder);
+			if (parsedOrder) juce::ignoreUnused(stageChain.setOrder(initialOrder));
+			stageChain.writeMetadata(stateManager.getMetadata());
 			currentPresetSnapshot = initialPreset;
 			presetSession.adopt(initialPreset, presets::PresetOrigin::factory);
 		}
@@ -444,22 +448,21 @@ presets::Preset PluginProcessor::createPreset(
 		parameterState,
 		parameters::soundParameterIds,
 		metadata);
-	preset.soundSchemaVersion = 2;
+	preset.soundSchemaVersion = 3;
+	preset.soundState.set(RavStageChain::metadataPropertyName, RavStageChain::serialise(stageChain.getOrder()));
 	return preset;
 }
 
 juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 {
 	assertMessageThread();
-	if (preset.soundSchemaVersion != 2)
+	if (preset.soundSchemaVersion != 3)
 		return juce::Result::fail("Unsupported Rav preset sound schema");
-	if (const auto result = presets::PresetSchema::validate(
-			preset,
-			parameters::presetProductIdentifier,
-			parameterState,
-			parameters::soundParameterIds);
-		result.failed())
+	if (const auto result = validatePresetSound(preset); result.failed())
 		return result;
+	RavStageChain::Order order {};
+	if (!RavStageChain::deserialise(preset.soundState[RavStageChain::metadataPropertyName].toString(), order))
+		return juce::Result::fail("Rav preset stage order is invalid");
 
 	undoManager.beginNewTransaction("Load preset: " + preset.name);
 	const auto result = presets::PresetSchema::apply(
@@ -470,6 +473,8 @@ juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 		&undoManager);
 	if (result.wasOk())
 	{
+		juce::ignoreUnused(stageChain.setOrder(order));
+		stageChain.writeMetadata(stateManager.getMetadata());
 		currentPresetIndex.reset();
 		currentPresetSnapshot.reset();
 		presetSession.clear();
@@ -479,9 +484,9 @@ juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 
 juce::Result PluginProcessor::migratePresetSound(presets::Preset& preset)
 {
-	if (preset.soundSchemaVersion == 2)
+	if (preset.soundSchemaVersion == 3)
 		return juce::Result::ok();
-	if (preset.soundSchemaVersion != 1)
+	if (preset.soundSchemaVersion != 1 && preset.soundSchemaVersion != 2)
 		return juce::Result::fail("Unsupported Rav preset sound schema");
 
 	const auto findValue = [&preset](const char* identifier) -> const presets::ParameterValue*
@@ -491,16 +496,40 @@ juce::Result PluginProcessor::migratePresetSound(presets::Preset& preset)
 				return &value;
 		return nullptr;
 	};
-	const auto* mode = findValue(parameters::mode);
-	if (mode == nullptr)
-		return juce::Result::fail("Rav preset mode is missing");
-	const auto active = juce::jlimit(0, 3, juce::roundToInt(mode->value));
-	for (std::size_t index = 0; index < parameters::stageEnabledIds.size(); ++index)
-		if (findValue(parameters::stageEnabledIds[index]) == nullptr)
-			preset.parameters.push_back({ parameters::stageEnabledIds[index],
-				static_cast<int>(index) == active ? 1.0f : 0.0f });
-	preset.soundSchemaVersion = 2;
+	if (preset.soundSchemaVersion == 1)
+	{
+		const auto* mode = findValue(parameters::mode);
+		if (mode == nullptr) return juce::Result::fail("Rav preset mode is missing");
+		const auto active = juce::jlimit(0, 3, juce::roundToInt(mode->value));
+		for (std::size_t index = 0; index < parameters::stageEnabledIds.size(); ++index)
+			if (findValue(parameters::stageEnabledIds[index]) == nullptr)
+				preset.parameters.push_back({ parameters::stageEnabledIds[index],
+					static_cast<int>(index) == active ? 1.0f : 0.0f });
+	}
+	preset.soundState.set(RavStageChain::metadataPropertyName,
+		RavStageChain::serialise(RavStageChain {}.getOrder()));
+	preset.soundSchemaVersion = 3;
 	return juce::Result::ok();
+}
+
+juce::Result PluginProcessor::validatePresetSound(const presets::Preset& preset) const
+{
+	if (const auto result = presets::PresetSchema::validate(preset,
+		parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds); result.failed())
+		return result;
+	RavStageChain::Order order {};
+	return RavStageChain::deserialise(preset.soundState[RavStageChain::metadataPropertyName].toString(), order)
+		? juce::Result::ok() : juce::Result::fail("Rav preset stage order is invalid");
+}
+
+bool PluginProcessor::matchesPresetSound(const presets::Preset& preset) const
+{
+	if (validatePresetSound(preset).failed()
+		|| !presets::PresetSchema::matches(preset, parameters::presetProductIdentifier,
+			parameterState, parameters::soundParameterIds))
+		return false;
+	return RavStageChain::serialise(stageChain.getOrder())
+		== preset.soundState[RavStageChain::metadataPropertyName].toString();
 }
 
 juce::Result PluginProcessor::configureUserPresetDirectory(const juce::File& directory)

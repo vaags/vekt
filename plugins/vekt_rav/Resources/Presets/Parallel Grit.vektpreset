@@ -3,14 +3,16 @@
   "schemaVersion": 2,
   "id": "rav-parallel-grit",
   "product": "com.vekt.rav",
-  "soundSchemaVersion": 2,
+  "soundSchemaVersion": 3,
   "name": "Parallel Grit",
   "tags": [
     "Parallel",
     "Grit",
     "Aggressive"
   ],
-  "soundState": {},
+  "soundState": {
+    "stageOrder": "2,0,1,3"
+  },
   "parameters": {
     "inputGain": 2.0,
     "drive": 24.0,

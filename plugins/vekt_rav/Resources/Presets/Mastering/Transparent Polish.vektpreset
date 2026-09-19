@@ -1,5 +1,39 @@
 {
-  "format": "vekt.preset", "schemaVersion": 2, "id": "rav-mastering-transparent-polish", "product": "com.vekt.rav", "soundSchemaVersion": 2,
-  "name": "Transparent Polish", "tags": ["Mastering", "Transparent", "Glue", "Subtle"], "soundState": {},
-  "parameters": { "inputGain": 0.0, "drive": 4.0, "tone": 0.2, "bias": 0.0, "autoGain": 1.0, "mix": 24.0, "outputGain": 0.0, "lowBandMix": 20.0, "midBandMix": 28.0, "highBandMix": 18.0, "lowMidCutoffHz": 190.0, "midHighCutoffHz": 3300.0, "mode": 0.0, "shape": 0.4, "dynamics": 0.56, "texture": 0.32, "stageEnabledSaturation": 1.0, "stageEnabledOverdrive": 1.0, "stageEnabledDistortion": 0.0, "stageEnabledFuzz": 0.0 }
+  "format": "vekt.preset",
+  "schemaVersion": 2,
+  "id": "rav-mastering-transparent-polish",
+  "product": "com.vekt.rav",
+  "soundSchemaVersion": 3,
+  "name": "Transparent Polish",
+  "tags": [
+    "Mastering",
+    "Transparent",
+    "Glue",
+    "Subtle"
+  ],
+  "soundState": {
+    "stageOrder": "1,0,2,3"
+  },
+  "parameters": {
+    "inputGain": 0.0,
+    "drive": 4.0,
+    "tone": 0.2,
+    "bias": 0.0,
+    "autoGain": 1.0,
+    "mix": 24.0,
+    "outputGain": 0.0,
+    "lowBandMix": 20.0,
+    "midBandMix": 28.0,
+    "highBandMix": 18.0,
+    "lowMidCutoffHz": 190.0,
+    "midHighCutoffHz": 3300.0,
+    "mode": 0.0,
+    "shape": 0.4,
+    "dynamics": 0.56,
+    "texture": 0.32,
+    "stageEnabledSaturation": 1.0,
+    "stageEnabledOverdrive": 1.0,
+    "stageEnabledDistortion": 0.0,
+    "stageEnabledFuzz": 0.0
+  }
 }

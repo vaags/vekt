@@ -356,18 +356,30 @@ TEST_CASE("Rav factory library groups instrument presets with useful tags", "[pr
 		REQUIRE(found);
 	}
 
+	auto multiStagePresetCount = 0;
+	juce::StringArray stageOrders;
 	for (std::size_t index = 0; index < entries.size(); ++index)
 	{
 		vekt::presets::Preset preset;
 		REQUIRE(processor.getPresetSession().library().load(index, preset).wasOk());
 		REQUIRE(processor.applyPreset(preset).wasOk());
-		REQUIRE(preset.soundSchemaVersion == 2);
+		REQUIRE(preset.soundSchemaVersion == 3);
 		const auto enabledStages = std::count_if(
 			vekt::rav::parameters::stageEnabledIds.begin(),
 			vekt::rav::parameters::stageEnabledIds.end(),
 			[&processor](const auto* identifier) { return getParameter(processor, identifier) >= 0.5f; });
-		REQUIRE(enabledStages >= 2);
+		if (enabledStages >= 2) ++multiStagePresetCount;
+		vekt::rav::RavStageChain::Order expectedOrder {};
+		REQUIRE(vekt::rav::RavStageChain::deserialise(
+			preset.soundState[vekt::rav::RavStageChain::metadataPropertyName].toString(), expectedOrder));
+		REQUIRE(processor.getStageOrder() == expectedOrder);
+		stageOrders.addIfNotAlreadyThere(
+			preset.soundState[vekt::rav::RavStageChain::metadataPropertyName].toString());
 	}
+	REQUIRE(multiStagePresetCount >= 15);
+	REQUIRE(stageOrders.size() >= 5);
+	REQUIRE(stageOrders.contains("0,1,2,3"));
+	REQUIRE(stageOrders.contains("3,2,1,0"));
 }
 
 TEST_CASE("Rav exposes factory presets through its host program API", "[presets]")
