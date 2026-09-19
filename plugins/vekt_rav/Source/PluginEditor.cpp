@@ -123,7 +123,7 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 		presetBrowser.toFront(true);
 	};
 	presetBrowser.onClose = [this] { presetBrowser.setVisible(false); presetLabel.grabKeyboardFocus(); };
-	presetBrowser.onSoundChanged = [this] { refreshPresetLabel(); };
+	presetBrowser.onSoundChanged = [this] { syncStageBoxOrder(); refreshPresetLabel(); };
 	qualityLabel.setJustificationType(juce::Justification::centredRight);
 	meterLabel.setJustificationType(juce::Justification::centred);
 	stageHeader.setText("Signal Path", juce::dontSendNotification);
@@ -288,6 +288,7 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 			presetBrowser.refresh(); presetBrowser.setVisible(true); presetBrowser.toFront(true);
 			presetBrowser.showResult(result);
 		}
+		if (result.wasOk()) syncStageBoxOrder();
 		refreshPresetLabel();
 	};
 	previousButton.onClick = [this, reportLoad] { reportLoad(pluginProcessor.loadPreviousPreset()); };
@@ -321,6 +322,13 @@ void PluginEditor::layoutStageBoxes(StageBox* draggedBox)
 			stageButtons[modeIndex].setBounds(layout::margin + static_cast<int>(position) * (layout::stageWidth + layout::stageGap),
 				layout::modeTop, layout::stageWidth, layout::modeHeight + 4);
 	}
+	displayedStageOrder = pluginProcessor.getStageOrder();
+}
+
+void PluginEditor::syncStageBoxOrder()
+{
+	if (displayedStageOrder != pluginProcessor.getStageOrder())
+		layoutStageBoxes();
 }
 
 void PluginEditor::resized()
@@ -416,6 +424,7 @@ void PluginEditor::resized()
 
 void PluginEditor::timerCallback()
 {
+	syncStageBoxOrder();
 	refreshPresetLabel();
 	const auto newInputPeaks = pluginProcessor.consumeInputPeaks();
 	const auto newOutputPeaks = pluginProcessor.consumeOutputPeaks();

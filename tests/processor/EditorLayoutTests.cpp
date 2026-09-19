@@ -77,6 +77,13 @@ TEST_CASE("Rav editor keeps its controls within the 16:10 canvas", "[processor][
 	REQUIRE(distortion.getX() - overdrive.getRight() == 8);
 	REQUIRE(fuzz.getX() - distortion.getRight() == 8);
 
+	processor.setCurrentProgram(14); // Transient Smash: Fuzz → Distortion → Saturation → Overdrive.
+	editor.resized();
+	REQUIRE(fuzz.getX() == primary.getX());
+	REQUIRE(distortion.getX() - fuzz.getRight() == 8);
+	REQUIRE(saturation.getX() - distortion.getRight() == 8);
+	REQUIRE(overdrive.getX() - saturation.getRight() == 8);
+
 	// Opt-in render artefact for visual review; normal test runs do not write files.
 	if (const auto* path = std::getenv("VEKT_EDITOR_SNAPSHOT"))
 	{

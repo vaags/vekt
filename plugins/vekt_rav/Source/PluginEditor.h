@@ -48,6 +48,7 @@ private:
 
 	void timerCallback() override;
 	void refreshPresetLabel();
+	void syncStageBoxOrder();
 	void layoutStageBoxes(StageBox* draggedBox = nullptr);
 	void configureRotary(juce::Component& parent, ui::RotaryControl& control, const juce::String& name,
 		const char* parameterId, std::unique_ptr<SliderAttachment>& attachment);
@@ -105,5 +106,6 @@ private:
     std::unique_ptr<ComboBoxAttachment> modeAttachment;
 	std::array<float, 2> inputPeaks {};
 	std::array<float, 2> outputPeaks {};
+	RavStageChain::Order displayedStageOrder;
 };
 }
