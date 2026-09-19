@@ -188,7 +188,9 @@ public:
 				scalableEditor->setResizable(false, false);
 			}
 		}
-		glimmerEditor->setVisible(false);
+		const auto showGlimmer = productTabs.getSelectedId() == 2;
+		ravEditor->setVisible(!showGlimmer);
+		glimmerEditor->setVisible(showGlimmer);
 		setSize(labWidth, labHeight);
 		openInitialOutput();
 		setAudioChannels(0, 2);
