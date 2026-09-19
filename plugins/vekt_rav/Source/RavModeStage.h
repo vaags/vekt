@@ -19,8 +19,11 @@ enum class RavMode
 	saturation,
 	overdrive,
 	distortion,
-	fuzz
+	circuitFuzz,
+	gatedFuzz
 };
+
+inline constexpr std::size_t ravModeCount { 5 };
 
 // This is intentionally not an APVTS parameter. It provides a development-only
 // comparison seam for candidate algorithms without changing saved Rav sessions.
@@ -152,31 +155,31 @@ private:
 					1.0f / exponent), driven + biasValue * textureValue);
 				break;
 			}
-			case RavMode::fuzz:
+			case RavMode::circuitFuzz:
 			{
-				if (processingModel == RavProcessingModel::fuzzCircuitCandidate)
-					output = fuzzCircuit.process(driven, biasValue, shapeValue, dynamicsValue, textureValue);
-				else
-				{
-					const auto envelopeRate = timeCorrectedCoefficient(0.001f + dynamicsValue * 0.08f);
-					envelope += (std::abs(driven) - envelope) * envelopeRate;
-					const auto starvation = biasValue + (0.5f - envelope) * shapeValue;
-					const auto threshold = textureValue * (0.05f + envelope);
-					const auto transitionWidth = 0.01f + textureValue * 0.08f;
-					const auto gatePosition = std::clamp(
-						(std::abs(driven) - threshold + transitionWidth) /
-						(2.0f * transitionWidth), 0.0f, 1.0f);
-					const auto smoothGate = gatePosition * gatePosition
-						* (3.0f - 2.0f * gatePosition);
-					const auto gated = driven * smoothGate;
-					const auto clipInput = (gated + starvation) * 4.0f;
-					output = std::clamp(clipInput, -1.0f, 1.0f);
-				}
+				output = fuzzCircuit.process(driven, biasValue, shapeValue, dynamicsValue, textureValue);
+				break;
+			}
+			case RavMode::gatedFuzz:
+			{
+				const auto envelopeRate = timeCorrectedCoefficient(0.001f + dynamicsValue * 0.08f);
+				envelope += (std::abs(driven) - envelope) * envelopeRate;
+				const auto starvation = biasValue + (0.5f - envelope) * shapeValue;
+				const auto threshold = textureValue * (0.05f + envelope);
+				const auto transitionWidth = 0.01f + textureValue * 0.08f;
+				const auto gatePosition = std::clamp(
+					(std::abs(driven) - threshold + transitionWidth) /
+					(2.0f * transitionWidth), 0.0f, 1.0f);
+				const auto smoothGate = gatePosition * gatePosition
+					* (3.0f - 2.0f * gatePosition);
+				const auto gated = driven * smoothGate;
+				const auto clipInput = (gated + starvation) * 4.0f;
+				output = std::clamp(clipInput, -1.0f, 1.0f);
 				break;
 			}
 		}
 
-		if (mode == RavMode::fuzz)
+		if (isFuzzMode(mode))
 		{
 			const auto tilt = std::clamp(toneValue / 6.0f, -0.8f, 0.8f);
 			fuzzToneState += fuzzToneCoefficient * (output - fuzzToneState);
@@ -199,10 +202,16 @@ private:
 			case RavMode::saturation: return 10'000.0f + (1.0f - textureValue) * 8'000.0f;
 			case RavMode::overdrive: return 11'000.0f + textureValue * 7'000.0f;
 			case RavMode::distortion: return 5'000.0f + textureValue * 8'000.0f;
-			case RavMode::fuzz: return 4'000.0f + textureValue * 6'000.0f;
+			case RavMode::circuitFuzz:
+			case RavMode::gatedFuzz: return 4'000.0f + textureValue * 6'000.0f;
 		}
 
 		return 0.0f;
+	}
+
+	[[nodiscard]] static bool isFuzzMode(RavMode currentMode) noexcept
+	{
+		return currentMode == RavMode::circuitFuzz || currentMode == RavMode::gatedFuzz;
 	}
 
 	RavMode mode { RavMode::saturation };

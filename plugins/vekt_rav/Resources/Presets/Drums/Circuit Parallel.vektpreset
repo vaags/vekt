@@ -1,0 +1,18 @@
+{
+  "format": "vekt.preset",
+  "schemaVersion": 2,
+  "id": "rav-drums-circuit-parallel",
+  "product": "com.vekt.rav",
+  "soundSchemaVersion": 4,
+  "name": "Circuit Parallel",
+  "tags": ["Drums", "Circuit Fuzz", "Parallel", "Grit"],
+  "soundState": {"stageOrder": "3,2,0,1,4"},
+  "parameters": {
+    "inputGain": 0.0, "drive": 24.0, "tone": 1.8, "bias": -0.12, "autoGain": 1.0,
+    "mix": 42.0, "outputGain": -1.0, "lowBandMix": 38.0, "midBandMix": 66.0,
+    "highBandMix": 82.0, "lowMidCutoffHz": 170.0, "midHighCutoffHz": 2900.0, "mode": 3.0,
+    "shape": 0.70, "dynamics": 0.34, "texture": 0.76, "stageEnabledSaturation": 0.0,
+    "stageEnabledOverdrive": 0.0, "stageEnabledDistortion": 0.0,
+    "stageEnabledCircuitFuzz": 1.0, "stageEnabledGatedFuzz": 0.0
+  }
+}

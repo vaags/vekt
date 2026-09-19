@@ -284,7 +284,7 @@ TEST_CASE("Rav stage enable ramps from an all-disabled chain", "[processor][tran
 	setParameter(processor, vekt::rav::parameters::stageEnabledSaturation, 0.0f);
 	setParameter(processor, vekt::rav::parameters::stageEnabledOverdrive, 0.0f);
 	setParameter(processor, vekt::rav::parameters::stageEnabledDistortion, 0.0f);
-	setParameter(processor, vekt::rav::parameters::stageEnabledFuzz, 0.0f);
+	setParameter(processor, vekt::rav::parameters::stageEnabledGatedFuzz, 0.0f);
 	processor.prepareToPlay(sampleRate, blockSize);
 	juce::MidiBuffer midi;
 	auto phase = 0;

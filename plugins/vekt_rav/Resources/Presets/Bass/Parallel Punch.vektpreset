@@ -3,7 +3,7 @@
   "schemaVersion": 2,
   "id": "rav-bass-parallel-punch",
   "product": "com.vekt.rav",
-  "soundSchemaVersion": 3,
+  "soundSchemaVersion": 4,
   "name": "Parallel Punch",
   "tags": [
     "Bass",
@@ -12,7 +12,7 @@
     "Modern"
   ],
   "soundState": {
-    "stageOrder": "2,0,1,3"
+    "stageOrder": "2,0,1,4,3"
   },
   "parameters": {
     "inputGain": 1.0,
@@ -34,6 +34,7 @@
     "stageEnabledSaturation": 1.0,
     "stageEnabledOverdrive": 0.0,
     "stageEnabledDistortion": 1.0,
-    "stageEnabledFuzz": 0.0
+    "stageEnabledGatedFuzz": 0.0,
+    "stageEnabledCircuitFuzz": 0.0
   }
 }

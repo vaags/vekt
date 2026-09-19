@@ -129,7 +129,4 @@ Choose Sine, Sawtooth, Sweep, Impulse, Noise, Kick, Unison, or Two Tone in the s
 the embedded full Rav editor for mode and processing controls. Output starts
 muted and must be explicitly armed. The lab uses the default macOS audio
 device and does not connect hardware input to output automatically. The
-development-only **A/B: Legacy / A/B: Fuzz Circuit** button switches the active
-Fuzz model without changing parameters, presets, or project state. Audio Lab
-briefly fades output down and back up around a switch because the models retain
-independent internal state; level-match before judging the result.
+production mode and stage controls select the active processing path.

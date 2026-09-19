@@ -31,11 +31,12 @@ inline constexpr auto offlineOversampling = "offlineOversampling";
 inline constexpr auto stageEnabledSaturation = "stageEnabledSaturation";
 inline constexpr auto stageEnabledOverdrive = "stageEnabledOverdrive";
 inline constexpr auto stageEnabledDistortion = "stageEnabledDistortion";
-inline constexpr auto stageEnabledFuzz = "stageEnabledFuzz";
+inline constexpr auto stageEnabledCircuitFuzz = "stageEnabledCircuitFuzz";
+inline constexpr auto stageEnabledGatedFuzz = "stageEnabledGatedFuzz";
 
 inline constexpr std::array stageEnabledIds {
 	stageEnabledSaturation, stageEnabledOverdrive, stageEnabledDistortion,
-	stageEnabledFuzz
+	stageEnabledCircuitFuzz, stageEnabledGatedFuzz
 };
 
 inline constexpr auto stateType = "VektRavState";
@@ -52,7 +53,8 @@ inline constexpr std::array soundParameterIds {
 	outputGain
 	, lowBandMix, midBandMix, highBandMix, lowMidCutoffHz, midHighCutoffHz,
 	mode, shape, dynamics, texture
-	, stageEnabledSaturation, stageEnabledOverdrive, stageEnabledDistortion, stageEnabledFuzz
+	, stageEnabledSaturation, stageEnabledOverdrive, stageEnabledDistortion,
+	stageEnabledCircuitFuzz, stageEnabledGatedFuzz
 };
 
 [[nodiscard]] juce::AudioProcessorValueTreeState::ParameterLayout createLayout();

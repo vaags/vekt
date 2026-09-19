@@ -1,0 +1,18 @@
+{
+  "format": "vekt.preset",
+  "schemaVersion": 2,
+  "id": "rav-guitar-circuit-sustain",
+  "product": "com.vekt.rav",
+  "soundSchemaVersion": 4,
+  "name": "Circuit Sustain",
+  "tags": ["Guitar", "Lead", "Circuit Fuzz", "Sustain"],
+  "soundState": {"stageOrder": "3,0,1,2,4"},
+  "parameters": {
+    "inputGain": 0.0, "drive": 27.0, "tone": 2.0, "bias": -0.18, "autoGain": 1.0,
+    "mix": 100.0, "outputGain": -2.0, "lowBandMix": 45.0, "midBandMix": 100.0,
+    "highBandMix": 88.0, "lowMidCutoffHz": 260.0, "midHighCutoffHz": 3000.0, "mode": 3.0,
+    "shape": 0.78, "dynamics": 0.42, "texture": 0.72, "stageEnabledSaturation": 0.0,
+    "stageEnabledOverdrive": 0.0, "stageEnabledDistortion": 0.0,
+    "stageEnabledCircuitFuzz": 1.0, "stageEnabledGatedFuzz": 0.0
+  }
+}

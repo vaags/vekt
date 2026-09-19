@@ -3,7 +3,7 @@
   "schemaVersion": 2,
   "id": "rav-guitar-velvet-drive",
   "product": "com.vekt.rav",
-  "soundSchemaVersion": 3,
+  "soundSchemaVersion": 4,
   "name": "Velvet Drive",
   "tags": [
     "Guitar",
@@ -12,7 +12,7 @@
     "Smooth"
   ],
   "soundState": {
-    "stageOrder": "1,0,2,3"
+    "stageOrder": "1,0,2,4,3"
   },
   "parameters": {
     "inputGain": 0.0,
@@ -34,6 +34,7 @@
     "stageEnabledSaturation": 1.0,
     "stageEnabledOverdrive": 1.0,
     "stageEnabledDistortion": 0.0,
-    "stageEnabledFuzz": 0.0
+    "stageEnabledGatedFuzz": 0.0,
+    "stageEnabledCircuitFuzz": 0.0
   }
 }

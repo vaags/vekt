@@ -25,7 +25,11 @@ juce::Result addFactoryPresets(presets::PresetCatalog& catalog)
 		{ VektRavFactoryData::Transient_Smash_vektpreset, VektRavFactoryData::Transient_Smash_vektpresetSize, "Drums" },
 		{ VektRavFactoryData::Low_End_Focus_vektpreset, VektRavFactoryData::Low_End_Focus_vektpresetSize, "Mastering" },
 		{ VektRavFactoryData::Parallel_Sheen_vektpreset, VektRavFactoryData::Parallel_Sheen_vektpresetSize, "Mastering" },
-		{ VektRavFactoryData::Transparent_Polish_vektpreset, VektRavFactoryData::Transparent_Polish_vektpresetSize, "Mastering" }
+		{ VektRavFactoryData::Transparent_Polish_vektpreset, VektRavFactoryData::Transparent_Polish_vektpresetSize, "Mastering" },
+		{ VektRavFactoryData::Circuit_Grind_vektpreset, VektRavFactoryData::Circuit_Grind_vektpresetSize, "Bass" },
+		{ VektRavFactoryData::Circuit_Sustain_vektpreset, VektRavFactoryData::Circuit_Sustain_vektpresetSize, "Guitar" },
+		{ VektRavFactoryData::Circuit_Bloom_vektpreset, VektRavFactoryData::Circuit_Bloom_vektpresetSize, "Keys" },
+		{ VektRavFactoryData::Circuit_Parallel_vektpreset, VektRavFactoryData::Circuit_Parallel_vektpresetSize, "Drums" }
 	};
 
 	for (const auto& document : documents)

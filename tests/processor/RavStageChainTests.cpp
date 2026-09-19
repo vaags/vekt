@@ -6,8 +6,9 @@ TEST_CASE("RavStageChain accepts unique mode orders", "[processor][chain]")
 {
 	vekt::rav::RavStageChain chain;
 	vekt::rav::RavStageChain::Order order {
-		vekt::rav::RavMode::fuzz, vekt::rav::RavMode::saturation,
-		vekt::rav::RavMode::distortion, vekt::rav::RavMode::overdrive };
+		vekt::rav::RavMode::circuitFuzz, vekt::rav::RavMode::saturation,
+		vekt::rav::RavMode::distortion, vekt::rav::RavMode::overdrive,
+		vekt::rav::RavMode::gatedFuzz };
 	REQUIRE(chain.setOrder(order));
 	REQUIRE(chain.getOrder() == order);
 }
@@ -26,8 +27,9 @@ TEST_CASE("RavStageChain serializes and restores order metadata", "[processor][c
 {
 	vekt::rav::RavStageChain chain;
 	vekt::rav::RavStageChain::Order custom {
-		vekt::rav::RavMode::fuzz, vekt::rav::RavMode::overdrive,
-		vekt::rav::RavMode::saturation, vekt::rav::RavMode::distortion };
+		vekt::rav::RavMode::circuitFuzz, vekt::rav::RavMode::overdrive,
+		vekt::rav::RavMode::saturation, vekt::rav::RavMode::distortion,
+		vekt::rav::RavMode::gatedFuzz };
 	REQUIRE(chain.setOrder(custom));
 
 	juce::ValueTree metadata("ProjectMetadata");

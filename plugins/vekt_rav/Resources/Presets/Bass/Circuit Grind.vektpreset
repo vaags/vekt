@@ -1,0 +1,18 @@
+{
+  "format": "vekt.preset",
+  "schemaVersion": 2,
+  "id": "rav-bass-circuit-grind",
+  "product": "com.vekt.rav",
+  "soundSchemaVersion": 4,
+  "name": "Circuit Grind",
+  "tags": ["Bass", "Circuit Fuzz", "Midrange", "Rock"],
+  "soundState": {"stageOrder": "0,3,1,2,4"},
+  "parameters": {
+    "inputGain": 0.5, "drive": 22.0, "tone": 0.8, "bias": -0.10, "autoGain": 1.0,
+    "mix": 82.0, "outputGain": -1.5, "lowBandMix": 34.0, "midBandMix": 100.0,
+    "highBandMix": 68.0, "lowMidCutoffHz": 190.0, "midHighCutoffHz": 2100.0, "mode": 3.0,
+    "shape": 0.66, "dynamics": 0.48, "texture": 0.58, "stageEnabledSaturation": 0.0,
+    "stageEnabledOverdrive": 0.0, "stageEnabledDistortion": 0.0,
+    "stageEnabledCircuitFuzz": 1.0, "stageEnabledGatedFuzz": 0.0
+  }
+}

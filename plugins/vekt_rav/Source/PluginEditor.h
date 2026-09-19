@@ -82,9 +82,10 @@ private:
     juce::ComboBox trackingBox;
     juce::ComboBox offlineBox;
     juce::ComboBox modeBox;
-	std::array<StageBox, 4> stageButtons { StageBox { "Saturation" },
-		StageBox { "Overdrive" }, StageBox { "Distortion" }, StageBox { "Fuzz" } };
-	std::array<std::unique_ptr<ButtonAttachment>, 4> stageButtonAttachments;
+	std::array<StageBox, RavStageChain::stageCount> stageButtons { StageBox { "Saturation" },
+		StageBox { "Overdrive" }, StageBox { "Distortion" }, StageBox { "Circuit Fuzz" },
+		StageBox { "Gated Fuzz" } };
+	std::array<std::unique_ptr<ButtonAttachment>, RavStageChain::stageCount> stageButtonAttachments;
 	std::array<ui::RotaryControl, 6> sliders;
 	std::array<std::unique_ptr<SliderAttachment>, 6> sliderAttachments;
 	std::array<ui::RotaryControl, 3> macroSliders;

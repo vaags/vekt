@@ -19,8 +19,8 @@ PluginProcessor::PluginProcessor()
 						 .withInput("Input", juce::AudioChannelSet::stereo(), true)
 						 .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
 	  parameterState(*this, &undoManager, parameters::stateType, parameters::createLayout()),
-	  stateManager(parameterState, parameters::projectStateType, 1),
-	  presetSession(presetCatalog, { parameters::presetProductIdentifier, "Vekt Rav", 3 }, {
+	  stateManager(parameterState, parameters::projectStateType, 2),
+	  presetSession(presetCatalog, { parameters::presetProductIdentifier, "Vekt Rav", 4 }, {
 		[this](const juce::String& name) { return createPreset(name); },
 		[](presets::Preset& preset) { return migratePresetSound(preset); },
 		[this](const presets::Preset& preset) { return validatePresetSound(preset); },
@@ -48,7 +48,8 @@ PluginProcessor::PluginProcessor()
 	stageEnabledParameters { requireParameter(parameterState, parameters::stageEnabledSaturation),
 									 requireParameter(parameterState, parameters::stageEnabledOverdrive),
 									 requireParameter(parameterState, parameters::stageEnabledDistortion),
-										 requireParameter(parameterState, parameters::stageEnabledFuzz) }
+										 requireParameter(parameterState, parameters::stageEnabledCircuitFuzz),
+										 requireParameter(parameterState, parameters::stageEnabledGatedFuzz) }
 {
 	presetSession.onSelectionChanged = [this]
 	{
@@ -148,7 +149,7 @@ void PluginProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
 		bandMixSmoothers[band].setCurrentAndTargetValue(initialBandMixes[band]);
 	}
 	const auto initialMode = static_cast<RavMode>(
-		juce::jlimit(0, 3, juce::roundToInt(modeParameter->load())));
+		juce::jlimit(0, static_cast<int>(ravModeCount - 1), juce::roundToInt(modeParameter->load())));
 	const auto initialCompatibilityMode = stageEnabledParameters[0]->load() >= 0.5f
 		&& std::all_of(stageEnabledParameters.begin() + 1, stageEnabledParameters.end(),
 			[](const auto* parameter) { return parameter->load() < 0.5f; });
@@ -264,9 +265,10 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 	outputGain.setGainDecibels(outputGainParameter->load());
 	dryWetMixer.setWetProportion(mixParameter->load() * 0.01f);
 	const auto currentMode = static_cast<RavMode>(
-		juce::jlimit(0, 3, juce::roundToInt(modeParameter->load())));
+		juce::jlimit(0, static_cast<int>(ravModeCount - 1), juce::roundToInt(modeParameter->load())));
 	toneStage.setRampDurationSeconds(0.02);
-	const auto usesDedicatedTone = currentMode == RavMode::fuzz;
+	const auto usesDedicatedTone = currentMode == RavMode::circuitFuzz
+		|| currentMode == RavMode::gatedFuzz;
 	toneStage.setSlopeDbPerOctave(usesDedicatedTone ? 0.0f
 		: -parameters::toneSlopeFromUserValue(toneParameter->load()));
 
@@ -323,7 +325,8 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 			{
 				auto& stage = bandStages[band][static_cast<std::size_t>(channel)][modeIndex];
 				stage.setProcessingModel(developmentProcessingModel.load(std::memory_order_relaxed));
-				stage.setArtifactSafePolicy(currentMode == RavMode::fuzz);
+				stage.setArtifactSafePolicy(mode == RavMode::circuitFuzz
+					|| mode == RavMode::gatedFuzz);
 				stage.setParameters(mode, driveParameter->load(), biasParameter->load(),
 					shapeParameter->load(), dynamicsParameter->load(),
 					textureParameter->load(), toneParameter->load());
@@ -449,7 +452,7 @@ presets::Preset PluginProcessor::createPreset(
 		parameterState,
 		parameters::soundParameterIds,
 		metadata);
-	preset.soundSchemaVersion = 3;
+	preset.soundSchemaVersion = 4;
 	preset.soundState.set(RavStageChain::metadataPropertyName, RavStageChain::serialise(stageChain.getOrder()));
 	return preset;
 }
@@ -457,7 +460,7 @@ presets::Preset PluginProcessor::createPreset(
 juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 {
 	assertMessageThread();
-	if (preset.soundSchemaVersion != 3)
+	if (preset.soundSchemaVersion != 4)
 		return juce::Result::fail("Unsupported Rav preset sound schema");
 	if (const auto result = validatePresetSound(preset); result.failed())
 		return result;
@@ -485,32 +488,9 @@ juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 
 juce::Result PluginProcessor::migratePresetSound(presets::Preset& preset)
 {
-	if (preset.soundSchemaVersion == 3)
+	if (preset.soundSchemaVersion == 4)
 		return juce::Result::ok();
-	if (preset.soundSchemaVersion != 1 && preset.soundSchemaVersion != 2)
-		return juce::Result::fail("Unsupported Rav preset sound schema");
-
-	const auto findValue = [&preset](const char* identifier) -> const presets::ParameterValue*
-	{
-		for (const auto& value : preset.parameters)
-			if (value.identifier == identifier)
-				return &value;
-		return nullptr;
-	};
-	if (preset.soundSchemaVersion == 1)
-	{
-		const auto* mode = findValue(parameters::mode);
-		if (mode == nullptr) return juce::Result::fail("Rav preset mode is missing");
-		const auto active = juce::jlimit(0, 3, juce::roundToInt(mode->value));
-		for (std::size_t index = 0; index < parameters::stageEnabledIds.size(); ++index)
-			if (findValue(parameters::stageEnabledIds[index]) == nullptr)
-				preset.parameters.push_back({ parameters::stageEnabledIds[index],
-					static_cast<int>(index) == active ? 1.0f : 0.0f });
-	}
-	preset.soundState.set(RavStageChain::metadataPropertyName,
-		RavStageChain::serialise(RavStageChain {}.getOrder()));
-	preset.soundSchemaVersion = 3;
-	return juce::Result::ok();
+	return juce::Result::fail("Unsupported Rav preset sound schema");
 }
 
 juce::Result PluginProcessor::validatePresetSound(const presets::Preset& preset) const

@@ -1,0 +1,18 @@
+{
+  "format": "vekt.preset",
+  "schemaVersion": 2,
+  "id": "rav-keys-circuit-bloom",
+  "product": "com.vekt.rav",
+  "soundSchemaVersion": 4,
+  "name": "Circuit Bloom",
+  "tags": ["Keys", "Circuit Fuzz", "Dynamic", "Texture"],
+  "soundState": {"stageOrder": "3,1,0,2,4"},
+  "parameters": {
+    "inputGain": -1.0, "drive": 18.0, "tone": 1.4, "bias": 0.08, "autoGain": 1.0,
+    "mix": 76.0, "outputGain": -1.0, "lowBandMix": 52.0, "midBandMix": 86.0,
+    "highBandMix": 78.0, "lowMidCutoffHz": 280.0, "midHighCutoffHz": 2600.0, "mode": 3.0,
+    "shape": 0.56, "dynamics": 0.62, "texture": 0.66, "stageEnabledSaturation": 0.0,
+    "stageEnabledOverdrive": 0.0, "stageEnabledDistortion": 0.0,
+    "stageEnabledCircuitFuzz": 1.0, "stageEnabledGatedFuzz": 0.0
+  }
+}

@@ -139,7 +139,7 @@ private:
 	std::atomic<float>* textureParameter;
 	std::atomic<float> *trackingOversamplingParameter;
 	std::atomic<float> *offlineOversamplingParameter;
-	std::array<std::atomic<float> *, 4> stageEnabledParameters;
+	std::array<std::atomic<float> *, RavStageChain::stageCount> stageEnabledParameters;
 	std::atomic<float> requestedTrackingOversampling{2.0f};
 	std::atomic<float> requestedOfflineOversampling{4.0f};
 	std::atomic<bool> qualityChangePending {};
@@ -154,7 +154,7 @@ private:
 	dsp::MatchedToneStage<float> toneStage;
 	RavStageChain stageChain;
 	std::atomic<RavProcessingModel> developmentProcessingModel { RavProcessingModel::legacy };
-	std::array<std::array<std::array<RavModeStage, 4>, 2>, 3> bandStages;
+	std::array<std::array<std::array<RavModeStage, RavStageChain::stageCount>, 2>, 3> bandStages;
 	dsp::ThreeBandCrossover<float> crossover;
 	std::array<juce::AudioBuffer<float>, 3> bandBuffers;
 	std::array<juce::AudioBuffer<float>, 3> cleanBandBuffers;

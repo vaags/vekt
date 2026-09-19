@@ -45,7 +45,7 @@ struct Options final
 	bool autoGain {};
 	std::array<bool, 4> stageEnabled { true, false, false, false };
 	vekt::rav::RavStageChain::Order stageOrder { vekt::rav::RavMode::saturation,
-		vekt::rav::RavMode::overdrive, vekt::rav::RavMode::distortion, vekt::rav::RavMode::fuzz };
+		vekt::rav::RavMode::overdrive, vekt::rav::RavMode::distortion, vekt::rav::RavMode::circuitFuzz };
 	vekt::rav::RavProcessingModel model { vekt::rav::RavProcessingModel::legacy };
 	std::uint32_t seed { 0x6d2b79f5u };
 	juce::String inputPath;

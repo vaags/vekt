@@ -90,10 +90,13 @@ constexpr int bandWidth = 288;
 constexpr int rightWidth = ui::ScalableEditor::logicalWidth - margin * 2 - centerWidth - bandWidth - sectionGap * 2;
 constexpr int primaryControlHeight = ui::RotaryControl::heightFor(ui::RotaryControl::Size::standard);
 constexpr int stageGap = 8;
-constexpr int stageWidth = (ui::ScalableEditor::logicalWidth - margin * 2 - stageGap * 3) / 4;
+constexpr int stageWidth = (ui::ScalableEditor::logicalWidth - margin * 2
+	- stageGap * static_cast<int>(RavStageChain::stageCount - 1))
+	/ static_cast<int>(RavStageChain::stageCount);
 int stageTarget(int x)
 {
-	return juce::jlimit(0, 3, (x - margin + stageGap / 2) / (stageWidth + stageGap));
+	return juce::jlimit(0, static_cast<int>(RavStageChain::stageCount - 1),
+		(x - margin + stageGap / 2) / (stageWidth + stageGap));
 }
 constexpr float meterSilenceFloor = 0.0001f;
 constexpr int footerReserve = margin;
@@ -270,7 +273,7 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 	offlineBox.addItem("16x FIR", 5);
 	offlineBox.addItem("2x IIR", 6);
 	offlineBox.addItem("4x IIR", 7);
-	modeBox.addItemList({"Saturation", "Overdrive", "Distortion", "Fuzz"}, 1);
+	modeBox.addItemList({"Saturation", "Overdrive", "Distortion", "Circuit Fuzz", "Gated Fuzz"}, 1);
 	trackingAttachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), parameters::trackingOversampling, trackingBox);
 	offlineAttachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), parameters::offlineOversampling, offlineBox);
 	modeAttachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), parameters::mode, modeBox);
