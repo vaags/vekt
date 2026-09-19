@@ -130,6 +130,8 @@ public:
 			octaveUpButton.setEnabled(!fileMode && !monoMode);
 			restartFileButton.setEnabled(fileMode && fileLoaded);
 			keyboard.setVisible(monoMode);
+			if (monoMode)
+				productTabs.setSelectedId(1, juce::sendNotification);
 			orderButton.setTooltip("Process the selected source through this rack route.");
 		};
 		fileLabel.setText("Drop WAV, MP3, FLAC or AIFF/AIF here", juce::dontSendNotification);
@@ -162,10 +164,7 @@ public:
 		productTabs.setSelectedId(restoredSelectedTab, juce::dontSendNotification);
 		productTabs.onChange = [this]
 		{
-			const auto tab = productTabs.getSelectedId();
-			monoEditor->setVisible(tab == 1);
-			ravEditor->setVisible(tab == 2);
-			glimmerEditor->setVisible(tab == 3);
+			showProductEditor(productTabs.getSelectedId());
 		};
 		orderButton.onClick = [this]
 		{
@@ -207,9 +206,7 @@ public:
 				scalableEditor->setResizable(false, false);
 			}
 		}
-		monoEditor->setVisible(productTabs.getSelectedId() == 1);
-		ravEditor->setVisible(productTabs.getSelectedId() == 2);
-		glimmerEditor->setVisible(productTabs.getSelectedId() == 3);
+		showProductEditor(productTabs.getSelectedId());
 		keyboard.setVisible(false);
 		setSize(labWidth, labHeight);
 		openInitialOutput();
@@ -381,6 +378,17 @@ public:
 	}
 
 private:
+	void showProductEditor(int tab)
+	{
+		monoEditor->setVisible(tab == 1);
+		ravEditor->setVisible(tab == 2);
+		glimmerEditor->setVisible(tab == 3);
+		auto* editor = tab == 1 ? monoEditor.get() : tab == 2 ? ravEditor.get() : glimmerEditor.get();
+		editor->resized();
+		editor->toFront(false);
+		editor->repaint();
+	}
+
 	[[nodiscard]] static juce::File rackStateFile()
 	{
 		return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
