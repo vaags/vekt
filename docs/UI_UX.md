@@ -143,6 +143,22 @@ Preset workflows are specified separately in [PRESET_UX.md](PRESET_UX.md).
   synchronization. File operations are initiated and completed on the message
   thread.
 
+## Audio Lab file input
+
+- Audio Lab accepts one local WAV, MP3, FLAC, or AIFF/AIF file via drag-and-drop
+  or Open File. Other formats are deliberately excluded.
+- A successful load selects Audio File and loops the whole file. Loading does
+  not arm output; Mute freezes playback and Arm resumes it. Restart File returns
+  to the beginning. Switching to a generator retains the loaded file and position.
+- Preserve stereo and duplicate mono to both outputs. Reject multichannel files,
+  preserve recorded level, and correct playback for the device sample rate.
+- Open files on a worker thread and stream using background read-ahead. Failed
+  loads preserve the current source; newer requests supersede older completions.
+- Keep filename, playback position/duration, and errors in the lab header.
+  Disable generator octave controls in file mode. The embedded editor remains 16:10.
+- Looping does not apply crossfades or promise seamless endpoints for arbitrary
+  recordings. There is no seeking, normalization, playlist, or session restoration.
+
 ## Accessibility
 
 - Every control has an accessible role, name, current value, units, and state.

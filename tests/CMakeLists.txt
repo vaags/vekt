@@ -17,12 +17,14 @@ add_executable(vekt_dsp_tests
 	processor/ParametersTests.cpp
 	processor/EditorLayoutTests.cpp
 	processor/ValueFormatTests.cpp
+	audio_lab/FileSourceTests.cpp
     dsp/TanhStageTests.cpp)
 
 target_link_libraries(vekt_dsp_tests PRIVATE
     vekt::dsp
     vekt::ui
     VektRav
+	juce::juce_audio_utils
     Catch2::Catch2WithMain)
 
 if(APPLE AND CMAKE_GENERATOR STREQUAL "Xcode")
