@@ -166,6 +166,16 @@ std::optional<std::size_t> PresetCatalog::findById(const juce::String& id, Prese
 	return found;
 }
 
+juce::StringArray PresetCatalog::folders(PresetOrigin origin) const
+{
+	juce::StringArray result;
+	for (const auto& entry : catalogEntries)
+		if (entry.origin == origin && entry.folder.isNotEmpty())
+			result.addIfNotAlreadyThere(entry.folder, true);
+	result.sortNatural();
+	return result;
+}
+
 std::size_t PresetCatalog::factoryPresetCount() const noexcept
 {
 	return factoryPresets.size();

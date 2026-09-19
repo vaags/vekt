@@ -103,6 +103,7 @@ private:
 	void processEffectBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi);
 	void applyPendingQualityChange();
 	void restoreCurrentProgramFromMetadata();
+	[[nodiscard]] static juce::Result migratePresetSound(presets::Preset& preset);
 
 	juce::UndoManager undoManager;
 	juce::AudioProcessorValueTreeState parameterState;

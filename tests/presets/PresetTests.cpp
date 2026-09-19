@@ -322,6 +322,8 @@ TEST_CASE("Rav factory library groups instrument presets with useful tags", "[pr
 	const auto& entries = processor.getPresetEntries();
 	REQUIRE(entries.size() == 18);
 	REQUIRE(processor.getNumPrograms() == 18);
+	REQUIRE(processor.getPresetSession().library().folders(vekt::presets::PresetOrigin::factory)
+		== juce::StringArray { "Bass", "Drums", "Guitar", "Keys", "Mastering" });
 
 	for (const auto& expected : std::array {
 		std::pair { "Bass/Deep Foundation", "Bass" },
@@ -359,6 +361,12 @@ TEST_CASE("Rav factory library groups instrument presets with useful tags", "[pr
 		vekt::presets::Preset preset;
 		REQUIRE(processor.getPresetSession().library().load(index, preset).wasOk());
 		REQUIRE(processor.applyPreset(preset).wasOk());
+		REQUIRE(preset.soundSchemaVersion == 2);
+		const auto enabledStages = std::count_if(
+			vekt::rav::parameters::stageEnabledIds.begin(),
+			vekt::rav::parameters::stageEnabledIds.end(),
+			[&processor](const auto* identifier) { return getParameter(processor, identifier) >= 0.5f; });
+		REQUIRE(enabledStages >= 2);
 	}
 }
 

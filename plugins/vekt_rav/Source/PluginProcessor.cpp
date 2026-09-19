@@ -20,8 +20,9 @@ PluginProcessor::PluginProcessor()
 						 .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
 	  parameterState(*this, &undoManager, parameters::stateType, parameters::createLayout()),
 	  stateManager(parameterState, parameters::projectStateType, 1),
-	  presetSession(presetCatalog, { parameters::presetProductIdentifier, "Vekt Rav", 1 }, {
-		[this](const juce::String& name) { return createPreset(name); }, {},
+	  presetSession(presetCatalog, { parameters::presetProductIdentifier, "Vekt Rav", 2 }, {
+		[this](const juce::String& name) { return createPreset(name); },
+		[](presets::Preset& preset) { return migratePresetSound(preset); },
 		[this](const presets::Preset& preset) { return presets::PresetSchema::validate(preset,
 			parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds); },
 		[this](const presets::Preset& preset) { return applyPreset(preset); },
@@ -68,7 +69,11 @@ PluginProcessor::PluginProcessor()
 	{
 		currentPresetIndex = 0;
 		presets::Preset initialPreset;
-		if (presetCatalog.loadFactoryPreset(0, initialPreset).wasOk())
+		if (presetCatalog.loadFactoryPreset(0, initialPreset).wasOk()
+			&& presetSession.prepare(initialPreset).wasOk()
+			&& presets::PresetSchema::apply(initialPreset,
+				parameters::presetProductIdentifier, parameterState,
+				parameters::soundParameterIds).wasOk())
 		{
 			currentPresetSnapshot = initialPreset;
 			presetSession.adopt(initialPreset, presets::PresetOrigin::factory);
@@ -433,17 +438,21 @@ void PluginProcessor::setStateInformation(const void* data, int size)
 presets::Preset PluginProcessor::createPreset(
 	const juce::String& name, const juce::NamedValueSet& metadata) const
 {
-	return presets::PresetSchema::create(
+	auto preset = presets::PresetSchema::create(
 		parameters::presetProductIdentifier,
 		name,
 		parameterState,
 		parameters::soundParameterIds,
 		metadata);
+	preset.soundSchemaVersion = 2;
+	return preset;
 }
 
 juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 {
 	assertMessageThread();
+	if (preset.soundSchemaVersion != 2)
+		return juce::Result::fail("Unsupported Rav preset sound schema");
 	if (const auto result = presets::PresetSchema::validate(
 			preset,
 			parameters::presetProductIdentifier,
@@ -466,6 +475,32 @@ juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 		presetSession.clear();
 	}
 	return result;
+}
+
+juce::Result PluginProcessor::migratePresetSound(presets::Preset& preset)
+{
+	if (preset.soundSchemaVersion == 2)
+		return juce::Result::ok();
+	if (preset.soundSchemaVersion != 1)
+		return juce::Result::fail("Unsupported Rav preset sound schema");
+
+	const auto findValue = [&preset](const char* identifier) -> const presets::ParameterValue*
+	{
+		for (const auto& value : preset.parameters)
+			if (value.identifier == identifier)
+				return &value;
+		return nullptr;
+	};
+	const auto* mode = findValue(parameters::mode);
+	if (mode == nullptr)
+		return juce::Result::fail("Rav preset mode is missing");
+	const auto active = juce::jlimit(0, 3, juce::roundToInt(mode->value));
+	for (std::size_t index = 0; index < parameters::stageEnabledIds.size(); ++index)
+		if (findValue(parameters::stageEnabledIds[index]) == nullptr)
+			preset.parameters.push_back({ parameters::stageEnabledIds[index],
+				static_cast<int>(index) == active ? 1.0f : 0.0f });
+	preset.soundSchemaVersion = 2;
+	return juce::Result::ok();
 }
 
 juce::Result PluginProcessor::configureUserPresetDirectory(const juce::File& directory)
@@ -507,6 +542,8 @@ juce::Result PluginProcessor::importPreset(const juce::File& source)
 		return juce::Result::fail("Preset file does not exist");
 	presets::Preset preset;
 	if (const auto result = presets::PresetJsonCodec::decode(source.loadFileAsString(), preset); result.failed())
+		return result;
+	if (const auto result = presetSession.prepare(preset); result.failed())
 		return result;
 	return applyPreset(preset);
 }
@@ -557,20 +594,19 @@ juce::Result PluginProcessor::removeUserPreset(const juce::String& name)
 juce::Result PluginProcessor::loadPreset(std::size_t index)
 {
 	assertMessageThread();
-	presets::Preset preset;
-	if (const auto result = presetCatalog.load(index, preset); result.failed())
-		return result;
-	if (const auto result = applyPreset(preset); result.failed())
+	if (index >= presetCatalog.entries().size())
+		return juce::Result::fail("Preset index is out of range");
+	const auto entry = presetCatalog.entries()[index];
+	if (const auto result = presetSession.load(entry.identifier, entry.origin); result.failed())
 		return result;
 
 	currentPresetIndex = index;
-	currentPresetSnapshot = preset;
-	presetSession.adopt(preset, presetCatalog.entries()[index].origin);
-	if (presetCatalog.entries()[index].origin == presets::PresetOrigin::factory)
+	currentPresetSnapshot = presetSession.loaded();
+	if (entry.origin == presets::PresetOrigin::factory)
 	{
 		currentProgram = static_cast<int>(index);
 		stateManager.getMetadata().setProperty(
-			parameters::currentFactoryPreset, preset.name, nullptr);
+			parameters::currentFactoryPreset, entry.name, nullptr);
 	}
 	return juce::Result::ok();
 }

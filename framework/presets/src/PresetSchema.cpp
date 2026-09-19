@@ -111,8 +111,6 @@ juce::Result PresetSchema::validate(
 		return result;
 	if (preset.productIdentifier != expectedProductIdentifier)
 		return juce::Result::fail("Preset belongs to a different product");
-	if (preset.soundSchemaVersion != 1 || preset.soundState.size() != 0)
-		return juce::Result::fail("This parameter adapter does not support this sound schema");
 	if (preset.parameters.size() != soundParameterIds.size())
 		return juce::Result::fail("Preset parameter set is incomplete");
 

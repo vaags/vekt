@@ -36,6 +36,7 @@ public:
 	void refresh();
 	void setProductIdentifier(juce::String product) { productIdentifier = std::move(product); refresh(); }
 	[[nodiscard]] PresetRepository* repository() const noexcept { return userPresets; }
+	[[nodiscard]] juce::StringArray folders(PresetOrigin origin) const;
 	[[nodiscard]] std::optional<std::size_t> findById(const juce::String& id, PresetOrigin origin) const;
 	[[nodiscard]] juce::Result saveUserPreset(
 		const Preset& preset, PresetSaveMode mode = PresetSaveMode::createOnly);

@@ -52,6 +52,7 @@ inline constexpr std::array soundParameterIds {
 	outputGain
 	, lowBandMix, midBandMix, highBandMix, lowMidCutoffHz, midHighCutoffHz,
 	mode, shape, dynamics, texture
+	, stageEnabledSaturation, stageEnabledOverdrive, stageEnabledDistortion, stageEnabledFuzz
 };
 
 [[nodiscard]] juce::AudioProcessorValueTreeState::ParameterLayout createLayout();

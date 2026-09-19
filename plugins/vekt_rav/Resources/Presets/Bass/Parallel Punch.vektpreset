@@ -1,5 +1,5 @@
 {
-  "format": "vekt.preset", "schemaVersion": 2, "id": "rav-bass-parallel-punch", "product": "com.vekt.rav", "soundSchemaVersion": 1,
+  "format": "vekt.preset", "schemaVersion": 2, "id": "rav-bass-parallel-punch", "product": "com.vekt.rav", "soundSchemaVersion": 2,
   "name": "Parallel Punch", "tags": ["Bass", "Parallel", "Punch", "Modern"], "soundState": {},
-  "parameters": { "inputGain": 1.0, "drive": 25.0, "tone": 0.5, "bias": 0.12, "autoGain": 1.0, "mix": 42.0, "outputGain": -0.5, "lowBandMix": 25.0, "midBandMix": 90.0, "highBandMix": 75.0, "lowMidCutoffHz": 160.0, "midHighCutoffHz": 2400.0, "mode": 2.0, "shape": 0.7, "dynamics": 0.6, "texture": 0.55 }
+  "parameters": { "inputGain": 1.0, "drive": 25.0, "tone": 0.5, "bias": 0.12, "autoGain": 1.0, "mix": 42.0, "outputGain": -0.5, "lowBandMix": 25.0, "midBandMix": 90.0, "highBandMix": 75.0, "lowMidCutoffHz": 160.0, "midHighCutoffHz": 2400.0, "mode": 2.0, "shape": 0.7, "dynamics": 0.6, "texture": 0.55, "stageEnabledSaturation": 1.0, "stageEnabledOverdrive": 0.0, "stageEnabledDistortion": 1.0, "stageEnabledFuzz": 0.0 }
 }

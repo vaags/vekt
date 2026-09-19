@@ -1,5 +1,5 @@
 {
-  "format": "vekt.preset", "schemaVersion": 2, "id": "rav-drums-transient-smash", "product": "com.vekt.rav", "soundSchemaVersion": 1,
+  "format": "vekt.preset", "schemaVersion": 2, "id": "rav-drums-transient-smash", "product": "com.vekt.rav", "soundSchemaVersion": 2,
   "name": "Transient Smash", "tags": ["Drums", "Parallel", "Aggressive", "Crush"], "soundState": {},
-  "parameters": { "inputGain": 1.0, "drive": 28.0, "tone": 1.5, "bias": -0.16, "autoGain": 1.0, "mix": 34.0, "outputGain": -1.5, "lowBandMix": 48.0, "midBandMix": 100.0, "highBandMix": 88.0, "lowMidCutoffHz": 170.0, "midHighCutoffHz": 2800.0, "mode": 3.0, "shape": 0.76, "dynamics": 0.36, "texture": 0.86 }
+  "parameters": { "inputGain": 1.0, "drive": 28.0, "tone": 1.5, "bias": -0.16, "autoGain": 1.0, "mix": 34.0, "outputGain": -1.5, "lowBandMix": 48.0, "midBandMix": 100.0, "highBandMix": 88.0, "lowMidCutoffHz": 170.0, "midHighCutoffHz": 2800.0, "mode": 3.0, "shape": 0.76, "dynamics": 0.36, "texture": 0.86, "stageEnabledSaturation": 1.0, "stageEnabledOverdrive": 0.0, "stageEnabledDistortion": 1.0, "stageEnabledFuzz": 1.0 }
 }

@@ -123,8 +123,12 @@ void PresetBrowser::refresh()
 	folders.addItem("All presets", 1);
 	folders.addItem("Factory", 2);
 	folders.addItem("User", 3);
-	if (auto* repository = session.library().repository())
-		for (const auto& folder : repository->folders()) folders.addItem("User / " + folder, folders.getNumItems() + 1);
+	const auto factoryFolders = session.library().folders(presets::PresetOrigin::factory);
+	const auto userFolders = session.library().folders(presets::PresetOrigin::user);
+	for (const auto& folder : factoryFolders)
+		folders.addItem("Factory / " + folder, folders.getNumItems() + 1);
+	if (session.library().repository() != nullptr)
+		for (const auto& folder : userFolders) folders.addItem("User / " + folder, folders.getNumItems() + 1);
 	folders.setSelectedId(1, juce::dontSendNotification);
 	for (int i = 0; i < folders.getNumItems(); ++i)
 		if (folders.getItemText(i) == previous) folders.setSelectedItemIndex(i, juce::dontSendNotification);
@@ -141,9 +145,19 @@ void PresetBrowser::filter()
 	model.search = search.getText();
 	model.tags = parseTags(tagFilter.getText());
 	model.origin.reset(); model.folder.clear();
-	if (folders.getSelectedId() == 2) model.origin = presets::PresetOrigin::factory;
-	if (folders.getSelectedId() >= 3) model.origin = presets::PresetOrigin::user;
-	if (folders.getSelectedId() > 3) model.folder = folders.getText().substring(7);
+	const auto selectedFolder = folders.getText();
+	if (selectedFolder == "Factory") model.origin = presets::PresetOrigin::factory;
+	else if (selectedFolder == "User") model.origin = presets::PresetOrigin::user;
+	else if (selectedFolder.startsWith("Factory / "))
+	{
+		model.origin = presets::PresetOrigin::factory;
+		model.folder = selectedFolder.substring(10);
+	}
+	else if (selectedFolder.startsWith("User / "))
+	{
+		model.origin = presets::PresetOrigin::user;
+		model.folder = selectedFolder.substring(7);
+	}
 	rows = model.filter(session.library().entries());
 	list.deselectAllRows(); list.updateContent();
 	if (before)
@@ -163,7 +177,8 @@ void PresetBrowser::paintListBoxItem(int row, juce::Graphics& g, int width, int 
 	if (selectedRow) g.fillAll(findColour(juce::TextEditor::highlightColourId));
 	g.setColour(findColour(juce::Label::textColourId));
 	g.drawText(entry.name + (entry.error.isEmpty() ? "" : " (unavailable)"), 8, 0, width / 2 - 8, height, juce::Justification::centredLeft);
-	g.drawText((entry.origin == presets::PresetOrigin::factory ? "Factory" : "User / " + entry.folder)
+	g.drawText((entry.origin == presets::PresetOrigin::factory ? "Factory" : "User")
+		+ (entry.folder.isEmpty() ? "" : " / " + entry.folder)
 		+ "   " + entry.tags.joinIntoString(", "), width / 2, 0, width / 2 - 8, height, juce::Justification::centredLeft);
 }
 

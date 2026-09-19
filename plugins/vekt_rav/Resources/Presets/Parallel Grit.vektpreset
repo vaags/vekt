@@ -3,9 +3,13 @@
   "schemaVersion": 2,
   "id": "rav-parallel-grit",
   "product": "com.vekt.rav",
-  "soundSchemaVersion": 1,
+  "soundSchemaVersion": 2,
   "name": "Parallel Grit",
-  "tags": ["Parallel", "Grit", "Aggressive"],
+  "tags": [
+    "Parallel",
+    "Grit",
+    "Aggressive"
+  ],
   "soundState": {},
   "parameters": {
     "inputGain": 2.0,
@@ -20,9 +24,13 @@
     "highBandMix": 100.0,
     "lowMidCutoffHz": 250.0,
     "midHighCutoffHz": 2500.0,
-    "mode": 3.0,
+    "mode": 2.0,
     "shape": 0.7,
     "dynamics": 0.4,
-    "texture": 0.8
+    "texture": 0.8,
+    "stageEnabledSaturation": 1.0,
+    "stageEnabledOverdrive": 0.0,
+    "stageEnabledDistortion": 1.0,
+    "stageEnabledFuzz": 0.0
   }
 }
