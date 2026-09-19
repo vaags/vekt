@@ -127,14 +127,14 @@ void PluginEditor::resized()
 		microphoneControls[index].setBounds(12 + static_cast<int>(index) * 102, 64, 98, 160);
 	for (std::size_t index = 0; index < toneControls.size(); ++index)
 		toneControls[index].setBounds(30 + static_cast<int>(index) * 190, 70, 170, 170);
-	inputFader.setBounds(24, 58, 92, 180);
-	outputFader.setBounds(130, 58, 92, 180);
-	inputMeter.setBounds(238, 52, 28, 190);
-	outputMeter.setBounds(278, 52, 28, 190);
-	bypassButton.setBounds(22, 224, 100, 28);
-	autoGainButton.setBounds(136, 224, 110, 28);
-	trackingQualityBox.setBounds(16, 258, 144, 24);
-	offlineQualityBox.setBounds(168, 258, 144, 24);
+	inputFader.setBounds(24, 32, 92, 160);
+	outputFader.setBounds(130, 32, 92, 160);
+	inputMeter.setBounds(238, 36, 28, 156);
+	outputMeter.setBounds(278, 36, 28, 156);
+	bypassButton.setBounds(22, 202, 100, 24);
+	autoGainButton.setBounds(136, 202, 110, 24);
+	trackingQualityBox.setBounds(16, 234, 144, 22);
+	offlineQualityBox.setBounds(168, 234, 144, 22);
 	qualityLabel.setBounds(16, 2, 296, 22);
 	juce::ignoreUnused(content);
 }
