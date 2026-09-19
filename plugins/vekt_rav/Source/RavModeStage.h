@@ -1,5 +1,6 @@
 #pragma once
 
+#include "RavFuzzCircuit.h"
 #include "RavPostStage.h"
 
 #include <vekt/dsp/ControlTransition.h>
@@ -21,9 +22,28 @@ enum class RavMode
 	fuzz
 };
 
+// This is intentionally not an APVTS parameter. It provides a development-only
+// comparison seam for candidate algorithms without changing saved Rav sessions.
+enum class RavProcessingModel
+{
+	legacy,
+	behavioralCandidate,
+	overdriveCircuitCandidate,
+	fuzzCircuitCandidate
+};
+
 class RavModeStage final
 {
 public:
+	void setProcessingModel(RavProcessingModel newModel) noexcept
+	{
+		if (processingModel == newModel)
+			return;
+		processingModel = newModel;
+		fuzzCircuit.reset();
+	}
+	[[nodiscard]] RavProcessingModel getProcessingModel() const noexcept { return processingModel; }
+
 	void prepare(double processingSampleRate) noexcept
 	{
 		sampleRateHz = static_cast<float>(processingSampleRate);
@@ -36,6 +56,7 @@ public:
 		texture.prepare(processingSampleRate, 0.02, 0.15);
 		tone.prepare(processingSampleRate, 0.02, 0.15);
 		postStage.prepare(processingSampleRate);
+		fuzzCircuit.prepare(processingSampleRate);
 		reset();
 	}
 
@@ -47,6 +68,7 @@ public:
 		highPassState = 0.0f;
 		fuzzToneState = 0.0f;
 		postStage.reset();
+		fuzzCircuit.reset();
 		drive.setCurrentAndTargetValue(drive.getTargetValue());
 		bias.setCurrentAndTargetValue(bias.getTargetValue());
 		shape.setCurrentAndTargetValue(shape.getTargetValue());
@@ -132,19 +154,24 @@ private:
 			}
 			case RavMode::fuzz:
 			{
-				const auto envelopeRate = timeCorrectedCoefficient(0.001f + dynamicsValue * 0.08f);
-				envelope += (std::abs(driven) - envelope) * envelopeRate;
-				const auto starvation = biasValue + (0.5f - envelope) * shapeValue;
-				const auto threshold = textureValue * (0.05f + envelope);
-				const auto transitionWidth = 0.01f + textureValue * 0.08f;
-				const auto gatePosition = std::clamp(
-					(std::abs(driven) - threshold + transitionWidth) /
-					(2.0f * transitionWidth), 0.0f, 1.0f);
-				const auto smoothGate = gatePosition * gatePosition
-					* (3.0f - 2.0f * gatePosition);
-				const auto gated = driven * smoothGate;
-				const auto clipInput = (gated + starvation) * 4.0f;
-				output = std::clamp(clipInput, -1.0f, 1.0f);
+				if (processingModel == RavProcessingModel::fuzzCircuitCandidate)
+					output = fuzzCircuit.process(driven, biasValue, shapeValue, dynamicsValue, textureValue);
+				else
+				{
+					const auto envelopeRate = timeCorrectedCoefficient(0.001f + dynamicsValue * 0.08f);
+					envelope += (std::abs(driven) - envelope) * envelopeRate;
+					const auto starvation = biasValue + (0.5f - envelope) * shapeValue;
+					const auto threshold = textureValue * (0.05f + envelope);
+					const auto transitionWidth = 0.01f + textureValue * 0.08f;
+					const auto gatePosition = std::clamp(
+						(std::abs(driven) - threshold + transitionWidth) /
+						(2.0f * transitionWidth), 0.0f, 1.0f);
+					const auto smoothGate = gatePosition * gatePosition
+						* (3.0f - 2.0f * gatePosition);
+					const auto gated = driven * smoothGate;
+					const auto clipInput = (gated + starvation) * 4.0f;
+					output = std::clamp(clipInput, -1.0f, 1.0f);
+				}
 				break;
 			}
 		}
@@ -179,6 +206,7 @@ private:
 	}
 
 	RavMode mode { RavMode::saturation };
+	RavProcessingModel processingModel { RavProcessingModel::legacy };
 	inline static constexpr float referenceProcessingRateHz { 192'000.0f };
 	float sampleRateHz { 48'000.0f };
 	float stateRateScale { referenceProcessingRateHz / sampleRateHz };
@@ -188,6 +216,7 @@ private:
 	float envelope {};
 	float highPassState {};
 	float fuzzToneState {};
+	RavFuzzCircuit fuzzCircuit;
 	RavPostStage postStage;
 	dsp::ControlTransition<float> drive;
 	dsp::ControlTransition<float> bias;

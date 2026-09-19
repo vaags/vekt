@@ -41,18 +41,120 @@ TEST_CASE("Rav mode stage reset is deterministic", "[dsp][rav]")
 
 TEST_CASE("Rav mode stage modes produce different textures", "[dsp][rav]")
 {
-	std::array<float, 4> outputs {};
+	std::array<std::array<float, 128>, 4> outputs {};
 	for (auto modeIndex = 0; modeIndex < 4; ++modeIndex)
 	{
 		vekt::rav::RavModeStage stage;
 		stage.prepare(48'000.0);
 		stage.setParameters(static_cast<vekt::rav::RavMode>(modeIndex),
-			30.0f, 0.1f, 0.5f, 0.5f, 0.5f);
-		std::array samples { 0.37f };
+			30.0f, 0.1f, 0.7f, 0.5f, 0.8f, 3.0f);
+		auto& samples = outputs[static_cast<std::size_t>(modeIndex)];
+		for (std::size_t sample = 0; sample < samples.size(); ++sample)
+			samples[sample] = 0.37f * std::sin(static_cast<float>(sample) * 0.17f);
 		stage.process(samples);
-		outputs[static_cast<std::size_t>(modeIndex)] = samples[0];
 	}
 
+	for (std::size_t first = 0; first < outputs.size(); ++first)
+		for (std::size_t second = first + 1; second < outputs.size(); ++second)
+		{
+			auto difference = 0.0f;
+			for (std::size_t sample = 0; sample < outputs[first].size(); ++sample)
+				difference = std::max(difference,
+					std::abs(outputs[first][sample] - outputs[second][sample]));
+			REQUIRE(difference > 1.0e-3f);
+		}
+}
+
+TEST_CASE("Rav mode stage unimplemented candidate selections preserve Legacy rendering", "[dsp][rav][baseline]")
+{
+	auto render = [](vekt::rav::RavProcessingModel model)
+	{
+		vekt::rav::RavModeStage stage;
+		stage.setProcessingModel(model);
+		stage.prepare(192'000.0);
+		stage.setParameters(vekt::rav::RavMode::fuzz, 30.0f, -0.2f, 0.7f, 0.4f, 0.8f, 3.0f);
+		std::array<float, 256> samples {};
+		for (std::size_t sample = 0; sample < samples.size(); ++sample)
+			samples[sample] = 0.25f * std::sin(static_cast<float>(sample) * 0.13f);
+		stage.process(samples);
+		return samples;
+	};
+
+	const auto legacy = render(vekt::rav::RavProcessingModel::legacy);
+	for (const auto candidate : { vekt::rav::RavProcessingModel::behavioralCandidate,
+		vekt::rav::RavProcessingModel::overdriveCircuitCandidate })
+	{
+		const auto selected = render(candidate);
+		for (std::size_t sample = 0; sample < legacy.size(); ++sample)
+			REQUIRE(selected[sample] == Catch::Approx(legacy[sample]).margin(1.0e-7f));
+	}
+}
+
+TEST_CASE("Rav Fuzz circuit candidate is finite and deterministic", "[dsp][rav][fuzz-circuit]")
+{
+	auto render = [](double sampleRate)
+	{
+		vekt::rav::RavModeStage stage;
+		stage.setProcessingModel(vekt::rav::RavProcessingModel::fuzzCircuitCandidate);
+		stage.prepare(sampleRate);
+		stage.setParameters(vekt::rav::RavMode::fuzz, 36.0f, -0.65f, 1.0f, 0.0f, 1.0f, 6.0f);
+		std::vector<float> samples(static_cast<std::size_t>(sampleRate * 0.03));
+		for (std::size_t sample = 0; sample < samples.size(); ++sample)
+			samples[sample] = 0.9f * std::sin(static_cast<float>(sample) * 0.21f);
+		stage.process(samples);
+		return samples;
+	};
+
+	const auto first = render(48'000.0);
+	const auto second = render(48'000.0);
+	for (std::size_t sample = 0; sample < first.size(); ++sample)
+	{
+		REQUIRE(std::isfinite(first[sample]));
+		REQUIRE(second[sample] == Catch::Approx(first[sample]).margin(1.0e-7f));
+	}
+}
+
+TEST_CASE("Rav Fuzz circuit candidate has rate-consistent recovery", "[dsp][rav][fuzz-circuit][rate]")
+{
+	auto renderRecovery = [](double sampleRate)
+	{
+		vekt::rav::RavModeStage stage;
+		stage.setProcessingModel(vekt::rav::RavProcessingModel::fuzzCircuitCandidate);
+		stage.prepare(sampleRate);
+		stage.setParameters(vekt::rav::RavMode::fuzz, 24.0f, 0.2f, 0.8f, 0.35f, 0.9f, 0.0f);
+		std::vector<float> excitation(static_cast<std::size_t>(sampleRate * 0.01), 0.35f);
+		stage.process(excitation);
+		std::vector<float> recovery(static_cast<std::size_t>(sampleRate * 0.02), 0.0f);
+		stage.process(recovery);
+		return recovery.back();
+	};
+
+	const auto reference = renderRecovery(192'000.0);
+	const auto lowerRate = renderRecovery(48'000.0);
+	REQUIRE(lowerRate == Catch::Approx(reference).margin(0.02f));
+}
+
+TEST_CASE("Rav Fuzz circuit candidate differs from Legacy Fuzz", "[dsp][rav][fuzz-circuit]")
+{
+	auto render = [](vekt::rav::RavProcessingModel model)
+	{
+		vekt::rav::RavModeStage stage;
+		stage.setProcessingModel(model);
+		stage.prepare(192'000.0);
+		stage.setParameters(vekt::rav::RavMode::fuzz, 30.0f, -0.2f, 0.7f, 0.4f, 0.8f, 3.0f);
+		std::array<float, 512> samples {};
+		for (std::size_t sample = 0; sample < samples.size(); ++sample)
+			samples[sample] = 0.25f * std::sin(static_cast<float>(sample) * 0.13f);
+		stage.process(samples);
+		return samples;
+	};
+
+	const auto legacy = render(vekt::rav::RavProcessingModel::legacy);
+	const auto circuit = render(vekt::rav::RavProcessingModel::fuzzCircuitCandidate);
+	auto maximumDifference = 0.0f;
+	for (std::size_t sample = 0; sample < legacy.size(); ++sample)
+		maximumDifference = std::max(maximumDifference, std::abs(legacy[sample] - circuit[sample]));
+	REQUIRE(maximumDifference > 1.0e-3f);
 }
 
 TEST_CASE("Rav mode stage supports slow Bias modulation", "[dsp][rav][bias]")

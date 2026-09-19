@@ -88,6 +88,9 @@ public:
 	[[nodiscard]] juce::ValueTree& getProjectMetadata() noexcept;
 	[[nodiscard]] RavStageChain::Order getStageOrder() const noexcept;
 	[[nodiscard]] bool reorderStage(std::size_t index, int delta) noexcept;
+	// Development-only: deliberately excluded from APVTS, presets, and host state.
+	void setDevelopmentProcessingModel(RavProcessingModel model) noexcept;
+	[[nodiscard]] RavProcessingModel getDevelopmentProcessingModel() const noexcept;
 	[[nodiscard]] dsp::OversamplingQuality getActiveQuality() const noexcept;
 	[[nodiscard]] bool hasPendingQualityChange() const noexcept;
 
@@ -150,6 +153,7 @@ private:
 	dsp::LatencyAlignedMixer<float> dryWetMixer;
 	dsp::MatchedToneStage<float> toneStage;
 	RavStageChain stageChain;
+	std::atomic<RavProcessingModel> developmentProcessingModel { RavProcessingModel::legacy };
 	std::array<std::array<std::array<RavModeStage, 4>, 2>, 3> bandStages;
 	dsp::ThreeBandCrossover<float> crossover;
 	std::array<juce::AudioBuffer<float>, 3> bandBuffers;

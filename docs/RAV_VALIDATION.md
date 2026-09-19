@@ -80,6 +80,39 @@ and warmup-excluded processing time. `--spectrum-size` adds a Hann-windowed FFT
 peak report. Peaks above 0 dBFS are intentionally reported rather than limited
 so aggressive mode behavior remains visible.
 
+### Circuit-model comparison workflow
+
+`--model` selects the development comparison seam: `legacy`, `behavioral`,
+`overdrive-circuit`, or `fuzz-circuit`. The seam is deliberately excluded from
+APVTS, plugin state, and presets. `fuzz-circuit` is the implemented experimental
+candidate and reports `active_model: "fuzz-circuit"` when an active Fuzz stage
+uses it. The behavioral and overdrive-circuit placeholders report
+`active_model: "legacy"`; this makes baseline reports reproducible without
+changing saved sounds.
+
+Use `--stages` as a four-character enable mask in Saturation, Overdrive,
+Distortion, Fuzz order (for example, `0011`), and `--stage-order` with a
+permutation such as `3,1,0,2`. `--input path` reads a mono or stereo file into
+memory and loops it deterministically. Its source sample rate must equal
+`--sample-rate`; the renderer intentionally does not resample comparison input.
+`--input-gain` applies the plugin's existing input-gain parameter.
+
+Run performance comparisons in Release mode:
+
+```sh
+cmake --preset audio-lab-release
+cmake --build --preset audio-lab-release --target VektRavRender
+build/audio-lab-release/tools/audio_lab/VektRavRender \
+  --model legacy --source two-tone --profile tracking --quality 2 --mode 3 \
+  --stages 0001 --block-size 32 --warmup 0.2 --seconds 5 \
+  --report /tmp/rav-fuzz-legacy.json
+```
+
+The report contains left/right RMS, peak, and DC, plus mean and maximum measured
+block times. Compare candidates with the same build, inputs, parameters, quality,
+block size, warmup, and duration. A candidate must be level-matched externally
+or with fixed output gain; do not use Auto Gain as the comparison matcher.
+
 Live device input/output, capture, and hardware loopback are future Audio Lab
 phases and are not enabled by this renderer.
 
@@ -95,4 +128,8 @@ Standalone, VST3, or AUv3 targets. Launch it with:
 Choose Sine, Sawtooth, Sweep, Impulse, Noise, Kick, Unison, or Two Tone in the safety toolbar and use
 the embedded full Rav editor for mode and processing controls. Output starts
 muted and must be explicitly armed. The lab uses the default macOS audio
-device and does not connect hardware input to output automatically.
+device and does not connect hardware input to output automatically. The
+development-only **A/B: Legacy / A/B: Fuzz Circuit** button switches the active
+Fuzz model without changing parameters, presets, or project state. Audio Lab
+briefly fades output down and back up around a switch because the models retain
+independent internal state; level-match before judging the result.

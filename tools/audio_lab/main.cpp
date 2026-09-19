@@ -11,9 +11,11 @@
 #include <bit>
 #include <cmath>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string_view>
+#include <vector>
 
 namespace
 {
@@ -39,10 +41,46 @@ struct Options final
 	float lowBandMix { 100.0f };
 	float midBandMix { 100.0f };
 	float highBandMix { 100.0f };
+	float inputGainDb {};
 	bool autoGain {};
+	std::array<bool, 4> stageEnabled { true, false, false, false };
+	vekt::rav::RavStageChain::Order stageOrder { vekt::rav::RavMode::saturation,
+		vekt::rav::RavMode::overdrive, vekt::rav::RavMode::distortion, vekt::rav::RavMode::fuzz };
+	vekt::rav::RavProcessingModel model { vekt::rav::RavProcessingModel::legacy };
 	std::uint32_t seed { 0x6d2b79f5u };
+	juce::String inputPath;
 	juce::String reportPath;
 	juce::String wavPath;
+};
+
+struct InputFile final
+{
+	juce::AudioBuffer<float> samples;
+	double sampleRate {};
+};
+
+struct ChannelMeasurements final
+{
+	double sumSquares {};
+	double sum {};
+	float peak {};
+
+	void add(float value) noexcept
+	{
+		sumSquares += static_cast<double>(value) * value;
+		sum += value;
+		peak = std::max(peak, std::abs(value));
+	}
+
+	[[nodiscard]] double rms(std::int64_t sampleCount) const noexcept
+	{
+		return std::sqrt(sumSquares / static_cast<double>(sampleCount));
+	}
+
+	[[nodiscard]] double dc(std::int64_t sampleCount) const noexcept
+	{
+		return sum / static_cast<double>(sampleCount);
+	}
 };
 
 [[nodiscard]] bool valueFor(int& index, int argc, char** argv, std::string_view name, std::string& value)
@@ -50,6 +88,35 @@ struct Options final
 	if (std::string_view(argv[index]) != name || index + 1 >= argc)
 		return false;
 	value = argv[++index];
+	return true;
+}
+
+[[nodiscard]] bool parseStageEnablement(std::string_view value, std::array<bool, 4>& destination)
+{
+	if (value.size() != destination.size())
+		return false;
+	for (std::size_t index = 0; index < destination.size(); ++index)
+	{
+		if (value[index] != '0' && value[index] != '1')
+			return false;
+		destination[index] = value[index] == '1';
+	}
+	return true;
+}
+
+[[nodiscard]] bool parseStageOrder(std::string_view value, vekt::rav::RavStageChain::Order& destination)
+{
+	return vekt::rav::RavStageChain::deserialise(
+		juce::String(value.data(), value.size()), destination);
+}
+
+[[nodiscard]] bool parseProcessingModel(std::string_view value, vekt::rav::RavProcessingModel& destination)
+{
+	if (value == "legacy") destination = vekt::rav::RavProcessingModel::legacy;
+	else if (value == "behavioral") destination = vekt::rav::RavProcessingModel::behavioralCandidate;
+	else if (value == "overdrive-circuit") destination = vekt::rav::RavProcessingModel::overdriveCircuitCandidate;
+	else if (value == "fuzz-circuit") destination = vekt::rav::RavProcessingModel::fuzzCircuitCandidate;
+	else return false;
 	return true;
 }
 
@@ -96,7 +163,21 @@ struct Options final
 			else if (valueFor(index, argc, argv, "--low-mix", value)) options.lowBandMix = std::stof(value);
 			else if (valueFor(index, argc, argv, "--mid-mix", value)) options.midBandMix = std::stof(value);
 			else if (valueFor(index, argc, argv, "--high-mix", value)) options.highBandMix = std::stof(value);
+			else if (valueFor(index, argc, argv, "--input-gain", value)) options.inputGainDb = std::stof(value);
+			else if (valueFor(index, argc, argv, "--stages", value))
+			{
+				if (!parseStageEnablement(value, options.stageEnabled)) return false;
+			}
+			else if (valueFor(index, argc, argv, "--stage-order", value))
+			{
+				if (!parseStageOrder(value, options.stageOrder)) return false;
+			}
+			else if (valueFor(index, argc, argv, "--model", value))
+			{
+				if (!parseProcessingModel(value, options.model)) return false;
+			}
 			else if (valueFor(index, argc, argv, "--seed", value)) options.seed = static_cast<std::uint32_t>(std::stoul(value));
+			else if (valueFor(index, argc, argv, "--input", value)) options.inputPath = value;
 			else if (valueFor(index, argc, argv, "--report", value)) options.reportPath = value;
 			else if (valueFor(index, argc, argv, "--wav", value)) options.wavPath = value;
 			else if (std::string_view(argv[index]) == "--auto-gain") options.autoGain = true;
@@ -111,6 +192,60 @@ struct Options final
 		&& options.warmupSeconds >= 0.0 && options.frequencyHz > 0.0
 		&& (options.spectrumSize == 0 || (options.spectrumSize > 1
 			&& std::has_single_bit(static_cast<unsigned int>(options.spectrumSize))));
+}
+
+[[nodiscard]] juce::String modelName(vekt::rav::RavProcessingModel model)
+{
+	switch (model)
+	{
+		case vekt::rav::RavProcessingModel::legacy: return "legacy";
+		case vekt::rav::RavProcessingModel::behavioralCandidate: return "behavioral";
+		case vekt::rav::RavProcessingModel::overdriveCircuitCandidate: return "overdrive-circuit";
+		case vekt::rav::RavProcessingModel::fuzzCircuitCandidate: return "fuzz-circuit";
+	}
+	return {};
+}
+
+[[nodiscard]] juce::String activeModelName(const Options& options)
+{
+	const auto compatibilityMode = options.stageEnabled[0]
+		&& !options.stageEnabled[1] && !options.stageEnabled[2] && !options.stageEnabled[3];
+	const auto fuzzIsActive = compatibilityMode ? options.mode == 3 : options.stageEnabled[3];
+	if (options.model == vekt::rav::RavProcessingModel::fuzzCircuitCandidate && fuzzIsActive)
+		return "fuzz-circuit";
+	return "legacy";
+}
+
+[[nodiscard]] std::optional<InputFile> loadInputFile(const juce::String& path, juce::String& error)
+{
+	juce::AudioFormatManager formats;
+	formats.registerBasicFormats();
+	const auto file = juce::File(path);
+	std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(file));
+	if (reader == nullptr)
+	{
+		error = "Unable to decode input audio";
+		return std::nullopt;
+	}
+	if (reader->numChannels < 1 || reader->numChannels > 2 || reader->lengthInSamples <= 0
+		|| reader->sampleRate <= 0.0 || !std::isfinite(reader->sampleRate))
+	{
+		error = "Input audio must be a non-empty mono or stereo file with a valid sample rate";
+		return std::nullopt;
+	}
+	if (reader->lengthInSamples > static_cast<juce::int64>(std::numeric_limits<int>::max()))
+	{
+		error = "Input audio exceeds the renderer's maximum in-memory length";
+		return std::nullopt;
+	}
+	InputFile result { juce::AudioBuffer<float>(static_cast<int>(reader->numChannels),
+		static_cast<int>(reader->lengthInSamples)), reader->sampleRate };
+	if (!reader->read(&result.samples, 0, result.samples.getNumSamples(), 0, true, true))
+	{
+		error = "Unable to read input audio";
+		return std::nullopt;
+	}
+	return result;
 }
 
 void setParameter(vekt::rav::PluginProcessor& processor, const char* identifier, float value)
@@ -152,15 +287,49 @@ int main(int argc, char** argv)
 	if (!parseOptions(argc, argv, options))
 	{
 		std::cerr << "Usage: VektRavRender [--source sine|sawtooth|sweep|impulse|noise|kick|unison|two-tone] "
+					 "[--input path] [--model legacy|behavioral|overdrive-circuit|fuzz-circuit] "
 					 "[--profile tracking|offline] [--quality 0-6] [--sample-rate Hz] [--block-size samples] "
 					 "[--seconds duration] [--warmup duration] [--frequency Hz] [--mode 0-3] "
 					 "[--drive dB] [--bias value] [--shape value] [--dynamics value] [--texture value] "
 					 "[--tone dB] [--mix percent] [--low-mix percent] [--mid-mix percent] "
-					 "[--high-mix percent] [--auto-gain] [--seed value] [--report path] [--wav path]\n";
+					 "[--high-mix percent] [--input-gain dB] [--stages 0000-1111] [--stage-order 0,1,2,3] "
+					 "[--auto-gain] [--seed value] [--report path] [--wav path]\n";
 		return 64;
+	}
+	std::optional<InputFile> inputFile;
+	if (options.inputPath.isNotEmpty())
+	{
+		juce::String inputError;
+		inputFile = loadInputFile(options.inputPath, inputError);
+		if (!inputFile)
+		{
+			std::cerr << inputError << '\n';
+			return 1;
+		}
+		if (std::abs(inputFile->sampleRate - options.sampleRate) > 1.0e-6)
+		{
+			std::cerr << "Input audio sample rate must match --sample-rate; resampling is intentionally excluded from comparison renders\n";
+			return 1;
+		}
 	}
 
 	vekt::rav::PluginProcessor processor;
+	processor.setDevelopmentProcessingModel(options.model);
+	for (std::size_t index = 0; index < options.stageEnabled.size(); ++index)
+		setParameter(processor, vekt::rav::parameters::stageEnabledIds[index],
+			options.stageEnabled[index] ? 1.0f : 0.0f);
+	for (std::size_t index = 0; index < options.stageOrder.size(); ++index)
+	{
+		const auto currentOrder = processor.getStageOrder();
+		const auto desired = options.stageOrder[index];
+		const auto current = std::find(currentOrder.begin(), currentOrder.end(), desired);
+		if (current == currentOrder.end())
+			return 1;
+		const auto currentIndex = static_cast<std::size_t>(std::distance(currentOrder.begin(), current));
+		if (!processor.reorderStage(currentIndex, static_cast<int>(index) - static_cast<int>(currentIndex)))
+			return 1;
+	}
+	setParameter(processor, vekt::rav::parameters::inputGain, options.inputGainDb);
 	setParameter(processor, vekt::rav::parameters::mode, static_cast<float>(options.mode));
 	setParameter(processor, vekt::rav::parameters::drive, options.drive);
 	setParameter(processor, vekt::rav::parameters::bias, options.bias);
@@ -184,10 +353,10 @@ int main(int argc, char** argv)
 	vekt::audio_lab::SignalSource source(options.source, options.sampleRate, options.seed);
 	source.setFrequency(options.frequencyHz);
 	juce::MidiBuffer midi;
-	double sumSquares = 0.0;
-	double sum = 0.0;
+	std::array<ChannelMeasurements, 2> measurements;
 	double processTicks = 0.0;
-	float peak = 0.0f;
+	double maximumBlockTicks {};
+	std::int64_t measuredBlockCount {};
 	std::vector<float> spectrumSamples;
 	spectrumSamples.reserve(static_cast<std::size_t>(options.spectrumSize));
 	juce::WavAudioFormat wavFormat;
@@ -210,22 +379,33 @@ int main(int argc, char** argv)
 		juce::AudioBuffer<float> buffer(2, blockSize);
 		for (int sample = 0; sample < blockSize; ++sample)
 		{
-			buffer.setSample(0, sample, source.next(offset + sample, 0));
-			buffer.setSample(1, sample, source.next(offset + sample, 1));
+			if (inputFile)
+			{
+				const auto sourceSample = static_cast<int>((offset + sample) % inputFile->samples.getNumSamples());
+				buffer.setSample(0, sample, inputFile->samples.getSample(0, sourceSample));
+				buffer.setSample(1, sample, inputFile->samples.getSample(
+					inputFile->samples.getNumChannels() == 1 ? 0 : 1, sourceSample));
+			}
+			else
+			{
+				buffer.setSample(0, sample, source.next(offset + sample, 0));
+				buffer.setSample(1, sample, source.next(offset + sample, 1));
+			}
 		}
 		const auto startTicks = juce::Time::getHighResolutionTicks();
 		processor.processBlock(buffer, midi);
 		if (!measure)
 			return true;
-		processTicks += static_cast<double>(juce::Time::getHighResolutionTicks() - startTicks);
+		const auto blockTicks = static_cast<double>(juce::Time::getHighResolutionTicks() - startTicks);
+		processTicks += blockTicks;
+		maximumBlockTicks = std::max(maximumBlockTicks, blockTicks);
+		++measuredBlockCount;
 		for (int sample = 0; sample < blockSize; ++sample)
 		{
-			const auto value = buffer.getSample(0, sample);
-			sumSquares += static_cast<double>(value) * value;
-			sum += value;
-			peak = std::max(peak, std::abs(value));
+			measurements[0].add(buffer.getSample(0, sample));
+			measurements[1].add(buffer.getSample(1, sample));
 			if (spectrumSamples.size() < static_cast<std::size_t>(options.spectrumSize))
-				spectrumSamples.push_back(value);
+				spectrumSamples.push_back(buffer.getSample(0, sample));
 		}
 		if (wavWriter != nullptr && !wavWriter->writeFromAudioSampleBuffer(buffer, 0, blockSize))
 		{
@@ -243,12 +423,14 @@ int main(int argc, char** argv)
 				totalSamples - offset)), true))
 			return 1;
 
-	const auto rms = std::sqrt(sumSquares / static_cast<double>(totalSamples));
-	const auto dc = sum / static_cast<double>(totalSamples);
 	const auto processingSeconds = processTicks
 		/ static_cast<double>(juce::Time::getHighResolutionTicksPerSecond());
 	const auto cpuPercent = 100.0 * processingSeconds / options.seconds;
 	const auto nanosecondsPerSample = 1.0e9 * processingSeconds / static_cast<double>(totalSamples);
+	const auto maximumBlockMicroseconds = 1.0e6 * maximumBlockTicks
+		/ static_cast<double>(juce::Time::getHighResolutionTicksPerSecond());
+	const auto meanBlockMicroseconds = 1.0e6 * processTicks / static_cast<double>(measuredBlockCount)
+		/ static_cast<double>(juce::Time::getHighResolutionTicksPerSecond());
 	std::optional<double> spectrumPeakDbfs;
 	if (options.spectrumSize > 0
 		&& spectrumSamples.size() == static_cast<std::size_t>(options.spectrumSize))
@@ -270,10 +452,14 @@ int main(int argc, char** argv)
 		spectrumPeakDbfs = juce::Decibels::gainToDecibels(
 			2.0 * static_cast<double>(peakMagnitude) / windowSum, -200.0);
 	}
-	std::cout << "samples=" << totalSamples << " rms=" << rms
-		<< " peak=" << peak << " dc=" << dc << " latency=" << processor.getLatencySamples()
+	std::cout << "samples=" << totalSamples << " rms_left=" << measurements[0].rms(totalSamples)
+		<< " rms_right=" << measurements[1].rms(totalSamples)
+		<< " peak_left=" << measurements[0].peak << " peak_right=" << measurements[1].peak
+		<< " dc_left=" << measurements[0].dc(totalSamples) << " dc_right=" << measurements[1].dc(totalSamples)
+		<< " latency=" << processor.getLatencySamples()
 		<< " quality=" << qualityName(processor.getActiveQuality())
-		<< " cpu_percent=" << cpuPercent << " ns_per_sample=" << nanosecondsPerSample;
+		<< " cpu_percent=" << cpuPercent << " ns_per_sample=" << nanosecondsPerSample
+		<< " mean_block_us=" << meanBlockMicroseconds << " max_block_us=" << maximumBlockMicroseconds;
 	if (spectrumPeakDbfs)
 		std::cout << " spectrum_peak_dbfs=" << *spectrumPeakDbfs;
 	std::cout << '\n';
@@ -284,14 +470,25 @@ int main(int argc, char** argv)
 			"  \"sample_rate\": " + juce::String(options.sampleRate) + ",\n"
 			"  \"block_size\": " + juce::String(options.blockSize) + ",\n"
 			"  \"warmup_seconds\": " + juce::String(options.warmupSeconds) + ",\n"
-			"  \"source\": " + juce::JSON::toString(sourceName(options.source)) + ",\n"
+			"  \"source\": " + juce::JSON::toString(options.inputPath.isNotEmpty() ? "file" : sourceName(options.source)) + ",\n"
+			"  \"input_path\": " + (options.inputPath.isNotEmpty()
+				? juce::JSON::toString(options.inputPath) : juce::String("null")) + ",\n"
 			"  \"frequency_hz\": " + juce::String(options.frequencyHz) + ",\n"
 			"  \"seed\": " + juce::String(static_cast<juce::int64>(options.seed)) + ",\n"
 			"  \"mode\": " + juce::String(options.mode) + ",\n"
+			"  \"requested_model\": " + juce::JSON::toString(modelName(options.model)) + ",\n"
+			"  \"active_model\": " + juce::JSON::toString(activeModelName(options)) + ",\n"
+			"  \"stage_enabled\": " + juce::JSON::toString(
+				juce::String(options.stageEnabled[0] ? "1" : "0")
+					+ (options.stageEnabled[1] ? "1" : "0")
+					+ (options.stageEnabled[2] ? "1" : "0")
+					+ (options.stageEnabled[3] ? "1" : "0")) + ",\n"
+			"  \"stage_order\": " + juce::JSON::toString(vekt::rav::RavStageChain::serialise(options.stageOrder)) + ",\n"
 			"  \"profile\": " + juce::JSON::toString(options.offlineProfile ? "offline" : "tracking") + ",\n"
 			"  \"requested_quality_index\": " + juce::String(options.qualityIndex) + ",\n"
 			"  \"quality\": " + juce::JSON::toString(qualityName(processor.getActiveQuality())) + ",\n"
 			"  \"parameters\": {\n"
+			"    \"input_gain_db\": " + juce::String(options.inputGainDb) + ",\n"
 			"    \"drive_db\": " + juce::String(options.drive) + ",\n"
 			"    \"bias\": " + juce::String(options.bias) + ",\n"
 			"    \"shape\": " + juce::String(options.shape) + ",\n"
@@ -305,11 +502,18 @@ int main(int argc, char** argv)
 			"    \"auto_gain\": " + juce::String(options.autoGain ? "true" : "false") + "\n"
 			"  },\n"
 			"  \"latency_samples\": " + juce::String(processor.getLatencySamples()) + ",\n"
-			"  \"rms\": " + juce::String(rms, 12) + ",\n"
-			"  \"peak\": " + juce::String(peak, 12) + ",\n"
-			"  \"dc\": " + juce::String(dc, 12) + ",\n"
+			"  \"channels\": [\n"
+			"    {\"rms\": " + juce::String(measurements[0].rms(totalSamples), 12)
+				+ ", \"peak\": " + juce::String(measurements[0].peak, 12)
+				+ ", \"dc\": " + juce::String(measurements[0].dc(totalSamples), 12) + "},\n"
+			"    {\"rms\": " + juce::String(measurements[1].rms(totalSamples), 12)
+				+ ", \"peak\": " + juce::String(measurements[1].peak, 12)
+				+ ", \"dc\": " + juce::String(measurements[1].dc(totalSamples), 12) + "}\n"
+			"  ],\n"
 			"  \"cpu_percent\": " + juce::String(cpuPercent, 12) + ",\n"
 			"  \"nanoseconds_per_sample\": " + juce::String(nanosecondsPerSample, 12) + ",\n"
+			"  \"mean_block_microseconds\": " + juce::String(meanBlockMicroseconds, 12) + ",\n"
+			"  \"maximum_block_microseconds\": " + juce::String(maximumBlockMicroseconds, 12) + ",\n"
 			"  \"spectrum_peak_dbfs\": " + (spectrumPeakDbfs
 				? juce::String(*spectrumPeakDbfs, 12) : juce::String("null")) + "\n"
 			"}\n";
