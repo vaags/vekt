@@ -5,66 +5,6 @@
 
 namespace vekt::rav
 {
-PluginEditor::StageBox::StageBox(juce::String name)
-	: Button(std::move(name))
-{
-	setClickingTogglesState(true);
-	setTooltip("Click to enable or disable; drag to reorder the signal path");
-}
-
-void PluginEditor::StageBox::paintButton(juce::Graphics& graphics, bool isMouseOverButton,
-	bool isButtonDown)
-{
-	const auto bounds = getLocalBounds().toFloat().reduced(0.5f);
-	const auto fill = getToggleState() ? juce::Colour::fromRGB(82, 116, 108)
-		: juce::Colour::fromRGB(31, 36, 38);
-	graphics.setColour(isButtonDown ? fill.brighter(0.12f)
-		: isMouseOverButton ? fill.brighter(0.06f) : fill);
-	graphics.fillRoundedRectangle(bounds, 4.0f);
-	graphics.setColour(getToggleState() ? juce::Colour::fromRGB(123, 191, 173)
-		: juce::Colour::fromRGB(75, 84, 87));
-	graphics.drawRoundedRectangle(bounds, 4.0f, 1.0f);
-	graphics.setColour(juce::Colour::fromRGB(224, 226, 220));
-	graphics.setFont(juce::FontOptions(16.0f).withStyle("Bold"));
-	graphics.drawText(getButtonText(), getLocalBounds().reduced(24, 0).withTrimmedBottom(14), juce::Justification::centred);
-	graphics.setFont(juce::FontOptions(11.0f));
-	graphics.drawText(getToggleState() ? "ON" : "OFF", getLocalBounds().removeFromBottom(18), juce::Justification::centred);
-	for (int row = 0; row < 3; ++row)
-		for (int column = 0; column < 2; ++column)
-			graphics.fillEllipse(10.0f + static_cast<float>(column) * 5.0f,
-				16.0f + static_cast<float>(row) * 5.0f, 2.0f, 2.0f);
-}
-
-void PluginEditor::StageBox::mouseDown(const juce::MouseEvent& event)
-{
-	wasDragged = false;
-	dragOffset = event.getPosition();
-}
-
-void PluginEditor::StageBox::mouseDrag(const juce::MouseEvent& event)
-{
-	if (event.getDistanceFromDragStart() > 4)
-	{
-		wasDragged = true;
-		setAlpha(0.65f);
-		toFront(false);
-		if (onDrag != nullptr && getParentComponent() != nullptr)
-			onDrag(*this, event.getEventRelativeTo(getParentComponent()).getPosition() - dragOffset);
-	}
-}
-
-void PluginEditor::StageBox::mouseUp(const juce::MouseEvent& event)
-{
-	setAlpha(1.0f);
-	if (wasDragged)
-	{
-		if (onDrop != nullptr && getParentComponent() != nullptr)
-			onDrop(*this, event.getEventRelativeTo(getParentComponent()).getPosition());
-		return;
-	}
-	triggerClick();
-}
-
 namespace
 {
 constexpr std::array parameterIds {
@@ -108,23 +48,22 @@ constexpr int lowerPanelTop = headerTop + panelHeight + panelGap;
 }
 
 PluginEditor::PluginEditor(PluginProcessor& plugin)
-	: ScalableEditor(plugin), pluginProcessor(plugin), presetBrowser(plugin.getPresetSession())
+	: ScalableEditor(plugin), pluginProcessor(plugin), presetBrowser(plugin.getPresetSession()),
+	  historyControls(plugin.getUndoManager())
 {
 	setLookAndFeel(&lookAndFeel);
 	title.setText("VEKT  RAV", juce::dontSendNotification);
 	title.setFont(juce::FontOptions(24.0f).withStyle("Bold"));
 	qualityLabel.setFont(juce::FontOptions(14.0f));
 	meterLabel.setFont(juce::FontOptions(14.0f));
-	presetLabel.setTitle("Open preset browser");
-	presetLabel.setTooltip("Browse, load and save presets");
 	getContent().addChildComponent(presetBrowser);
-	presetLabel.onClick = [this]
+	presetNavigation.onBrowse = [this]
 	{
 		presetBrowser.refresh();
 		presetBrowser.setVisible(true);
 		presetBrowser.toFront(true);
 	};
-	presetBrowser.onClose = [this] { presetBrowser.setVisible(false); presetLabel.grabKeyboardFocus(); };
+	presetBrowser.onClose = [this] { presetBrowser.setVisible(false); presetNavigation.focusPreset(); };
 	presetBrowser.onSoundChanged = [this] { syncStageBoxOrder(); refreshPresetLabel(); };
 	qualityLabel.setJustificationType(juce::Justification::centredRight);
 	meterLabel.setJustificationType(juce::Justification::centred);
@@ -133,9 +72,8 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 		static_cast<juce::Component*>(&bandMixPanel), static_cast<juce::Component*>(&crossoverPanel), static_cast<juce::Component*>(&outputPanel) })
 		getContent().addAndMakeVisible(*panel);
 	for (auto* component : { static_cast<juce::Component*>(&title),
-							static_cast<juce::Component*>(&presetLabel), static_cast<juce::Component*>(&stageHeader),
-							static_cast<juce::Component*>(&previousButton), static_cast<juce::Component*>(&nextButton),
-							static_cast<juce::Component*>(&undoButton), static_cast<juce::Component*>(&redoButton),
+							static_cast<juce::Component*>(&presetNavigation), static_cast<juce::Component*>(&stageHeader),
+							static_cast<juce::Component*>(&historyControls),
 							static_cast<juce::Component*>(&modeBox) })
 	{
 		getContent().addAndMakeVisible(*component);
@@ -293,11 +231,10 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 		if (result.wasOk()) syncStageBoxOrder();
 		refreshPresetLabel();
 	};
-	previousButton.onClick = [this, reportLoad] { reportLoad(pluginProcessor.loadPreviousPreset()); };
-	nextButton.onClick = [this, reportLoad] { reportLoad(pluginProcessor.loadNextPreset()); };
-	undoButton.onClick = [this] { pluginProcessor.getUndoManager().undo(); refreshPresetLabel(); };
-	redoButton.onClick = [this]
-	{ pluginProcessor.getUndoManager().redo(); refreshPresetLabel(); };
+	presetNavigation.onPrevious = [this, reportLoad] { reportLoad(pluginProcessor.loadPreviousPreset()); };
+	presetNavigation.onNext = [this, reportLoad] { reportLoad(pluginProcessor.loadNextPreset()); };
+	historyControls.beforeAction = [this] { juce::ignoreUnused(pluginProcessor.getParameters().copyState()); };
+	historyControls.onChange = [this] { syncStageBoxOrder(); refreshPresetLabel(); };
 	refreshPresetLabel();
 	resized();
 	timerCallback();
@@ -357,12 +294,9 @@ void PluginEditor::resized()
 	toolbar.alignItems = juce::FlexBox::AlignItems::center;
 	toolbar.items.add(juce::FlexItem(title).withWidth(156.0f).withHeight(44.0f));
 	toolbar.items.add(juce::FlexItem().withFlex(1.0f));
-	toolbar.items.add(juce::FlexItem(previousButton).withWidth(36.0f).withHeight(44.0f));
-	toolbar.items.add(juce::FlexItem(presetLabel).withWidth(240.0f).withHeight(44.0f).withMargin({ 0.0f, 4.0f, 0.0f, 4.0f }));
-	toolbar.items.add(juce::FlexItem(nextButton).withWidth(36.0f).withHeight(44.0f).withMargin({ 0.0f, 12.0f, 0.0f, 4.0f }));
+	toolbar.items.add(juce::FlexItem(presetNavigation).withWidth(324.0f).withHeight(44.0f).withMargin({ 0.0f, 12.0f, 0.0f, 0.0f }));
 	toolbar.items.add(juce::FlexItem().withFlex(1.0f));
-	toolbar.items.add(juce::FlexItem(undoButton).withWidth(72.0f).withHeight(44.0f).withMargin({ 0.0f, 4.0f, 0.0f, 4.0f }));
-	toolbar.items.add(juce::FlexItem(redoButton).withWidth(72.0f).withHeight(44.0f).withMargin({ 0.0f, 4.0f, 0.0f, 4.0f }));
+	toolbar.items.add(juce::FlexItem(historyControls).withWidth(152.0f).withHeight(44.0f).withMargin({ 0.0f, 4.0f, 0.0f, 4.0f }));
 	toolbar.items.add(juce::FlexItem(settingsButton).withWidth(88.0f).withHeight(44.0f).withMargin({ 0.0f, 8.0f, 0.0f, 8.0f }));
 	toolbar.items.add(juce::FlexItem(bypassButton).withWidth(84.0f).withHeight(44.0f));
 	toolbar.performLayout(contentBounds.withX(layout::topBarMargin).withY(layout::topBarTop)
@@ -434,8 +368,7 @@ void PluginEditor::timerCallback()
 	outputMeter.setStereoLevels(newOutputPeaks);
 	const auto quality = pluginProcessor.getActiveQuality();
 	qualityLabel.setText("Quality: " + juce::String(static_cast<int>(quality.multiplier())) + "x " + (quality.filter == dsp::OversamplingFilter::polyphaseFIR ? "FIR" : "IIR") + (pluginProcessor.hasPendingQualityChange() ? " (pending)" : ""), juce::dontSendNotification);
-	undoButton.setEnabled(pluginProcessor.getUndoManager().canUndo());
-	redoButton.setEnabled(pluginProcessor.getUndoManager().canRedo());
+	historyControls.refresh();
 	repaint();
 }
 
@@ -443,8 +376,8 @@ void PluginEditor::refreshPresetLabel()
 {
 	const auto index = pluginProcessor.getCurrentPresetIndex();
 	const auto& entries = pluginProcessor.getPresetEntries();
-	presetLabel.setButtonText(index && *index < entries.size() ? entries[*index].name
-		+ (pluginProcessor.isCurrentPresetModified() ? " *" : "") : "Untitled");
+	presetNavigation.setPreset(index && *index < entries.size() ? entries[*index].name : "Untitled",
+		pluginProcessor.isCurrentPresetModified(), !entries.empty());
 }
 
 void PluginEditor::configureRotary(juce::Component& parent, ui::RotaryControl& control, const juce::String& name,

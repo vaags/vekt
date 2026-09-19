@@ -8,6 +8,17 @@
 
 namespace
 {
+juce::Button* findNamedButton(juce::Component& parent, const juce::String& name)
+{
+	for (auto* child : parent.getChildren())
+	{
+		if (auto* button = dynamic_cast<juce::Button*>(child); button != nullptr && button->getName() == name)
+			return button;
+		if (auto* button = findNamedButton(*child, name)) return button;
+	}
+	return nullptr;
+}
+
 void checkVisibleBounds(juce::Component& parent)
 {
 	for (auto* child : parent.getChildren())
@@ -202,9 +213,7 @@ TEST_CASE("Glimmer editor keeps stereo meters within its canvas", "[processor][u
 	}
 	const auto findButton = [&](const juce::String& name) -> juce::Button&
 	{
-		for (auto* child : editor.getContent().getChildren())
-			if (auto* button = dynamic_cast<juce::Button*>(child); button != nullptr && button->getName() == name)
-				return *button;
+		if (auto* button = findNamedButton(editor.getContent(), name)) return *button;
 		FAIL("Missing button " << name.toStdString());
 		std::abort();
 	};
@@ -212,13 +221,41 @@ TEST_CASE("Glimmer editor keeps stereo meters within its canvas", "[processor][u
 	auto& drum = findButton("Drum model");
 	auto& wide = findButton("Wide model");
 	auto& preset = findButton("Open preset browser");
+	auto& undo = findButton("Undo");
+	auto& redo = findButton("Redo");
+	auto* history = dynamic_cast<vekt::ui::UndoRedoControls*>(undo.getParentComponent());
+	REQUIRE(history != nullptr);
+	auto* classicMode = dynamic_cast<vekt::ui::ModeButton*>(&classic);
+	REQUIRE(classicMode != nullptr);
+	REQUIRE(classic.getY() == 80);
+	REQUIRE(drum.getY() == classic.getY());
+	REQUIRE(wide.getY() == classic.getY());
+	REQUIRE(classic.getWidth() > 300);
+	REQUIRE_FALSE(classicMode->onDrag);
+	REQUIRE_FALSE(classicMode->onDrop);
 	REQUIRE(preset.getButtonText() == "Classic Chorale");
 	REQUIRE(classic.getToggleState());
+	juce::ignoreUnused(processor.getParameters().copyState());
+	processor.getUndoManager().clearUndoHistory();
+	history->refresh();
+	REQUIRE_FALSE(undo.isEnabled());
+	REQUIRE_FALSE(redo.isEnabled());
 	wide.setToggleState(true, juce::sendNotificationSync);
 	REQUIRE_FALSE(classic.getToggleState());
 	REQUIRE_FALSE(drum.getToggleState());
 	REQUIRE(wide.getToggleState());
 	REQUIRE(processor.getParameters().getRawParameterValue(vekt::glimmer::parameters::cabinetModel)->load() == Catch::Approx(2));
+	REQUIRE(preset.getButtonText() == "Classic Chorale *");
+	juce::ignoreUnused(processor.getParameters().copyState());
+	history->refresh();
+	REQUIRE(undo.isEnabled());
+	undo.onClick();
+	REQUIRE(classic.getToggleState());
+	REQUIRE_FALSE(wide.getToggleState());
+	REQUIRE(preset.getButtonText() == "Classic Chorale");
+	REQUIRE(redo.isEnabled());
+	redo.onClick();
+	REQUIRE(wide.getToggleState());
 	REQUIRE(preset.getButtonText() == "Classic Chorale *");
 	wide.onClick();
 	REQUIRE(wide.getToggleState());
@@ -226,6 +263,12 @@ TEST_CASE("Glimmer editor keeps stereo meters within its canvas", "[processor][u
 	REQUIRE(drum.getToggleState());
 	REQUIRE_FALSE(wide.getToggleState());
 	findButton("Next preset").onClick();
+	REQUIRE(preset.getButtonText() == "Dynamic Drum");
+	undo.onClick();
+	REQUIRE(processor.getParameters().getRawParameterValue(vekt::glimmer::parameters::speedMode)->load() == Catch::Approx(1));
+	REQUIRE(preset.getButtonText() == "Dynamic Drum *");
+	redo.onClick();
+	REQUIRE(processor.getParameters().getRawParameterValue(vekt::glimmer::parameters::speedMode)->load() == Catch::Approx(2));
 	REQUIRE(preset.getButtonText() == "Dynamic Drum");
 	findButton("Previous preset").onClick();
 	REQUIRE(preset.getButtonText() == "Baffle Drive");
@@ -271,6 +314,92 @@ TEST_CASE("Glimmer editor keeps stereo meters within its canvas", "[processor][u
 	}
 	browser->onClose();
 	REQUIRE_FALSE(browser->isVisible());
+}
+
+TEST_CASE("Shared mode controls reorder only when enabled", "[processor][ui]")
+{
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	for (const auto reorderable : { false, true })
+	{
+		juce::Component parent;
+		parent.setSize(400, 100);
+		vekt::ui::ModeButton mode("Model", reorderable);
+		parent.addAndMakeVisible(mode);
+		mode.setBounds(16, 16, 180, 48);
+		mode.setMouseClickGrabsKeyboardFocus(false);
+		int drags = 0;
+		int drops = 0;
+		mode.onDrag = [&](auto&, auto) { ++drags; };
+		mode.onDrop = [&](auto&, auto) { ++drops; };
+		const auto bounds = mode.getBounds();
+		const auto event = [&](juce::Point<float> position, bool dragged)
+		{
+			return juce::MouseEvent(juce::Desktop::getInstance().getMainMouseSource(), position,
+				juce::ModifierKeys(juce::ModifierKeys::leftButtonModifier), 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+				&mode, &mode, juce::Time::getCurrentTime(), { 10.0f, 10.0f }, juce::Time::getCurrentTime(), 1, dragged);
+		};
+		mode.mouseDown(event({ 10.0f, 10.0f }, false));
+		mode.mouseDrag(event({ 50.0f, 10.0f }, true));
+		mode.mouseUp(event({ 50.0f, 10.0f }, true));
+		REQUIRE(drags == (reorderable ? 1 : 0));
+		REQUIRE(drops == (reorderable ? 1 : 0));
+		REQUIRE(mode.getBounds() == bounds);
+		REQUIRE(mode.getAlpha() == Catch::Approx(1.0f));
+	}
+}
+
+TEST_CASE("Shared editor history controls undo and redo parameter gestures", "[processor][ui]")
+{
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	const auto checkHistory = [](auto& processor, auto& editor, const char* identifier)
+	{
+		auto* undo = findNamedButton(editor.getContent(), "Undo");
+		auto* redo = findNamedButton(editor.getContent(), "Redo");
+		REQUIRE(undo != nullptr);
+		REQUIRE(redo != nullptr);
+		auto* history = dynamic_cast<vekt::ui::UndoRedoControls*>(undo->getParentComponent());
+		REQUIRE(history != nullptr);
+		juce::ignoreUnused(processor.getParameters().copyState());
+		processor.getUndoManager().clearUndoHistory();
+		history->refresh();
+		REQUIRE_FALSE(undo->isEnabled());
+		REQUIRE_FALSE(redo->isEnabled());
+		auto* parameter = processor.getParameters().getParameter(identifier);
+		const auto original = parameter->getValue();
+		parameter->beginChangeGesture();
+		parameter->setValueNotifyingHost(parameter->convertTo0to1(6.0f));
+		parameter->endChangeGesture();
+		juce::ignoreUnused(processor.getParameters().copyState());
+		history->refresh();
+		REQUIRE(undo->isEnabled());
+		REQUIRE(undo->getTooltip().startsWith("Undo"));
+		parameter->setValueNotifyingHost(parameter->convertTo0to1(9.0f));
+		undo->onClick();
+		REQUIRE(parameter->getValue() == Catch::Approx(original));
+		REQUIRE(redo->isEnabled());
+		redo->onClick();
+		REQUIRE(parameter->convertFrom0to1(parameter->getValue()) == Catch::Approx(9.0f));
+		REQUIRE_FALSE(redo->isEnabled());
+		undo->onClick();
+		parameter->beginChangeGesture();
+		parameter->setValueNotifyingHost(parameter->convertTo0to1(3.0f));
+		parameter->endChangeGesture();
+		juce::ignoreUnused(processor.getParameters().copyState());
+		history->refresh();
+		REQUIRE_FALSE(redo->isEnabled());
+	};
+	SECTION("Glimmer")
+	{
+		vekt::glimmer::PluginProcessor processor;
+		vekt::glimmer::PluginEditor editor(processor);
+		checkHistory(processor, editor, vekt::glimmer::parameters::inputGain);
+	}
+	SECTION("RAV")
+	{
+		vekt::rav::PluginProcessor processor;
+		vekt::rav::PluginEditor editor(processor);
+		checkHistory(processor, editor, vekt::rav::parameters::inputGain);
+	}
 }
 
 TEST_CASE("Rotary numeric entry preserves precision and supports undo", "[ui]")

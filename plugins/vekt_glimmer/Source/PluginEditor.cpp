@@ -4,34 +4,18 @@
 
 namespace vekt::glimmer
 {
-void PluginEditor::ModelButton::paintButton(juce::Graphics& graphics, bool isMouseOverButton, bool isButtonDown)
-{
-	const auto bounds = getLocalBounds().toFloat().reduced(0.5f);
-	const auto fill = getToggleState() ? juce::Colour::fromRGB(82, 116, 108)
-		: juce::Colour::fromRGB(31, 36, 38);
-	graphics.setColour(isButtonDown ? fill.brighter(0.12f)
-		: isMouseOverButton ? fill.brighter(0.06f) : fill);
-	graphics.fillRoundedRectangle(bounds, 4.0f);
-	graphics.setColour(getToggleState() ? juce::Colour::fromRGB(123, 191, 173)
-		: juce::Colour::fromRGB(75, 84, 87));
-	graphics.drawRoundedRectangle(bounds, 4.0f, hasKeyboardFocus(true) ? 2.0f : 1.0f);
-	graphics.setColour(juce::Colour::fromRGB(224, 226, 220));
-	graphics.setFont(juce::FontOptions(16.0f).withStyle("Bold"));
-	graphics.drawText(getButtonText(), getLocalBounds().reduced(4, 0).withTrimmedBottom(14), juce::Justification::centred);
-	graphics.setFont(juce::FontOptions(11.0f));
-	graphics.drawText(getToggleState() ? "SELECTED" : "", getLocalBounds().removeFromBottom(18), juce::Justification::centred);
-}
-
 PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	: ScalableEditor(newProcessor), pluginProcessor(newProcessor),
+	  historyControls(newProcessor.getUndoManager()),
 	  presetBrowser(newProcessor.getPresetSession())
 {
 	setLookAndFeel(&lookAndFeel);
 	title.setText("VEKT  GLIMMER", juce::dontSendNotification);
 	title.setFont(juce::FontOptions(24.0f).withStyle("Bold"));
-	presetButton.setName("Open preset browser");
-	presetButton.setTooltip("Browse, load and save presets");
-	presetButton.onClick = [this]
+	modelHeader.setText("Model", juce::dontSendNotification);
+	historyControls.beforeAction = [this] { juce::ignoreUnused(pluginProcessor.getParameters().copyState()); };
+	historyControls.onChange = [this] { timerCallback(); };
+	presetNavigation.onBrowse = [this]
 	{
 		presetBrowser.refresh();
 		presetBrowser.setVisible(true);
@@ -40,11 +24,9 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	presetBrowser.onClose = [this]
 	{
 		presetBrowser.setVisible(false);
-		if (presetButton.isShowing()) presetButton.grabKeyboardFocus();
+		presetNavigation.focusPreset();
 	};
 	presetBrowser.onSoundChanged = [this] { refreshPresetLabel(); };
-	previousButton.setTooltip("Previous preset");
-	nextButton.setTooltip("Next preset");
 	const auto reportLoad = [this](const juce::Result& result)
 	{
 		if (result.failed())
@@ -56,15 +38,15 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 		}
 		refreshPresetLabel();
 	};
-	previousButton.onClick = [this, reportLoad] { reportLoad(pluginProcessor.loadPreviousPreset()); };
-	nextButton.onClick = [this, reportLoad] { reportLoad(pluginProcessor.loadNextPreset()); };
+	presetNavigation.onPrevious = [this, reportLoad] { reportLoad(pluginProcessor.loadPreviousPreset()); };
+	presetNavigation.onNext = [this, reportLoad] { reportLoad(pluginProcessor.loadNextPreset()); };
 	autoTargetLabel.setJustificationType(juce::Justification::centred);
 	for (auto* panel : { &rotationPanel, &microphonePanel, &tonePanel, &ioPanel })
 		getContent().addAndMakeVisible(*panel);
 	getContent().addAndMakeVisible(title);
-	getContent().addAndMakeVisible(presetButton);
-	getContent().addAndMakeVisible(previousButton);
-	getContent().addAndMakeVisible(nextButton);
+	getContent().addAndMakeVisible(modelHeader);
+	getContent().addAndMakeVisible(historyControls);
+	getContent().addAndMakeVisible(presetNavigation);
 	getContent().addChildComponent(presetBrowser);
 	getContent().addAndMakeVisible(autoTargetLabel);
 
@@ -194,14 +176,13 @@ void PluginEditor::configureRotary(ui::Panel& panel, ui::RotaryControl& control,
 void PluginEditor::refreshPresetLabel()
 {
 	const auto& session = pluginProcessor.getPresetSession();
-	presetButton.setButtonText(session.loaded() ? session.loaded()->name + (session.modified() ? " *" : "") : "Untitled");
 	const auto available = !pluginProcessor.getPresetSession().library().entries().empty();
-	previousButton.setEnabled(available);
-	nextButton.setEnabled(available);
+	presetNavigation.setPreset(session.loaded() ? session.loaded()->name : "Untitled", session.modified(), available);
 }
 
 void PluginEditor::timerCallback()
 {
+	historyControls.refresh();
 	refreshPresetLabel();
 	inputMeter.setStereoLevels(pluginProcessor.consumeInputPeaks());
 	outputMeter.setStereoLevels(pluginProcessor.consumeOutputPeaks());
@@ -243,38 +224,38 @@ void PluginEditor::resized()
 	ScalableEditor::resized();
 	auto& content = getContent();
 	title.setBounds(16, 16, 224, 36);
-	previousButton.setBounds(244, 22, 24, 24);
-	presetButton.setBounds(274, 12, 182, 44);
-	nextButton.setBounds(462, 22, 24, 24);
+	presetNavigation.setBounds(260, 16, 304, 44);
+	historyControls.setBounds(640, 16, 152, 44);
+	modelHeader.setBounds(16, 60, 160, 20);
 	for (std::size_t index = 0; index < modelButtons.size(); ++index)
-		modelButtons[index].setBounds(510 + static_cast<int>(index) * 104, 8, 96, 48);
+		modelButtons[index].setBounds(16 + static_cast<int>(index) * 338, 80, 332, 48);
 	autoTargetLabel.setBounds(830, 10, 194, 48);
 	presetBrowser.setBounds(content.getLocalBounds().reduced(16));
-	rotationPanel.setBounds(16, 68, 664, 260);
-	microphonePanel.setBounds(696, 68, 328, 260);
-	tonePanel.setBounds(16, 344, 664, 290);
-	ioPanel.setBounds(696, 344, 328, 290);
+	rotationPanel.setBounds(16, 140, 664, 224);
+	microphonePanel.setBounds(696, 140, 328, 224);
+	tonePanel.setBounds(16, 380, 664, 254);
+	ioPanel.setBounds(696, 380, 328, 254);
 	for (std::size_t index = 0; index < rotationControls.size(); ++index)
-		rotationControls[index].setBounds(8 + static_cast<int>(index) * 130, 48, 124, 150);
-	speedModeBox.setBounds(16, 214, 120, 30);
-	manualButton.setBounds(146, 214, 82, 30);
-	speedLabel.setBounds(234, 214, 48, 30);
-	speedSlider.setBounds(282, 214, 254, 30);
-	brakeButton.setBounds(550, 214, 98, 30);
+		rotationControls[index].setBounds(8 + static_cast<int>(index) * 130, 30, 124, 140);
+	speedModeBox.setBounds(16, 180, 120, 30);
+	manualButton.setBounds(146, 180, 82, 30);
+	speedLabel.setBounds(234, 180, 48, 30);
+	speedSlider.setBounds(282, 180, 254, 30);
+	brakeButton.setBounds(550, 180, 98, 30);
 	for (std::size_t index = 0; index < microphoneControls.size(); ++index)
-		microphoneControls[index].setBounds(12 + static_cast<int>(index) * 102, 42, 98, 160);
-	widthLabel.setBounds(12, 214, 48, 30);
-	widthSlider.setBounds(64, 214, 252, 30);
+		microphoneControls[index].setBounds(12 + static_cast<int>(index) * 102, 30, 98, 140);
+	widthLabel.setBounds(12, 180, 48, 30);
+	widthSlider.setBounds(64, 180, 252, 30);
 	for (std::size_t index = 0; index < toneControls.size(); ++index)
-		toneControls[index].setBounds(8 + static_cast<int>(index) * 164, 70, 156, 170);
-	inputFader.setBounds(24, 32, 92, 160);
-	outputFader.setBounds(130, 32, 92, 160);
-	inputMeter.setBounds(238, 36, 28, 156);
-	outputMeter.setBounds(278, 36, 28, 156);
-	bypassButton.setBounds(22, 202, 100, 24);
-	autoGainButton.setBounds(136, 202, 110, 24);
-	trackingQualityBox.setBounds(16, 234, 144, 22);
-	offlineQualityBox.setBounds(168, 234, 144, 22);
+		toneControls[index].setBounds(8 + static_cast<int>(index) * 164, 42, 156, 170);
+	inputFader.setBounds(24, 32, 92, 126);
+	outputFader.setBounds(130, 32, 92, 126);
+	inputMeter.setBounds(238, 36, 28, 122);
+	outputMeter.setBounds(278, 36, 28, 122);
+	bypassButton.setBounds(22, 166, 100, 24);
+	autoGainButton.setBounds(136, 166, 110, 24);
+	trackingQualityBox.setBounds(16, 202, 144, 22);
+	offlineQualityBox.setBounds(168, 202, 144, 22);
 	qualityLabel.setBounds(16, 2, 296, 22);
 	juce::ignoreUnused(content);
 }

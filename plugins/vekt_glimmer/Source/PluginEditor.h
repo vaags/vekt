@@ -3,6 +3,9 @@
 #include "PluginProcessor.h"
 
 #include <vekt/ui/LevelMeter.h>
+#include <vekt/ui/ModeButton.h>
+#include <vekt/ui/PresetNavigation.h>
+#include <vekt/ui/UndoRedoControls.h>
 #include <vekt/ui/Panel.h>
 #include <vekt/ui/RotaryControl.h>
 #include <vekt/ui/ScalableEditor.h>
@@ -23,13 +26,6 @@ public:
 	void resized() override;
 
 private:
-	class ModelButton final : public juce::Button
-	{
-	public:
-		ModelButton() : juce::Button({}) {}
-		void paintButton(juce::Graphics&, bool isMouseOverButton, bool isButtonDown) override;
-	};
-
 	using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
 	using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
 	using ComboBoxAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
@@ -41,9 +37,9 @@ private:
 	PluginProcessor& pluginProcessor;
 	ui::VektLookAndFeel lookAndFeel;
 	juce::Label title;
-	juce::TextButton presetButton { "Presets" };
-	juce::ArrowButton previousButton { "Previous preset", 0.5f, juce::Colour::fromRGB(224, 226, 220) };
-	juce::ArrowButton nextButton { "Next preset", 0.0f, juce::Colour::fromRGB(224, 226, 220) };
+	juce::Label modelHeader;
+	ui::UndoRedoControls historyControls;
+	ui::PresetNavigation presetNavigation;
 	preset_ui::PresetBrowser presetBrowser;
 	juce::Label autoTargetLabel;
 	ui::Panel rotationPanel { "Rotation" };
@@ -57,7 +53,7 @@ private:
 	std::array<ui::RotaryControl, 4> toneControls;
 	std::array<std::unique_ptr<SliderAttachment>, 4> toneAttachments;
 	juce::ComboBox speedModeBox;
-	std::array<ModelButton, 3> modelButtons;
+	std::array<ui::ModeButton, 3> modelButtons;
 	juce::ToggleButton brakeButton { "Brake" };
 	juce::ToggleButton manualButton { "Manual" };
 	juce::Slider speedSlider;

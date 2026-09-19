@@ -473,6 +473,7 @@ juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 	if (!RavStageChain::deserialise(preset.soundState[RavStageChain::metadataPropertyName].toString(), order))
 		return juce::Result::fail("Rav preset stage order is invalid");
 
+	juce::ignoreUnused(parameterState.copyState());
 	undoManager.beginNewTransaction("Load preset: " + preset.name);
 	const auto result = presets::PresetSchema::apply(
 		preset,

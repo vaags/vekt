@@ -3,6 +3,9 @@
 #include "PluginProcessor.h"
 
 #include <vekt/ui/LevelMeter.h>
+#include <vekt/ui/ModeButton.h>
+#include <vekt/ui/PresetNavigation.h>
+#include <vekt/ui/UndoRedoControls.h>
 #include <vekt/ui/Panel.h>
 #include <vekt/ui/RotaryControl.h>
 #include <vekt/ui/ScalableEditor.h>
@@ -25,22 +28,7 @@ public:
 	void resized() override;
 
 private:
-	class StageBox final : public juce::Button
-	{
-	public:
-		explicit StageBox(juce::String name);
-
-		std::function<void(StageBox&, juce::Point<int>)> onDrag;
-		std::function<void(StageBox&, juce::Point<int>)> onDrop;
-		void paintButton(juce::Graphics&, bool isMouseOverButton, bool isButtonDown) override;
-		void mouseDown(const juce::MouseEvent&) override;
-		void mouseDrag(const juce::MouseEvent&) override;
-		void mouseUp(const juce::MouseEvent&) override;
-
-	private:
-		bool wasDragged {};
-		juce::Point<int> dragOffset;
-	};
+	using StageBox = ui::ModeButton;
 
 	using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
 	using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
@@ -56,7 +44,7 @@ private:
 	PluginProcessor& pluginProcessor;
 	ui::VektLookAndFeel lookAndFeel;
 	juce::Label title;
-	juce::TextButton presetLabel;
+	ui::PresetNavigation presetNavigation;
 	preset_ui::PresetBrowser presetBrowser;
 	juce::Label qualityLabel;
 	juce::Label meterLabel;
@@ -73,18 +61,15 @@ private:
 	juce::TextButton settingsButton { "Settings" };
 	juce::TextButton closeSettingsButton { "Close" };
 	juce::Label stageHeader;
-	juce::TextButton previousButton { "<" };
-	juce::TextButton nextButton { ">" };
-	juce::TextButton undoButton { "Undo" };
-	juce::TextButton redoButton { "Redo" };
+	ui::UndoRedoControls historyControls;
 	juce::ToggleButton bypassButton { "Bypass" };
 	juce::ToggleButton autoGainButton { "Auto gain" };
     juce::ComboBox trackingBox;
     juce::ComboBox offlineBox;
     juce::ComboBox modeBox;
-	std::array<StageBox, RavStageChain::stageCount> stageButtons { StageBox { "Saturation" },
-		StageBox { "Overdrive" }, StageBox { "Distortion" }, StageBox { "Circuit Fuzz" },
-		StageBox { "Gated Fuzz" } };
+	std::array<StageBox, RavStageChain::stageCount> stageButtons { StageBox { "Saturation", true },
+		StageBox { "Overdrive", true }, StageBox { "Distortion", true }, StageBox { "Circuit Fuzz", true },
+		StageBox { "Gated Fuzz", true } };
 	std::array<std::unique_ptr<ButtonAttachment>, RavStageChain::stageCount> stageButtonAttachments;
 	std::array<ui::RotaryControl, 6> sliders;
 	std::array<std::unique_ptr<SliderAttachment>, 6> sliderAttachments;

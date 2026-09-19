@@ -18,6 +18,12 @@ Preset workflows are specified separately in [PRESET_UX.md](PRESET_UX.md).
 
 ## Editor frame and layout
 
+- RAV and Glimmer share framework mode buttons, preset navigation and undo/redo
+  controls. Modes occupy their own row below the command bar. RAV permits
+  independent stage toggles and drag reordering; Glimmer's Classic/Drum/Wide
+  selection is exclusive and non-draggable.
+- Undo/redo use named, keyboard-focusable icon buttons with action tooltips and
+  disabled states when unavailable. Changes update the preset's modified marker.
 - Use a 1040 x 650 logical canvas with a 16:10 aspect ratio. Constrain resizing to
   1040 x 650 through 2080 x 1300 and provide a visible bottom-right resize handle.
 - Rav uses a single row of standard-size Drive, Tone, Bias, and Mix controls,

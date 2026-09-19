@@ -20,6 +20,25 @@ state, and format wrappers but do not contain signal-processing algorithms.
 New abstractions must be justified by at least two concrete consumers or by a
 hard ownership boundary. A generic runtime effect graph is outside version 1.
 
+## Shared Editor Controls
+
+RAV and Glimmer consume the same `vekt::ui` controls:
+
+- `ModeButton` owns selection painting and optional drag/drop gestures. RAV
+  enables reordering and binds individual stage toggles; Glimmer uses a radio
+  group bound to its single model parameter. Parameter and signal-path ownership
+  remain in each product.
+- `PresetNavigation` owns the preset-name/modified display, previous/next arrows,
+  accessible names and focus restoration. Callbacks connect it to the product's
+  existing preset session and shared browser; it performs no storage operations.
+- `UndoRedoControls` owns history buttons, availability and action tooltips.
+  Products supply their UndoManager, a pre-action APVTS flush, and a post-action
+  UI refresh. Pending parameter edits are also flushed before a new preset-load
+  transaction so rapid loads preserve a consistent undo/redo baseline.
+
+These controls are independent of product IDs and DSP. Both editors keep their
+own composition/layout and refresh the shared controls on their existing UI timer.
+
 ## Real-Time Contract
 
 Code reachable from `processBlock` must not:
