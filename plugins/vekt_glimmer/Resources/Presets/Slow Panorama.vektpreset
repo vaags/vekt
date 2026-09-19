@@ -1,0 +1,20 @@
+{
+  "format": "vekt.preset",
+  "schemaVersion": 2,
+  "id": "glimmer-slow-panorama",
+  "product": "com.vekt.glimmer",
+  "soundSchemaVersion": 1,
+  "name": "Slow Panorama",
+  "tags": ["Pads", "Slow", "Wide"],
+  "parameters": {
+    "inputGain": 0, "preampDrive": 0, "hornDrumBalance": -10,
+    "micAngle": 110, "micDistance": 2.2,
+    "slowSpeed": 24, "fastSpeed": 300,
+    "accelerationTime": 6, "decelerationTime": 9,
+    "hornTone": -2, "drumTone": 1,
+    "speedMode": 0, "sensitivity": 50, "autoGain": 0,
+    "mix": 80, "outputGain": -3,
+    "cabinetModel": 2, "brake": 0, "stereoWidth": 150,
+    "manualSpeedEnabled": 0, "speedPosition": 0
+  }
+}

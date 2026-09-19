@@ -38,9 +38,9 @@ private:
 	juce::ComboBox folders;
 	juce::Label status, heading;
 	juce::TextButton close { "Close" }, loadButton { "Load" }, saveButton { "Save As" },
-		replaceButton { "Replace…" }, newFolder { "New folder" }, moveButton { "Move to folder" },
-		deleteButton { "Delete…" }, refreshButton { "Refresh" }, updateTags { "Update tags" },
-		importButton { "Import…" }, exportButton { "Export…" };
+		replaceButton { juce::String::fromUTF8("Replace…") }, newFolder { "New folder" }, moveButton { "Move to folder" },
+		deleteButton { juce::String::fromUTF8("Delete…") }, refreshButton { "Refresh" }, updateTags { "Update tags" },
+		importButton { juce::String::fromUTF8("Import…") }, exportButton { juce::String::fromUTF8("Export…") };
 	std::unique_ptr<juce::FileChooser> chooser;
 };
 }

@@ -1,0 +1,20 @@
+{
+  "format": "vekt.preset",
+  "schemaVersion": 2,
+  "id": "glimmer-baffle-drive",
+  "product": "com.vekt.glimmer",
+  "soundSchemaVersion": 1,
+  "name": "Baffle Drive",
+  "tags": ["Guitar", "Fast", "Driven"],
+  "parameters": {
+    "inputGain": 0, "preampDrive": 10, "hornDrumBalance": 0,
+    "micAngle": 35, "micDistance": 0.45,
+    "slowSpeed": 55, "fastSpeed": 330,
+    "accelerationTime": 1.2, "decelerationTime": 2.8,
+    "hornTone": 0, "drumTone": -2,
+    "speedMode": 1, "sensitivity": 50, "autoGain": 1,
+    "mix": 85, "outputGain": -3,
+    "cabinetModel": 1, "brake": 0, "stereoWidth": 90,
+    "manualSpeedEnabled": 0, "speedPosition": 0
+  }
+}

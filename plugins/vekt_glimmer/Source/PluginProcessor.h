@@ -49,10 +49,10 @@ public:
 	[[nodiscard]] double getTailLengthSeconds() const override { return 0.5; }
 	[[nodiscard]] juce::AudioProcessorParameter* getBypassParameter() const override;
 
-	int getNumPrograms() override { return 1; }
-	int getCurrentProgram() override { return 0; }
-	void setCurrentProgram(int) override {}
-	const juce::String getProgramName(int) override { return {}; }
+	int getNumPrograms() override;
+	int getCurrentProgram() override;
+	void setCurrentProgram(int index) override;
+	const juce::String getProgramName(int index) override;
 	void changeProgramName(int, const juce::String&) override {}
 	void getStateInformation(juce::MemoryBlock& destination) override;
 	void setStateInformation(const void* data, int size) override;
@@ -60,6 +60,8 @@ public:
 	[[nodiscard]] juce::Result applyPreset(const presets::Preset& preset);
 	[[nodiscard]] juce::Result configureUserPresetDirectory(const juce::File& directory);
 	[[nodiscard]] presets::PresetSession& getPresetSession() noexcept { return presetSession; }
+	[[nodiscard]] juce::Result loadNextPreset();
+	[[nodiscard]] juce::Result loadPreviousPreset();
 
 	[[nodiscard]] std::array<float, 2> consumeInputPeaks() noexcept;
 	[[nodiscard]] std::array<float, 2> consumeOutputPeaks() noexcept;
@@ -83,6 +85,7 @@ private:
 	[[nodiscard]] RotarySettings rotarySettings() const noexcept;
 	[[nodiscard]] juce::Result validatePresetSound(const presets::Preset& preset) const;
 	[[nodiscard]] bool matchesPresetSound(const presets::Preset& preset) const;
+	[[nodiscard]] juce::Result loadAdjacentPreset(bool next);
 
 	juce::UndoManager undoManager;
 	juce::AudioProcessorValueTreeState parameterState;

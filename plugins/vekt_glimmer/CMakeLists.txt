@@ -1,4 +1,16 @@
+juce_add_binary_data(VektGlimmerFactoryData
+	NAMESPACE VektGlimmerFactoryData
+	HEADER_NAME GlimmerBinaryData.h
+	SOURCES
+		"Resources/Presets/Classic Chorale.vektpreset"
+		"Resources/Presets/Gospel Spin.vektpreset"
+		"Resources/Presets/Baffle Drive.vektpreset"
+		"Resources/Presets/Dynamic Drum.vektpreset"
+		"Resources/Presets/Glass Motion.vektpreset"
+		"Resources/Presets/Slow Panorama.vektpreset")
+
 add_library(VektGlimmerCore STATIC
+	Source/FactoryPresets.cpp
 	Source/Parameters.cpp
 	Source/PluginEditor.cpp
 	Source/RotaryEngine.cpp
@@ -7,6 +19,7 @@ target_include_directories(VektGlimmerCore PUBLIC
 	include
 	Source)
 target_link_libraries(VektGlimmerCore PUBLIC
+	VektGlimmerFactoryData
 	vekt_project_options
 	juce::juce_audio_processors
 	juce::juce_audio_utils

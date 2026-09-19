@@ -1,0 +1,20 @@
+{
+  "format": "vekt.preset",
+  "schemaVersion": 2,
+  "id": "glimmer-classic-chorale",
+  "product": "com.vekt.glimmer",
+  "soundSchemaVersion": 1,
+  "name": "Classic Chorale",
+  "tags": ["Organ", "Slow", "Clean"],
+  "parameters": {
+    "inputGain": 0, "preampDrive": 0, "hornDrumBalance": 0,
+    "micAngle": 0, "micDistance": 1,
+    "slowSpeed": 48, "fastSpeed": 400,
+    "accelerationTime": 2, "decelerationTime": 4,
+    "hornTone": 0, "drumTone": 0,
+    "speedMode": 0, "sensitivity": 50, "autoGain": 0,
+    "mix": 100, "outputGain": 0,
+    "cabinetModel": 0, "brake": 0, "stereoWidth": 100,
+    "manualSpeedEnabled": 0, "speedPosition": 0
+  }
+}

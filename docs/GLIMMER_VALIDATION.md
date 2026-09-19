@@ -51,7 +51,30 @@ New parameters are appended with version hint 2; existing Speed choice values
 and normalized automation mappings are unchanged. Model, Brake, Width, Manual
 enablement and Speed position belong to sound presets. Missing new controls in
 older project states receive defaults. There is no preset schema migration or
-factory preset bank. Runtime phase and RPM are not serialized.
+runtime phase/RPM serialization.
+
+## Factory Presets And Browser
+
+The model selector uses RAV-style buttons with exclusive selection and no drag
+handles or reordering. The preset-name button opens the shared browser for
+folder/tag filtering, loading, saving, import and export. An asterisk marks a
+modified sound. Previous/next arrows wrap through the factory and user catalog;
+host programs expose only the six immutable factory entries. Project recall
+preserves the preset selection and its modified-state comparison baseline.
+
+| Model | Preset | Starting Point |
+| --- | --- | --- |
+| Classic | Classic Chorale | Clean, slow organ; also the initial default sound |
+| Classic | Gospel Spin | Faster organ with close mics and preamp drive |
+| Drum | Baffle Drive | Driven guitar with a fast rotating baffle |
+| Drum | Dynamic Drum | Auto-speed guitar with a parallel blend |
+| Wide | Glass Motion | Bright electric piano with intermediate Manual speed |
+| Wide | Slow Panorama | Slow, distant stereo movement for pads |
+
+Factories are embedded sound-only documents with stable IDs and all 21 sound
+parameters. Loading them leaves bypass and tracking/offline quality unchanged.
+They are starting points for audition, not level-matched or listening-approved
+emulations. Auto sensitivity may need adjustment for the incoming signal.
 
 ## Renderer
 
@@ -88,8 +111,12 @@ I/O, but includes OS interruptions; it is not a real-time scheduling guarantee.
   timing, model request transitions, Brake, legacy project defaults and extreme
   settings at 44.1/48/96/192 kHz with Off/IIR/FIR oversampling.
 - Preset cases cover all five new sound parameters and rejection atomicity.
+- Factory tests cover all six documents, immutable host program count,
+  factory/user navigation, modified state and project selection recall.
 - Editor tests check bounds at 1040/1560/2080 widths and non-overlapping controls.
+  They also check exclusive model selection and loading from the actual browser.
   Set `VEKT_GLIMMER_SNAPSHOT` to an absolute PNG path for a rendered snapshot.
+  `VEKT_GLIMMER_BROWSER_SNAPSHOT` also captures the open browser.
 
 ## Build Gates
 
@@ -101,16 +128,20 @@ ctest --preset dev --output-on-failure
 ## Local Validation (2026-09-19)
 
 - Standalone, VST3, AUv3, release Audio Lab and renderer builds succeeded.
+- Mode/preset follow-up: Standalone, VST3 and release Audio Lab rebuilt;
+  all 34 focused Glimmer/RAV-editor checks passed. Editor and browser snapshots
+  were inspected. Six factory programs and factory/user browser navigation are
+  covered, including modified selection recall and fractional boolean automation.
 - Glimmer Debug VST3 passed pluginval 1.0.4 at strictness 10 with seed 12345,
   GUI tests enabled, default 44.1/48/96 kHz rates and 64-1024 sample blocks.
-  The run reported `SUCCESS`, but emitted JUCE assertions in
-  `juce_String.cpp:327` (non-ASCII input to the ASCII constructor) and
-  `juce_DelayLine.cpp:60` (delay outside its allocated range). These diagnostics
-  remain unresolved; this is not an assertion-free release validation.
+  The repeat run after adding factory programs reported `SUCCESS`. Shared
+  browser UTF-8 labels and a fractional-boolean project recall failure were
+  fixed. Assertions in `juce_DelayLine.cpp:60` (delay outside its allocated
+  range) remain unresolved; this is not an assertion-free release validation.
   The external Steinberg VST3 validator was not configured.
 - Targeted `auval -v aufx Glmr Vekt` could not find the registered component;
   AU validation remains blocked despite the successful AUv3 build.
-- Full development suite: 135/136 passed. The existing unrelated
+- Earlier rotary-upgrade full development suite: 135/136 passed. The existing unrelated
   `Rav band wet controls do not couple unaffected bands` failure remains.
 - All Glimmer/rotor checks passed, including the 0.5-second tail checks with
   maximum drive/tone and Off/16x FIR quality. Editor snapshots were inspected.

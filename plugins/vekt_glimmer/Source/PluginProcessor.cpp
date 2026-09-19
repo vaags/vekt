@@ -1,5 +1,6 @@
 #include "PluginProcessor.h"
 
+#include "FactoryPresets.h"
 #include "PluginEditor.h"
 
 #include <vekt/presets/PresetPaths.h>
@@ -72,7 +73,18 @@ PluginProcessor::PluginProcessor()
 	requestedOfflineOversampling.store(offlineOversamplingParameter->load());
 	parameterState.addParameterListener(parameters::trackingOversampling, this);
 	parameterState.addParameterListener(parameters::offlineOversampling, this);
+	const auto factoryResult = addFactoryPresets(presetCatalog);
+	jassert(factoryResult.wasOk());
+	juce::ignoreUnused(factoryResult);
 	juce::ignoreUnused(configureUserPresetDirectory(presets::PresetPaths::desktop("Vekt Glimmer")));
+	presetSession.onSelectionChanged = [this]
+	{
+		if (presetSession.loaded() && presetSession.origin() == presets::PresetOrigin::factory)
+			stateManager.getMetadata().setProperty(parameters::currentFactoryPreset, presetSession.loaded()->name, nullptr);
+	};
+	presets::Preset initialPreset;
+	if (presetCatalog.loadFactoryPreset(0, initialPreset).wasOk() && matchesPresetSound(initialPreset))
+		presetSession.adopt(initialPreset, presets::PresetOrigin::factory);
 }
 
 PluginProcessor::~PluginProcessor()
@@ -310,6 +322,46 @@ juce::AudioProcessorParameter* PluginProcessor::getBypassParameter() const
 	return parameterState.getParameter(parameters::bypass);
 }
 
+int PluginProcessor::getNumPrograms()
+{
+	return static_cast<int>(presetCatalog.factoryPresetCount());
+}
+
+int PluginProcessor::getCurrentProgram()
+{
+	return static_cast<int>(presetCatalog.findFactoryPreset(
+		stateManager.getMetadata().getProperty(parameters::currentFactoryPreset).toString()).value_or(0));
+}
+
+void PluginProcessor::setCurrentProgram(int index)
+{
+	if (index < 0) return;
+	presets::Preset preset;
+	if (presetCatalog.loadFactoryPreset(static_cast<std::size_t>(index), preset).wasOk())
+		juce::ignoreUnused(presetSession.load(preset.identifier, presets::PresetOrigin::factory));
+}
+
+const juce::String PluginProcessor::getProgramName(int index)
+{
+	return index < 0 ? juce::String {} : presetCatalog.factoryPresetName(static_cast<std::size_t>(index));
+}
+
+juce::Result PluginProcessor::loadNextPreset() { return loadAdjacentPreset(true); }
+juce::Result PluginProcessor::loadPreviousPreset() { return loadAdjacentPreset(false); }
+
+juce::Result PluginProcessor::loadAdjacentPreset(bool next)
+{
+	presetCatalog.refresh();
+	const auto& entries = presetCatalog.entries();
+	if (entries.empty()) return juce::Result::fail("No presets available");
+	const auto current = presetSession.currentIndex();
+	const auto index = current ? (next ? presetCatalog.nextIndex(*current) : presetCatalog.previousIndex(*current))
+		: std::optional<std::size_t> { next ? 0 : entries.size() - 1 };
+	if (!index) return juce::Result::fail("No presets available");
+	const auto entry = entries[*index];
+	return presetSession.load(entry.identifier, entry.origin);
+}
+
 void PluginProcessor::getStateInformation(juce::MemoryBlock& destination)
 {
 	stateManager.getMetadata().setProperty("vektPresetSelection", presetSession.selectionState(), nullptr);
@@ -333,11 +385,19 @@ void PluginProcessor::setStateInformation(const void* data, int size)
 					value.setProperty("value", parameter->convertFrom0to1(parameter->getDefaultValue()), nullptr);
 					sound.appendChild(value, nullptr);
 				}
-		if (stateManager.restoreState(restored) && stateManager.getMetadata().hasProperty("vektPresetSelection"))
+		if (stateManager.restoreState(restored))
 		{
+			for (const auto* identifier : { parameters::brake, parameters::manualSpeedEnabled, parameters::autoGain, parameters::bypass })
+			{
+				auto* parameter = parameterState.getParameter(identifier);
+				const auto value = parameter->convertTo0to1(parameterState.getRawParameterValue(identifier)->load());
+				if (!juce::approximatelyEqual(parameter->getValue(), value))
+					parameter->setValueNotifyingHost(value);
+			}
 			presetSession.clear();
-			juce::ignoreUnused(presetSession.restoreSelection(
-				stateManager.getMetadata().getProperty("vektPresetSelection").toString()));
+			if (stateManager.getMetadata().hasProperty("vektPresetSelection"))
+				juce::ignoreUnused(presetSession.restoreSelection(
+					stateManager.getMetadata().getProperty("vektPresetSelection").toString()));
 		}
 	}
 }

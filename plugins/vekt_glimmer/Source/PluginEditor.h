@@ -23,10 +23,18 @@ public:
 	void resized() override;
 
 private:
+	class ModelButton final : public juce::Button
+	{
+	public:
+		ModelButton() : juce::Button({}) {}
+		void paintButton(juce::Graphics&, bool isMouseOverButton, bool isButtonDown) override;
+	};
+
 	using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
 	using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
 	using ComboBoxAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
 	void timerCallback() override;
+	void refreshPresetLabel();
 	void configureRotary(ui::Panel& panel, ui::RotaryControl& control, const char* label,
 		const char* parameter, std::unique_ptr<SliderAttachment>& attachment);
 
@@ -34,6 +42,8 @@ private:
 	ui::VektLookAndFeel lookAndFeel;
 	juce::Label title;
 	juce::TextButton presetButton { "Presets" };
+	juce::ArrowButton previousButton { "Previous preset", 0.5f, juce::Colour::fromRGB(224, 226, 220) };
+	juce::ArrowButton nextButton { "Next preset", 0.0f, juce::Colour::fromRGB(224, 226, 220) };
 	preset_ui::PresetBrowser presetBrowser;
 	juce::Label autoTargetLabel;
 	ui::Panel rotationPanel { "Rotation" };
@@ -47,7 +57,7 @@ private:
 	std::array<ui::RotaryControl, 4> toneControls;
 	std::array<std::unique_ptr<SliderAttachment>, 4> toneAttachments;
 	juce::ComboBox speedModeBox;
-	std::array<juce::TextButton, 3> modelButtons;
+	std::array<ModelButton, 3> modelButtons;
 	juce::ToggleButton brakeButton { "Brake" };
 	juce::ToggleButton manualButton { "Manual" };
 	juce::Slider speedSlider;

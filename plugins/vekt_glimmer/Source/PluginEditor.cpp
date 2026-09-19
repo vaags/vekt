@@ -4,6 +4,24 @@
 
 namespace vekt::glimmer
 {
+void PluginEditor::ModelButton::paintButton(juce::Graphics& graphics, bool isMouseOverButton, bool isButtonDown)
+{
+	const auto bounds = getLocalBounds().toFloat().reduced(0.5f);
+	const auto fill = getToggleState() ? juce::Colour::fromRGB(82, 116, 108)
+		: juce::Colour::fromRGB(31, 36, 38);
+	graphics.setColour(isButtonDown ? fill.brighter(0.12f)
+		: isMouseOverButton ? fill.brighter(0.06f) : fill);
+	graphics.fillRoundedRectangle(bounds, 4.0f);
+	graphics.setColour(getToggleState() ? juce::Colour::fromRGB(123, 191, 173)
+		: juce::Colour::fromRGB(75, 84, 87));
+	graphics.drawRoundedRectangle(bounds, 4.0f, hasKeyboardFocus(true) ? 2.0f : 1.0f);
+	graphics.setColour(juce::Colour::fromRGB(224, 226, 220));
+	graphics.setFont(juce::FontOptions(16.0f).withStyle("Bold"));
+	graphics.drawText(getButtonText(), getLocalBounds().reduced(4, 0).withTrimmedBottom(14), juce::Justification::centred);
+	graphics.setFont(juce::FontOptions(11.0f));
+	graphics.drawText(getToggleState() ? "SELECTED" : "", getLocalBounds().removeFromBottom(18), juce::Justification::centred);
+}
+
 PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	: ScalableEditor(newProcessor), pluginProcessor(newProcessor),
 	  presetBrowser(newProcessor.getPresetSession())
@@ -11,6 +29,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	setLookAndFeel(&lookAndFeel);
 	title.setText("VEKT  GLIMMER", juce::dontSendNotification);
 	title.setFont(juce::FontOptions(24.0f).withStyle("Bold"));
+	presetButton.setName("Open preset browser");
 	presetButton.setTooltip("Browse, load and save presets");
 	presetButton.onClick = [this]
 	{
@@ -18,12 +37,34 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 		presetBrowser.setVisible(true);
 		presetBrowser.toFront(true);
 	};
-	presetBrowser.onClose = [this] { presetBrowser.setVisible(false); presetButton.grabKeyboardFocus(); };
+	presetBrowser.onClose = [this]
+	{
+		presetBrowser.setVisible(false);
+		if (presetButton.isShowing()) presetButton.grabKeyboardFocus();
+	};
+	presetBrowser.onSoundChanged = [this] { refreshPresetLabel(); };
+	previousButton.setTooltip("Previous preset");
+	nextButton.setTooltip("Next preset");
+	const auto reportLoad = [this](const juce::Result& result)
+	{
+		if (result.failed())
+		{
+			presetBrowser.refresh();
+			presetBrowser.setVisible(true);
+			presetBrowser.toFront(true);
+			presetBrowser.showResult(result);
+		}
+		refreshPresetLabel();
+	};
+	previousButton.onClick = [this, reportLoad] { reportLoad(pluginProcessor.loadPreviousPreset()); };
+	nextButton.onClick = [this, reportLoad] { reportLoad(pluginProcessor.loadNextPreset()); };
 	autoTargetLabel.setJustificationType(juce::Justification::centred);
 	for (auto* panel : { &rotationPanel, &microphonePanel, &tonePanel, &ioPanel })
 		getContent().addAndMakeVisible(*panel);
 	getContent().addAndMakeVisible(title);
 	getContent().addAndMakeVisible(presetButton);
+	getContent().addAndMakeVisible(previousButton);
+	getContent().addAndMakeVisible(nextButton);
 	getContent().addChildComponent(presetBrowser);
 	getContent().addAndMakeVisible(autoTargetLabel);
 
@@ -54,7 +95,11 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 		button.setClickingTogglesState(true);
 		button.setRadioGroupId(701);
 		getContent().addAndMakeVisible(button);
-		button.onClick = [this, index] { modelAttachment->setValueAsCompleteGesture(static_cast<float>(index)); };
+		button.onClick = [this, index]
+		{
+			modelAttachment->setValueAsCompleteGesture(static_cast<float>(index));
+			refreshPresetLabel();
+		};
 	}
 	modelAttachment = std::make_unique<juce::ParameterAttachment>(
 		*pluginProcessor.getParameters().getParameter(parameters::cabinetModel), [this](float value)
@@ -146,8 +191,18 @@ void PluginEditor::configureRotary(ui::Panel& panel, ui::RotaryControl& control,
 	control.refreshValueText();
 }
 
+void PluginEditor::refreshPresetLabel()
+{
+	const auto& session = pluginProcessor.getPresetSession();
+	presetButton.setButtonText(session.loaded() ? session.loaded()->name + (session.modified() ? " *" : "") : "Untitled");
+	const auto available = !pluginProcessor.getPresetSession().library().entries().empty();
+	previousButton.setEnabled(available);
+	nextButton.setEnabled(available);
+}
+
 void PluginEditor::timerCallback()
 {
+	refreshPresetLabel();
 	inputMeter.setStereoLevels(pluginProcessor.consumeInputPeaks());
 	outputMeter.setStereoLevels(pluginProcessor.consumeOutputPeaks());
 	const auto& state = pluginProcessor.getParameters();
@@ -187,11 +242,13 @@ void PluginEditor::resized()
 {
 	ScalableEditor::resized();
 	auto& content = getContent();
-	title.setBounds(16, 16, 290, 36);
-	presetButton.setBounds(310, 18, 112, 32);
+	title.setBounds(16, 16, 224, 36);
+	previousButton.setBounds(244, 22, 24, 24);
+	presetButton.setBounds(274, 12, 182, 44);
+	nextButton.setBounds(462, 22, 24, 24);
 	for (std::size_t index = 0; index < modelButtons.size(); ++index)
-		modelButtons[index].setBounds(450 + static_cast<int>(index) * 96, 18, 92, 32);
-	autoTargetLabel.setBounds(754, 10, 270, 48);
+		modelButtons[index].setBounds(510 + static_cast<int>(index) * 104, 8, 96, 48);
+	autoTargetLabel.setBounds(830, 10, 194, 48);
 	presetBrowser.setBounds(content.getLocalBounds().reduced(16));
 	rotationPanel.setBounds(16, 68, 664, 260);
 	microphonePanel.setBounds(696, 68, 328, 260);

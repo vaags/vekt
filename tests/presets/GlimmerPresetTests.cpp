@@ -25,6 +25,7 @@ float getParameter(vekt::glimmer::PluginProcessor& processor, const char* identi
 
 TEST_CASE("Glimmer shared presets restore only Glimmer sound parameters", "[glimmer][presets]")
 {
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
 	vekt::glimmer::PluginProcessor processor;
 	setParameter(processor, vekt::glimmer::parameters::micAngle, 210.0f);
 	setParameter(processor, vekt::glimmer::parameters::cabinetModel, 2);
@@ -49,16 +50,116 @@ TEST_CASE("Glimmer shared presets restore only Glimmer sound parameters", "[glim
 	REQUIRE(getParameter(processor, vekt::glimmer::parameters::speedPosition) == Catch::Approx(67));
 }
 
+TEST_CASE("Glimmer factory bank loads complete sound-only presets", "[glimmer][presets]")
+{
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	vekt::glimmer::PluginProcessor processor;
+	auto& session = processor.getPresetSession();
+	auto& catalog = session.library();
+	REQUIRE(catalog.factoryPresetCount() == 6);
+	setParameter(processor, vekt::glimmer::parameters::bypass, 1);
+	setParameter(processor, vekt::glimmer::parameters::trackingOversampling, 0);
+	setParameter(processor, vekt::glimmer::parameters::offlineOversampling, 1);
+	for (std::size_t index = 0; index < catalog.factoryPresetCount(); ++index)
+	{
+		vekt::presets::Preset preset;
+		REQUIRE(catalog.loadFactoryPreset(index, preset).wasOk());
+		INFO(preset.name.toStdString());
+		REQUIRE(preset.parameters.size() == vekt::glimmer::parameters::soundParameterIds.size());
+		REQUIRE(session.load(preset.identifier, vekt::presets::PresetOrigin::factory).wasOk());
+		REQUIRE(session.loaded()->name == preset.name);
+		REQUIRE(processor.getNumPrograms() == 6);
+		REQUIRE(processor.getCurrentProgram() == static_cast<int>(index));
+		REQUIRE(processor.getProgramName(static_cast<int>(index)) == preset.name);
+		REQUIRE_FALSE(session.modified());
+		REQUIRE(getParameter(processor, vekt::glimmer::parameters::cabinetModel) == Catch::Approx(static_cast<float>(index / 2)));
+		REQUIRE(getParameter(processor, vekt::glimmer::parameters::bypass) == Catch::Approx(1));
+		REQUIRE(getParameter(processor, vekt::glimmer::parameters::trackingOversampling) == Catch::Approx(0));
+		REQUIRE(getParameter(processor, vekt::glimmer::parameters::offlineOversampling) == Catch::Approx(1));
+		setParameter(processor, vekt::glimmer::parameters::brake, 1);
+		REQUIRE(session.modified());
+	}
+}
+
 TEST_CASE("Glimmer rejects presets from another product", "[glimmer][presets]")
 {
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
 	vekt::glimmer::PluginProcessor processor;
 	auto preset = processor.createPreset("Wrong product");
 	preset.productIdentifier = "com.vekt.rav";
 	REQUIRE(processor.applyPreset(preset).failed());
 }
 
+TEST_CASE("Glimmer preset navigation and project recall preserve selection", "[glimmer][presets]")
+{
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	struct Directory
+	{
+		juce::File root = juce::File::getSpecialLocation(juce::File::tempDirectory)
+			.getChildFile("vekt-glimmer-presets-" + juce::Uuid().toString());
+		~Directory() { root.deleteRecursively(); }
+	} directory;
+	vekt::glimmer::PluginProcessor processor;
+	REQUIRE(processor.configureUserPresetDirectory(directory.root).wasOk());
+	auto& session = processor.getPresetSession();
+	REQUIRE(session.loaded()->name == "Classic Chorale");
+	REQUIRE_FALSE(session.modified());
+	REQUIRE(processor.loadPreviousPreset().wasOk());
+	REQUIRE(session.loaded()->name == "Slow Panorama");
+	REQUIRE(processor.loadNextPreset().wasOk());
+	REQUIRE(session.loaded()->name == "Classic Chorale");
+	processor.setCurrentProgram(4);
+	REQUIRE(session.loaded()->name == "Glass Motion");
+	processor.setCurrentProgram(-1);
+	processor.setCurrentProgram(6);
+	REQUIRE(processor.getCurrentProgram() == 4);
+	REQUIRE(session.save("My Motion", "", { "Custom" }).wasOk());
+	REQUIRE(session.origin() == vekt::presets::PresetOrigin::user);
+	REQUIRE(processor.getNumPrograms() == 6);
+	REQUIRE(processor.getCurrentProgram() == 4);
+	REQUIRE(processor.loadNextPreset().wasOk());
+	REQUIRE(session.loaded()->name == "Classic Chorale");
+	REQUIRE(processor.loadPreviousPreset().wasOk());
+	REQUIRE(session.loaded()->name == "My Motion");
+	setParameter(processor, vekt::glimmer::parameters::stereoWidth, 120);
+	REQUIRE(session.modified());
+	juce::MemoryBlock state;
+	processor.getStateInformation(state);
+	vekt::glimmer::PluginProcessor restored;
+	restored.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
+	REQUIRE(restored.getPresetSession().loaded().has_value());
+	REQUIRE(restored.getPresetSession().loaded()->name == "My Motion");
+	REQUIRE(restored.getPresetSession().origin() == vekt::presets::PresetOrigin::user);
+	REQUIRE(restored.getPresetSession().modified());
+	REQUIRE(getParameter(restored, vekt::glimmer::parameters::stereoWidth) == Catch::Approx(120));
+	REQUIRE(processor.getPresetSession().library().removeUserPreset("My Motion").wasOk());
+	session.clear();
+	REQUIRE(processor.loadPreviousPreset().wasOk());
+	REQUIRE(session.loaded()->name == "Slow Panorama");
+}
+
+TEST_CASE("Glimmer project recall restores booleans after fractional host automation", "[glimmer][presets]")
+{
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	vekt::glimmer::PluginProcessor processor;
+	for (const auto* identifier : { vekt::glimmer::parameters::brake, vekt::glimmer::parameters::manualSpeedEnabled,
+		vekt::glimmer::parameters::autoGain, vekt::glimmer::parameters::bypass })
+		for (const auto value : { 0.0f, 1.0f })
+		{
+			INFO(identifier << " = " << value);
+			auto* parameter = processor.getParameters().getParameter(identifier);
+			parameter->setValueNotifyingHost(value);
+			juce::MemoryBlock state;
+			processor.getStateInformation(state);
+			parameter->setValueNotifyingHost(value < 0.5f ? 0.280552f : 0.719448f);
+			processor.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
+			REQUIRE(parameter->getValue() == Catch::Approx(value));
+		}
+}
+
 TEST_CASE("Glimmer rejects malformed presets without changing sound", "[glimmer][presets]")
 {
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
 	vekt::glimmer::PluginProcessor processor;
 	setParameter(processor, vekt::glimmer::parameters::micAngle, 30.0f);
 	auto preset = processor.createPreset("Invalid");

@@ -1,0 +1,20 @@
+{
+  "format": "vekt.preset",
+  "schemaVersion": 2,
+  "id": "glimmer-dynamic-drum",
+  "product": "com.vekt.glimmer",
+  "soundSchemaVersion": 1,
+  "name": "Dynamic Drum",
+  "tags": ["Guitar", "Auto", "Warm"],
+  "parameters": {
+    "inputGain": 0, "preampDrive": 3, "hornDrumBalance": 0,
+    "micAngle": 15, "micDistance": 1.2,
+    "slowSpeed": 36, "fastSpeed": 360,
+    "accelerationTime": 0.8, "decelerationTime": 3.5,
+    "hornTone": 0, "drumTone": 1.5,
+    "speedMode": 2, "sensitivity": 60, "autoGain": 1,
+    "mix": 65, "outputGain": -1,
+    "cabinetModel": 1, "brake": 0, "stereoWidth": 100,
+    "manualSpeedEnabled": 0, "speedPosition": 0
+  }
+}

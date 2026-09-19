@@ -1,0 +1,20 @@
+{
+  "format": "vekt.preset",
+  "schemaVersion": 2,
+  "id": "glimmer-gospel-spin",
+  "product": "com.vekt.glimmer",
+  "soundSchemaVersion": 1,
+  "name": "Gospel Spin",
+  "tags": ["Organ", "Fast", "Driven"],
+  "parameters": {
+    "inputGain": 0, "preampDrive": 6, "hornDrumBalance": 15,
+    "micAngle": 25, "micDistance": 0.65,
+    "slowSpeed": 42, "fastSpeed": 420,
+    "accelerationTime": 1.4, "decelerationTime": 5,
+    "hornTone": 2, "drumTone": 1,
+    "speedMode": 1, "sensitivity": 50, "autoGain": 1,
+    "mix": 100, "outputGain": -2,
+    "cabinetModel": 0, "brake": 0, "stereoWidth": 110,
+    "manualSpeedEnabled": 0, "speedPosition": 0
+  }
+}

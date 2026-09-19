@@ -1,0 +1,20 @@
+{
+  "format": "vekt.preset",
+  "schemaVersion": 2,
+  "id": "glimmer-glass-motion",
+  "product": "com.vekt.glimmer",
+  "soundSchemaVersion": 1,
+  "name": "Glass Motion",
+  "tags": ["Electric Piano", "Manual", "Bright"],
+  "parameters": {
+    "inputGain": 0, "preampDrive": 0, "hornDrumBalance": 20,
+    "micAngle": 65, "micDistance": 0.9,
+    "slowSpeed": 32, "fastSpeed": 380,
+    "accelerationTime": 2.5, "decelerationTime": 4,
+    "hornTone": 2.5, "drumTone": -1,
+    "speedMode": 0, "sensitivity": 50, "autoGain": 0,
+    "mix": 70, "outputGain": -3,
+    "cabinetModel": 2, "brake": 0, "stereoWidth": 135,
+    "manualSpeedEnabled": 1, "speedPosition": 30
+  }
+}

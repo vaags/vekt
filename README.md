@@ -44,7 +44,11 @@ Render Glimmer alone or the fixed two-effect serial rack with:
 ```
 
 Glimmer offers Classic, Drum and Wide speaker models, Brake, continuous Manual
-speed and wet-only stereo Width. `--param glimmer.id=value` accepts native units
+speed and wet-only stereo Width. Its single-select model buttons follow RAV's
+visual pattern without dragging or multi-selection. Click the current preset
+name to open the shared browser; the adjacent arrows step through factory and
+user presets. Six factory sounds cover organ, guitar, electric piano and pads.
+`--param glimmer.id=value` accepts native units
 and named choices, also in either rack order. See
 [Glimmer validation](docs/GLIMMER_VALIDATION.md) for control semantics and gates.
 

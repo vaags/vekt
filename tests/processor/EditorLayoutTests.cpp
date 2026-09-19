@@ -2,6 +2,7 @@
 #include <Parameters.h>
 #include "../../plugins/vekt_glimmer/Source/PluginEditor.h"
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <cstdlib>
 
@@ -195,8 +196,81 @@ TEST_CASE("Glimmer editor keeps stereo meters within its canvas", "[processor][u
 		const auto image = editor.createComponentSnapshot(editor.getLocalBounds(), true, 2.0f);
 		juce::FileOutputStream stream { juce::File(juce::String(path)) };
 		REQUIRE(stream.openedOk());
+		REQUIRE(stream.setPosition(0));
+		REQUIRE(stream.truncate().wasOk());
 		REQUIRE(juce::PNGImageFormat().writeImageToStream(image, stream));
 	}
+	const auto findButton = [&](const juce::String& name) -> juce::Button&
+	{
+		for (auto* child : editor.getContent().getChildren())
+			if (auto* button = dynamic_cast<juce::Button*>(child); button != nullptr && button->getName() == name)
+				return *button;
+		FAIL("Missing button " << name.toStdString());
+		std::abort();
+	};
+	auto& classic = findButton("Classic model");
+	auto& drum = findButton("Drum model");
+	auto& wide = findButton("Wide model");
+	auto& preset = findButton("Open preset browser");
+	REQUIRE(preset.getButtonText() == "Classic Chorale");
+	REQUIRE(classic.getToggleState());
+	wide.setToggleState(true, juce::sendNotificationSync);
+	REQUIRE_FALSE(classic.getToggleState());
+	REQUIRE_FALSE(drum.getToggleState());
+	REQUIRE(wide.getToggleState());
+	REQUIRE(processor.getParameters().getRawParameterValue(vekt::glimmer::parameters::cabinetModel)->load() == Catch::Approx(2));
+	REQUIRE(preset.getButtonText() == "Classic Chorale *");
+	wide.onClick();
+	REQUIRE(wide.getToggleState());
+	processor.setCurrentProgram(2);
+	REQUIRE(drum.getToggleState());
+	REQUIRE_FALSE(wide.getToggleState());
+	findButton("Next preset").onClick();
+	REQUIRE(preset.getButtonText() == "Dynamic Drum");
+	findButton("Previous preset").onClick();
+	REQUIRE(preset.getButtonText() == "Baffle Drive");
+	for (auto* first : editor.getContent().getChildren())
+		for (auto* second : editor.getContent().getChildren())
+			if (first != second && first->isVisible() && second->isVisible())
+				REQUIRE_FALSE(first->getBounds().intersects(second->getBounds()));
+	preset.onClick();
+	vekt::preset_ui::PresetBrowser* browser = nullptr;
+	for (auto* child : editor.getContent().getChildren())
+		if (auto* candidate = dynamic_cast<vekt::preset_ui::PresetBrowser*>(child)) browser = candidate;
+	REQUIRE(browser != nullptr);
+	REQUIRE(browser->isVisible());
+	juce::ListBox* list = nullptr;
+	juce::Button* load = nullptr;
+	for (auto* child : browser->getChildren())
+	{
+		if (auto* box = dynamic_cast<juce::ComboBox*>(child)) box->setSelectedId(2, juce::sendNotificationSync);
+		if (auto* rows = dynamic_cast<juce::ListBox*>(child)) list = rows;
+		if (auto* button = dynamic_cast<juce::Button*>(child); button != nullptr && button->getButtonText() == "Load") load = button;
+	}
+	REQUIRE(list != nullptr);
+	REQUIRE(load != nullptr);
+	REQUIRE(list->getModel()->getNumRows() == 6);
+	list->selectRow(5);
+	load->onClick();
+	REQUIRE(preset.getButtonText() == "Slow Panorama");
+	REQUIRE(wide.getToggleState());
+	for (const auto width : { 1040, 1560, 2080 })
+	{
+		editor.setSize(width, width * 10 / 16);
+		checkVisibleBounds(editor.getContent());
+	}
+	if (const auto* path = std::getenv("VEKT_GLIMMER_BROWSER_SNAPSHOT"))
+	{
+		editor.setSize(1040, 650);
+		const auto image = editor.createComponentSnapshot(editor.getLocalBounds(), true, 2.0f);
+		juce::FileOutputStream stream { juce::File(juce::String(path)) };
+		REQUIRE(stream.openedOk());
+		REQUIRE(stream.setPosition(0));
+		REQUIRE(stream.truncate().wasOk());
+		REQUIRE(juce::PNGImageFormat().writeImageToStream(image, stream));
+	}
+	browser->onClose();
+	REQUIRE_FALSE(browser->isVisible());
 }
 
 TEST_CASE("Rotary numeric entry preserves precision and supports undo", "[ui]")
