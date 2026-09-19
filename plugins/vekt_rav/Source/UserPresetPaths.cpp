@@ -1,42 +1,21 @@
 #include "UserPresetPaths.h"
+#include <vekt/presets/PresetPaths.h>
 
 namespace vekt::rav
 {
-namespace
-{
-[[nodiscard]] juce::File appendProductPath(const juce::File& root)
-{
-	return root.getChildFile("Library")
-		.getChildFile("Audio")
-		.getChildFile("Presets")
-		.getChildFile("Vekt")
-		.getChildFile("Vekt Rav");
-}
-}
-
 juce::File UserPresetPaths::desktop()
 {
-	return appendProductPath(
-		juce::File::getSpecialLocation(juce::File::userHomeDirectory));
+	return presets::PresetPaths::desktop("Vekt Rav");
 }
 
 juce::Result UserPresetPaths::auv3AppGroup(
 	const juce::String& appGroupIdentifier, juce::File& destination)
 {
-	if (appGroupIdentifier.trim().isEmpty())
-		return juce::Result::fail("AUv3 user presets require an app-group identifier");
-
-	const auto container = juce::File::getContainerForSecurityApplicationGroupIdentifier(
-		appGroupIdentifier.trim());
-	if (container == juce::File {})
-		return juce::Result::fail("AUv3 app-group container is unavailable");
-
-	destination = insideContainer(container);
-	return juce::Result::ok();
+	return presets::PresetPaths::appGroup(appGroupIdentifier, "Vekt Rav", destination);
 }
 
 juce::File UserPresetPaths::insideContainer(const juce::File& container)
 {
-	return appendProductPath(container);
+	return presets::PresetPaths::insideContainer(container, "Vekt Rav");
 }
 }

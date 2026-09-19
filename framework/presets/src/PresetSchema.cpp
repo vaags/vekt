@@ -1,4 +1,5 @@
 #include <vekt/presets/PresetSchema.h>
+#include <vekt/presets/PresetDocument.h>
 
 #include <cmath>
 
@@ -110,6 +111,8 @@ juce::Result PresetSchema::validate(
 		return result;
 	if (preset.productIdentifier != expectedProductIdentifier)
 		return juce::Result::fail("Preset belongs to a different product");
+	if (preset.soundSchemaVersion != 1 || preset.soundState.size() != 0)
+		return juce::Result::fail("This parameter adapter does not support this sound schema");
 	if (preset.parameters.size() != soundParameterIds.size())
 		return juce::Result::fail("Preset parameter set is incomplete");
 
@@ -138,16 +141,7 @@ juce::Result PresetSchema::validate(
 
 juce::Result PresetSchema::validateEnvelope(const Preset& preset)
 {
-	if (preset.schemaVersion != currentSchemaVersion)
-		return juce::Result::fail("Unsupported preset schema version");
-	if (preset.productIdentifier.trim().isEmpty())
-		return juce::Result::fail("Preset product identifier is empty");
-	if (preset.name.trim().isEmpty())
-		return juce::Result::fail("Preset name is empty");
-	if (preset.parameters.empty())
-		return juce::Result::fail("Preset parameter set is missing");
-
-	return juce::Result::ok();
+	return PresetDocument::validate(preset);
 }
 
 bool PresetSchema::matches(

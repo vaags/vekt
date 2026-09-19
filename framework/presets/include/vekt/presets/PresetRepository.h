@@ -21,5 +21,10 @@ public:
 	[[nodiscard]] virtual juce::Result save(
 		const Preset& preset, PresetSaveMode mode = PresetSaveMode::createOnly) = 0;
 	[[nodiscard]] virtual juce::Result remove(const juce::String& name) = 0;
+	[[nodiscard]] virtual juce::StringArray folders() const { return {}; }
+	[[nodiscard]] virtual juce::Result createFolder(const juce::String&)
+	{ return juce::Result::fail("Folders are not supported by this repository"); }
+	[[nodiscard]] virtual juce::Result move(const juce::String&, const juce::String&)
+	{ return juce::Result::fail("Moving is not supported by this repository"); }
 };
 }

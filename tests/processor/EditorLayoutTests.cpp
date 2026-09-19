@@ -15,6 +15,8 @@ void checkVisibleBounds(juce::Component& parent)
 		INFO("Component: " << child->getName().toStdString());
 		REQUIRE_FALSE(child->getBounds().isEmpty());
 		REQUIRE(parent.getLocalBounds().contains(child->getBounds()));
+		// A ListBox's viewport intentionally clips/recycles rows beyond its bounds.
+		if (dynamic_cast<juce::ListBox*>(child) != nullptr) continue;
 		checkVisibleBounds(*child);
 	}
 }
@@ -105,6 +107,18 @@ TEST_CASE("Rav editor keeps its controls within the 16:10 canvas", "[processor][
 	settings->setToggleState(false, juce::dontSendNotification);
 	settings->onClick();
 	REQUIRE_FALSE(panel->isVisible());
+
+	vekt::preset_ui::PresetBrowser* browser = nullptr;
+	for (auto* child : editor.getContent().getChildren())
+		if (auto* candidate = dynamic_cast<vekt::preset_ui::PresetBrowser*>(child)) browser = candidate;
+	REQUIRE(browser != nullptr);
+	browser->refresh();
+	browser->setVisible(true);
+	for (const auto width : { 1040, 1560, 2080 })
+	{
+		editor.setSize(width, width * 10 / 16);
+		checkVisibleBounds(editor.getContent());
+	}
 }
 
 TEST_CASE("Rotary numeric entry preserves precision and supports undo", "[ui]")

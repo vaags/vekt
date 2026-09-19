@@ -3,6 +3,7 @@
 #include "PluginEditor.h"
 
 #include "FactoryPresets.h"
+#include "UserPresetPaths.h"
 
 #include <vekt/presets/PresetSchema.h>
 #include <vekt/presets/PresetJsonCodec.h>
@@ -19,6 +20,13 @@ PluginProcessor::PluginProcessor()
 						 .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
 	  parameterState(*this, &undoManager, parameters::stateType, parameters::createLayout()),
 	  stateManager(parameterState, parameters::projectStateType, 1),
+	  presetSession(presetCatalog, { parameters::presetProductIdentifier, "Vekt Rav", 1 }, {
+		[this](const juce::String& name) { return createPreset(name); }, {},
+		[this](const presets::Preset& preset) { return presets::PresetSchema::validate(preset,
+			parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds); },
+		[this](const presets::Preset& preset) { return applyPreset(preset); },
+		[this](const presets::Preset& preset) { return presets::PresetSchema::matches(preset,
+			parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds); } }),
 	  inputGainParameter(requireParameter(parameterState, parameters::inputGain)),
 	  driveParameter(requireParameter(parameterState, parameters::drive)),
 	  toneParameter(requireParameter(parameterState, parameters::tone)),
@@ -43,6 +51,16 @@ PluginProcessor::PluginProcessor()
 									 requireParameter(parameterState, parameters::stageEnabledDistortion),
 										 requireParameter(parameterState, parameters::stageEnabledFuzz) }
 {
+	presetSession.onSelectionChanged = [this]
+	{
+		const auto index = presetSession.currentIndex();
+		if (index && presetSession.origin() == presets::PresetOrigin::factory)
+		{
+			currentProgram = static_cast<int>(*index);
+			stateManager.getMetadata().setProperty(parameters::currentFactoryPreset,
+				presetSession.loaded()->name, nullptr);
+		}
+	};
 	const auto factoryPresetResult = addFactoryPresets(presetCatalog);
 	jassert(factoryPresetResult.wasOk());
 	juce::ignoreUnused(factoryPresetResult);
@@ -51,7 +69,10 @@ PluginProcessor::PluginProcessor()
 		currentPresetIndex = 0;
 		presets::Preset initialPreset;
 		if (presetCatalog.loadFactoryPreset(0, initialPreset).wasOk())
-			currentPresetSnapshot = std::move(initialPreset);
+		{
+			currentPresetSnapshot = initialPreset;
+			presetSession.adopt(initialPreset, presets::PresetOrigin::factory);
+		}
 		stateManager.getMetadata().setProperty(
 			parameters::currentFactoryPreset, presetCatalog.factoryPresetName(0), nullptr);
 	}
@@ -59,6 +80,14 @@ PluginProcessor::PluginProcessor()
 	requestedOfflineOversampling.store(offlineOversamplingParameter->load());
 	parameterState.addParameterListener(parameters::trackingOversampling, this);
 	parameterState.addParameterListener(parameters::offlineOversampling, this);
+	if (wrapperType == wrapperType_VST3 || wrapperType == wrapperType_Standalone)
+		juce::ignoreUnused(configureUserPresetDirectory(UserPresetPaths::desktop()));
+	else if (wrapperType == wrapperType_AudioUnitv3)
+	{
+		juce::File directory;
+		if (UserPresetPaths::auv3AppGroup(VEKT_AUV3_APP_GROUP_ID, directory).wasOk())
+			juce::ignoreUnused(configureUserPresetDirectory(directory));
+	}
 }
 
 PluginProcessor::~PluginProcessor()
@@ -375,6 +404,7 @@ void PluginProcessor::changeProgramName(int index, const juce::String& name) { j
 void PluginProcessor::getStateInformation(juce::MemoryBlock& destination)
 {
 	stageChain.writeMetadata(stateManager.getMetadata());
+	stateManager.getMetadata().setProperty("vektPresetSelection", presetSession.selectionState(), nullptr);
 	const auto state = stateManager.createState();
 	if (const auto xml = state.createXml())
 		copyXmlToBinary(*xml, destination);
@@ -391,6 +421,12 @@ void PluginProcessor::setStateInformation(const void* data, int size)
 	{
 		stageChain = RavStageChain::readMetadata(stateManager.getMetadata());
 		restoreCurrentProgramFromMetadata();
+		if (stateManager.getMetadata().hasProperty("vektPresetSelection"))
+		{
+			presetSession.clear();
+			juce::ignoreUnused(presetSession.restoreSelection(
+				stateManager.getMetadata().getProperty("vektPresetSelection").toString()));
+		}
 	}
 }
 
@@ -427,6 +463,7 @@ juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 	{
 		currentPresetIndex.reset();
 		currentPresetSnapshot.reset();
+		presetSession.clear();
 	}
 	return result;
 }
@@ -438,22 +475,15 @@ juce::Result PluginProcessor::configureUserPresetDirectory(const juce::File& dir
 		return juce::Result::fail("User preset directory is empty");
 
 	std::optional<presets::PresetEntry> selectedEntry;
+	currentPresetIndex = presetSession.currentIndex();
 	if (currentPresetIndex && *currentPresetIndex < presetCatalog.entries().size())
 		selectedEntry = presetCatalog.entries()[*currentPresetIndex];
 	userPresetRepository = std::make_unique<presets::FilePresetRepository>(directory);
 	presetCatalog.setUserRepository(userPresetRepository.get());
 	currentPresetIndex = selectedEntry
-		? presetCatalog.find(selectedEntry->name, selectedEntry->origin)
+		? presetCatalog.findById(selectedEntry->identifier, selectedEntry->origin)
 		: std::nullopt;
-	if (currentPresetIndex)
-	{
-		presets::Preset preset;
-		currentPresetSnapshot = presetCatalog.load(*currentPresetIndex, preset).wasOk()
-			? std::optional<presets::Preset> { std::move(preset) }
-			: std::nullopt;
-	}
-	else
-		currentPresetSnapshot.reset();
+	if (!currentPresetIndex) { currentPresetSnapshot.reset(); presetSession.clear(); }
 	return juce::Result::ok();
 }
 
@@ -461,12 +491,12 @@ juce::Result PluginProcessor::saveUserPreset(
 	const juce::String& name, presets::PresetSaveMode mode)
 {
 	assertMessageThread();
-	auto preset = createPreset(name);
-	if (const auto result = presetCatalog.saveUserPreset(preset, mode); result.failed())
+	const auto tags = presetSession.loaded() ? presetSession.loaded()->tags : juce::StringArray {};
+	if (const auto result = presetSession.save(name, {}, tags, mode); result.failed())
 		return result;
 
 	currentPresetIndex = presetCatalog.find(name.trim(), presets::PresetOrigin::user);
-	currentPresetSnapshot = std::move(preset);
+	currentPresetSnapshot = presetSession.loaded();
 	return juce::Result::ok();
 }
 
@@ -485,7 +515,13 @@ juce::Result PluginProcessor::exportPreset(const juce::File& destination, const 
 {
 	assertMessageThread();
 	juce::String json;
-	if (const auto result = presets::PresetJsonCodec::encode(createPreset(name), json); result.failed())
+	auto preset = createPreset(name);
+	if (presetSession.loaded())
+	{
+		preset.tags = presetSession.loaded()->tags;
+		preset.metadata = presetSession.loaded()->metadata;
+	}
+	if (const auto result = presets::PresetJsonCodec::encode(preset, json); result.failed())
 		return result;
 	juce::TemporaryFile temporaryFile(destination);
 	if (!temporaryFile.getFile().replaceWithText(json)
@@ -498,6 +534,7 @@ juce::Result PluginProcessor::removeUserPreset(const juce::String& name)
 {
 	assertMessageThread();
 	std::optional<presets::PresetEntry> selectedEntry;
+	currentPresetIndex = presetSession.currentIndex();
 	if (currentPresetIndex && *currentPresetIndex < presetCatalog.entries().size())
 		selectedEntry = presetCatalog.entries()[*currentPresetIndex];
 	if (const auto result = presetCatalog.removeUserPreset(name); result.failed())
@@ -505,12 +542,15 @@ juce::Result PluginProcessor::removeUserPreset(const juce::String& name)
 
 	if (!selectedEntry
 		|| (selectedEntry->origin == presets::PresetOrigin::user
-			&& selectedEntry->name.equalsIgnoreCase(name)))
+			&& selectedEntry->location.equalsIgnoreCase(name)))
 		currentPresetIndex.reset();
 	else
-		currentPresetIndex = presetCatalog.find(selectedEntry->name, selectedEntry->origin);
+		currentPresetIndex = presetCatalog.findById(selectedEntry->identifier, selectedEntry->origin);
 	if (!currentPresetIndex)
+	{
 		currentPresetSnapshot.reset();
+		presetSession.clear();
+	}
 	return juce::Result::ok();
 }
 
@@ -525,6 +565,7 @@ juce::Result PluginProcessor::loadPreset(std::size_t index)
 
 	currentPresetIndex = index;
 	currentPresetSnapshot = preset;
+	presetSession.adopt(preset, presetCatalog.entries()[index].origin);
 	if (presetCatalog.entries()[index].origin == presets::PresetOrigin::factory)
 	{
 		currentProgram = static_cast<int>(index);
@@ -536,6 +577,7 @@ juce::Result PluginProcessor::loadPreset(std::size_t index)
 
 juce::Result PluginProcessor::loadNextPreset()
 {
+	currentPresetIndex = presetSession.currentIndex();
 	if (presetCatalog.entries().empty())
 		return juce::Result::fail("Preset catalog is empty");
 	if (!currentPresetIndex)
@@ -547,6 +589,7 @@ juce::Result PluginProcessor::loadNextPreset()
 
 juce::Result PluginProcessor::loadPreviousPreset()
 {
+	currentPresetIndex = presetSession.currentIndex();
 	if (presetCatalog.entries().empty())
 		return juce::Result::fail("Preset catalog is empty");
 	if (!currentPresetIndex)
@@ -563,17 +606,12 @@ const std::vector<presets::PresetEntry>& PluginProcessor::getPresetEntries() con
 
 std::optional<std::size_t> PluginProcessor::getCurrentPresetIndex() const noexcept
 {
-	return currentPresetIndex;
+	return presetSession.currentIndex();
 }
 
 bool PluginProcessor::isCurrentPresetModified() const
 {
-	return currentPresetSnapshot
-		&& !presets::PresetSchema::matches(
-			*currentPresetSnapshot,
-			parameters::presetProductIdentifier,
-			parameterState,
-			parameters::soundParameterIds);
+	return presetSession.modified();
 }
 
 std::array<float, 2> PluginProcessor::consumeInputPeaks() noexcept
@@ -628,6 +666,7 @@ void PluginProcessor::restoreCurrentProgramFromMetadata()
 		currentPresetSnapshot = presetCatalog.loadFactoryPreset(*index, preset).wasOk()
 			? std::optional<presets::Preset> { std::move(preset) }
 			: std::nullopt;
+		if (currentPresetSnapshot) presetSession.adopt(*currentPresetSnapshot, presets::PresetOrigin::factory);
 	}
 	else
 	{
@@ -636,6 +675,7 @@ void PluginProcessor::restoreCurrentProgramFromMetadata()
 			? std::optional<std::size_t> { 0 }
 			: std::nullopt;
 		currentPresetSnapshot.reset();
+		presetSession.clear();
 	}
 }
 

@@ -30,6 +30,11 @@ juce::Result PresetCatalog::addFactoryPreset(const juce::String& json)
 
 	if (containsName(factoryPresets, preset.name))
 		return juce::Result::fail("Factory preset name is duplicated");
+	for (const auto& existing : factoryPresets)
+		if (existing.identifier == preset.identifier)
+			return juce::Result::fail("Factory preset identity is duplicated");
+	if (productIdentifier.isNotEmpty() && preset.productIdentifier != productIdentifier)
+		return juce::Result::fail("Factory preset belongs to another product");
 
 	factoryPresets.push_back(std::move(preset));
 	refresh();
@@ -49,17 +54,39 @@ void PresetCatalog::refresh()
 	catalogEntries.reserve(factoryPresets.size() + static_cast<std::size_t>(userNames.size()));
 
 	for (const auto& preset : factoryPresets)
-		catalogEntries.push_back({ preset.name, PresetOrigin::factory });
+		catalogEntries.push_back({ preset.name, PresetOrigin::factory, preset.identifier,
+			preset.name, {}, preset.tags, {} });
 
-	for (const auto& name : userNames)
-		if (!containsName(catalogEntries, name))
-			catalogEntries.push_back({ name, PresetOrigin::user });
+	for (const auto& location : userNames)
+	{
+		Preset preset;
+		const auto result = userPresets->load(location, preset);
+		const auto name = location.fromLastOccurrenceOf("/", false, false);
+		if (containsName(factoryPresets, name)) continue;
+		if (result.wasOk() && productIdentifier.isNotEmpty() && preset.productIdentifier != productIdentifier)
+			continue;
+		catalogEntries.push_back({ name, PresetOrigin::user,
+			result.wasOk() ? preset.identifier : "invalid:" + location, location,
+			location.containsChar('/') ? location.upToLastOccurrenceOf("/", false, false) : juce::String {}, preset.tags,
+			result.getErrorMessage() });
+	}
+	// Never resolve an ambiguous ID to whichever file happens to sort first.
+	for (std::size_t i = 0; i < catalogEntries.size(); ++i)
+		for (std::size_t j = i + 1; j < catalogEntries.size(); ++j)
+			if (catalogEntries[i].origin == catalogEntries[j].origin
+				&& catalogEntries[i].identifier == catalogEntries[j].identifier)
+			{
+				catalogEntries[i].error = "Duplicate preset identity; re-import one copy";
+				catalogEntries[j].error = catalogEntries[i].error;
+			}
 }
 
 juce::Result PresetCatalog::saveUserPreset(const Preset& preset, PresetSaveMode mode)
 {
 	if (userPresets == nullptr)
 		return juce::Result::fail("User preset repository is unavailable");
+	if (productIdentifier.isNotEmpty() && preset.productIdentifier != productIdentifier)
+		return juce::Result::fail("Preset belongs to a different product");
 	if (containsName(factoryPresets, preset.name))
 		return juce::Result::fail("User preset name conflicts with a factory preset");
 
@@ -93,6 +120,8 @@ juce::Result PresetCatalog::load(std::size_t index, Preset& destination) const
 {
 	if (index >= catalogEntries.size())
 		return juce::Result::fail("Preset index is out of range");
+	if (catalogEntries[index].error.isNotEmpty())
+		return juce::Result::fail(catalogEntries[index].error);
 
 	if (catalogEntries[index].origin == PresetOrigin::factory)
 	{
@@ -102,7 +131,7 @@ juce::Result PresetCatalog::load(std::size_t index, Preset& destination) const
 
 	if (userPresets == nullptr)
 		return juce::Result::fail("User preset repository is unavailable");
-	return userPresets->load(catalogEntries[index].name, destination);
+	return userPresets->load(catalogEntries[index].location, destination);
 }
 
 std::optional<std::size_t> PresetCatalog::find(
@@ -110,10 +139,22 @@ std::optional<std::size_t> PresetCatalog::find(
 {
 	for (std::size_t index = 0; index < catalogEntries.size(); ++index)
 		if (catalogEntries[index].origin == origin
-			&& catalogEntries[index].name.equalsIgnoreCase(name))
+			&& catalogEntries[index].location.equalsIgnoreCase(name))
 			return index;
 
 	return std::nullopt;
+}
+
+std::optional<std::size_t> PresetCatalog::findById(const juce::String& id, PresetOrigin origin) const
+{
+	std::optional<std::size_t> found;
+	for (std::size_t index = 0; index < catalogEntries.size(); ++index)
+		if (catalogEntries[index].identifier == id && catalogEntries[index].origin == origin)
+		{
+			if (found) return std::nullopt;
+			found = index;
+		}
+	return found;
 }
 
 std::size_t PresetCatalog::factoryPresetCount() const noexcept

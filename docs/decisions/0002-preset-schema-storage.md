@@ -25,8 +25,9 @@ the desktop location. User save, delete, load, and navigation remain
 message-thread operations and do not alter the immutable factory host-program
 bank.
 
-Schema version 1 rejects other versions. A migration must be added before the
-schema version is incremented.
+The global format and its v1-to-v2 migration are now specified in ADR 0003.
+Format versions and product sound versions evolve independently. Newly written
+v2 documents are not readable by older v1-only plugin builds.
 
 ## Consequences
 

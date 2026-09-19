@@ -2,6 +2,14 @@
 
 Preset interactions must follow these rules across Vekt products.
 
+The reusable implementation and current follow-up boundaries are described in
+`decisions/0003-framework-preset-browser.md`. The current browser opens from the
+preset-name button and provides folder scope, text search, all-tags filtering,
+Save As, confirmed replacement/deletion, tag editing, preset moves and file
+import/export. The first version uses a folder selector and comma-separated tag
+fields. Import adds to the library without loading; export writes the selected
+stored preset, whereas Save As captures the live sound.
+
 ## Selection and modification
 
 - Show factory presets before naturally sorted user presets, with a visible
@@ -19,7 +27,8 @@ Preset interactions must follow these rules across Vekt products.
 
 - Saving uses create-only behavior by default. If a name already exists, ask
   the user to confirm replacement and retry with explicit replace mode.
-- Treat names as case-insensitively unique to match normal macOS filesystems.
+- Treat names as case-insensitively unique within each folder. Equal user names
+  in different folders are allowed; factory names remain reserved.
 - Never allow a user preset to shadow, replace, or delete a factory preset.
 - Confirm deletion with the preset name. Do not offer deletion for factories.
 - Keep dialogs open after validation or I/O errors and show the actionable

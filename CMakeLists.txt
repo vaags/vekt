@@ -24,6 +24,7 @@ add_subdirectory(framework/dsp)
 add_subdirectory(framework/state)
 add_subdirectory(framework/presets)
 add_subdirectory(framework/ui)
+add_subdirectory(framework/preset_ui)
 add_subdirectory(plugins/vekt_rav)
 
 if(VEKT_BUILD_AUDIO_LAB)

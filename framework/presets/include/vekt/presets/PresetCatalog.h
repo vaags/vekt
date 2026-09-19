@@ -17,6 +17,11 @@ struct PresetEntry final
 {
 	juce::String name;
 	PresetOrigin origin {};
+	juce::String identifier;
+	juce::String location;
+	juce::String folder;
+	juce::StringArray tags;
+	juce::String error;
 };
 
 class PresetCatalog final
@@ -28,6 +33,9 @@ public:
 	[[nodiscard]] juce::Result addFactoryPreset(const juce::String& json);
 	void setUserRepository(PresetRepository* userRepository);
 	void refresh();
+	void setProductIdentifier(juce::String product) { productIdentifier = std::move(product); refresh(); }
+	[[nodiscard]] PresetRepository* repository() const noexcept { return userPresets; }
+	[[nodiscard]] std::optional<std::size_t> findById(const juce::String& id, PresetOrigin origin) const;
 	[[nodiscard]] juce::Result saveUserPreset(
 		const Preset& preset, PresetSaveMode mode = PresetSaveMode::createOnly);
 	[[nodiscard]] juce::Result removeUserPreset(const juce::String& name);
@@ -49,5 +57,6 @@ private:
 	PresetRepository* userPresets {};
 	std::vector<Preset> factoryPresets;
 	std::vector<PresetEntry> catalogEntries;
+	juce::String productIdentifier;
 };
 }

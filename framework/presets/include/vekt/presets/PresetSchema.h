@@ -37,6 +37,6 @@ public:
 		std::span<const char* const> soundParameterIds,
 		juce::UndoManager* undoManager = nullptr);
 
-	inline static constexpr auto currentSchemaVersion = 1;
+	inline static constexpr auto currentSchemaVersion = 2;
 };
 }

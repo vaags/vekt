@@ -11,6 +11,7 @@ add_executable(vekt_dsp_tests
     dsp/OversamplingBankTests.cpp
 	 dsp/StereoPeakMeterTests.cpp
     presets/PresetTests.cpp
+    presets/FrameworkPresetTests.cpp
     processor/RavProcessorTests.cpp
 	processor/RavStageChainTests.cpp
     processor/AdaptiveAutoGainTests.cpp

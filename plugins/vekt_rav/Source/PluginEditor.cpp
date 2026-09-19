@@ -106,15 +106,24 @@ constexpr int lowerPanelTop = headerTop + panelHeight + panelGap;
 }
 
 PluginEditor::PluginEditor(PluginProcessor& plugin)
-	: ScalableEditor(plugin), pluginProcessor(plugin)
+	: ScalableEditor(plugin), pluginProcessor(plugin), presetBrowser(plugin.getPresetSession())
 {
 	setLookAndFeel(&lookAndFeel);
 	title.setText("VEKT  RAV", juce::dontSendNotification);
 	title.setFont(juce::FontOptions(24.0f).withStyle("Bold"));
-	presetLabel.setFont(juce::FontOptions(16.0f));
 	qualityLabel.setFont(juce::FontOptions(14.0f));
 	meterLabel.setFont(juce::FontOptions(14.0f));
-	presetLabel.setJustificationType(juce::Justification::centred);
+	presetLabel.setTitle("Open preset browser");
+	presetLabel.setTooltip("Browse, load and save presets");
+	getContent().addChildComponent(presetBrowser);
+	presetLabel.onClick = [this]
+	{
+		presetBrowser.refresh();
+		presetBrowser.setVisible(true);
+		presetBrowser.toFront(true);
+	};
+	presetBrowser.onClose = [this] { presetBrowser.setVisible(false); presetLabel.grabKeyboardFocus(); };
+	presetBrowser.onSoundChanged = [this] { refreshPresetLabel(); };
 	qualityLabel.setJustificationType(juce::Justification::centredRight);
 	meterLabel.setJustificationType(juce::Justification::centred);
 	stageHeader.setText("Signal Path", juce::dontSendNotification);
@@ -272,8 +281,17 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 	bypassAttachment = std::make_unique<ButtonAttachment>(pluginProcessor.getParameters(), parameters::bypass, bypassButton);
 	autoGainAttachment = std::make_unique<ButtonAttachment>(pluginProcessor.getParameters(), parameters::autoGain, autoGainButton);
 
-	previousButton.onClick = [this] { juce::ignoreUnused(pluginProcessor.loadPreviousPreset()); refreshPresetLabel(); };
-	nextButton.onClick = [this] { juce::ignoreUnused(pluginProcessor.loadNextPreset()); refreshPresetLabel(); };
+	const auto reportLoad = [this](const juce::Result& result)
+	{
+		if (result.failed())
+		{
+			presetBrowser.refresh(); presetBrowser.setVisible(true); presetBrowser.toFront(true);
+			presetBrowser.showResult(result);
+		}
+		refreshPresetLabel();
+	};
+	previousButton.onClick = [this, reportLoad] { reportLoad(pluginProcessor.loadPreviousPreset()); };
+	nextButton.onClick = [this, reportLoad] { reportLoad(pluginProcessor.loadNextPreset()); };
 	undoButton.onClick = [this] { pluginProcessor.getUndoManager().undo(); refreshPresetLabel(); };
 	redoButton.onClick = [this]
 	{ pluginProcessor.getUndoManager().redo(); refreshPresetLabel(); };
@@ -311,6 +329,7 @@ void PluginEditor::resized()
 	auto& content = getContent();
 
 	const auto contentBounds = content.getLocalBounds();
+	presetBrowser.setBounds(24, 80, 800, 480);
 	const auto centerArea = contentBounds.withX(layout::margin).withY(layout::headerTop)
 		.withWidth(layout::centerWidth).withHeight(layout::bodyHeight);
 	const auto bandArea = centerArea.withX(centerArea.getRight() + layout::sectionGap)
@@ -397,6 +416,7 @@ void PluginEditor::resized()
 
 void PluginEditor::timerCallback()
 {
+	refreshPresetLabel();
 	const auto newInputPeaks = pluginProcessor.consumeInputPeaks();
 	const auto newOutputPeaks = pluginProcessor.consumeOutputPeaks();
 	const auto newInputPeak = std::max(newInputPeaks[0], newInputPeaks[1]);
@@ -432,8 +452,8 @@ void PluginEditor::refreshPresetLabel()
 {
 	const auto index = pluginProcessor.getCurrentPresetIndex();
 	const auto& entries = pluginProcessor.getPresetEntries();
-	presetLabel.setText(index && *index < entries.size() ? entries[*index].name
-		+ (pluginProcessor.isCurrentPresetModified() ? " *" : "") : "Untitled", juce::dontSendNotification);
+	presetLabel.setButtonText(index && *index < entries.size() ? entries[*index].name
+		+ (pluginProcessor.isCurrentPresetModified() ? " *" : "") : "Untitled");
 }
 
 void PluginEditor::configureRotary(juce::Component& parent, ui::RotaryControl& control, const juce::String& name,

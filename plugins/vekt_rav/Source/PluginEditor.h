@@ -7,6 +7,7 @@
 #include <vekt/ui/RotaryControl.h>
 #include <vekt/ui/ScalableEditor.h>
 #include <vekt/ui/VektLookAndFeel.h>
+#include <vekt/preset_ui/PresetBrowser.h>
 
 #include <array>
 #include <functional>
@@ -54,7 +55,8 @@ private:
 	PluginProcessor& pluginProcessor;
 	ui::VektLookAndFeel lookAndFeel;
 	juce::Label title;
-	juce::Label presetLabel;
+	juce::TextButton presetLabel;
+	preset_ui::PresetBrowser presetBrowser;
 	juce::Label qualityLabel;
 	juce::Label meterLabel;
 	ui::Panel primaryPanel { "Primary" };

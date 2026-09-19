@@ -17,6 +17,7 @@
 #include <vekt/presets/FilePresetRepository.h>
 #include <vekt/presets/Preset.h>
 #include <vekt/presets/PresetCatalog.h>
+#include <vekt/presets/PresetSession.h>
 #include <vekt/state/StateManager.h>
 
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -79,6 +80,7 @@ public:
 	[[nodiscard]] const std::vector<presets::PresetEntry>& getPresetEntries() const noexcept;
 	[[nodiscard]] std::optional<std::size_t> getCurrentPresetIndex() const noexcept;
 	[[nodiscard]] bool isCurrentPresetModified() const;
+	[[nodiscard]] presets::PresetSession& getPresetSession() noexcept { return presetSession; }
 	[[nodiscard]] std::array<float, 2> consumeInputPeaks() noexcept;
 	[[nodiscard]] std::array<float, 2> consumeOutputPeaks() noexcept;
 	[[nodiscard]] juce::AudioProcessorValueTreeState& getParameters() noexcept;
@@ -107,6 +109,7 @@ private:
 	state::StateManager stateManager;
 	std::unique_ptr<presets::FilePresetRepository> userPresetRepository;
 	presets::PresetCatalog presetCatalog;
+	presets::PresetSession presetSession;
 	std::optional<std::size_t> currentPresetIndex;
 	std::optional<presets::Preset> currentPresetSnapshot;
 	int currentProgram {};

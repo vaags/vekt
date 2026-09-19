@@ -53,5 +53,6 @@ target_link_libraries(VektRav
 	PUBLIC
 		vekt::dsp
 		vekt::presets
+		vekt::preset_ui
 		vekt::state
 		vekt_project_options)

@@ -67,6 +67,10 @@ non-numeric, and out-of-range values reject the entire load before mutation.
 Repositories only perform message-thread file I/O and receive their storage root
 from the product, allowing VST3 and AUv3 containers to choose appropriate paths.
 `PresetCatalog` combines factory documents with an optional user repository.
+`PresetSession` owns loaded identity, comparison snapshots and common workflows;
+products provide capture/validate/apply/migrate/match adapters. `vekt::preset_ui`
+provides the shared browser without product-header dependencies. ADR 0003
+specifies the global v2 format and the initial implementation's limitations.
 Factory presets are compiled into each product, decoded through the public JSON
 codec, and exposed as an immutable bank through the host program API. The
 selected factory name is persisted in project metadata. User presets remain a
