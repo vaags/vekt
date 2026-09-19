@@ -22,6 +22,8 @@ add_executable(vekt_dsp_tests
 	processor/ParametersTests.cpp
     processor/GlimmerParametersTests.cpp
     processor/GlimmerProcessorTests.cpp
+	processor/MonoParametersTests.cpp
+	processor/MonoProcessorTests.cpp
 	processor/EditorLayoutTests.cpp
 	processor/ValueFormatTests.cpp
 	audio_lab/FileSourceTests.cpp
@@ -34,6 +36,7 @@ target_link_libraries(vekt_dsp_tests PRIVATE
     vekt::ui
     VektRavCore
 	VektGlimmerCore
+	VektMonoCore
     vekt::juce_headers
     Catch2::Catch2WithMain)
 

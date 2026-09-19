@@ -4,6 +4,7 @@
 #include <PluginProcessor.h>
 #include <PluginEditor.h>
 #include <vekt/glimmer/PluginProcessor.h>
+#include <vekt/mono/PluginProcessor.h>
 
 #include <juce_audio_utils/juce_audio_utils.h>
 
@@ -19,7 +20,7 @@
 namespace
 {
 constexpr int labWidth = vekt::ui::ScalableEditor::logicalWidth + 32;
-constexpr int labHeight = vekt::ui::ScalableEditor::logicalHeight + 192;
+constexpr int labHeight = vekt::ui::ScalableEditor::logicalHeight + 272;
 
 juce::String getSystemDefaultOutputName()
 {
@@ -105,6 +106,7 @@ public:
 		sourceBox.addItem("Unison", 7);
 		sourceBox.addItem("Two Tone", 8);
 		sourceBox.addItem("Audio File", 9);
+		sourceBox.addItem("Vekt Mono", 10);
         sourceBox.setSelectedId(1, juce::dontSendNotification);
         for (auto *component : {static_cast<juce::Component *>(&sourceBox),
                                 static_cast<juce::Component *>(&octaveDownButton), static_cast<juce::Component *>(&octaveUpButton),
@@ -114,16 +116,21 @@ public:
 			static_cast<juce::Component *>(&openFileButton), static_cast<juce::Component *>(&restartFileButton),
 			static_cast<juce::Component *>(&fileLabel), static_cast<juce::Component *>(&positionLabel),
 			static_cast<juce::Component *>(&productTabs), static_cast<juce::Component *>(&orderButton),
+			static_cast<juce::Component *>(&midiInputBox),
 								})
             addAndMakeVisible(*component);
+		addAndMakeVisible(keyboard);
 
 		sourceBox.onChange = [this]
 		{
 			const auto fileMode = sourceBox.getSelectedId() == 9;
+			const auto monoMode = sourceBox.getSelectedId() == 10;
 			requestedSource.store(sourceBox.getSelectedId() - 1);
-			octaveDownButton.setEnabled(!fileMode);
-			octaveUpButton.setEnabled(!fileMode);
+			octaveDownButton.setEnabled(!fileMode && !monoMode);
+			octaveUpButton.setEnabled(!fileMode && !monoMode);
 			restartFileButton.setEnabled(fileMode && fileLoaded);
+			keyboard.setVisible(monoMode);
+			orderButton.setTooltip("Process the selected source through this rack route.");
 		};
 		fileLabel.setText("Drop WAV, MP3, FLAC or AIFF/AIF here", juce::dontSendNotification);
 		fileLabel.setTooltip("Drop one mono or stereo audio file anywhere in Audio Lab. Files loop at their original level.");
@@ -149,22 +156,29 @@ public:
 			outputArmed.store(armButton.getToggleState());
 			armButton.setButtonText(outputArmed.load() ? "Output armed" : "Arm output");
 		};
-		productTabs.addItem("RAV", 1);
-		productTabs.addItem("Glimmer", 2);
+		productTabs.addItem("Mono", 1);
+		productTabs.addItem("RAV", 2);
+		productTabs.addItem("Glimmer", 3);
 		productTabs.setSelectedId(restoredSelectedTab, juce::dontSendNotification);
 		productTabs.onChange = [this]
 		{
-			const auto showGlimmer = productTabs.getSelectedId() == 2;
-			ravEditor->setVisible(!showGlimmer);
-			glimmerEditor->setVisible(showGlimmer);
+			const auto tab = productTabs.getSelectedId();
+			monoEditor->setVisible(tab == 1);
+			ravEditor->setVisible(tab == 2);
+			glimmerEditor->setVisible(tab == 3);
 		};
 		orderButton.onClick = [this]
 		{
-			const auto glimmerFirst = !glimmerFirstInChain.load();
-			glimmerFirstInChain.store(glimmerFirst);
-			orderButton.setButtonText(glimmerFirst ? "Glimmer -> RAV" : "RAV -> Glimmer");
+			const auto next = (rackRoute.load() + 1) % 5;
+			rackRoute.store(next);
+			static constexpr std::array<const char*, 5> routeNames {
+				"Bypass", "RAV", "Glimmer", "RAV -> Glimmer", "Glimmer -> RAV" };
+			orderButton.setButtonText(routeNames[static_cast<std::size_t>(next)]);
 		};
-		orderButton.setButtonText(glimmerFirstInChain.load() ? "Glimmer -> RAV" : "RAV -> Glimmer");
+		static constexpr std::array<const char*, 5> routeNames {
+			"Bypass", "RAV", "Glimmer", "RAV -> Glimmer", "Glimmer -> RAV" };
+		orderButton.setButtonText(routeNames[static_cast<std::size_t>(rackRoute.load())]);
+		midiInputBox.onChange = [this] { selectMidiInput(midiInputBox.getSelectedId() - 1); };
 		muteButton.onClick = [this] { outputArmed.store(false); armButton.setToggleState(false, juce::dontSendNotification); armButton.setButtonText("Arm output"); };
 		restartButton.onClick = []
 		{
@@ -179,7 +193,12 @@ public:
 		};
 		ravEditor.reset(ravProcessor.createEditor());
 		glimmerEditor.reset(glimmerProcessor.createEditor());
-		for (auto* editor : { ravEditor.get(), glimmerEditor.get() })
+		monoEditor.reset(monoProcessor.createEditor());
+		keyboard.setKeyPressBaseOctave(4);
+		keyboard.setOctaveForMiddleC(4);
+		keyboard.setWantsKeyboardFocus(true);
+		keyboardState.addListener(&midiCollector);
+		for (auto* editor : { monoEditor.get(), ravEditor.get(), glimmerEditor.get() })
 		{
 			addAndMakeVisible(*editor);
 			if (auto* scalableEditor = dynamic_cast<vekt::ui::ScalableEditor*>(editor))
@@ -188,12 +207,14 @@ public:
 				scalableEditor->setResizable(false, false);
 			}
 		}
-		const auto showGlimmer = productTabs.getSelectedId() == 2;
-		ravEditor->setVisible(!showGlimmer);
-		glimmerEditor->setVisible(showGlimmer);
+		monoEditor->setVisible(productTabs.getSelectedId() == 1);
+		ravEditor->setVisible(productTabs.getSelectedId() == 2);
+		glimmerEditor->setVisible(productTabs.getSelectedId() == 3);
+		keyboard.setVisible(false);
 		setSize(labWidth, labHeight);
 		openInitialOutput();
 		setAudioChannels(0, 2);
+		refreshMidiInputs();
 		addChangeListener(this);
 		startTimerHz(15);
 	}
@@ -203,6 +224,12 @@ public:
 		saveRackState();
 		stopTimer();
 		removeChangeListener(this);
+		keyboardState.removeListener(&midiCollector);
+		if (selectedMidiInputIdentifier.isNotEmpty())
+		{
+			removeMidiInputDeviceCallback(selectedMidiInputIdentifier, &midiCollector);
+			setMidiInputDeviceEnabled(selectedMidiInputIdentifier, false);
+		}
 		chooser.reset();
 		loader.removeAllJobs(true, -1);
 		shutdownAudio();
@@ -212,6 +239,9 @@ public:
 	{
 		ravProcessor.prepareToPlay(sampleRate, samplesPerBlockExpected);
 		glimmerProcessor.prepareToPlay(sampleRate, samplesPerBlockExpected);
+		monoProcessor.prepareToPlay(sampleRate, samplesPerBlockExpected);
+		midiCollector.reset(sampleRate);
+		midiCollector.ensureStorageAllocated(4096);
 		fileSource.prepare(samplesPerBlockExpected, sampleRate);
 		currentSource = static_cast<vekt::audio_lab::Source>(-1);
 		source.prepare(vekt::audio_lab::Source::sine, sampleRate);
@@ -229,7 +259,17 @@ public:
 			pluginCpuLoadPercent.store(0.0f);
 			return;
 		}
-		if (requestedSource.load() == 8)
+		const auto monoMode = requestedSource.load() == 9;
+		juce::MidiBuffer midi;
+		midiCollector.removeNextBlockOfMessages(midi, info.numSamples);
+		if (monoMode)
+		{
+			info.clearActiveBufferRegion();
+			juce::AudioBuffer<float> monoBlock(info.buffer->getArrayOfWritePointers(),
+				info.buffer->getNumChannels(), info.startSample, info.numSamples);
+			monoProcessor.processBlock(monoBlock, midi);
+		}
+		else if (requestedSource.load() == 8)
 			fileSource.render(info);
 		else
 		{
@@ -253,19 +293,16 @@ public:
 			inputPeak = std::max(inputPeak, info.buffer->getMagnitude(channel, info.startSample, info.numSamples));
 		generatedPeak.store(inputPeak);
 
-		juce::MidiBuffer midi;
 		juce::AudioBuffer<float> block(info.buffer->getArrayOfWritePointers(),
 			info.buffer->getNumChannels(), info.startSample, info.numSamples);
 		const auto startTicks = juce::Time::getHighResolutionTicks();
-		if (glimmerFirstInChain.load())
+		switch (rackRoute.load())
 		{
-			glimmerProcessor.processBlock(block, midi);
-			ravProcessor.processBlock(block, midi);
-		}
-		else
-		{
-			ravProcessor.processBlock(block, midi);
-			glimmerProcessor.processBlock(block, midi);
+		case 1: ravProcessor.processBlock(block, midi); break;
+		case 2: glimmerProcessor.processBlock(block, midi); break;
+		case 3: ravProcessor.processBlock(block, midi); glimmerProcessor.processBlock(block, midi); break;
+		case 4: glimmerProcessor.processBlock(block, midi); ravProcessor.processBlock(block, midi); break;
+		default: break;
 		}
 		const auto elapsedTicks = juce::Time::getHighResolutionTicks() - startTicks;
 		const auto blockDurationTicks = static_cast<double>(info.numSamples)
@@ -280,6 +317,7 @@ public:
 	void releaseResources() override
 	{
 		fileSource.release();
+		monoProcessor.releaseResources();
 		ravProcessor.releaseResources();
 		glimmerProcessor.releaseResources();
 	}
@@ -310,13 +348,15 @@ public:
 		statusLabel.setBounds(720, 56, getWidth() - 736, 44);
 		productTabs.setBounds(712, 112, 150, 40);
 		orderButton.setBounds(872, 112, 152, 40);
+		midiInputBox.setBounds(16, 168, 260, 32);
         openFileButton.setBounds(16, 112, 120, 40);
 		restartFileButton.setBounds(144, 112, 120, 40);
 		fileLabel.setBounds(280, 112, getWidth() - 500, 40);
 		positionLabel.setBounds(getWidth() - 212, 112, 196, 40);
-		for (auto* editor : { ravEditor.get(), glimmerEditor.get() })
+		keyboard.setBounds(284, 168, getWidth() - 300, 72);
+		for (auto* editor : { monoEditor.get(), ravEditor.get(), glimmerEditor.get() })
 		{
-			const auto editorArea = getLocalBounds().withTop(176).withTrimmedBottom(16).reduced(16, 0);
+			const auto editorArea = getLocalBounds().withTop(256).withTrimmedBottom(16).reduced(16, 0);
 			const auto scale = std::min(
 				static_cast<float>(editorArea.getWidth()) / vekt::ui::ScalableEditor::logicalWidth,
 				static_cast<float>(editorArea.getHeight()) / vekt::ui::ScalableEditor::logicalHeight);
@@ -369,24 +409,28 @@ private:
 		if (!state.hasType("VektAudioLabRackState")
 			|| static_cast<int>(state.getProperty("schemaVersion", 0)) != 1)
 			return;
-		glimmerFirstInChain.store(static_cast<bool>(state.getProperty("glimmerFirst", false)));
-		restoredSelectedTab = juce::jlimit(1, 2, static_cast<int>(state.getProperty("selectedTab", 1)));
+		restoredSelectedTab = juce::jlimit(1, 3, static_cast<int>(state.getProperty("selectedTab", 1)));
+		rackRoute.store(juce::jlimit(0, 4, static_cast<int>(state.getProperty("rackRoute", 3))));
+		restoreProcessorState(monoProcessor, state.getProperty("monoState", {}).toString());
 		restoreProcessorState(ravProcessor, state.getProperty("ravState", {}).toString());
 		restoreProcessorState(glimmerProcessor, state.getProperty("glimmerState", {}).toString());
+		restoredMidiInputIdentifier = state.getProperty("midiInput", {}).toString();
 	}
 
 	void saveRackState()
 	{
 		juce::ValueTree state("VektAudioLabRackState");
 		state.setProperty("schemaVersion", 1, nullptr);
-		state.setProperty("glimmerFirst", glimmerFirstInChain.load(), nullptr);
+		state.setProperty("rackRoute", rackRoute.load(), nullptr);
 		state.setProperty("selectedTab", productTabs.getSelectedId(), nullptr);
+		state.setProperty("midiInput", selectedMidiInputIdentifier, nullptr);
 		const auto capture = [](juce::AudioProcessor& processor)
 		{
 			juce::MemoryBlock data;
 			processor.getStateInformation(data);
 			return data.toBase64Encoding();
 		};
+		state.setProperty("monoState", capture(monoProcessor), nullptr);
 		state.setProperty("ravState", capture(ravProcessor), nullptr);
 		state.setProperty("glimmerState", capture(glimmerProcessor), nullptr);
 		const auto file = rackStateFile();
@@ -433,10 +477,57 @@ private:
 		outputPeak.store(peak);
 	}
 
+	void refreshMidiInputs()
+	{
+		const auto wantedIdentifier = selectedMidiInputIdentifier.isNotEmpty()
+			? selectedMidiInputIdentifier : restoredMidiInputIdentifier;
+		midiInputDevices = juce::MidiInput::getAvailableDevices();
+		midiInputBox.clear(juce::dontSendNotification);
+		midiInputBox.addItem("MIDI Input: Off", 1);
+		for (int index = 0; index < midiInputDevices.size(); ++index)
+			midiInputBox.addItem("MIDI: " + midiInputDevices.getReference(index).name, index + 2);
+		for (int index = 0; index < midiInputDevices.size(); ++index)
+			if (midiInputDevices.getReference(index).identifier == wantedIdentifier)
+			{
+				midiInputBox.setSelectedId(index + 2, juce::dontSendNotification);
+				selectMidiInput(index);
+				return;
+			}
+		if (selectedMidiInputIdentifier.isNotEmpty())
+			selectMidiInput(-1);
+		midiInputBox.setSelectedId(1, juce::dontSendNotification);
+	}
+
+	[[nodiscard]] int rackLatencySamples() const noexcept
+	{
+		const auto route = rackRoute.load();
+		const auto sourceLatency = requestedSource.load() == 9 ? monoProcessor.getLatencySamples() : 0;
+		const auto ravLatency = route == 1 || route == 3 || route == 4 ? ravProcessor.getLatencySamples() : 0;
+		const auto glimmerLatency = route == 2 || route == 3 || route == 4 ? glimmerProcessor.getLatencySamples() : 0;
+		return sourceLatency + ravLatency + glimmerLatency;
+	}
+
+	void selectMidiInput(int index)
+	{
+		if (selectedMidiInputIdentifier.isNotEmpty())
+		{
+			removeMidiInputDeviceCallback(selectedMidiInputIdentifier, &midiCollector);
+			setMidiInputDeviceEnabled(selectedMidiInputIdentifier, false);
+			selectedMidiInputIdentifier.clear();
+		}
+		if (!juce::isPositiveAndBelow(index, midiInputDevices.size()))
+			return;
+		selectedMidiInputIdentifier = midiInputDevices.getReference(index).identifier;
+		setMidiInputDeviceEnabled(selectedMidiInputIdentifier, true);
+		addMidiInputDeviceCallback(selectedMidiInputIdentifier, &midiCollector);
+	}
+
 	void timerCallback() override
 	{
 		if (deviceRefreshPending.exchange(false))
 			followSystemDefaultOutput();
+		if (const auto availableMidiInputs = juce::MidiInput::getAvailableDevices(); availableMidiInputs != midiInputDevices)
+			refreshMidiInputs();
 		if (fileLoaded)
 		{
 			const auto time = [](double seconds)
@@ -451,7 +542,7 @@ private:
 			(outputArmed.load() ? "OUTPUT ARMED" : "Muted") + juce::String("  In ")
 			+ juce::String(generatedPeak.load(), 3) + "  Out "
 			+ juce::String(outputPeak.load(), 3) + "  Latency "
-			+ juce::String(ravProcessor.getLatencySamples() + glimmerProcessor.getLatencySamples()) + "  CPU "
+			+ juce::String(rackLatencySamples()) + "  CPU "
 			+ juce::String(pluginCpuLoadPercent.load(), 1) + "%  Output: " + outputDeviceName,
             juce::dontSendNotification);
     }
@@ -519,6 +610,11 @@ private:
 	unsigned int loadGeneration {};
 	vekt::rav::PluginProcessor ravProcessor;
 	vekt::glimmer::PluginProcessor glimmerProcessor;
+	vekt::mono::PluginProcessor monoProcessor;
+	juce::MidiKeyboardState keyboardState;
+	juce::MidiMessageCollector midiCollector;
+	juce::MidiKeyboardComponent keyboard { keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard };
+	std::unique_ptr<juce::AudioProcessorEditor> monoEditor;
 	std::unique_ptr<juce::AudioProcessorEditor> ravEditor;
 	std::unique_ptr<juce::AudioProcessorEditor> glimmerEditor;
 	juce::ComboBox sourceBox;
@@ -529,6 +625,7 @@ private:
 	juce::TextButton restartButton { "Restart App" };
 	juce::Label statusLabel;
 	juce::ComboBox productTabs;
+	juce::ComboBox midiInputBox;
 	juce::TextButton orderButton { "RAV -> Glimmer" };
 	vekt::audio_lab::SignalSource source;
 	vekt::audio_lab::Source currentSource { static_cast<vekt::audio_lab::Source>(-1) };
@@ -540,8 +637,11 @@ private:
 	std::atomic<float> outputPeak {};
 	std::atomic<float> generatedPeak {};
 	std::atomic<float> pluginCpuLoadPercent {};
-	std::atomic<bool> glimmerFirstInChain {};
+	std::atomic<int> rackRoute { 3 };
 	int restoredSelectedTab { 1 };
+	juce::Array<juce::MidiDeviceInfo> midiInputDevices;
+	juce::String selectedMidiInputIdentifier;
+	juce::String restoredMidiInputIdentifier;
 	std::atomic<bool> deviceRefreshPending {};
 	juce::String outputDeviceName { "Unavailable" };
 	#if JUCE_MAC
