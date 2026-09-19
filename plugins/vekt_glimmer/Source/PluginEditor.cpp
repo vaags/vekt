@@ -36,8 +36,8 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	constexpr std::array microphoneIds { parameters::hornDrumBalance, parameters::micAngle, parameters::micDistance };
 	for (std::size_t index = 0; index < microphoneControls.size(); ++index)
 		configureRotary(microphonePanel, microphoneControls[index], microphoneNames[index], microphoneIds[index], microphoneAttachments[index]);
-	constexpr std::array toneNames { "Horn Tone", "Drum Tone", "Preamp" };
-	constexpr std::array toneIds { parameters::hornTone, parameters::drumTone, parameters::preampDrive };
+	constexpr std::array toneNames { "Horn Tone", "Drum Tone", "Preamp", "Mix" };
+	constexpr std::array toneIds { parameters::hornTone, parameters::drumTone, parameters::preampDrive, parameters::mix };
 	for (std::size_t index = 0; index < toneControls.size(); ++index)
 		configureRotary(tonePanel, toneControls[index], toneNames[index], toneIds[index], toneAttachments[index]);
 
@@ -126,7 +126,7 @@ void PluginEditor::resized()
 	for (std::size_t index = 0; index < microphoneControls.size(); ++index)
 		microphoneControls[index].setBounds(12 + static_cast<int>(index) * 102, 64, 98, 160);
 	for (std::size_t index = 0; index < toneControls.size(); ++index)
-		toneControls[index].setBounds(30 + static_cast<int>(index) * 190, 70, 170, 170);
+		toneControls[index].setBounds(8 + static_cast<int>(index) * 164, 70, 156, 170);
 	inputFader.setBounds(24, 32, 92, 160);
 	outputFader.setBounds(130, 32, 92, 160);
 	inputMeter.setBounds(238, 36, 28, 156);

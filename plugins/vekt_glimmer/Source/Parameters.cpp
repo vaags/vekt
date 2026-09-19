@@ -78,6 +78,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 	layout.add(std::make_unique<juce::AudioParameterBool>(
 		juce::ParameterID { bypass, parameterVersion }, "Bypass", false));
 	layout.add(std::make_unique<juce::AudioParameterFloat>(
+		juce::ParameterID { mix, parameterVersion }, "Mix",
+		juce::NormalisableRange<float> { 0.0f, 100.0f, 0.01f }, 100.0f,
+		juce::AudioParameterFloatAttributes {}.withLabel("%")));
+	layout.add(std::make_unique<juce::AudioParameterFloat>(
 		juce::ParameterID { outputGain, parameterVersion }, "Output", decibelRange(), 0.0f,
 		juce::AudioParameterFloatAttributes {}.withLabel("dB")));
 	layout.add(std::make_unique<juce::AudioParameterChoice>(

@@ -307,6 +307,7 @@ int renderGlimmer(const Options& options, const std::optional<InputFile>& inputF
 	setParameter(processor, vekt::glimmer::parameters::preampDrive, options.drive);
 	setParameter(processor, vekt::glimmer::parameters::hornTone, options.tone);
 	setParameter(processor, vekt::glimmer::parameters::autoGain, options.autoGain ? 1.0f : 0.0f);
+	setParameter(processor, vekt::glimmer::parameters::mix, options.mix);
 	processor.setNonRealtime(options.offlineProfile);
 	processor.prepareToPlay(options.sampleRate, options.blockSize);
 
@@ -364,6 +365,7 @@ int renderGlimmer(const Options& options, const std::optional<InputFile>& inputF
 	if (options.reportPath.isNotEmpty())
 	{
 		const auto report = "{\n  \"product\": \"glimmer\",\n  \"samples\": " + juce::String(totalSamples)
+			+ ",\n  \"mix_percent\": " + juce::String(options.mix)
 			+ ",\n  \"latency_samples\": " + juce::String(processor.getLatencySamples()) + "\n}\n";
 		if (!juce::File(options.reportPath).replaceWithText(report)) return 1;
 	}

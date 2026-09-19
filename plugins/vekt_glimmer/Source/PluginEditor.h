@@ -44,8 +44,8 @@ private:
 	std::array<std::unique_ptr<SliderAttachment>, 5> rotationAttachments;
 	std::array<ui::RotaryControl, 3> microphoneControls;
 	std::array<std::unique_ptr<SliderAttachment>, 3> microphoneAttachments;
-	std::array<ui::RotaryControl, 3> toneControls;
-	std::array<std::unique_ptr<SliderAttachment>, 3> toneAttachments;
+	std::array<ui::RotaryControl, 4> toneControls;
+	std::array<std::unique_ptr<SliderAttachment>, 4> toneAttachments;
 	juce::ComboBox speedModeBox;
 	juce::ComboBox trackingQualityBox;
 	juce::ComboBox offlineQualityBox;

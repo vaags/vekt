@@ -9,7 +9,9 @@ TEST_CASE("Glimmer sound parameters exclude host bypass and quality", "[glimmer]
 	using namespace vekt::glimmer::parameters;
 
 	REQUIRE(presetProductIdentifier == "com.vekt.glimmer");
-	REQUIRE(soundParameterIds.size() == 15);
+	REQUIRE(soundParameterIds.size() == 16);
+	REQUIRE(std::find(soundParameterIds.begin(), soundParameterIds.end(), mix)
+		!= soundParameterIds.end());
 	REQUIRE(std::find(soundParameterIds.begin(), soundParameterIds.end(), bypass)
 		== soundParameterIds.end());
 	REQUIRE(std::find(soundParameterIds.begin(), soundParameterIds.end(), trackingOversampling)

@@ -23,6 +23,7 @@ inline constexpr auto speedMode = "speedMode";
 inline constexpr auto sensitivity = "sensitivity";
 inline constexpr auto autoGain = "autoGain";
 inline constexpr auto bypass = "bypass";
+inline constexpr auto mix = "mix";
 inline constexpr auto outputGain = "outputGain";
 inline constexpr auto trackingOversampling = "trackingOversampling";
 inline constexpr auto offlineOversampling = "offlineOversampling";
@@ -47,6 +48,7 @@ inline constexpr std::array soundParameterIds {
 	speedMode,
 	sensitivity,
 	autoGain,
+	mix,
 	outputGain
 };
 

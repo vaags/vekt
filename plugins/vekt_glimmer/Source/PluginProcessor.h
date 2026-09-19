@@ -8,6 +8,7 @@
 #include <vekt/dsp/AdaptiveAutoGain.h>
 #include <vekt/dsp/DcBlocker.h>
 #include <vekt/dsp/LatencyAlignedBypass.h>
+#include <vekt/dsp/LatencyAlignedMixer.h>
 #include <vekt/dsp/OversamplingBank.h>
 #include <vekt/dsp/StereoPeakMeter.h>
 #include <vekt/presets/FilePresetRepository.h>
@@ -99,6 +100,7 @@ private:
 	std::atomic<float>* sensitivityParameter;
 	std::atomic<float>* autoGainParameter;
 	std::atomic<float>* bypassParameter;
+	std::atomic<float>* mixParameter;
 	std::atomic<float>* outputGainParameter;
 	std::atomic<float>* trackingOversamplingParameter;
 	std::atomic<float>* offlineOversamplingParameter;
@@ -116,6 +118,7 @@ private:
 	dsp::AdaptiveAutoGain<float> autoGain;
 	dsp::OversamplingBank<float> oversampling { 2 };
 	dsp::LatencyAlignedBypass<float> bypassDelay;
+	dsp::LatencyAlignedMixer<float> dryWetMixer;
 	using MicDelay = juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Lagrange3rd>;
 	std::array<MicDelay, 2> hornMicDelays;
 	std::array<MicDelay, 2> drumMicDelays;

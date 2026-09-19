@@ -65,6 +65,7 @@ PluginProcessor::PluginProcessor()
 	  sensitivityParameter(requireParameter(parameterState, parameters::sensitivity)),
 	  autoGainParameter(requireParameter(parameterState, parameters::autoGain)),
 	  bypassParameter(requireParameter(parameterState, parameters::bypass)),
+	  mixParameter(requireParameter(parameterState, parameters::mix)),
 	  outputGainParameter(requireParameter(parameterState, parameters::outputGain)),
 	  trackingOversamplingParameter(requireParameter(parameterState, parameters::trackingOversampling)),
 	  offlineOversamplingParameter(requireParameter(parameterState, parameters::offlineOversampling))
@@ -101,6 +102,8 @@ void PluginProcessor::prepareToPlay(double newSampleRate, int newMaximumBlockSiz
 	micDelaySpec.numChannels = 1;
 	micLatencySamples = static_cast<int>(std::ceil(maximumMicDelaySeconds * sampleRateHz));
 	bypassDelay.prepare(spec, oversampling.getMaximumLatencySamples() + micLatencySamples);
+	dryWetMixer.prepare(spec, oversampling.getMaximumLatencySamples() + micLatencySamples);
+	dryWetMixer.setRampLength(0.1);
 	for (auto* delay : { hornMicDelays.data(), drumMicDelays.data() })
 		for (std::size_t channel = 0; channel < 2; ++channel)
 		{
@@ -108,6 +111,7 @@ void PluginProcessor::prepareToPlay(double newSampleRate, int newMaximumBlockSiz
 			delay[channel].prepare(micDelaySpec);
 		}
 	bypassDelay.setLatency(oversampling.getActiveLatencySamples() + micLatencySamples);
+	dryWetMixer.setWetLatency(oversampling.getActiveLatencySamples() + micLatencySamples);
 	for (auto& blocker : dcBlockers)
 		blocker.prepare(sampleRateHz);
 	autoGain.prepare(sampleRateHz);
@@ -175,6 +179,7 @@ void PluginProcessor::process(juce::AudioBuffer<float>& buffer, bool bypassed)
 
 		const auto inputGain = gainFromDb(inputGainParameter->load());
 		const auto outputGain = gainFromDb(outputGainParameter->load());
+		dryWetMixer.setWetProportion(mixParameter->load() * 0.01f);
 		const auto drive = gainFromDb(preampDriveParameter->load());
 		const auto hornGain = gainFromDb(hornToneParameter->load());
 		const auto drumGain = gainFromDb(drumToneParameter->load());
@@ -206,6 +211,7 @@ void PluginProcessor::process(juce::AudioBuffer<float>& buffer, bool bypassed)
 				referenceBuffer.setSample(channel, sample, input);
 				block.setSample(channel, sample, input);
 			}
+		dryWetMixer.pushDrySamples(juce::dsp::AudioBlock<const float>(block));
 		auto oversampled = oversampling.processSamplesUp(juce::dsp::AudioBlock<const float>(block));
 		for (std::size_t channel = 0; channel < oversampled.getNumChannels(); ++channel)
 		{
@@ -246,9 +252,14 @@ void PluginProcessor::process(juce::AudioBuffer<float>& buffer, bool bypassed)
 				drumMicDelays[static_cast<std::size_t>(channel)].pushSample(0, drum);
 				const auto output = hornMicDelays[static_cast<std::size_t>(channel)].popSample(0, hornDelay)
 					+ drumMicDelays[static_cast<std::size_t>(channel)].popSample(0, drumDelay);
-				block.setSample(channel, sample, dcBlockers[static_cast<std::size_t>(channel)].processSample(output) * outputGain);
+				block.setSample(channel, sample, dcBlockers[static_cast<std::size_t>(channel)].processSample(output));
 			}
 		}
+		auto wetBlock = juce::dsp::AudioBlock<float>(block);
+		dryWetMixer.mixWetSamples(wetBlock);
+		for (int channel = 0; channel < 2; ++channel)
+			for (int sample = 0; sample < samples; ++sample)
+				block.setSample(channel, sample, block.getSample(channel, sample) * outputGain);
 		if (bypassed)
 		{
 			for (int channel = 0; channel < 2; ++channel)
@@ -373,6 +384,8 @@ void PluginProcessor::applyPendingQualityChange()
 		oversampling.activate(quality);
 		bypassDelay.setLatency(oversampling.getActiveLatencySamples() + micLatencySamples);
 		bypassDelay.reset();
+		dryWetMixer.setWetLatency(oversampling.getActiveLatencySamples() + micLatencySamples);
+		dryWetMixer.reset();
 		autoGain.reset();
 		for (auto& blocker : dcBlockers) blocker.reset();
 		setLatencySamples(oversampling.getActiveLatencySamples() + micLatencySamples);

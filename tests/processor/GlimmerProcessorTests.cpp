@@ -146,3 +146,36 @@ TEST_CASE("Glimmer mic distance changes pickup without changing latency", "[glim
 	}
 	REQUIRE(difference > 1.0);
 }
+
+TEST_CASE("Glimmer Mix reaches dry and wet endpoints", "[glimmer][processor][mix]")
+{
+	vekt::glimmer::PluginProcessor dry;
+	vekt::glimmer::PluginProcessor wet;
+	setParameter(dry, vekt::glimmer::parameters::mix, 0.0f);
+	setParameter(wet, vekt::glimmer::parameters::mix, 100.0f);
+	dry.prepareToPlay(48'000.0, 128);
+	wet.prepareToPlay(48'000.0, 128);
+	REQUIRE(dry.getLatencySamples() == wet.getLatencySamples());
+
+	juce::MidiBuffer midi;
+	double difference {};
+	for (int blockIndex = 0; blockIndex < 96; ++blockIndex)
+	{
+		juce::AudioBuffer<float> dryBuffer(2, 128);
+		juce::AudioBuffer<float> wetBuffer(2, 128);
+		for (int sample = 0; sample < 128; ++sample)
+		{
+			const auto value = 0.25f * std::sin(static_cast<float>(blockIndex * 128 + sample) * 0.1f);
+			dryBuffer.setSample(0, sample, value);
+			dryBuffer.setSample(1, sample, value);
+			wetBuffer.setSample(0, sample, value);
+			wetBuffer.setSample(1, sample, value);
+		}
+		dry.processBlock(dryBuffer, midi);
+		wet.processBlock(wetBuffer, midi);
+		if (blockIndex >= 80)
+			for (int sample = 0; sample < 128; ++sample)
+				difference += std::abs(dryBuffer.getSample(0, sample) - wetBuffer.getSample(0, sample));
+	}
+	REQUIRE(difference > 1.0);
+}

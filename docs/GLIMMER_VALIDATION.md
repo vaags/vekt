@@ -10,6 +10,8 @@ post-input-gain reference against that preamp output before cabinet motion, so
 it does not normalize the intended rotor modulation or output-gain changes.
 The horn and drum pickups use bounded fractional delays with a stable reported
 latency; bypass returns the corresponding latency-aligned raw input.
+The Mix control blends the latency-aligned post-input-gain dry signal with the
+wet cabinet output before Output gain.
 
 ## Automated Coverage
 
@@ -20,7 +22,7 @@ latency; bypass returns the corresponding latency-aligned raw input.
   quality mapping contract.
 - `GlimmerProcessorTests` verifies finite stereo output across every speed mode
   and APVTS project-state restoration, quality profile selection, latency-aligned
-  bypass, and distance-dependent pickup behavior with stable latency.
+  bypass, Mix endpoints, and distance-dependent pickup behavior with stable latency.
 
 ## Build Gates
 
