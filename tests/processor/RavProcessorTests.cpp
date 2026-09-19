@@ -535,6 +535,70 @@ TEST_CASE("Rav auto-gain holds reference loudness through the wet chain", "[proc
 	}
 }
 
+TEST_CASE("Rav auto-gain preserves wet-chain spectral shape", "[processor][auto-gain]")
+{
+	constexpr auto sampleRate = 48'000.0;
+	constexpr auto blockSize = 256;
+	constexpr auto settlingBlocks = 40;
+	constexpr auto measurementBlocks = 20;
+
+	vekt::rav::PluginProcessor uncompensated;
+	vekt::rav::PluginProcessor compensated;
+	for (auto* processor : { &uncompensated, &compensated })
+	{
+		setParameter(*processor, vekt::rav::parameters::drive, 24.0f);
+		setParameter(*processor, vekt::rav::parameters::bias, 0.3f);
+		setParameter(*processor, vekt::rav::parameters::tone, 0.0f);
+		setParameter(*processor, vekt::rav::parameters::mix, 100.0f);
+		setParameter(*processor, vekt::rav::parameters::trackingOversampling, 0.0f);
+		processor->prepareToPlay(sampleRate, blockSize);
+	}
+	setParameter(compensated, vekt::rav::parameters::autoGain, 1.0f);
+
+	juce::MidiBuffer midi;
+	auto crossProduct = 0.0;
+	auto uncompensatedEnergy = 0.0;
+	auto compensatedEnergy = 0.0;
+	for (auto blockIndex = 0; blockIndex < settlingBlocks + measurementBlocks; ++blockIndex)
+	{
+		juce::AudioBuffer<float> uncompensatedBuffer(2, blockSize);
+		juce::AudioBuffer<float> compensatedBuffer(2, blockSize);
+		for (auto sample = 0; sample < blockSize; ++sample)
+		{
+			const auto sampleIndex = blockIndex * blockSize + sample;
+			const auto input = static_cast<float>(
+				0.08 * std::sin(2.0 * std::numbers::pi * 375.0 * sampleIndex / sampleRate)
+				+ 0.06 * std::sin(2.0 * std::numbers::pi * 1'500.0 * sampleIndex / sampleRate)
+				+ 0.04 * std::sin(2.0 * std::numbers::pi * 6'000.0 * sampleIndex / sampleRate));
+			for (auto channel = 0; channel < 2; ++channel)
+			{
+				uncompensatedBuffer.setSample(channel, sample, input);
+				compensatedBuffer.setSample(channel, sample, input);
+			}
+		}
+
+		uncompensated.processBlock(uncompensatedBuffer, midi);
+		compensated.processBlock(compensatedBuffer, midi);
+		if (blockIndex < settlingBlocks)
+			continue;
+
+		for (auto channel = 0; channel < 2; ++channel)
+			for (auto sample = 0; sample < blockSize; ++sample)
+			{
+				const auto dryGainOutput = static_cast<double>(uncompensatedBuffer.getSample(channel, sample));
+				const auto autoGainOutput = static_cast<double>(compensatedBuffer.getSample(channel, sample));
+				crossProduct += dryGainOutput * autoGainOutput;
+				uncompensatedEnergy += dryGainOutput * dryGainOutput;
+				compensatedEnergy += autoGainOutput * autoGainOutput;
+			}
+	}
+
+	const auto fittedGain = crossProduct / uncompensatedEnergy;
+	const auto residualEnergy = std::max(0.0, compensatedEnergy
+		- 2.0 * fittedGain * crossProduct + fittedGain * fittedGain * uncompensatedEnergy);
+	REQUIRE(std::sqrt(residualEnergy / compensatedEnergy) < 0.005);
+}
+
 TEST_CASE("Rav processor publishes and consumes stereo peak snapshots", "[processor][meter]")
 {
 	vekt::rav::PluginProcessor processor;

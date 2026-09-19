@@ -159,7 +159,7 @@ private:
 	std::array<juce::AudioBuffer<float>, 3> bandBuffers;
 	std::array<juce::AudioBuffer<float>, 3> cleanBandBuffers;
 	std::array<dsp::DcBlocker<float>, 2> dcBlockers;
-	std::array<AdaptiveAutoGain<float>, 3> bandAutoGain;
+	AdaptiveAutoGain<float> autoGain;
 	std::array<dsp::ControlTransition<float>, 3> bandMixSmoothers;
 	std::array<std::array<dsp::ControlTransition<float>, RavStageChain::stageCount>, 3> stageEnableSmoothers;
 	dsp::StereoPeakMeter inputMeter;

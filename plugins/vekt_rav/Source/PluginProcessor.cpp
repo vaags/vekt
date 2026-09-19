@@ -137,8 +137,7 @@ void PluginProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
 		bands.setSize(2, maximumOversampledBlockSize, false, false, true);
 	for (auto& bands : cleanBandBuffers)
 		bands.setSize(2, maximumOversampledBlockSize, false, false, true);
-	for (auto& gain : bandAutoGain)
-		gain.prepare(effectiveSampleRate);
+	autoGain.prepare(effectiveSampleRate);
 	const auto initialBandMixes = std::array {
 		lowBandMixParameter->load() * 0.01f,
 		midBandMixParameter->load() * 0.01f,
@@ -345,10 +344,6 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 				}
 			}
 		}
-		bandAutoGain[band].process(
-			juce::dsp::AudioBlock<const float>(cleanBandBuffers[band]),
-			juce::dsp::AudioBlock<float>(bandBuffers[band]),
-			autoGainParameter->load() >= 0.5f);
 		for (auto channel = 0; channel < 2; ++channel)
 			for (auto sample = 0; sample < samples; ++sample)
 			{
@@ -361,10 +356,20 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 	}
 	for (auto channel = 0; channel < 2; ++channel)
 		for (auto sample = 0; sample < samples; ++sample)
+		{
+			cleanBandBuffers[0].setSample(channel, sample,
+				cleanBandBuffers[0].getSample(channel, sample)
+				+ cleanBandBuffers[1].getSample(channel, sample)
+				+ cleanBandBuffers[2].getSample(channel, sample));
 			oversampled.setSample(channel, sample,
 				bandBuffers[0].getSample(channel, sample)
 				+ bandBuffers[1].getSample(channel, sample)
 				+ bandBuffers[2].getSample(channel, sample));
+		}
+	autoGain.process(
+		juce::dsp::AudioBlock<const float>(cleanBandBuffers[0].getArrayOfReadPointers(), 2, 0, sampleCount),
+		juce::dsp::AudioBlock<float>(oversampled),
+		autoGainParameter->load() >= 0.5f);
 	oversampling.processSamplesDown(block);
 	for (std::size_t channel = 0; channel < block.getNumChannels(); ++channel)
 		dcBlockers[channel].process(std::span<float>(block.getChannelPointer(channel), block.getNumSamples()));
@@ -803,8 +808,7 @@ void PluginProcessor::applyPendingQualityChange()
 			for (auto& channel : band)
 				for (auto& stage : channel)
 						stage.prepare(effectiveSampleRate);
-		for (auto& gain : bandAutoGain)
-			gain.prepare(effectiveSampleRate);
+		autoGain.prepare(effectiveSampleRate);
 		for (auto& bandMix : bandMixSmoothers)
 			bandMix.prepare(effectiveSampleRate);
 		crossover.prepare(
