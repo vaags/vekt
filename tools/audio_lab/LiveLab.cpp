@@ -6,6 +6,10 @@
 
 #include <juce_audio_utils/juce_audio_utils.h>
 
+#if JUCE_MAC
+ #include <CoreAudio/CoreAudio.h>
+#endif
+
 #include <array>
 #include <atomic>
 #include <cmath>
@@ -16,12 +20,79 @@ namespace
 constexpr int labWidth = vekt::ui::ScalableEditor::logicalWidth + 32;
 constexpr int labHeight = vekt::ui::ScalableEditor::logicalHeight + 196;
 
-class LiveLab final : public juce::AudioAppComponent,
+juce::String getSystemDefaultOutputName()
+{
+#if JUCE_MAC
+	AudioDeviceID device {};
+	UInt32 size = sizeof(device);
+	const AudioObjectPropertyAddress defaultDeviceProperty {
+		kAudioHardwarePropertyDefaultOutputDevice, kAudioObjectPropertyScopeGlobal,
+		kAudioObjectPropertyElementMain
+	};
+	if (AudioObjectGetPropertyData(kAudioObjectSystemObject, &defaultDeviceProperty, 0, nullptr, &size, &device) != noErr)
+		return {};
+	CFStringRef name {};
+	size = sizeof(name);
+	const AudioObjectPropertyAddress nameProperty {
+		kAudioObjectPropertyName, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain
+	};
+	if (AudioObjectGetPropertyData(device, &nameProperty, 0, nullptr, &size, &name) != noErr || name == nullptr)
+		return {};
+	const auto result = juce::String::fromCFString(name);
+	CFRelease(name);
+	return result;
+#else
+	return {};
+#endif
+}
+
+#if JUCE_MAC
+class DefaultOutputListener final
+{
+public:
+	explicit DefaultOutputListener(std::atomic<bool>& pendingRefresh)
+		: pending(pendingRefresh)
+	{
+		const AudioObjectPropertyAddress property {
+			kAudioHardwarePropertyDefaultOutputDevice, kAudioObjectPropertyScopeGlobal,
+			kAudioObjectPropertyElementMain
+		};
+		installed = AudioObjectAddPropertyListener(kAudioObjectSystemObject, &property, callback, this) == noErr;
+	}
+	~DefaultOutputListener()
+	{
+		if (!installed)
+			return;
+		const AudioObjectPropertyAddress property {
+			kAudioHardwarePropertyDefaultOutputDevice, kAudioObjectPropertyScopeGlobal,
+			kAudioObjectPropertyElementMain
+		};
+		AudioObjectRemovePropertyListener(kAudioObjectSystemObject, &property, callback, this);
+	}
+
+private:
+	static OSStatus callback(AudioObjectID, UInt32, const AudioObjectPropertyAddress[], void* context)
+	{
+		static_cast<DefaultOutputListener*>(context)->pending.store(true);
+		return noErr;
+	}
+	std::atomic<bool>& pending;
+	bool installed {};
+};
+#endif
+
+class LiveLab final : private juce::AudioDeviceManager,
+						 public juce::AudioAppComponent,
 						 public juce::FileDragAndDropTarget,
-						 private juce::Timer
+						 private juce::Timer,
+						 private juce::ChangeListener
 {
 public:
 	LiveLab()
+		: AudioAppComponent(static_cast<juce::AudioDeviceManager&>(*this))
+		#if JUCE_MAC
+		, defaultOutputListener(deviceRefreshPending)
+		#endif
 	{
         sourceBox.addItem("Sine", 1);
         sourceBox.addItem("Sawtooth", 2);
@@ -98,12 +169,15 @@ public:
 		}
 		setSize(labWidth, labHeight);
 		setAudioChannels(0, 2);
+		addChangeListener(this);
+		refreshOutputDeviceName();
 		startTimerHz(15);
 	}
 
 	~LiveLab() override
 	{
 		stopTimer();
+		removeChangeListener(this);
 		chooser.reset();
 		loader.removeAllJobs(true, -1);
 		shutdownAudio();
@@ -268,6 +342,8 @@ private:
 
 	void timerCallback() override
 	{
+		if (deviceRefreshPending.exchange(false))
+			followSystemDefaultOutput();
 		if (fileLoaded)
 		{
 			const auto time = [](double seconds)
@@ -283,9 +359,41 @@ private:
 			+ juce::String(generatedPeak.load(), 3) + "  Out "
 			+ juce::String(outputPeak.load(), 3) + "  Latency "
 			+ juce::String(processor.getLatencySamples()) + "  CPU "
-			+ juce::String(pluginCpuLoadPercent.load(), 1) + "%",
+			+ juce::String(pluginCpuLoadPercent.load(), 1) + "%  Output: " + outputDeviceName,
             juce::dontSendNotification);
     }
+
+	void changeListenerCallback(juce::ChangeBroadcaster*) override
+	{
+		// Core Audio notifies JUCE when the macOS device list/default route changes.
+		// Switch on the message thread, never from the audio callback.
+		deviceRefreshPending.store(true);
+	}
+
+	void followSystemDefaultOutput()
+	{
+		const auto defaultName = getSystemDefaultOutputName();
+		auto* current = getCurrentAudioDevice();
+		if (defaultName.isEmpty() || (current != nullptr && current->getName() == defaultName))
+		{
+			refreshOutputDeviceName();
+			return;
+		}
+		closeAudioDevice();
+		const auto error = initialise(0, 2, nullptr, true);
+		if (error.isEmpty())
+			refreshOutputDeviceName();
+		else
+			outputDeviceName = "Unavailable";
+	}
+
+	void refreshOutputDeviceName()
+	{
+		if (auto* current = getCurrentAudioDevice())
+			outputDeviceName = current->getName();
+		else
+			outputDeviceName = "Unavailable";
+	}
 
 	vekt::audio_lab::FileSource fileSource;
 	juce::ThreadPool loader { 1 };
@@ -316,6 +424,11 @@ private:
 	std::atomic<float> outputPeak {};
 	std::atomic<float> generatedPeak {};
 	std::atomic<float> pluginCpuLoadPercent {};
+	std::atomic<bool> deviceRefreshPending {};
+	juce::String outputDeviceName { "Unavailable" };
+	#if JUCE_MAC
+	DefaultOutputListener defaultOutputListener;
+	#endif
 };
 
 class MainWindow final : public juce::DocumentWindow
