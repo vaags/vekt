@@ -1,5 +1,6 @@
 #include <PluginEditor.h>
 #include <Parameters.h>
+#include "../../plugins/vekt_glimmer/Source/PluginEditor.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <cstdlib>
@@ -20,6 +21,29 @@ void checkVisibleBounds(juce::Component& parent)
 		checkVisibleBounds(*child);
 	}
 }
+
+vekt::ui::LevelMeter* findMeter(juce::Component& parent, const juce::String& name)
+{
+	for (auto* child : parent.getChildren())
+	{
+		if (auto* meter = dynamic_cast<vekt::ui::LevelMeter*>(child); meter != nullptr && meter->getName() == name)
+			return meter;
+		if (auto* meter = findMeter(*child, name))
+			return meter;
+	}
+	return nullptr;
+}
+
+void checkMeterBounds(juce::Component& content, int minimumWidth)
+{
+	for (const auto* name : { "IN", "OUT" })
+	{
+		auto* meter = findMeter(content, name);
+		REQUIRE(meter != nullptr);
+		REQUIRE(meter->getWidth() >= minimumWidth);
+		REQUIRE_FALSE(meter->getBounds().isEmpty());
+	}
+}
 }
 
 TEST_CASE("Rav editor keeps its controls within the 16:10 canvas", "[processor][ui]")
@@ -35,6 +59,7 @@ TEST_CASE("Rav editor keeps its controls within the 16:10 canvas", "[processor][
 	{
 		editor.setSize(width, width * 10 / 16);
 		checkVisibleBounds(editor.getContent());
+		checkMeterBounds(editor.getContent(), 32);
 	}
 	const auto find = [&](const juce::String& name) -> juce::Component&
 	{
@@ -128,6 +153,20 @@ TEST_CASE("Rav editor keeps its controls within the 16:10 canvas", "[processor][
 	{
 		editor.setSize(width, width * 10 / 16);
 		checkVisibleBounds(editor.getContent());
+	}
+}
+
+TEST_CASE("Glimmer editor keeps stereo meters within its canvas", "[processor][ui]")
+{
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	vekt::glimmer::PluginProcessor processor;
+	vekt::glimmer::PluginEditor editor(processor);
+
+	for (const auto width : { 1040, 1560, 2080 })
+	{
+		editor.setSize(width, width * 10 / 16);
+		checkVisibleBounds(editor.getContent());
+		checkMeterBounds(editor.getContent(), 28);
 	}
 }
 

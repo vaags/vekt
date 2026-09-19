@@ -24,7 +24,9 @@ add_executable(vekt_dsp_tests
 	processor/EditorLayoutTests.cpp
 	processor/ValueFormatTests.cpp
 	audio_lab/FileSourceTests.cpp
-    dsp/TanhStageTests.cpp)
+    dsp/TanhStageTests.cpp
+    ui/StereoMeterBallisticsTests.cpp
+    ui/LevelMeterTests.cpp)
 
 target_link_libraries(vekt_dsp_tests PRIVATE
     vekt::dsp

@@ -93,10 +93,8 @@ void PluginEditor::configureRotary(ui::Panel& panel, ui::RotaryControl& control,
 
 void PluginEditor::timerCallback()
 {
-	inputPeaks = pluginProcessor.consumeInputPeaks();
-	outputPeaks = pluginProcessor.consumeOutputPeaks();
-	inputMeter.setLevel(std::max(inputPeaks[0], inputPeaks[1]));
-	outputMeter.setLevel(std::max(outputPeaks[0], outputPeaks[1]));
+	inputMeter.setStereoLevels(pluginProcessor.consumeInputPeaks());
+	outputMeter.setStereoLevels(pluginProcessor.consumeOutputPeaks());
 	autoTargetLabel.setText(pluginProcessor.isAutoTargetFast() ? "Auto target: Fast" : "Auto target: Slow", juce::dontSendNotification);
 	rotationControls[4].setEnabled(pluginProcessor.getParameters().getRawParameterValue(parameters::speedMode)->load() >= 1.5f);
 	const auto quality = pluginProcessor.getActiveQuality();

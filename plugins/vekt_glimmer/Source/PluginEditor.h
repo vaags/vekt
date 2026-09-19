@@ -63,7 +63,5 @@ private:
 	std::unique_ptr<SliderAttachment> outputAttachment;
 	std::unique_ptr<ButtonAttachment> bypassAttachment;
 	std::unique_ptr<ButtonAttachment> autoGainAttachment;
-	std::array<float, 2> inputPeaks {};
-	std::array<float, 2> outputPeaks {};
 };
 }

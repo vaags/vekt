@@ -105,8 +105,6 @@ private:
     std::unique_ptr<ComboBoxAttachment> trackingAttachment;
     std::unique_ptr<ComboBoxAttachment> offlineAttachment;
     std::unique_ptr<ComboBoxAttachment> modeAttachment;
-	std::array<float, 2> inputPeaks {};
-	std::array<float, 2> outputPeaks {};
 	RavStageChain::Order displayedStageOrder;
 };
 }

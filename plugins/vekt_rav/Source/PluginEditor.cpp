@@ -98,7 +98,6 @@ int stageTarget(int x)
 	return juce::jlimit(0, static_cast<int>(RavStageChain::stageCount - 1),
 		(x - margin + stageGap / 2) / (stageWidth + stageGap));
 }
-constexpr float meterSilenceFloor = 0.0001f;
 constexpr int footerReserve = margin;
 constexpr int footerLine = ui::ScalableEditor::logicalHeight - footerReserve;
 constexpr int panelContentHeight = footerLine - headerTop;
@@ -431,30 +430,10 @@ void PluginEditor::timerCallback()
 	refreshPresetLabel();
 	const auto newInputPeaks = pluginProcessor.consumeInputPeaks();
 	const auto newOutputPeaks = pluginProcessor.consumeOutputPeaks();
-	const auto newInputPeak = std::max(newInputPeaks[0], newInputPeaks[1]);
-	const auto newOutputPeak = std::max(newOutputPeaks[0], newOutputPeaks[1]);
-	const auto clearIfSilent = [](std::array<float, 2>& peaks, float newPeak)
-	{
-		if (newPeak < layout::meterSilenceFloor)
-			peaks.fill(0.0f);
-	};
-	for (std::size_t channel = 0; channel < inputPeaks.size(); ++channel)
-	{
-		inputPeaks[channel] = std::max(inputPeaks[channel] * 0.88f, newInputPeaks[channel]);
-		outputPeaks[channel] = std::max(outputPeaks[channel] * 0.88f, newOutputPeaks[channel]);
-	}
-	clearIfSilent(inputPeaks, newInputPeak);
-	clearIfSilent(outputPeaks, newOutputPeak);
-	const auto inputPeak = std::max(inputPeaks[0], inputPeaks[1]);
-	const auto outputPeak = std::max(outputPeaks[0], outputPeaks[1]);
-	const auto displayedInputPeak = inputPeak < layout::meterSilenceFloor ? 0.0f : inputPeak;
-	const auto displayedOutputPeak = outputPeak < layout::meterSilenceFloor ? 0.0f : outputPeak;
-	inputMeter.setLevel(displayedInputPeak);
-	outputMeter.setLevel(displayedOutputPeak);
+	inputMeter.setStereoLevels(newInputPeaks);
+	outputMeter.setStereoLevels(newOutputPeaks);
 	const auto quality = pluginProcessor.getActiveQuality();
 	qualityLabel.setText("Quality: " + juce::String(static_cast<int>(quality.multiplier())) + "x " + (quality.filter == dsp::OversamplingFilter::polyphaseFIR ? "FIR" : "IIR") + (pluginProcessor.hasPendingQualityChange() ? " (pending)" : ""), juce::dontSendNotification);
-	meterLabel.setText("In " + juce::String(juce::Decibels::gainToDecibels(displayedInputPeak, -100.0f), 1)
-		+ " dB    Out " + juce::String(juce::Decibels::gainToDecibels(displayedOutputPeak, -100.0f), 1) + " dB", juce::dontSendNotification);
 	undoButton.setEnabled(pluginProcessor.getUndoManager().canUndo());
 	redoButton.setEnabled(pluginProcessor.getUndoManager().canRedo());
 	repaint();
