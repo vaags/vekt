@@ -24,6 +24,13 @@ Preset workflows are specified separately in [PRESET_UX.md](PRESET_UX.md).
   with standard-size Shape, Dynamics, and Texture beneath. Compact band mix and
   crossover controls occupy the middle column; input/output faders and meters
   remain visible in a full-height right strip. Global bypass is in the command bar.
+- Center Shaping as a three-control group. Band Mix and Crossovers have separate
+  panels aligned to Primary and Shaping. All four groups share 140-pixel control
+  slots: dial centers, value baselines, and name baselines align even when dial
+  sizes differ. Value fields have fixed family-specific widths.
+- Input and Output labels sit above matched channel strips. Fader travel and
+  meter bounds align, with editable gains below and Auto Gain beneath both strips.
+  Meter references are dBFS; they are not a scale for the adjacent gain fader.
 - Tracking and Offline quality selectors open in an anchored Settings panel.
   Active quality and pending changes remain visible in the I/O strip.
 - Scale the logical canvas uniformly. Do not scale font sizes independently with
@@ -56,6 +63,14 @@ Preset workflows are specified separately in [PRESET_UX.md](PRESET_UX.md).
 - Every parameter control shows a stable name and formatted value with units.
   Value text must remain readable at minimum editor size and must not resize its
   surrounding layout.
+- Rav displays gains to one decimal in dB, Tone to one decimal in dB/oct,
+  dimensionless controls to three decimals, and mixes as percentages. Crossovers
+  use whole Hz below 1 kHz and two decimals in kHz above it. Display rounding and
+  negative-zero normalization never change parameter precision or automation.
+  Numeric entry accepts base-unit numbers and the displayed unit, including kHz
+  conversion. Invalid entry leaves the parameter unchanged; rotary fields retain
+  the invalid text with an error outline and explanatory tooltip. Committing an
+  unchanged rounded display preserves the exact underlying value.
 - Dragging uses vertical motion by default. Shift-drag provides fine adjustment.
   Double-click resets to the declared parameter default.
 - A focused control supports arrow-key adjustment; Shift plus arrow uses the fine

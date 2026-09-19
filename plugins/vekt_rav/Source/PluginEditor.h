@@ -60,10 +60,13 @@ private:
 	ui::Panel primaryPanel { "Primary" };
 	ui::Panel shapingPanel { "Shaping" };
 	ui::Panel bandMixPanel { "Band Mix" };
+	ui::Panel crossoverPanel { "Crossovers" };
 	ui::Panel outputPanel { "I/O" };
 	ui::Panel settingsPanel { "Quality settings" };
 	juce::Label trackingLabel;
 	juce::Label offlineLabel;
+	juce::Label inputLabel;
+	juce::Label outputLabel;
 	juce::TextButton settingsButton { "Settings" };
 	juce::TextButton closeSettingsButton { "Close" };
 	juce::Label stageHeader;

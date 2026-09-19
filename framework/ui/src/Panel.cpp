@@ -12,6 +12,7 @@ constexpr int contentPadding = 16;
 Panel::Panel(juce::String title)
 	: titleText(std::move(title))
 {
+	setName(titleText);
 }
 
 void Panel::setTitle(juce::String title)

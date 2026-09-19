@@ -14,10 +14,29 @@ VektLookAndFeel::VektLookAndFeel()
 	setColour(juce::ComboBox::textColourId, juce::Colour::fromRGB(222, 224, 219));
 }
 
+juce::Slider::SliderLayout VektLookAndFeel::getSliderLayout(juce::Slider& slider)
+{
+	if (!static_cast<bool>(slider.getProperties()["ioFader"]))
+		return juce::LookAndFeel_V4::getSliderLayout(slider);
+	juce::Slider::SliderLayout result;
+	result.textBoxBounds = slider.getLocalBounds().removeFromBottom(24);
+	result.sliderBounds = slider.getLocalBounds().withTrimmedTop(8).withTrimmedBottom(40);
+	return result;
+}
+
+void VektLookAndFeel::drawCornerResizer(juce::Graphics& graphics, int width, int height,
+	bool hovered, bool dragging)
+{
+	graphics.setColour(juce::Colour::fromRGB(116, 128, 132).withAlpha(hovered || dragging ? 1.0f : 0.6f));
+	for (const auto offset : { 7.0f, 12.0f })
+		graphics.drawLine(static_cast<float>(width) - offset, static_cast<float>(height) - 3.0f,
+			static_cast<float>(width) - 3.0f, static_cast<float>(height) - offset, 1.5f);
+}
+
 juce::Label* VektLookAndFeel::createSliderTextBox(juce::Slider& slider)
 {
 	auto* textBox = juce::LookAndFeel_V4::createSliderTextBox(slider);
-	auto valueFont = juce::Font(juce::FontOptions(14.0f));
+	auto valueFont = juce::Font(juce::FontOptions(static_cast<bool>(slider.getProperties()["ioFader"]) ? 12.0f : 14.0f));
 	valueFont.setTypefaceName(juce::Font::getDefaultMonospacedFontName());
 	textBox->setFont(valueFont);
 	textBox->setJustificationType(juce::Justification::centred);

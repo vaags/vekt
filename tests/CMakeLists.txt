@@ -16,6 +16,7 @@ add_executable(vekt_dsp_tests
     processor/AdaptiveAutoGainTests.cpp
 	processor/ParametersTests.cpp
 	processor/EditorLayoutTests.cpp
+	processor/ValueFormatTests.cpp
     dsp/TanhStageTests.cpp)
 
 target_link_libraries(vekt_dsp_tests PRIVATE

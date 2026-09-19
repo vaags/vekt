@@ -28,6 +28,8 @@ public:
 	}
 
 	void setLabel(juce::String text);
+	void setLayout(Size dialSize, int valueWidth);
+	void refreshValueText();
 	[[nodiscard]] juce::Slider& getSlider() noexcept;
 	void resized() override;
 
@@ -37,5 +39,7 @@ private:
 	juce::Slider slider;
 	juce::Label valueLabel;
 	juce::Label label;
+	Size dialSize = Size::standard;
+	int valueWidth = 96;
 };
 }

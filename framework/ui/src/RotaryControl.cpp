@@ -32,6 +32,7 @@ RotaryControl::RotaryControl()
 	valueLabel.setEditable(true, true, false);
 	valueLabel.onEditorShow = [this]
 	{
+		valueLabel.setTooltip({});
 		if (auto* editor = valueLabel.getCurrentTextEditor())
 		{
 			editor->setFont(valueFont());
@@ -42,7 +43,22 @@ RotaryControl::RotaryControl()
 	};
 	valueLabel.onTextChange = [this]
 	{
-		slider.setValue(slider.getValueFromText(valueLabel.getText()), juce::sendNotificationSync);
+		const auto text = valueLabel.getText();
+		const auto value = slider.getValueFromText(text);
+		if (static_cast<bool>(slider.getProperties()["valueEntryError"]))
+		{
+			valueLabel.setColour(juce::Label::outlineColourId, juce::Colour::fromRGB(224, 113, 90));
+			valueLabel.setTooltip("Invalid value. Enter a number with the displayed unit.");
+			return;
+		}
+		valueLabel.setColour(juce::Label::outlineColourId, juce::Colour::fromRGB(116, 128, 132));
+		valueLabel.setTooltip({});
+		if (!juce::approximatelyEqual(value, slider.getValue()))
+		{
+			juce::Slider::ScopedDragNotification gesture(slider);
+			slider.setValue(value, juce::sendNotificationSync);
+		}
+		updateValueText();
 	};
 	label.setFont(juce::FontOptions(14.0f));
 	label.setJustificationType(juce::Justification::centred);
@@ -54,10 +70,21 @@ RotaryControl::RotaryControl()
 
 void RotaryControl::setLabel(juce::String text)
 {
+	setName(text);
+	valueLabel.setName(text + " value");
 	slider.setName(text);
 	slider.setTooltip(text);
 	label.setText(std::move(text), juce::dontSendNotification);
 }
+
+void RotaryControl::setLayout(Size size, int width)
+{
+	dialSize = size;
+	valueWidth = width;
+	resized();
+}
+
+void RotaryControl::refreshValueText() { updateValueText(); }
 
 juce::Slider& RotaryControl::getSlider() noexcept
 {
@@ -66,6 +93,8 @@ juce::Slider& RotaryControl::getSlider() noexcept
 
 void RotaryControl::updateValueText()
 {
+	valueLabel.setColour(juce::Label::outlineColourId, juce::Colour::fromRGB(116, 128, 132));
+	valueLabel.setTooltip({});
 	valueLabel.setText(slider.getTextFromValue(slider.getValue()), juce::dontSendNotification);
 }
 
@@ -74,8 +103,11 @@ void RotaryControl::resized()
 	const auto bounds = getLocalBounds();
 	const auto dialAndValueBounds = bounds.withTrimmedBottom(labelHeight);
 	const auto dialBounds = dialAndValueBounds.withTrimmedBottom(valueHeight);
-	slider.setBounds(dialBounds);
-	valueLabel.setBounds(dialAndValueBounds.withY(dialBounds.getBottom()).withHeight(valueHeight));
+	const auto side = std::max(0, std::min({ heightFor(dialSize) - labelHeight - valueHeight,
+		dialBounds.getWidth(), dialBounds.getHeight() }));
+	slider.setBounds(dialBounds.withSizeKeepingCentre(side, side));
+	valueLabel.setBounds(dialAndValueBounds.withY(dialBounds.getBottom()).withHeight(valueHeight)
+		.withSizeKeepingCentre(std::min(valueWidth, bounds.getWidth()), valueHeight));
 	label.setBounds(bounds.withY(dialAndValueBounds.getBottom()).withHeight(labelHeight));
 }
 }

@@ -1,6 +1,7 @@
 #include "PluginEditor.h"
 
 #include "Parameters.h"
+#include <vekt/ui/ValueFormat.h>
 
 namespace vekt::rav
 {
@@ -88,11 +89,12 @@ constexpr int centerWidth = 448;
 constexpr int bandWidth = 288;
 constexpr int rightWidth = ui::ScalableEditor::logicalWidth - margin * 2 - centerWidth - bandWidth - sectionGap * 2;
 constexpr int primaryControlHeight = ui::RotaryControl::heightFor(ui::RotaryControl::Size::standard);
-constexpr int bandControlHeight = ui::RotaryControl::heightFor(ui::RotaryControl::Size::compact);
-constexpr int shapingControlHeight = ui::RotaryControl::heightFor(ui::RotaryControl::Size::standard);
-constexpr int labelHeight = 24;
-constexpr int bandLabelHeight = 24;
-constexpr int outputButtonHeight = 44;
+constexpr int stageGap = 8;
+constexpr int stageWidth = (ui::ScalableEditor::logicalWidth - margin * 2 - stageGap * 3) / 4;
+int stageTarget(int x)
+{
+	return juce::jlimit(0, 3, (x - margin + stageGap / 2) / (stageWidth + stageGap));
+}
 constexpr float meterSilenceFloor = 0.0001f;
 constexpr int footerReserve = margin;
 constexpr int footerLine = ui::ScalableEditor::logicalHeight - footerReserve;
@@ -117,7 +119,7 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 	meterLabel.setJustificationType(juce::Justification::centred);
 	stageHeader.setText("Signal Path", juce::dontSendNotification);
 	for (auto* panel : { static_cast<juce::Component*>(&primaryPanel), static_cast<juce::Component*>(&shapingPanel),
-		static_cast<juce::Component*>(&bandMixPanel), static_cast<juce::Component*>(&outputPanel) })
+		static_cast<juce::Component*>(&bandMixPanel), static_cast<juce::Component*>(&crossoverPanel), static_cast<juce::Component*>(&outputPanel) })
 		getContent().addAndMakeVisible(*panel);
 	for (auto* component : { static_cast<juce::Component*>(&title),
 							static_cast<juce::Component*>(&presetLabel), static_cast<juce::Component*>(&stageHeader),
@@ -139,9 +141,7 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 			const auto maximumX = getContent().getWidth() - layout::margin - box.getWidth();
 			const auto x = juce::jlimit(minimumX, maximumX, position.x);
 			box.setTopLeftPosition(x, layout::modeTop);
-			const auto contentWidth = getContent().getWidth() - layout::margin * 2;
-			const auto target = juce::jlimit(0, static_cast<int>(RavStageChain::stageCount) - 1,
-				(x + box.getWidth() / 2 - layout::margin) * static_cast<int>(RavStageChain::stageCount) / contentWidth);
+			const auto target = layout::stageTarget(x + box.getWidth() / 2);
 			const auto& order = pluginProcessor.getStageOrder();
 			const auto mode = static_cast<RavMode>(std::distance(stageButtons.data(), &box));
 			auto current = static_cast<int>(std::distance(order.begin(), std::find(order.begin(), order.end(), mode)));
@@ -156,10 +156,7 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 		};
 		stageButtons[index].onDrop = [this, index](StageBox&, juce::Point<int> dropPosition)
 		{
-			constexpr auto stageCount = static_cast<int>(RavStageChain::stageCount);
-			const auto contentWidth = getContent().getWidth() - layout::margin * 2;
-			const auto target = juce::jlimit(0, stageCount - 1,
-				(dropPosition.x - layout::margin) * stageCount / contentWidth);
+			const auto target = layout::stageTarget(dropPosition.x);
 			const auto& order = pluginProcessor.getStageOrder();
 			auto current = static_cast<int>(std::distance(order.begin(), std::find(order.begin(), order.end(), static_cast<RavMode>(index))));
 			while (current != target)
@@ -190,15 +187,24 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 	}
 	for (std::size_t index = 0; index < cutoffSliders.size(); ++index)
 	{
-		constexpr std::array names { "Low-Mid Hz", "Mid-High Hz" };
+		constexpr std::array names { "Low-Mid", "Mid-High" };
 		constexpr std::array ids { parameters::lowMidCutoffHz, parameters::midHighCutoffHz };
-		configureRotary(bandMixPanel, cutoffSliders[index], names[index], ids[index], cutoffAttachments[index]);
+		configureRotary(crossoverPanel, cutoffSliders[index], juce::String::fromUTF8(names[index]), ids[index], cutoffAttachments[index]);
 	}
 	for (auto* component : { static_cast<juce::Component*>(&autoGainButton), static_cast<juce::Component*>(&bypassButton),
 		static_cast<juce::Component*>(&qualityLabel), static_cast<juce::Component*>(&inputMeter),
 		static_cast<juce::Component*>(&outputMeter), static_cast<juce::Component*>(&inputFader),
 		static_cast<juce::Component*>(&outputFader), static_cast<juce::Component*>(&meterLabel) })
 		outputPanel.addAndMakeVisible(*component);
+	inputLabel.setText("Input", juce::dontSendNotification);
+	outputLabel.setText("Output", juce::dontSendNotification);
+	for (auto* label : { &inputLabel, &outputLabel })
+	{
+		label->setJustificationType(juce::Justification::centred);
+		outputPanel.addAndMakeVisible(*label);
+	}
+	inputFader.getProperties().set("ioFader", true);
+	outputFader.getProperties().set("ioFader", true);
 	getContent().addAndMakeVisible(bypassButton);
 	getContent().addAndMakeVisible(settingsButton);
 	getContent().addChildComponent(settingsPanel);
@@ -217,14 +223,16 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 		if (settingsPanel.isVisible())
 		{
 			settingsPanel.toFront(false);
-			trackingBox.grabKeyboardFocus();
+			if (trackingBox.isShowing())
+				trackingBox.grabKeyboardFocus();
 		}
 	};
 	closeSettingsButton.onClick = [this]
 	{
 		settingsPanel.setVisible(false);
 		settingsButton.setToggleState(false, juce::dontSendNotification);
-		settingsButton.grabKeyboardFocus();
+		if (settingsButton.isShowing())
+			settingsButton.grabKeyboardFocus();
 	};
 	for (auto* fader : { &inputFader, &outputFader })
 	{
@@ -259,6 +267,8 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 	modeAttachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), parameters::mode, modeBox);
 	inputFaderAttachment = std::make_unique<SliderAttachment>(pluginProcessor.getParameters(), parameters::inputGain, inputFader);
 	outputFaderAttachment = std::make_unique<SliderAttachment>(pluginProcessor.getParameters(), parameters::outputGain, outputFader);
+	ui::configureValueFormat(inputFader, ui::ValueFormat::decibels);
+	ui::configureValueFormat(outputFader, ui::ValueFormat::decibels);
 	bypassAttachment = std::make_unique<ButtonAttachment>(pluginProcessor.getParameters(), parameters::bypass, bypassButton);
 	autoGainAttachment = std::make_unique<ButtonAttachment>(pluginProcessor.getParameters(), parameters::autoGain, autoGainButton);
 
@@ -269,6 +279,7 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 	{ pluginProcessor.getUndoManager().redo(); refreshPresetLabel(); };
 	refreshPresetLabel();
 	resized();
+	timerCallback();
 	startTimerHz(30);
 }
 
@@ -285,14 +296,12 @@ void PluginEditor::paint(juce::Graphics& graphics)
 
 void PluginEditor::layoutStageBoxes(StageBox* draggedBox)
 {
-	const auto cellWidth = (getContent().getWidth() - layout::margin * 2)
-		/ static_cast<int>(stageButtons.size());
 	for (std::size_t position = 0; position < stageButtons.size(); ++position)
 	{
 		const auto modeIndex = static_cast<std::size_t>(pluginProcessor.getStageOrder()[position]);
 		if (&stageButtons[modeIndex] != draggedBox)
-			stageButtons[modeIndex].setBounds(layout::margin + static_cast<int>(position) * cellWidth,
-				layout::modeTop, cellWidth - 8, layout::modeHeight + 4);
+			stageButtons[modeIndex].setBounds(layout::margin + static_cast<int>(position) * (layout::stageWidth + layout::stageGap),
+				layout::modeTop, layout::stageWidth, layout::modeHeight + 4);
 	}
 }
 
@@ -310,16 +319,19 @@ void PluginEditor::resized()
 		.withWidth(layout::rightWidth);
 	primaryPanel.setBounds(centerArea.withHeight(layout::panelHeight));
 	shapingPanel.setBounds(centerArea.withY(layout::lowerPanelTop).withHeight(layout::panelHeight));
-	bandMixPanel.setBounds(bandArea);
+	bandMixPanel.setBounds(bandArea.withHeight(layout::panelHeight));
+	crossoverPanel.setBounds(bandArea.withY(layout::lowerPanelTop).withHeight(layout::panelHeight));
 	outputPanel.setBounds(rightArea);
 
 	juce::FlexBox toolbar;
 	toolbar.flexDirection = juce::FlexBox::Direction::row;
 	toolbar.alignItems = juce::FlexBox::AlignItems::center;
 	toolbar.items.add(juce::FlexItem(title).withWidth(156.0f).withHeight(44.0f));
+	toolbar.items.add(juce::FlexItem().withFlex(1.0f));
 	toolbar.items.add(juce::FlexItem(previousButton).withWidth(36.0f).withHeight(44.0f));
-	toolbar.items.add(juce::FlexItem(presetLabel).withFlex(1.0f).withHeight(44.0f).withMargin({ 0.0f, 16.0f, 0.0f, 16.0f }));
+	toolbar.items.add(juce::FlexItem(presetLabel).withWidth(240.0f).withHeight(44.0f).withMargin({ 0.0f, 4.0f, 0.0f, 4.0f }));
 	toolbar.items.add(juce::FlexItem(nextButton).withWidth(36.0f).withHeight(44.0f).withMargin({ 0.0f, 12.0f, 0.0f, 4.0f }));
+	toolbar.items.add(juce::FlexItem().withFlex(1.0f));
 	toolbar.items.add(juce::FlexItem(undoButton).withWidth(72.0f).withHeight(44.0f).withMargin({ 0.0f, 4.0f, 0.0f, 4.0f }));
 	toolbar.items.add(juce::FlexItem(redoButton).withWidth(72.0f).withHeight(44.0f).withMargin({ 0.0f, 4.0f, 0.0f, 4.0f }));
 	toolbar.items.add(juce::FlexItem(settingsButton).withWidth(88.0f).withHeight(44.0f).withMargin({ 0.0f, 8.0f, 0.0f, 8.0f }));
@@ -333,44 +345,44 @@ void PluginEditor::resized()
 	stageHeader.setBounds(layout::margin, layout::modeTop - 20, 160, 20);
 	layoutStageBoxes();
 
-	auto layoutRotaryRow = [](auto& controls, std::size_t first, std::size_t count,
-		juce::Rectangle<int> area, int controlHeight, int labelHeight)
+	const auto layoutRotaryRow = [](auto& controls, std::size_t first, std::size_t count,
+		juce::Rectangle<int> area, int cellWidth, ui::RotaryControl::Size size, int valueWidth)
 	{
-		juce::FlexBox row;
-		row.flexDirection = juce::FlexBox::Direction::row;
-		row.justifyContent = juce::FlexBox::JustifyContent::spaceBetween;
-		row.alignItems = juce::FlexBox::AlignItems::flexStart;
-		for (std::size_t index = first; index < first + count; ++index)
-			row.items.add(juce::FlexItem(controls[index]).withWidth(static_cast<float>(area.getWidth()) / static_cast<float>(count) - 8.0f).withHeight(static_cast<float>(controlHeight)).withMargin({ 0.0f, 4.0f, 0.0f, 4.0f }));
-		row.performLayout(area.toFloat());
-		juce::ignoreUnused(labelHeight);
+		const auto groupWidth = cellWidth * static_cast<int>(count);
+		const auto row = area.withSizeKeepingCentre(groupWidth, layout::primaryControlHeight);
+		for (std::size_t index = 0; index < count; ++index)
+		{
+			auto& control = controls[first + index];
+			control.setLayout(size, valueWidth);
+			control.setBounds(row.getX() + static_cast<int>(index) * cellWidth + 4,
+				row.getY(), cellWidth - 8, row.getHeight());
+		}
 	};
+	using Size = ui::RotaryControl::Size;
+	layoutRotaryRow(sliders, 1, 4, primaryPanel.getContentBounds(), 104, Size::standard, 96);
+	layoutRotaryRow(macroSliders, 0, 3, shapingPanel.getContentBounds(), 104, Size::standard, 96);
+	layoutRotaryRow(bandMixSliders, 0, 3, bandMixPanel.getContentBounds(), 84, Size::compact, 76);
+	layoutRotaryRow(cutoffSliders, 0, 2, crossoverPanel.getContentBounds(), 112, Size::compact, 96);
 
-	const auto primaryContent = primaryPanel.getContentBounds();
-	const auto shapingContent = shapingPanel.getContentBounds();
-	const auto bandMixContent = bandMixPanel.getContentBounds();
 	const auto outputContent = outputPanel.getContentBounds();
-	layoutRotaryRow(sliders, 1, 4, primaryContent.withHeight(layout::primaryControlHeight),
-		layout::primaryControlHeight, layout::labelHeight);
-	const auto shapingHeight = std::min(shapingContent.getHeight(), layout::shapingControlHeight);
-	layoutRotaryRow(macroSliders, 0, macroSliders.size(),
-		shapingContent.withWidth(primaryContent.getWidth() * 3 / 4).withHeight(shapingHeight), shapingHeight, layout::labelHeight);
-
-	layoutRotaryRow(bandMixSliders, 0, bandMixSliders.size(), bandMixContent.withHeight(layout::bandControlHeight), layout::bandControlHeight, layout::bandLabelHeight);
-	layoutRotaryRow(cutoffSliders, 0, cutoffSliders.size(), bandMixContent.withTrimmedTop(layout::panelHeight + layout::panelGap).withHeight(layout::bandControlHeight), layout::bandControlHeight, layout::bandLabelHeight);
-
-	autoGainButton.setBounds(outputContent.withHeight(layout::outputButtonHeight));
 	qualityLabel.setJustificationType(juce::Justification::centred);
 	qualityLabel.setFont(juce::FontOptions(12.0f));
-	qualityLabel.setBounds(outputContent.withY(outputContent.getBottom() - 36).withHeight(36));
-	const auto meterArea = outputContent.withTrimmedTop(56).withTrimmedBottom(48);
-	const auto stripWidth = meterArea.getWidth() / 2;
-	const auto inputStrip = meterArea.withWidth(stripWidth);
+	qualityLabel.setBounds(outputContent.withY(outputContent.getBottom() - 28).withHeight(28));
+	autoGainButton.setBounds(outputContent.withY(outputContent.getBottom() - 72).withHeight(36)
+		.withSizeKeepingCentre(132, 36));
+	const auto strips = outputContent.withTrimmedBottom(88);
+	const auto stripWidth = strips.getWidth() / 2;
+	const auto inputStrip = strips.withWidth(stripWidth);
 	const auto outputStrip = inputStrip.translated(stripWidth, 0);
-	inputFader.setBounds(inputStrip.withWidth(64));
-	outputFader.setBounds(outputStrip.withWidth(64));
-	inputMeter.setBounds(inputStrip.withTrimmedLeft(66).withWidth(36));
-	outputMeter.setBounds(outputStrip.withTrimmedLeft(66).withWidth(36));
+	inputLabel.setBounds(inputStrip.withHeight(24));
+	outputLabel.setBounds(outputStrip.withHeight(24));
+	inputFader.setBounds(inputStrip.withTrimmedTop(32).withWidth(64));
+	outputFader.setBounds(outputStrip.withTrimmedTop(32).withWidth(64));
+	// Match the fader's visible track, leaving its value field below the meter.
+	inputMeter.setBounds(inputFader.getBounds().withTrimmedTop(8).withTrimmedBottom(40)
+		.withX(inputStrip.getX() + 68).withWidth(32));
+	outputMeter.setBounds(outputFader.getBounds().withTrimmedTop(8).withTrimmedBottom(40)
+		.withX(outputStrip.getX() + 68).withWidth(32));
 
 	settingsPanel.setBounds(contentBounds.getWidth() - layout::margin - 360, 64, 360, 224);
 	const auto settingsContent = settingsPanel.getContentBounds();
@@ -430,5 +442,16 @@ void PluginEditor::configureRotary(juce::Component& parent, ui::RotaryControl& c
 	control.setLabel(name);
 	parent.addAndMakeVisible(control);
 	attachment = std::make_unique<SliderAttachment>(pluginProcessor.getParameters(), parameterId, control.getSlider());
+	const juce::String id(parameterId);
+	auto format = ui::ValueFormat::decimal;
+	if (id == parameters::drive) format = ui::ValueFormat::decibels;
+	else if (id == parameters::tone) format = ui::ValueFormat::tone;
+	else if (id == parameters::mix || id == parameters::lowBandMix
+		|| id == parameters::midBandMix || id == parameters::highBandMix)
+		format = ui::ValueFormat::percent;
+	else if (id == parameters::lowMidCutoffHz || id == parameters::midHighCutoffHz)
+		format = ui::ValueFormat::frequency;
+	ui::configureValueFormat(control.getSlider(), format);
+	control.refreshValueText();
 }
 }
