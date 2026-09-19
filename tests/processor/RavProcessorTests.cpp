@@ -274,6 +274,41 @@ TEST_CASE("Rav processor bounds oversized host blocks", "[processor]")
 			REQUIRE(std::isfinite(buffer.getSample(channel, sample)));
 }
 
+TEST_CASE("Rav stage enable ramps from an all-disabled chain", "[processor][transition]")
+{
+	constexpr auto sampleRate = 48'000.0;
+	constexpr auto blockSize = 128;
+	vekt::rav::PluginProcessor processor;
+	setParameter(processor, vekt::rav::parameters::mix, 100.0f);
+	setParameter(processor, vekt::rav::parameters::drive, 24.0f);
+	setParameter(processor, vekt::rav::parameters::stageEnabledSaturation, 0.0f);
+	setParameter(processor, vekt::rav::parameters::stageEnabledOverdrive, 0.0f);
+	setParameter(processor, vekt::rav::parameters::stageEnabledDistortion, 0.0f);
+	setParameter(processor, vekt::rav::parameters::stageEnabledFuzz, 0.0f);
+	processor.prepareToPlay(sampleRate, blockSize);
+	juce::MidiBuffer midi;
+	auto phase = 0;
+	auto render = [&](juce::AudioBuffer<float>& buffer)
+	{
+		for (auto sample = 0; sample < blockSize; ++sample)
+		{
+			const auto value = 0.35f * std::sin(static_cast<float>(phase++) * 0.113f);
+			buffer.setSample(0, sample, value);
+			buffer.setSample(1, sample, value);
+		}
+		processor.processBlock(buffer, midi);
+	};
+	juce::AudioBuffer<float> buffer(2, blockSize);
+	for (auto block = 0; block < 12; ++block)
+		render(buffer);
+	const auto previous = buffer.getSample(0, blockSize - 1);
+	setParameter(processor, vekt::rav::parameters::stageEnabledSaturation, 1.0f);
+	render(buffer);
+	REQUIRE(std::abs(buffer.getSample(0, 0) - previous) < 0.08f);
+	for (auto sample = 0; sample < blockSize; ++sample)
+		REQUIRE(std::isfinite(buffer.getSample(0, sample)));
+}
+
 TEST_CASE("Rav processor state round trips parameters", "[processor][state]")
 {
 	vekt::rav::PluginProcessor source;

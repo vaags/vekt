@@ -109,6 +109,20 @@ void PluginProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
 		bandMixSmoothers[band].prepare(effectiveSampleRate);
 		bandMixSmoothers[band].setCurrentAndTargetValue(initialBandMixes[band]);
 	}
+	const auto initialMode = static_cast<RavMode>(
+		juce::jlimit(0, 3, juce::roundToInt(modeParameter->load())));
+	const auto initialCompatibilityMode = stageEnabledParameters[0]->load() >= 0.5f
+		&& std::all_of(stageEnabledParameters.begin() + 1, stageEnabledParameters.end(),
+			[](const auto* parameter) { return parameter->load() < 0.5f; });
+	for (auto& band : stageEnableSmoothers)
+		for (std::size_t modeIndex = 0; modeIndex < band.size(); ++modeIndex)
+		{
+			const auto enabled = initialCompatibilityMode
+				? modeIndex == static_cast<std::size_t>(initialMode)
+				: stageEnabledParameters[modeIndex]->load() >= 0.5f;
+			band[modeIndex].prepare(effectiveSampleRate, 0.01, 0.01, 0.01);
+			band[modeIndex].setCurrentAndTargetValue(enabled ? 1.0f : 0.0f);
+		}
 	for (auto& dcBlocker : dcBlockers)
 		dcBlocker.prepare(sampleRate);
 
@@ -118,6 +132,7 @@ void PluginProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
 	bypassDelay.prepare(specification, oversampling.getMaximumLatencySamples());
 	bypassDelay.setLatency(oversampling.getActiveLatencySamples());
 	bypassScratch.setSize(2, maximumBlockSize, false, false, true);
+	stageScratch.setSize(2, maximumOversampledBlockSize, false, false, true);
 	maximumPreparedBlockSize = maximumBlockSize;
 	setLatencySamples(oversampling.getActiveLatencySamples());
 
@@ -244,30 +259,48 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 		highBandMixParameter->load() * 0.01f };
 	for (std::size_t band = 0; band < bandMixSmoothers.size(); ++band)
 		bandMixSmoothers[band].setTargetValue(bandMixes[band]);
+	const auto compatibilityMode = stageEnabledParameters[0]->load() >= 0.5f
+		&& std::all_of(stageEnabledParameters.begin() + 1, stageEnabledParameters.end(),
+			[](const auto* parameter) { return parameter->load() < 0.5f; });
+	for (auto& band : stageEnableSmoothers)
+		for (std::size_t modeIndex = 0; modeIndex < band.size(); ++modeIndex)
+		{
+			const auto enabled = compatibilityMode
+				? modeIndex == static_cast<std::size_t>(currentMode)
+				: stageEnabledParameters[modeIndex]->load() >= 0.5f;
+			band[modeIndex].setTargetValue(enabled ? 1.0f : 0.0f);
+		}
 	for (std::size_t band = 0; band < bandCount; ++band)
 	{
 		for (auto channel = 0; channel < 2; ++channel)
 			cleanBandBuffers[band].copyFrom(channel, 0, bandBuffers[band], channel, 0, samples);
-		const auto compatibilityMode = stageEnabledParameters[0]->load() >= 0.5f
-			&& std::all_of(stageEnabledParameters.begin() + 1, stageEnabledParameters.end(),
-				[](const auto* parameter) { return parameter->load() < 0.5f; });
-		for (auto channel = 0; channel < 2; ++channel)
+		for (const auto mode : stageChain.getOrder())
 		{
-			for (const auto mode : stageChain.getOrder())
+			const auto modeIndex = static_cast<std::size_t>(mode);
+			auto& enableSmoother = stageEnableSmoothers[band][modeIndex];
+			if (enableSmoother.getCurrentValue() <= 0.0f && enableSmoother.getTargetValue() <= 0.0f)
+				continue;
+
+			for (auto channel = 0; channel < 2; ++channel)
 			{
-				const auto modeIndex = static_cast<std::size_t>(mode);
 				auto& stage = bandStages[band][static_cast<std::size_t>(channel)][modeIndex];
 				stage.setArtifactSafePolicy(currentMode == RavMode::fuzz);
-				const auto enabled = compatibilityMode
-					? mode == currentMode
-					: stageEnabledParameters[modeIndex]->load() >= 0.5f;
-				if (!enabled)
-					continue;
 				stage.setParameters(mode, driveParameter->load(), biasParameter->load(),
 					shapeParameter->load(), dynamicsParameter->load(),
 					textureParameter->load(), toneParameter->load());
-				stage.process(std::span<float>(bandBuffers[band].getWritePointer(channel),
+				stageScratch.copyFrom(channel, 0, bandBuffers[band], channel, 0, samples);
+				stage.process(std::span<float>(stageScratch.getWritePointer(channel),
 					static_cast<std::size_t>(samples)));
+			}
+			for (auto sample = 0; sample < samples; ++sample)
+			{
+				const auto amount = enableSmoother.getNextValue();
+				for (auto channel = 0; channel < 2; ++channel)
+				{
+					const auto dry = bandBuffers[band].getSample(channel, sample);
+					const auto wet = stageScratch.getSample(channel, sample);
+					bandBuffers[band].setSample(channel, sample, dry + (wet - dry) * amount);
+				}
 			}
 		}
 		bandAutoGain[band].process(

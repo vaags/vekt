@@ -142,18 +142,22 @@ private:
 	dsp::OversamplingBank<float> oversampling { 2 };
 	dsp::LatencyAlignedBypass<float> bypassDelay;
 	dsp::LatencyAlignedMixer<float> dryWetMixer;
-	dsp::MatchedToneStage<float> toneStage;  RavStageChain stageChain;	std::array<std::array<std::array<RavModeStage, 4>, 2>, 3> bandStages;
+	dsp::MatchedToneStage<float> toneStage;
+	RavStageChain stageChain;
+	std::array<std::array<std::array<RavModeStage, 4>, 2>, 3> bandStages;
 	dsp::ThreeBandCrossover<float> crossover;
 	std::array<juce::AudioBuffer<float>, 3> bandBuffers;
 	std::array<juce::AudioBuffer<float>, 3> cleanBandBuffers;
 	std::array<dsp::DcBlocker<float>, 2> dcBlockers;
 	std::array<AdaptiveAutoGain<float>, 3> bandAutoGain;
 	std::array<dsp::ControlTransition<float>, 3> bandMixSmoothers;
+	std::array<std::array<dsp::ControlTransition<float>, RavStageChain::stageCount>, 3> stageEnableSmoothers;
 	dsp::StereoPeakMeter inputMeter;
 	dsp::StereoPeakMeter outputMeter;
 	juce::dsp::Gain<float> inputGain;
 	juce::dsp::Gain<float> outputGain;
 	juce::AudioBuffer<float> bypassScratch;
+	juce::AudioBuffer<float> stageScratch;
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginProcessor)
 };
