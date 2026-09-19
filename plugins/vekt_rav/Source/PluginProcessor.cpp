@@ -826,8 +826,3 @@ void PluginProcessor::applyPendingQualityChange()
 	qualityChangePending.store(false);
 }
 }
-
-juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
-{
-	return new vekt::rav::PluginProcessor();
-}

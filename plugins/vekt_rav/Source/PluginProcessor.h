@@ -3,8 +3,8 @@
 #include "Parameters.h"
 #include "RavModeStage.h"
 #include "RavStageChain.h"
-#include "AdaptiveAutoGain.h"
 
+#include <vekt/dsp/AdaptiveAutoGain.h>
 #include <vekt/dsp/ControlTransition.h>
 #include <vekt/dsp/DcBlocker.h>
 #include <vekt/dsp/LatencyAlignedBypass.h>
@@ -159,7 +159,7 @@ private:
 	std::array<juce::AudioBuffer<float>, 3> bandBuffers;
 	std::array<juce::AudioBuffer<float>, 3> cleanBandBuffers;
 	std::array<dsp::DcBlocker<float>, 2> dcBlockers;
-	AdaptiveAutoGain<float> autoGain;
+	dsp::AdaptiveAutoGain<float> autoGain;
 	std::array<dsp::ControlTransition<float>, 3> bandMixSmoothers;
 	std::array<std::array<dsp::ControlTransition<float>, RavStageChain::stageCount>, 3> stageEnableSmoothers;
 	dsp::StereoPeakMeter inputMeter;

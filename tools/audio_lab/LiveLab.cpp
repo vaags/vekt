@@ -3,6 +3,7 @@
 
 #include <PluginProcessor.h>
 #include <PluginEditor.h>
+#include <vekt/glimmer/PluginProcessor.h>
 
 #include <juce_audio_utils/juce_audio_utils.h>
 
@@ -94,6 +95,7 @@ public:
 		, defaultOutputListener(deviceRefreshPending)
 		#endif
 	{
+		restoreRackState();
         sourceBox.addItem("Sine", 1);
         sourceBox.addItem("Sawtooth", 2);
         sourceBox.addItem("Sweep", 3);
@@ -111,6 +113,7 @@ public:
                                 static_cast<juce::Component *>(&statusLabel),
 			static_cast<juce::Component *>(&openFileButton), static_cast<juce::Component *>(&restartFileButton),
 			static_cast<juce::Component *>(&fileLabel), static_cast<juce::Component *>(&positionLabel),
+			static_cast<juce::Component *>(&productTabs), static_cast<juce::Component *>(&orderButton),
 								})
             addAndMakeVisible(*component);
 
@@ -146,6 +149,22 @@ public:
 			outputArmed.store(armButton.getToggleState());
 			armButton.setButtonText(outputArmed.load() ? "Output armed" : "Arm output");
 		};
+		productTabs.addItem("RAV", 1);
+		productTabs.addItem("Glimmer", 2);
+		productTabs.setSelectedId(restoredSelectedTab, juce::dontSendNotification);
+		productTabs.onChange = [this]
+		{
+			const auto showGlimmer = productTabs.getSelectedId() == 2;
+			ravEditor->setVisible(!showGlimmer);
+			glimmerEditor->setVisible(showGlimmer);
+		};
+		orderButton.onClick = [this]
+		{
+			const auto glimmerFirst = !glimmerFirstInChain.load();
+			glimmerFirstInChain.store(glimmerFirst);
+			orderButton.setButtonText(glimmerFirst ? "Glimmer -> RAV" : "RAV -> Glimmer");
+		};
+		orderButton.setButtonText(glimmerFirstInChain.load() ? "Glimmer -> RAV" : "RAV -> Glimmer");
 		muteButton.onClick = [this] { outputArmed.store(false); armButton.setToggleState(false, juce::dontSendNotification); armButton.setButtonText("Arm output"); };
 		restartButton.onClick = []
 		{
@@ -158,16 +177,18 @@ public:
 				juce::JUCEApplication::getInstance()->quit();
 			});
 		};
-		editor.reset(processor.createEditor());
-		if (editor != nullptr)
+		ravEditor.reset(ravProcessor.createEditor());
+		glimmerEditor.reset(glimmerProcessor.createEditor());
+		for (auto* editor : { ravEditor.get(), glimmerEditor.get() })
 		{
 			addAndMakeVisible(*editor);
-			if (auto* scalableEditor = dynamic_cast<vekt::ui::ScalableEditor*>(editor.get()))
+			if (auto* scalableEditor = dynamic_cast<vekt::ui::ScalableEditor*>(editor))
 			{
 				scalableEditor->setResizeHandleVisible(false);
 				scalableEditor->setResizable(false, false);
 			}
 		}
+		glimmerEditor->setVisible(false);
 		setSize(labWidth, labHeight);
 		openInitialOutput();
 		setAudioChannels(0, 2);
@@ -177,6 +198,7 @@ public:
 
 	~LiveLab() override
 	{
+		saveRackState();
 		stopTimer();
 		removeChangeListener(this);
 		chooser.reset();
@@ -186,7 +208,8 @@ public:
 
 	void prepareToPlay(int samplesPerBlockExpected, double sampleRate) override
 	{
-		processor.prepareToPlay(sampleRate, samplesPerBlockExpected);
+		ravProcessor.prepareToPlay(sampleRate, samplesPerBlockExpected);
+		glimmerProcessor.prepareToPlay(sampleRate, samplesPerBlockExpected);
 		fileSource.prepare(samplesPerBlockExpected, sampleRate);
 		currentSource = static_cast<vekt::audio_lab::Source>(-1);
 		source.prepare(vekt::audio_lab::Source::sine, sampleRate);
@@ -232,7 +255,16 @@ public:
 		juce::AudioBuffer<float> block(info.buffer->getArrayOfWritePointers(),
 			info.buffer->getNumChannels(), info.startSample, info.numSamples);
 		const auto startTicks = juce::Time::getHighResolutionTicks();
-		processor.processBlock(block, midi);
+		if (glimmerFirstInChain.load())
+		{
+			glimmerProcessor.processBlock(block, midi);
+			ravProcessor.processBlock(block, midi);
+		}
+		else
+		{
+			ravProcessor.processBlock(block, midi);
+			glimmerProcessor.processBlock(block, midi);
+		}
 		const auto elapsedTicks = juce::Time::getHighResolutionTicks() - startTicks;
 		const auto blockDurationTicks = static_cast<double>(info.numSamples)
 			* static_cast<double>(juce::Time::getHighResolutionTicksPerSecond()) / sampleRateHz;
@@ -246,7 +278,8 @@ public:
 	void releaseResources() override
 	{
 		fileSource.release();
-		processor.releaseResources();
+		ravProcessor.releaseResources();
+		glimmerProcessor.releaseResources();
 	}
 
 	void paint(juce::Graphics& graphics) override
@@ -254,7 +287,7 @@ public:
 		graphics.fillAll(juce::Colour::fromRGB(20, 24, 28));
 		graphics.setColour(juce::Colours::white);
 		graphics.setFont(juce::FontOptions(22.0f).withStyle("Bold"));
-		graphics.drawText("VEKT RAV AUDIO LAB", 16, 12, 440, 32, juce::Justification::centredLeft);
+		graphics.drawText("VEKT AUDIO LAB", 16, 12, 440, 32, juce::Justification::centredLeft);
 		graphics.setColour(juce::Colour::fromRGB(54, 65, 70));
 		graphics.drawLine(16.0f, 160.0f, static_cast<float>(getWidth() - 16), 160.0f);
 		if (draggingFile)
@@ -273,11 +306,13 @@ public:
 		muteButton.setBounds(464, 56, 100, 44);
 		restartButton.setBounds(572, 56, 132, 44);
 		statusLabel.setBounds(720, 56, getWidth() - 736, 44);
+		productTabs.setBounds(712, 112, 150, 40);
+		orderButton.setBounds(872, 112, 152, 40);
         openFileButton.setBounds(16, 112, 120, 40);
 		restartFileButton.setBounds(144, 112, 120, 40);
 		fileLabel.setBounds(280, 112, getWidth() - 500, 40);
 		positionLabel.setBounds(getWidth() - 212, 112, 196, 40);
-        if (editor != nullptr)
+		for (auto* editor : { ravEditor.get(), glimmerEditor.get() })
 		{
 			const auto editorArea = getLocalBounds().withTop(176).withTrimmedBottom(16).reduced(16, 0);
 			const auto scale = std::min(
@@ -304,6 +339,62 @@ public:
 	}
 
 private:
+	[[nodiscard]] static juce::File rackStateFile()
+	{
+		return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+			.getChildFile("Vekt").getChildFile("Audio Lab").getChildFile("rack-state.xml");
+	}
+
+	static void restoreProcessorState(juce::AudioProcessor& processor, const juce::String& encoded)
+	{
+		if (encoded.isEmpty())
+			return;
+		juce::MemoryBlock state;
+		if (state.fromBase64Encoding(encoded))
+			processor.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
+	}
+
+	void restoreRackState()
+	{
+		const auto file = rackStateFile();
+		if (!file.existsAsFile())
+			return;
+		juce::XmlDocument document(file);
+		const auto xml = document.getDocumentElement();
+		if (xml == nullptr)
+			return;
+		const auto state = juce::ValueTree::fromXml(*xml);
+		if (!state.hasType("VektAudioLabRackState")
+			|| static_cast<int>(state.getProperty("schemaVersion", 0)) != 1)
+			return;
+		glimmerFirstInChain.store(static_cast<bool>(state.getProperty("glimmerFirst", false)));
+		restoredSelectedTab = juce::jlimit(1, 2, static_cast<int>(state.getProperty("selectedTab", 1)));
+		restoreProcessorState(ravProcessor, state.getProperty("ravState", {}).toString());
+		restoreProcessorState(glimmerProcessor, state.getProperty("glimmerState", {}).toString());
+	}
+
+	void saveRackState()
+	{
+		juce::ValueTree state("VektAudioLabRackState");
+		state.setProperty("schemaVersion", 1, nullptr);
+		state.setProperty("glimmerFirst", glimmerFirstInChain.load(), nullptr);
+		state.setProperty("selectedTab", productTabs.getSelectedId(), nullptr);
+		const auto capture = [](juce::AudioProcessor& processor)
+		{
+			juce::MemoryBlock data;
+			processor.getStateInformation(data);
+			return data.toBase64Encoding();
+		};
+		state.setProperty("ravState", capture(ravProcessor), nullptr);
+		state.setProperty("glimmerState", capture(glimmerProcessor), nullptr);
+		const auto file = rackStateFile();
+		file.getParentDirectory().createDirectory();
+		juce::TemporaryFile temporary(file);
+		if (const auto xml = state.createXml(); xml != nullptr
+			&& temporary.getFile().replaceWithText(xml->toString()))
+			juce::ignoreUnused(temporary.overwriteTargetFileWithTemporary());
+	}
+
 	void loadFile(const juce::File& file)
 	{
 		const auto generation = ++loadGeneration;
@@ -358,7 +449,7 @@ private:
 			(outputArmed.load() ? "OUTPUT ARMED" : "Muted") + juce::String("  In ")
 			+ juce::String(generatedPeak.load(), 3) + "  Out "
 			+ juce::String(outputPeak.load(), 3) + "  Latency "
-			+ juce::String(processor.getLatencySamples()) + "  CPU "
+			+ juce::String(ravProcessor.getLatencySamples() + glimmerProcessor.getLatencySamples()) + "  CPU "
 			+ juce::String(pluginCpuLoadPercent.load(), 1) + "%  Output: " + outputDeviceName,
             juce::dontSendNotification);
     }
@@ -424,8 +515,10 @@ private:
 	bool fileLoaded {};
 	bool draggingFile {};
 	unsigned int loadGeneration {};
-	vekt::rav::PluginProcessor processor;
-	std::unique_ptr<juce::AudioProcessorEditor> editor;
+	vekt::rav::PluginProcessor ravProcessor;
+	vekt::glimmer::PluginProcessor glimmerProcessor;
+	std::unique_ptr<juce::AudioProcessorEditor> ravEditor;
+	std::unique_ptr<juce::AudioProcessorEditor> glimmerEditor;
 	juce::ComboBox sourceBox;
     juce::TextButton octaveDownButton{"-"};
     juce::TextButton octaveUpButton{"+"};
@@ -433,6 +526,8 @@ private:
 	juce::TextButton muteButton { "MUTE" };
 	juce::TextButton restartButton { "Restart App" };
 	juce::Label statusLabel;
+	juce::ComboBox productTabs;
+	juce::TextButton orderButton { "RAV -> Glimmer" };
 	vekt::audio_lab::SignalSource source;
 	vekt::audio_lab::Source currentSource { static_cast<vekt::audio_lab::Source>(-1) };
     std::atomic<int> requestedSource{};
@@ -443,6 +538,8 @@ private:
 	std::atomic<float> outputPeak {};
 	std::atomic<float> generatedPeak {};
 	std::atomic<float> pluginCpuLoadPercent {};
+	std::atomic<bool> glimmerFirstInChain {};
+	int restoredSelectedTab { 1 };
 	std::atomic<bool> deviceRefreshPending {};
 	juce::String outputDeviceName { "Unavailable" };
 	#if JUCE_MAC
@@ -454,7 +551,7 @@ class MainWindow final : public juce::DocumentWindow
 {
 public:
 	MainWindow()
-		: DocumentWindow("Vekt Rav Audio Lab", juce::Colours::black, closeButton)
+		: DocumentWindow("Vekt Audio Lab", juce::Colours::black, closeButton)
 	{
 		setUsingNativeTitleBar(true);
 		constrainer.setMinimumSize(labWidth, labHeight);
@@ -478,7 +575,7 @@ private:
 class Application final : public juce::JUCEApplication
 {
 public:
-	const juce::String getApplicationName() override { return "Vekt Rav Audio Lab"; }
+	const juce::String getApplicationName() override { return "Vekt Audio Lab"; }
 	const juce::String getApplicationVersion() override { return "0.1.0"; }
 	bool moreThanOneInstanceAllowed() override { return true; }
 

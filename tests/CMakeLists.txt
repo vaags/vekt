@@ -6,16 +6,21 @@ add_executable(vekt_dsp_tests
 	dsp/MatchedToneStageRampTests.cpp
 	dsp/ThreeBandCrossoverTests.cpp
     dsp/ControlTransitionTests.cpp
+    dsp/RotorMotionTests.cpp
+    dsp/AutoSpeedDetectorTests.cpp
     dsp/RavModeStageTests.cpp
 	dsp/RavPostStageTests.cpp
     dsp/OversamplingBankTests.cpp
 	 dsp/StereoPeakMeterTests.cpp
     presets/PresetTests.cpp
     presets/FrameworkPresetTests.cpp
+	presets/GlimmerPresetTests.cpp
     processor/RavProcessorTests.cpp
 	processor/RavStageChainTests.cpp
     processor/AdaptiveAutoGainTests.cpp
 	processor/ParametersTests.cpp
+    processor/GlimmerParametersTests.cpp
+    processor/GlimmerProcessorTests.cpp
 	processor/EditorLayoutTests.cpp
 	processor/ValueFormatTests.cpp
 	audio_lab/FileSourceTests.cpp
@@ -24,7 +29,8 @@ add_executable(vekt_dsp_tests
 target_link_libraries(vekt_dsp_tests PRIVATE
     vekt::dsp
     vekt::ui
-    VektRav
+    VektRavCore
+	VektGlimmerCore
 	juce::juce_audio_utils
     Catch2::Catch2WithMain)
 

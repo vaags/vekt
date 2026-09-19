@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(VEKT_BUILD_TESTS "Build Vekt tests" ON)
-option(VEKT_BUILD_AUDIO_LAB "Build the Vekt Rav development audio lab" OFF)
+option(VEKT_BUILD_AUDIO_LAB "Build the Vekt development audio lab" OFF)
 set(VEKT_AUV3_APP_GROUP_ID "" CACHE STRING
     "Optional macOS App Group identifier used by the AUv3 preset container")
 
@@ -26,6 +26,7 @@ add_subdirectory(framework/presets)
 add_subdirectory(framework/ui)
 add_subdirectory(framework/preset_ui)
 add_subdirectory(plugins/vekt_rav)
+add_subdirectory(plugins/vekt_glimmer)
 
 if(VEKT_BUILD_AUDIO_LAB)
     add_subdirectory(tools/audio_lab)

@@ -1,0 +1,47 @@
+add_library(VektGlimmerCore STATIC
+	Source/Parameters.cpp
+	Source/PluginEditor.cpp
+	Source/PluginProcessor.cpp)
+target_include_directories(VektGlimmerCore PUBLIC
+	include
+	Source)
+target_link_libraries(VektGlimmerCore PUBLIC
+	vekt_project_options
+	juce::juce_audio_processors
+	juce::juce_audio_utils
+	vekt::ui
+	vekt::dsp
+	vekt::state
+	vekt::presets
+	vekt::preset_ui)
+
+set(vekt_glimmer_formats Standalone VST3)
+if(CMAKE_GENERATOR STREQUAL "Xcode")
+	list(APPEND vekt_glimmer_formats AUv3)
+endif()
+
+juce_add_plugin(VektGlimmer
+	VERSION ${PROJECT_VERSION}
+	COMPANY_NAME Vekt
+	BUNDLE_ID com.vekt.glimmer
+	PLUGIN_MANUFACTURER_CODE Vekt
+	PLUGIN_CODE Glmr
+	FORMATS ${vekt_glimmer_formats}
+	PRODUCT_NAME "Vekt Glimmer"
+	DESCRIPTION "A stereo rotary speaker effect"
+	IS_SYNTH FALSE
+	NEEDS_MIDI_INPUT FALSE
+	NEEDS_MIDI_OUTPUT FALSE
+	IS_MIDI_EFFECT FALSE
+	AU_MAIN_TYPE kAudioUnitType_Effect
+	NEEDS_WEB_BROWSER FALSE
+	NEEDS_CURL FALSE
+	HARDENED_RUNTIME_ENABLED TRUE)
+target_sources(VektGlimmer PRIVATE Source/PluginEntryPoint.cpp)
+target_compile_definitions(VektGlimmer PUBLIC
+	VEKT_AUV3_APP_GROUP_ID="${VEKT_AUV3_APP_GROUP_ID}"
+	JUCE_STRICT_REFCOUNTEDPOINTER=1
+	JUCE_WEB_BROWSER=0
+	JUCE_USE_CURL=0
+	JUCE_VST3_CAN_REPLACE_VST2=0)
+target_link_libraries(VektGlimmer PRIVATE VektGlimmerCore)

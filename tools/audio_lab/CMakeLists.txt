@@ -6,7 +6,8 @@ add_executable(VektRavAudioLab
 set_target_properties(VektRavAudioLab PROPERTIES MACOSX_BUNDLE TRUE)
 
 target_link_libraries(VektRavRender PRIVATE
-	VektRav
+	VektRavCore
+	VektGlimmerCore
 	juce::juce_audio_processors
 	juce::juce_audio_basics
 	juce::juce_audio_formats
@@ -15,7 +16,8 @@ target_link_libraries(VektRavRender PRIVATE
 	vekt_project_options)
 
 target_link_libraries(VektRavAudioLab PRIVATE
-	VektRav
+	VektRavCore
+	VektGlimmerCore
 	juce::juce_audio_utils
 	juce::juce_gui_basics
 	vekt::ui

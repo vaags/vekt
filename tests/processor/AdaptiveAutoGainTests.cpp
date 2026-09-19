@@ -1,4 +1,4 @@
-#include <AdaptiveAutoGain.h>
+#include <vekt/dsp/AdaptiveAutoGain.h>
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -16,7 +16,7 @@ TEST_CASE("AdaptiveAutoGain attenuates a louder wet signal", "[processor][auto-g
 			wet.setSample(channel, sample, 0.5f);
 		}
 
-	vekt::rav::AdaptiveAutoGain<float> autoGain;
+	vekt::dsp::AdaptiveAutoGain<float> autoGain;
 	autoGain.prepare(48'000.0, 0.0);
 	autoGain.process(juce::dsp::AudioBlock<const float>(reference),
 		juce::dsp::AudioBlock<float>(wet), true);
@@ -38,13 +38,13 @@ TEST_CASE("AdaptiveAutoGain never boosts or changes disabled wet audio", "[proce
 		wet.setSample(1, sample, -0.25f);
 	}
 
-	vekt::rav::AdaptiveAutoGain<float> autoGain;
+	vekt::dsp::AdaptiveAutoGain<float> autoGain;
 	autoGain.prepare(48'000.0, 0.0);
 	autoGain.process(juce::dsp::AudioBlock<const float>(reference),
 		juce::dsp::AudioBlock<float>(wet), true);
 	REQUIRE(wet.getSample(0, 2'047) <= 0.25f);
 
-	vekt::rav::AdaptiveAutoGain<float> disabledAutoGain;
+	vekt::dsp::AdaptiveAutoGain<float> disabledAutoGain;
 	disabledAutoGain.prepare(48'000.0, 0.0);
 	const auto disabledReference = wet.getSample(0, 2'047);
 	juce::AudioBuffer<float> disabledWet(wet);

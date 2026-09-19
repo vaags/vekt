@@ -10,6 +10,7 @@ watch_paths=(
 	"tools/audio_lab"
 	"plugins/vekt_rav/Source"
 	"plugins/vekt_rav/Resources"
+	"plugins/vekt_glimmer"
 	"framework"
 	"CMakeLists.txt"
 )
@@ -43,6 +44,6 @@ build
 
 while true; do
 	fswatch --one-event --recursive "${watch_paths[@]}" >/dev/null
-	printf '\nChange detected, rebuilding VektRav Audio Lab...\n'
+	printf '\nChange detected, rebuilding Vekt Audio Lab...\n'
 	build
 done

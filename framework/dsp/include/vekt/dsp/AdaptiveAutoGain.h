@@ -6,7 +6,7 @@
 #include <cmath>
 #include <concepts>
 
-namespace vekt::rav
+namespace vekt::dsp
 {
 template <std::floating_point Sample>
 class AdaptiveAutoGain final

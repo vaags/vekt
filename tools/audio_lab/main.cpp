@@ -1,6 +1,7 @@
 #include "SignalSources.h"
 
 #include <PluginProcessor.h>
+#include <vekt/glimmer/PluginProcessor.h>
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_audio_formats/juce_audio_formats.h>
@@ -21,6 +22,8 @@ namespace
 {
 struct Options final
 {
+	juce::String product { "rav" };
+	juce::String rack;
 	vekt::audio_lab::Source source { vekt::audio_lab::Source::sine };
 	double sampleRate { 48'000.0 };
 	int blockSize { 128 };
@@ -127,7 +130,17 @@ struct ChannelMeasurements final
 		for (int index = 1; index < argc; ++index)
 		{
 			std::string value;
-			if (valueFor(index, argc, argv, "--source", value))
+			if (valueFor(index, argc, argv, "--product", value))
+			{
+				if (value != "rav" && value != "glimmer") return false;
+				options.product = value;
+			}
+			else if (valueFor(index, argc, argv, "--rack", value))
+			{
+				if (value != "rav,glimmer" && value != "glimmer,rav") return false;
+				options.rack = value;
+			}
+			else if (valueFor(index, argc, argv, "--source", value))
 			{
 				if (value == "sine") options.source = vekt::audio_lab::Source::sine;
 				else if (value == "sawtooth") options.source = vekt::audio_lab::Source::sawtooth;
@@ -188,6 +201,8 @@ struct ChannelMeasurements final
 	{
 		return false;
 	}
+	if (options.rack.isNotEmpty() && options.product != "rav")
+		return false;
 	return options.sampleRate > 0.0 && options.blockSize > 0 && options.seconds > 0.0
 		&& options.warmupSeconds >= 0.0 && options.frequencyHz > 0.0
 		&& (options.spectrumSize == 0 || (options.spectrumSize > 1
@@ -278,6 +293,152 @@ void setParameter(vekt::rav::PluginProcessor& processor, const char* identifier,
 
 	return {};
 }
+
+void setParameter(vekt::glimmer::PluginProcessor& processor, const char* identifier, float value)
+{
+	if (auto* parameter = processor.getParameters().getParameter(identifier))
+		parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
+}
+
+int renderGlimmer(const Options& options, const std::optional<InputFile>& inputFile)
+{
+	vekt::glimmer::PluginProcessor processor;
+	setParameter(processor, vekt::glimmer::parameters::inputGain, options.inputGainDb);
+	setParameter(processor, vekt::glimmer::parameters::preampDrive, options.drive);
+	setParameter(processor, vekt::glimmer::parameters::hornTone, options.tone);
+	setParameter(processor, vekt::glimmer::parameters::autoGain, options.autoGain ? 1.0f : 0.0f);
+	processor.setNonRealtime(options.offlineProfile);
+	processor.prepareToPlay(options.sampleRate, options.blockSize);
+
+	const auto warmupSamples = static_cast<std::int64_t>(options.sampleRate * options.warmupSeconds);
+	const auto totalSamples = static_cast<std::int64_t>(options.sampleRate * options.seconds);
+	vekt::audio_lab::SignalSource source(options.source, options.sampleRate, options.seed);
+	source.setFrequency(options.frequencyHz);
+	juce::MidiBuffer midi;
+	std::array<ChannelMeasurements, 2> measurements;
+	juce::WavAudioFormat wavFormat;
+	std::unique_ptr<juce::AudioFormatWriter> wavWriter;
+	if (options.wavPath.isNotEmpty())
+	{
+		std::unique_ptr<juce::OutputStream> stream = juce::File(options.wavPath).createOutputStream();
+		wavWriter = wavFormat.createWriterFor(stream, juce::AudioFormatWriterOptions {}
+			.withSampleRate(options.sampleRate).withNumChannels(2).withBitsPerSample(32));
+		if (wavWriter == nullptr) return 1;
+	}
+	const auto renderBlock = [&](std::int64_t offset, int blockSize, bool measure) -> bool
+	{
+		juce::AudioBuffer<float> buffer(2, blockSize);
+		for (int sample = 0; sample < blockSize; ++sample)
+		{
+			if (inputFile)
+			{
+				const auto sourceSample = static_cast<int>((offset + sample) % inputFile->samples.getNumSamples());
+				buffer.setSample(0, sample, inputFile->samples.getSample(0, sourceSample));
+				buffer.setSample(1, sample, inputFile->samples.getSample(inputFile->samples.getNumChannels() == 1 ? 0 : 1, sourceSample));
+			}
+			else
+			{
+				buffer.setSample(0, sample, source.next(offset + sample, 0));
+				buffer.setSample(1, sample, source.next(offset + sample, 1));
+			}
+		}
+		processor.processBlock(buffer, midi);
+		if (!measure) return true;
+		for (int sample = 0; sample < blockSize; ++sample)
+		{
+			measurements[0].add(buffer.getSample(0, sample));
+			measurements[1].add(buffer.getSample(1, sample));
+		}
+		return wavWriter == nullptr || wavWriter->writeFromAudioSampleBuffer(buffer, 0, blockSize);
+	};
+	for (std::int64_t offset = 0; offset < warmupSamples; offset += options.blockSize)
+		if (!renderBlock(offset, static_cast<int>(std::min<std::int64_t>(options.blockSize, warmupSamples - offset)), false)) return 1;
+	for (std::int64_t offset = 0; offset < totalSamples; offset += options.blockSize)
+		if (!renderBlock(warmupSamples + offset, static_cast<int>(std::min<std::int64_t>(options.blockSize, totalSamples - offset)), true)) return 1;
+	std::cout << "product=glimmer samples=" << totalSamples
+		<< " rms_left=" << measurements[0].rms(totalSamples)
+		<< " rms_right=" << measurements[1].rms(totalSamples)
+		<< " peak_left=" << measurements[0].peak
+		<< " peak_right=" << measurements[1].peak
+		<< " latency=" << processor.getLatencySamples() << '\n';
+	if (options.reportPath.isNotEmpty())
+	{
+		const auto report = "{\n  \"product\": \"glimmer\",\n  \"samples\": " + juce::String(totalSamples)
+			+ ",\n  \"latency_samples\": " + juce::String(processor.getLatencySamples()) + "\n}\n";
+		if (!juce::File(options.reportPath).replaceWithText(report)) return 1;
+	}
+	return 0;
+}
+
+int renderRack(const Options& options, const std::optional<InputFile>& inputFile)
+{
+	vekt::rav::PluginProcessor rav;
+	vekt::glimmer::PluginProcessor glimmer;
+	rav.setNonRealtime(options.offlineProfile);
+	glimmer.setNonRealtime(options.offlineProfile);
+	rav.prepareToPlay(options.sampleRate, options.blockSize);
+	glimmer.prepareToPlay(options.sampleRate, options.blockSize);
+	const auto glimmerFirst = options.rack == "glimmer,rav";
+	const auto warmupSamples = static_cast<std::int64_t>(options.sampleRate * options.warmupSeconds);
+	const auto totalSamples = static_cast<std::int64_t>(options.sampleRate * options.seconds);
+	vekt::audio_lab::SignalSource source(options.source, options.sampleRate, options.seed);
+	source.setFrequency(options.frequencyHz);
+	juce::MidiBuffer midi;
+	std::array<ChannelMeasurements, 2> measurements;
+	juce::WavAudioFormat wavFormat;
+	std::unique_ptr<juce::AudioFormatWriter> wavWriter;
+	if (options.wavPath.isNotEmpty())
+	{
+		std::unique_ptr<juce::OutputStream> stream = juce::File(options.wavPath).createOutputStream();
+		wavWriter = wavFormat.createWriterFor(stream, juce::AudioFormatWriterOptions {}
+			.withSampleRate(options.sampleRate).withNumChannels(2).withBitsPerSample(32));
+		if (wavWriter == nullptr) return 1;
+	}
+	const auto renderBlock = [&](std::int64_t offset, int blockSize, bool measure) -> bool
+	{
+		juce::AudioBuffer<float> buffer(2, blockSize);
+		for (int sample = 0; sample < blockSize; ++sample)
+		{
+			if (inputFile)
+			{
+				const auto sourceSample = static_cast<int>((offset + sample) % inputFile->samples.getNumSamples());
+				buffer.setSample(0, sample, inputFile->samples.getSample(0, sourceSample));
+				buffer.setSample(1, sample, inputFile->samples.getSample(inputFile->samples.getNumChannels() == 1 ? 0 : 1, sourceSample));
+			}
+			else
+			{
+				buffer.setSample(0, sample, source.next(offset + sample, 0));
+				buffer.setSample(1, sample, source.next(offset + sample, 1));
+			}
+		}
+		if (glimmerFirst) { glimmer.processBlock(buffer, midi); rav.processBlock(buffer, midi); }
+		else { rav.processBlock(buffer, midi); glimmer.processBlock(buffer, midi); }
+		if (!measure) return true;
+		for (int sample = 0; sample < blockSize; ++sample)
+		{
+			measurements[0].add(buffer.getSample(0, sample));
+			measurements[1].add(buffer.getSample(1, sample));
+		}
+		return wavWriter == nullptr || wavWriter->writeFromAudioSampleBuffer(buffer, 0, blockSize);
+	};
+	for (std::int64_t offset = 0; offset < warmupSamples; offset += options.blockSize)
+		if (!renderBlock(offset, static_cast<int>(std::min<std::int64_t>(options.blockSize, warmupSamples - offset)), false)) return 1;
+	for (std::int64_t offset = 0; offset < totalSamples; offset += options.blockSize)
+		if (!renderBlock(warmupSamples + offset, static_cast<int>(std::min<std::int64_t>(options.blockSize, totalSamples - offset)), true)) return 1;
+	std::cout << "rack=" << options.rack << " samples=" << totalSamples
+		<< " rms_left=" << measurements[0].rms(totalSamples)
+		<< " rms_right=" << measurements[1].rms(totalSamples)
+		<< " latency=" << rav.getLatencySamples() + glimmer.getLatencySamples() << '\n';
+	if (options.reportPath.isNotEmpty())
+	{
+		const auto report = "{\n  \"rack\": " + juce::JSON::toString(options.rack)
+			+ ",\n  \"samples\": " + juce::String(totalSamples)
+			+ ",\n  \"latency_samples\": " + juce::String(rav.getLatencySamples() + glimmer.getLatencySamples())
+			+ "\n}\n";
+		if (!juce::File(options.reportPath).replaceWithText(report)) return 1;
+	}
+	return 0;
+}
 }
 
 int main(int argc, char** argv)
@@ -286,7 +447,7 @@ int main(int argc, char** argv)
 	Options options;
 	if (!parseOptions(argc, argv, options))
 	{
-		std::cerr << "Usage: VektRavRender [--source sine|sawtooth|sweep|impulse|noise|kick|unison|two-tone] "
+		std::cerr << "Usage: VektRavRender [--product rav|glimmer] [--rack rav,glimmer|glimmer,rav] [--source sine|sawtooth|sweep|impulse|noise|kick|unison|two-tone] "
 					 "[--input path] [--model legacy|behavioral|overdrive-circuit|fuzz-circuit] "
 					 "[--profile tracking|offline] [--quality 0-6] [--sample-rate Hz] [--block-size samples] "
 					 "[--seconds duration] [--warmup duration] [--frequency Hz] [--mode 0-3] "
@@ -312,6 +473,10 @@ int main(int argc, char** argv)
 			return 1;
 		}
 	}
+	if (options.product == "glimmer")
+		return renderGlimmer(options, inputFile);
+	if (options.rack.isNotEmpty())
+		return renderRack(options, inputFile);
 
 	vekt::rav::PluginProcessor processor;
 	processor.setDevelopmentProcessingModel(options.model);

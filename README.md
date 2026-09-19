@@ -1,8 +1,8 @@
 # Vekt
 
 Vekt is a reusable C++20/JUCE framework for macOS audio effects. The first
-reference effect is Vekt Rav with reusable DSP, state, and preset
-infrastructure.
+reference effects are Vekt Rav and Vekt Glimmer with reusable DSP, state, and
+preset infrastructure.
 
 ## Requirements
 
@@ -35,6 +35,13 @@ Run a deterministic offline processor report without opening a DAW:
 ./scripts/render-report.sh --source sine --seconds 1 --mode 0
 ```
 
+Render Glimmer alone or the fixed two-effect serial rack with:
+
+```sh
+./scripts/render-report.sh --product glimmer --source sine --seconds 1
+./scripts/render-report.sh --rack rav,glimmer --source sine --seconds 1
+```
+
 For live listening without BlackHole or other routing tools, run the opt-in
 Audio Lab:
 
@@ -52,9 +59,9 @@ The same workflows are available in VS Code through **Tasks: Run Task** as
 `Vekt: Run Audio Lab` and `Vekt: Test and Run Audio Lab`.
 
 It generates test signals internally and sends them to the selected default
-audio output. The lab contains the full Rav editor; select a source, choose the
-mode and all processing controls in the editor, then explicitly arm output.
-Use headphones or safe monitoring when testing.
+audio output. The lab hosts Rav and Glimmer in a serial chain; select either
+editor tab and use the order control to audition both routing orders, then
+explicitly arm output. Use headphones or safe monitoring when testing.
 
 The `xcode` configure preset is reserved for AUv3-capable builds. It requires a
 full Xcode installation selected through `xcode-select`; Apple Command Line
@@ -91,6 +98,8 @@ folder before rescanning if Live shows duplicate versions.
 - Integer oversampling latency reporting
 - Linear dry/wet mixing with dry-path latency alignment
 - Vector-scalable Rav editor with mode, multiband, preset, bypass, and quality controls
+- Vector-scalable Glimmer editor with linked horn/drum rotation, fixed stereo mic placement,
+  preamp drive, tone, and Auto speed sensitivity
 - Versioned project state and deterministic Rav preset catalogs
 - Versioned sound-only JSON presets with factory/user catalogs and platform-aware storage
 - 53 focused Catch2 tests covering DSP, modes, multiband routing, state, presets,
