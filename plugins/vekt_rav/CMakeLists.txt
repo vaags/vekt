@@ -27,7 +27,22 @@ juce_add_binary_data(VektRavFactoryData
 	SOURCES
 		"Resources/Presets/Clean Heat.vektpreset"
 		"Resources/Presets/Warm Push.vektpreset"
-		"Resources/Presets/Parallel Grit.vektpreset")
+		"Resources/Presets/Parallel Grit.vektpreset"
+		"Resources/Presets/Bass/Deep Foundation.vektpreset"
+		"Resources/Presets/Bass/Grind Line.vektpreset"
+		"Resources/Presets/Bass/Parallel Punch.vektpreset"
+		"Resources/Presets/Guitar/Edge Breakup.vektpreset"
+		"Resources/Presets/Guitar/Lead Bite.vektpreset"
+		"Resources/Presets/Guitar/Velvet Drive.vektpreset"
+		"Resources/Presets/Keys/Analog Glow.vektpreset"
+		"Resources/Presets/Keys/Crushed Chords.vektpreset"
+		"Resources/Presets/Keys/Velvet Electric.vektpreset"
+		"Resources/Presets/Drums/Drum Bus Glue.vektpreset"
+		"Resources/Presets/Drums/Snare Crack.vektpreset"
+		"Resources/Presets/Drums/Transient Smash.vektpreset"
+		"Resources/Presets/Mastering/Low End Focus.vektpreset"
+		"Resources/Presets/Mastering/Parallel Sheen.vektpreset"
+		"Resources/Presets/Mastering/Transparent Polish.vektpreset")
 
 target_sources(VektRav PRIVATE
 	Source/FactoryPresets.cpp

@@ -1,0 +1,5 @@
+{
+  "format": "vekt.preset", "schemaVersion": 2, "id": "rav-guitar-velvet-drive", "product": "com.vekt.rav", "soundSchemaVersion": 1,
+  "name": "Velvet Drive", "tags": ["Guitar", "Warm", "Rhythm", "Smooth"], "soundState": {},
+  "parameters": { "inputGain": 0.0, "drive": 15.0, "tone": -0.9, "bias": 0.1, "autoGain": 1.0, "mix": 90.0, "outputGain": 0.0, "lowBandMix": 88.0, "midBandMix": 100.0, "highBandMix": 62.0, "lowMidCutoffHz": 220.0, "midHighCutoffHz": 2500.0, "mode": 0.0, "shape": 0.58, "dynamics": 0.5, "texture": 0.4 }
+}

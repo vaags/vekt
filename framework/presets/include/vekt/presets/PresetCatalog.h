@@ -31,6 +31,7 @@ public:
 	explicit PresetCatalog(PresetRepository& userRepository);
 
 	[[nodiscard]] juce::Result addFactoryPreset(const juce::String& json);
+	[[nodiscard]] juce::Result addFactoryPreset(const juce::String& json, const juce::String& folder);
 	void setUserRepository(PresetRepository* userRepository);
 	void refresh();
 	void setProductIdentifier(juce::String product) { productIdentifier = std::move(product); refresh(); }

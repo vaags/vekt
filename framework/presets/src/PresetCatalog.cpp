@@ -24,6 +24,11 @@ PresetCatalog::PresetCatalog(PresetRepository& userRepository)
 
 juce::Result PresetCatalog::addFactoryPreset(const juce::String& json)
 {
+	return addFactoryPreset(json, {});
+}
+
+juce::Result PresetCatalog::addFactoryPreset(const juce::String& json, const juce::String& folder)
+{
 	Preset preset;
 	if (const auto result = PresetJsonCodec::decode(json, preset); result.failed())
 		return result;
@@ -35,6 +40,9 @@ juce::Result PresetCatalog::addFactoryPreset(const juce::String& json)
 			return juce::Result::fail("Factory preset identity is duplicated");
 	if (productIdentifier.isNotEmpty() && preset.productIdentifier != productIdentifier)
 		return juce::Result::fail("Factory preset belongs to another product");
+	if (folder.contains("..") || juce::File::isAbsolutePath(folder) || folder.containsChar('\\'))
+		return juce::Result::fail("Factory preset folder is invalid");
+	preset.folder = folder.trim().trimCharactersAtEnd("/");
 
 	factoryPresets.push_back(std::move(preset));
 	refresh();
@@ -55,7 +63,8 @@ void PresetCatalog::refresh()
 
 	for (const auto& preset : factoryPresets)
 		catalogEntries.push_back({ preset.name, PresetOrigin::factory, preset.identifier,
-			preset.name, {}, preset.tags, {} });
+			preset.folder.isEmpty() ? preset.name : preset.folder + "/" + preset.name,
+			preset.folder, preset.tags, {} });
 
 	for (const auto& location : userNames)
 	{

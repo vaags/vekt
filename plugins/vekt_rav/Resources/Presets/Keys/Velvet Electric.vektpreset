@@ -1,0 +1,5 @@
+{
+  "format": "vekt.preset", "schemaVersion": 2, "id": "rav-keys-velvet-electric", "product": "com.vekt.rav", "soundSchemaVersion": 1,
+  "name": "Velvet Electric", "tags": ["Keys", "Electric Piano", "Smooth", "Soul"], "soundState": {},
+  "parameters": { "inputGain": 0.0, "drive": 13.0, "tone": -0.5, "bias": 0.05, "autoGain": 1.0, "mix": 88.0, "outputGain": 0.0, "lowBandMix": 68.0, "midBandMix": 96.0, "highBandMix": 68.0, "lowMidCutoffHz": 230.0, "midHighCutoffHz": 2700.0, "mode": 1.0, "shape": 0.51, "dynamics": 0.56, "texture": 0.44 }
+}

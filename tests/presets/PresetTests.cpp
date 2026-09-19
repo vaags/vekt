@@ -307,7 +307,7 @@ TEST_CASE("Embedded Rav factory presets use the public preset schema", "[presets
 	vekt::rav::PluginProcessor processor;
 
 	REQUIRE(vekt::rav::addFactoryPresets(catalog).wasOk());
-	REQUIRE(catalog.entries().size() == 3);
+	REQUIRE(catalog.entries().size() == 18);
 	for (std::size_t index = 0; index < catalog.entries().size(); ++index)
 	{
 		vekt::presets::Preset preset;
@@ -316,23 +316,77 @@ TEST_CASE("Embedded Rav factory presets use the public preset schema", "[presets
 	}
 }
 
+TEST_CASE("Rav factory library groups instrument presets with useful tags", "[presets]")
+{
+	vekt::rav::PluginProcessor processor;
+	const auto& entries = processor.getPresetEntries();
+	REQUIRE(entries.size() == 18);
+	REQUIRE(processor.getNumPrograms() == 18);
+
+	for (const auto& expected : std::array {
+		std::pair { "Bass/Deep Foundation", "Bass" },
+		std::pair { "Bass/Grind Line", "Bass" },
+		std::pair { "Bass/Parallel Punch", "Bass" },
+		std::pair { "Guitar/Edge Breakup", "Guitar" },
+		std::pair { "Guitar/Lead Bite", "Guitar" },
+		std::pair { "Guitar/Velvet Drive", "Guitar" },
+		std::pair { "Keys/Analog Glow", "Keys" },
+		std::pair { "Keys/Crushed Chords", "Keys" },
+		std::pair { "Keys/Velvet Electric", "Keys" },
+		std::pair { "Drums/Drum Bus Glue", "Drums" },
+		std::pair { "Drums/Snare Crack", "Drums" },
+		std::pair { "Drums/Transient Smash", "Drums" },
+		std::pair { "Mastering/Low End Focus", "Mastering" },
+		std::pair { "Mastering/Parallel Sheen", "Mastering" },
+		std::pair { "Mastering/Transparent Polish", "Mastering" } })
+	{
+		auto found = false;
+		for (const auto& entry : entries)
+		{
+			if (entry.location != expected.first)
+				continue;
+			found = true;
+			REQUIRE(entry.origin == vekt::presets::PresetOrigin::factory);
+			REQUIRE(entry.folder == juce::String(expected.first).upToLastOccurrenceOf("/", false, false));
+			REQUIRE(entry.tags.contains(expected.second));
+			REQUIRE(entry.tags.size() >= 3);
+		}
+		REQUIRE(found);
+	}
+
+	for (std::size_t index = 0; index < entries.size(); ++index)
+	{
+		vekt::presets::Preset preset;
+		REQUIRE(processor.getPresetSession().library().load(index, preset).wasOk());
+		REQUIRE(processor.applyPreset(preset).wasOk());
+	}
+}
+
 TEST_CASE("Rav exposes factory presets through its host program API", "[presets]")
 {
 	vekt::rav::PluginProcessor processor;
 
-	REQUIRE(processor.getNumPrograms() == 3);
+	REQUIRE(processor.getNumPrograms() == 18);
 	REQUIRE(processor.getCurrentProgram() == 0);
 	REQUIRE(processor.getProgramName(0) == "Clean Heat");
 	REQUIRE(processor.getProgramName(1) == "Warm Push");
 	REQUIRE(processor.getProgramName(2) == "Parallel Grit");
-	REQUIRE(processor.getProgramName(3).isEmpty());
+	REQUIRE(processor.getProgramName(3) == "Deep Foundation");
+	REQUIRE(processor.getProgramName(14) == "Transient Smash");
+	REQUIRE(processor.getProgramName(15) == "Low End Focus");
+	REQUIRE(processor.getProgramName(17) == "Transparent Polish");
+	REQUIRE(processor.getProgramName(18).isEmpty());
 
 	processor.setCurrentProgram(1);
 	REQUIRE(processor.getCurrentProgram() == 1);
 	REQUIRE(getParameter(processor, vekt::rav::parameters::drive)
 		== Catch::Approx(12.0f));
-	processor.setCurrentProgram(8);
-	REQUIRE(processor.getCurrentProgram() == 1);
+	processor.setCurrentProgram(14);
+	REQUIRE(processor.getCurrentProgram() == 14);
+	REQUIRE(getParameter(processor, vekt::rav::parameters::drive)
+		== Catch::Approx(28.0f));
+	processor.setCurrentProgram(18);
+	REQUIRE(processor.getCurrentProgram() == 14);
 }
 
 TEST_CASE("Rav restores its current factory program identity", "[presets]")

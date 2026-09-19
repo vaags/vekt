@@ -1,0 +1,5 @@
+{
+  "format": "vekt.preset", "schemaVersion": 2, "id": "rav-keys-crushed-chords", "product": "com.vekt.rav", "soundSchemaVersion": 1,
+  "name": "Crushed Chords", "tags": ["Keys", "Lo-Fi", "Crunch", "Rhythm"], "soundState": {},
+  "parameters": { "inputGain": 0.5, "drive": 22.0, "tone": 0.7, "bias": -0.14, "autoGain": 1.0, "mix": 56.0, "outputGain": -1.0, "lowBandMix": 55.0, "midBandMix": 100.0, "highBandMix": 78.0, "lowMidCutoffHz": 280.0, "midHighCutoffHz": 3600.0, "mode": 3.0, "shape": 0.66, "dynamics": 0.42, "texture": 0.81 }
+}

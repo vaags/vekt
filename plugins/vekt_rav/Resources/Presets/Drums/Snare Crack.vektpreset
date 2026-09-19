@@ -1,0 +1,5 @@
+{
+  "format": "vekt.preset", "schemaVersion": 2, "id": "rav-drums-snare-crack", "product": "com.vekt.rav", "soundSchemaVersion": 1,
+  "name": "Snare Crack", "tags": ["Drums", "Snare", "Crack", "Bright"], "soundState": {},
+  "parameters": { "inputGain": 0.0, "drive": 18.0, "tone": 3.0, "bias": -0.04, "autoGain": 1.0, "mix": 68.0, "outputGain": -0.5, "lowBandMix": 20.0, "midBandMix": 88.0, "highBandMix": 100.0, "lowMidCutoffHz": 350.0, "midHighCutoffHz": 4200.0, "mode": 1.0, "shape": 0.6, "dynamics": 0.48, "texture": 0.58 }
+}
