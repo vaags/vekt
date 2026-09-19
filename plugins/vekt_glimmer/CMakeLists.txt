@@ -21,8 +21,7 @@ target_include_directories(VektGlimmerCore PUBLIC
 target_link_libraries(VektGlimmerCore PUBLIC
 	VektGlimmerFactoryData
 	vekt_project_options
-	juce::juce_audio_processors
-	juce::juce_audio_utils
+    vekt::juce_headers
 	vekt::ui
 	vekt::dsp
 	vekt::state
@@ -52,10 +51,4 @@ juce_add_plugin(VektGlimmer
 	NEEDS_CURL FALSE
 	HARDENED_RUNTIME_ENABLED TRUE)
 target_sources(VektGlimmer PRIVATE Source/PluginEntryPoint.cpp)
-target_compile_definitions(VektGlimmer PUBLIC
-	VEKT_AUV3_APP_GROUP_ID="${VEKT_AUV3_APP_GROUP_ID}"
-	JUCE_STRICT_REFCOUNTEDPOINTER=1
-	JUCE_WEB_BROWSER=0
-	JUCE_USE_CURL=0
-	JUCE_VST3_CAN_REPLACE_VST2=0)
 target_link_libraries(VektGlimmer PRIVATE VektGlimmerCore)

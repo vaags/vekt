@@ -1,9 +1,8 @@
 #!/bin/zsh
+set -euo pipefail
 
-set -u
-
-root="${0:A:h}/.."
-cd "$root" || exit 1
+cd "${0:A:h}/.."
+source scripts/lib/watch.zsh
 
 watch_paths=(
 	"plugins/vekt_rav/Source"
@@ -14,14 +13,9 @@ watch_paths=(
 	"CMakePresets.json"
 )
 
+vekt_require_fswatch
+cmake --preset dev
 printf 'Watching Vekt plugin sources. Press Ctrl+C to stop.\n'
-
-while true; do
-	fswatch --one-event --recursive "${watch_paths[@]}" >/dev/null
-	printf '\nChange detected, rebuilding Vekt standalone products...\n'
-	cmake --build --preset dev --target VektRav_Standalone VektGlimmer_Standalone
-	build_result=$?
-	if (( build_result != 0 )); then
-		printf 'Build failed with exit code %d; continuing to watch.\n' "$build_result"
-	fi
-done
+VEKT_WATCH_BUILD_COMMAND=(cmake --build --preset dev --target VektRav_Standalone VektGlimmer_Standalone)
+vekt_run_watch_build
+vekt_watch 'Change detected, rebuilding Vekt standalone products...' "${watch_paths[@]}"

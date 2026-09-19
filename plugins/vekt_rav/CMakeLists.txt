@@ -33,16 +33,9 @@ add_library(VektRavCore STATIC
 
 target_include_directories(VektRavCore PUBLIC Source)
 
-target_compile_definitions(VektRavCore PUBLIC
-	VEKT_AUV3_APP_GROUP_ID="${VEKT_AUV3_APP_GROUP_ID}"
-	JUCE_STRICT_REFCOUNTEDPOINTER=1
-	JUCE_WEB_BROWSER=0
-	JUCE_USE_CURL=0
-	JUCE_VST3_CAN_REPLACE_VST2=0)
-
 target_link_libraries(VektRavCore
 	PUBLIC
-		juce::juce_audio_utils
+        vekt::juce_headers
 		vekt::ui
 		VektRavFactoryData
 		vekt::dsp

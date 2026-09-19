@@ -8,17 +8,12 @@ set_target_properties(VektRavAudioLab PROPERTIES MACOSX_BUNDLE TRUE)
 target_link_libraries(VektRavRender PRIVATE
 	VektRavCore
 	VektGlimmerCore
-	juce::juce_audio_processors
-	juce::juce_audio_basics
-	juce::juce_audio_formats
-	juce::juce_dsp
-	juce::juce_gui_basics
+    vekt::juce_headers
 	vekt_project_options)
 
 target_link_libraries(VektRavAudioLab PRIVATE
 	VektRavCore
 	VektGlimmerCore
-	juce::juce_audio_utils
-	juce::juce_gui_basics
+    vekt::juce_headers
 	vekt::ui
 	vekt_project_options)

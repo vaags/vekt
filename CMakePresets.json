@@ -37,6 +37,17 @@
       }
     },
     {
+      "name": "audio-lab",
+      "displayName": "Audio Lab",
+      "inherits": "base",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "VEKT_BUILD_TESTS": "OFF",
+        "VEKT_BUILD_AUDIO_LAB": "ON"
+      }
+    },
+    {
       "name": "audio-lab-release",
       "displayName": "Audio Lab Release",
       "inherits": "base",
@@ -62,6 +73,10 @@
     {
       "name": "release",
       "configurePreset": "release"
+    },
+    {
+      "name": "audio-lab",
+      "configurePreset": "audio-lab"
     },
     {
       "name": "audio-lab-release",

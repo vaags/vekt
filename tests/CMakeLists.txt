@@ -34,7 +34,7 @@ target_link_libraries(vekt_dsp_tests PRIVATE
     vekt::ui
     VektRavCore
 	VektGlimmerCore
-	juce::juce_audio_utils
+    vekt::juce_headers
     Catch2::Catch2WithMain)
 
 if(APPLE AND CMAKE_GENERATOR STREQUAL "Xcode")
