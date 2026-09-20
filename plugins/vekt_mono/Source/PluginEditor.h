@@ -47,8 +47,8 @@ private:
 	ui::Panel ampPanel { "Amp ADSR" };
 	ui::Panel filterEnvelopePanel { "Filter ADSR" };
 	ui::Panel performancePanel { "Performance / Noise" };
-	std::array<ui::RotaryControl, 9> oscillatorControls;
-	std::array<std::unique_ptr<SliderAttachment>, 9> oscillatorAttachments;
+	std::array<ui::RotaryControl, 16> oscillatorControls;
+	std::array<std::unique_ptr<SliderAttachment>, 16> oscillatorAttachments;
 	std::array<ui::RotaryControl, 5> filterControls;
 	std::array<std::unique_ptr<SliderAttachment>, 5> filterAttachments;
 	std::array<ui::RotaryControl, 5> ampControls;

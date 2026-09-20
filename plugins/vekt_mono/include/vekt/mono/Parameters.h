@@ -33,6 +33,9 @@ inline constexpr auto osc3Semitone = "osc3Semitone";
 inline constexpr auto osc1Fine = "osc1Fine";
 inline constexpr auto osc2Fine = "osc2Fine";
 inline constexpr auto osc3Fine = "osc3Fine";
+inline constexpr auto osc1Octave = "osc1Octave";
+inline constexpr auto osc2Octave = "osc2Octave";
+inline constexpr auto osc3Octave = "osc3Octave";
 inline constexpr auto osc1Level = "osc1Level";
 inline constexpr auto osc2Level = "osc2Level";
 inline constexpr auto osc3Level = "osc3Level";
@@ -65,7 +68,8 @@ inline constexpr std::array soundParameterIds {
 	performanceMode, unison, unisonDetune, unisonSpread, voiceWidth, glideMode, glideTime,
 	pitchBendRange, calibration, drift, masterOutput,
 	osc1Range, osc2Range, osc3Range, osc1Semitone, osc2Semitone, osc3Semitone,
-	osc1Fine, osc2Fine, osc3Fine, osc1Level, osc2Level, osc3Level,
+	osc1Fine, osc2Fine, osc3Fine, osc1Octave, osc2Octave, osc3Octave,
+	osc1Level, osc2Level, osc3Level,
 	osc1Morph, osc2Morph, osc3Morph, osc1PulseWidth, osc2PulseWidth, osc3PulseWidth,
 	noiseType, noiseLevel, filterCutoff, filterResonance, filterKeyTracking,
 	filterEnvelopeAmount, filterDrive, ampAttack, ampDecay, ampSustain, ampRelease,

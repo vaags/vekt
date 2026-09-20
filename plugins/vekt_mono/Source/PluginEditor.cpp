@@ -38,13 +38,20 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	getContent().addAndMakeVisible(historyControls);
 	getContent().addAndMakeVisible(presetNavigation);
 	getContent().addChildComponent(presetBrowser);
-	const std::array oscillatorNames { "Osc 1 Level", "Osc 1 Morph", "Osc 1 Width",
-		"Osc 2 Level", "Osc 2 Morph", "Osc 2 Width", "Osc 3 Level", "Osc 3 Morph", "Osc 3 Width" };
-	const std::array oscillatorIds { parameters::osc1Level, parameters::osc1Morph, parameters::osc1PulseWidth,
-		parameters::osc2Level, parameters::osc2Morph, parameters::osc2PulseWidth,
-		parameters::osc3Level, parameters::osc3Morph, parameters::osc3PulseWidth };
+	const std::array oscillatorNames { "O1 Level", "O1 Morph", "O1 Width", "O1 Octave", "O1 Fine",
+		"O2 Level", "O2 Morph", "O2 Width", "O2 Octave", "O2 Fine",
+		"O3 Level", "O3 Morph", "O3 Width", "O3 Octave", "O3 Fine", "Noise Level" };
+	const std::array oscillatorIds { parameters::osc1Level, parameters::osc1Morph, parameters::osc1PulseWidth, parameters::osc1Octave, parameters::osc1Fine,
+		parameters::osc2Level, parameters::osc2Morph, parameters::osc2PulseWidth, parameters::osc2Octave, parameters::osc2Fine,
+		parameters::osc3Level, parameters::osc3Morph, parameters::osc3PulseWidth, parameters::osc3Octave, parameters::osc3Fine, parameters::noiseLevel };
 	for (std::size_t index = 0; index < oscillatorControls.size(); ++index) addRotary(oscillatorPanel, oscillatorControls[index], oscillatorNames[index], oscillatorIds[index], oscillatorAttachments[index]);
-	for (const auto index : { std::size_t { 1 }, std::size_t { 4 }, std::size_t { 7 } }) oscillatorControls[index].setWaveformGuide(true);
+	for (auto& control : oscillatorControls) control.setLayout(ui::RotaryControl::Size::compact, 62);
+	for (const auto index : { std::size_t { 1 }, std::size_t { 6 }, std::size_t { 11 } }) oscillatorControls[index].setWaveformGuide(true);
+	for (const auto index : { std::size_t { 3 }, std::size_t { 8 }, std::size_t { 13 } })
+		oscillatorControls[index].getSlider().setTooltip("Coarse oscillator tuning from two octaves down to two octaves up.");
+	for (const auto index : { std::size_t { 4 }, std::size_t { 9 }, std::size_t { 14 } })
+		oscillatorControls[index].getSlider().setTooltip("Fine oscillator tuning from -100 to +100 cents.");
+	oscillatorControls[15].getSlider().setTooltip("Noise mixer level. Select white or pink noise in Performance / Noise.");
 	const std::array filterNames { "Cutoff", "Resonance", "Key Track", "Env Amount", "Drive" };
 	const std::array filterIds { parameters::filterCutoff, parameters::filterResonance, parameters::filterKeyTracking, parameters::filterEnvelopeAmount, parameters::filterDrive };
 	for (std::size_t index = 0; index < filterControls.size(); ++index) addRotary(filterPanel, filterControls[index], filterNames[index], filterIds[index], filterAttachments[index]);
@@ -121,9 +128,8 @@ void PluginEditor::resized()
 	oscillatorPanel.setBounds(20, 68, 1080, 184); filterPanel.setBounds(20, 268, 500, 180); voicePanel.setBounds(536, 268, 360, 180); ioPanel.setBounds(912, 268, 188, 180); ampPanel.setBounds(20, 464, 348, 216); filterEnvelopePanel.setBounds(384, 464, 348, 216); performancePanel.setBounds(748, 464, 352, 216);
 	for (std::size_t index = 0; index < oscillatorControls.size(); ++index)
 	{
-		const auto oscillator = static_cast<int>(index / 3);
-		const auto control = static_cast<int>(index % 3);
-		oscillatorControls[index].setBounds(10 + oscillator * 360 + control * 116, 30, 112, 138);
+		const auto x = 8 + static_cast<int>(index) * 67;
+		oscillatorControls[index].setBounds(x, 40, 65, ui::RotaryControl::heightFor(ui::RotaryControl::Size::compact));
 	}
 	for (std::size_t index = 0; index < filterControls.size(); ++index) filterControls[index].setBounds(6 + static_cast<int>(index) * 98, 32, 94, 136);
 	for (std::size_t index = 0; index < ampControls.size(); ++index) ampControls[index].setBounds(6 + static_cast<int>(index) * 67, 38, 65, 140);

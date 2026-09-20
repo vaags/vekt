@@ -27,11 +27,29 @@ dsp::OversamplingQuality oversamplingQualityFor(int quality) noexcept
 		? dsp::OversamplingQuality { dsp::OversamplingFactor::x2, dsp::OversamplingFilter::polyphaseIIR }
 		: dsp::OversamplingQuality { dsp::OversamplingFactor::off, dsp::OversamplingFilter::polyphaseIIR };
 }
+
+bool migrateProjectState(juce::ValueTree& state, int sourceVersion)
+{
+	if (sourceVersion != 1)
+		return false;
+	auto sound = state.getChildWithName(parameters::stateType);
+	if (!sound.isValid())
+		return false;
+	for (const auto* identifier : { parameters::osc1Octave, parameters::osc2Octave, parameters::osc3Octave })
+		if (!sound.getChildWithProperty("id", identifier).isValid())
+		{
+			juce::ValueTree value("PARAM");
+			value.setProperty("id", identifier, nullptr);
+			value.setProperty("value", 0.0f, nullptr);
+			sound.appendChild(value, nullptr);
+		}
+	return true;
+}
 }
 
 struct PluginProcessor::Settings
 {
-	std::array<float, 3> range, semitone, fine, level, morph, pulseWidth;
+	std::array<float, 3> range, semitone, fine, octave, level, morph, pulseWidth;
 	float noiseLevel {}, cutoff {}, resonance {}, tracking {}, envelopeAmount {}, drive {};
 	float ampAttack {}, ampDecay {}, ampSustain {}, ampRelease {};
 	float filterAttack {}, filterDecay {}, filterSustain {}, filterRelease {};
@@ -46,6 +64,7 @@ PluginProcessor::Settings PluginProcessor::snapshotSettings() const
 	const std::array ranges { parameters::osc1Range, parameters::osc2Range, parameters::osc3Range };
 	const std::array semitones { parameters::osc1Semitone, parameters::osc2Semitone, parameters::osc3Semitone };
 	const std::array fines { parameters::osc1Fine, parameters::osc2Fine, parameters::osc3Fine };
+	const std::array octaves { parameters::osc1Octave, parameters::osc2Octave, parameters::osc3Octave };
 	const std::array levels { parameters::osc1Level, parameters::osc2Level, parameters::osc3Level };
 	const std::array morphs { parameters::osc1Morph, parameters::osc2Morph, parameters::osc3Morph };
 	const std::array widths { parameters::osc1PulseWidth, parameters::osc2PulseWidth, parameters::osc3PulseWidth };
@@ -54,6 +73,7 @@ PluginProcessor::Settings PluginProcessor::snapshotSettings() const
 		settings.range[index] = value(ranges[index]);
 		settings.semitone[index] = value(semitones[index]);
 		settings.fine[index] = value(fines[index]);
+		settings.octave[index] = value(octaves[index]);
 		settings.level[index] = value(levels[index]) * 0.01f;
 		settings.morph[index] = value(morphs[index]);
 		settings.pulseWidth[index] = value(widths[index]);
@@ -167,7 +187,8 @@ public:
 				const auto octave = 1.0f / std::exp2(settings.range[static_cast<std::size_t>(oscillator)] - 1.0f);
 				const auto cents = settings.fine[static_cast<std::size_t>(oscillator)] + normalizedStack * settings.detune
 					+ driftCents * settings.drift * 0.2f;
-				const auto frequency = baseHz * octave * std::exp2((settings.semitone[static_cast<std::size_t>(oscillator)] + cents * 0.01f) / 12.0f);
+				const auto frequency = baseHz * octave * std::exp2(settings.octave[static_cast<std::size_t>(oscillator)]
+					+ (settings.semitone[static_cast<std::size_t>(oscillator)] + cents * 0.01f) / 12.0f);
 				const auto phaseIncrement = frequency / sampleRate;
 				auto& oscillatorPhase = phase[static_cast<std::size_t>(stack)][static_cast<std::size_t>(oscillator)];
 				oscillatorPhase += phaseIncrement;
@@ -257,10 +278,23 @@ private:
 PluginProcessor::PluginProcessor()
 	: AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
 	  parameterState(*this, &undoManager, parameters::stateType, parameters::createLayout()),
-	  stateManager(parameterState, parameters::projectStateType, 1),
-	  presetSession(presetCatalog, { parameters::presetProductIdentifier, "Vekt Mono", 1 }, {
-		[this](const juce::String& name) { return presets::PresetSchema::create(parameters::presetProductIdentifier, name, parameterState, parameters::soundParameterIds); },
-		[](presets::Preset& preset) { return preset.soundSchemaVersion == 1 ? juce::Result::ok() : juce::Result::fail("Unsupported Mono preset sound schema"); },
+	  stateManager(parameterState, parameters::projectStateType, 2, migrateProjectState),
+	  presetSession(presetCatalog, { parameters::presetProductIdentifier, "Vekt Mono", 2 }, {
+		[this](const juce::String& name)
+		{
+			auto preset = presets::PresetSchema::create(parameters::presetProductIdentifier, name, parameterState, parameters::soundParameterIds);
+			preset.soundSchemaVersion = 2;
+			return preset;
+		},
+		[](presets::Preset& preset)
+		{
+			if (preset.soundSchemaVersion != 1)
+				return preset.soundSchemaVersion == 2 ? juce::Result::ok() : juce::Result::fail("Unsupported Mono preset sound schema");
+			for (const auto* identifier : { parameters::osc1Octave, parameters::osc2Octave, parameters::osc3Octave })
+				preset.parameters.push_back({ identifier, 0.0f });
+			preset.soundSchemaVersion = 2;
+			return juce::Result::ok();
+		},
 		[this](const presets::Preset& preset) { return validatePresetSound(preset); },
 		[this](const presets::Preset& preset) { return applyPreset(preset); },
 		[this](const presets::Preset& preset) { return matchesPresetSound(preset); } })
@@ -545,7 +579,7 @@ juce::Result PluginProcessor::loadAdjacentPreset(bool next)
 }
 juce::Result PluginProcessor::validatePresetSound(const presets::Preset& preset) const
 {
-	return preset.soundSchemaVersion != 1 ? juce::Result::fail("Unsupported Mono preset sound schema")
+	return preset.soundSchemaVersion != 2 ? juce::Result::fail("Unsupported Mono preset sound schema")
 		: presets::PresetSchema::validate(preset, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds);
 }
 juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)

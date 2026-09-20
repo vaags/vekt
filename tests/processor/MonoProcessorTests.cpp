@@ -3,7 +3,9 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <cmath>
+#include <set>
 
 namespace
 {
@@ -63,6 +65,32 @@ TEST_CASE("Mono preserves APVTS project state", "[mono][processor]")
 	REQUIRE(restored.getParameters().getRawParameterValue(vekt::mono::parameters::filterCutoff)->load() == Catch::Approx(2'345.0f));
 }
 
+TEST_CASE("Mono migrates legacy projects with neutral oscillator octaves", "[mono][processor][state]")
+{
+	vekt::mono::PluginProcessor source;
+	juce::MemoryBlock currentState;
+	source.getStateInformation(currentState);
+	auto legacyState = juce::ValueTree::readFromData(currentState.getData(), currentState.getSize());
+	REQUIRE(legacyState.isValid());
+	legacyState.setProperty(vekt::state::StateManager::schemaVersionProperty, 1, nullptr);
+	auto sound = legacyState.getChildWithName(vekt::mono::parameters::stateType);
+	REQUIRE(sound.isValid());
+	for (const auto* identifier : { vekt::mono::parameters::osc1Octave, vekt::mono::parameters::osc2Octave, vekt::mono::parameters::osc3Octave })
+	{
+		auto value = sound.getChildWithProperty("id", identifier);
+		REQUIRE(value.isValid());
+		sound.removeChild(value, nullptr);
+	}
+	juce::MemoryBlock legacyData;
+	juce::MemoryOutputStream stream(legacyData, false);
+	legacyState.writeToStream(stream);
+
+	vekt::mono::PluginProcessor restored;
+	restored.setStateInformation(legacyData.getData(), static_cast<int>(legacyData.getSize()));
+	for (const auto* identifier : { vekt::mono::parameters::osc1Octave, vekt::mono::parameters::osc2Octave, vekt::mono::parameters::osc3Octave })
+		REQUIRE(restored.getParameters().getRawParameterValue(identifier)->load() == Catch::Approx(0.0f));
+}
+
 TEST_CASE("Mono defers voice count while a note is active", "[mono][processor]")
 {
 	vekt::mono::PluginProcessor processor;
@@ -88,6 +116,71 @@ TEST_CASE("Mono provides 24 categorized factory presets", "[mono][processor]")
 	processor.setCurrentProgram(23);
 	REQUIRE(processor.getCurrentProgram() == 23);
 	REQUIRE(processor.getProgramName(23) == "Transmission FX");
+}
+
+TEST_CASE("Mono factory presets use diverse oscillator and mixer designs", "[mono][processor][preset]")
+{
+	vekt::mono::PluginProcessor processor;
+	const auto& catalog = processor.getPresetSession().library();
+	std::set<juce::String> oscillatorShapes, oscillatorTunings;
+	std::set<float> noiseLevels, voicePans;
+	for (std::size_t index = 0; index < catalog.factoryPresetCount(); ++index)
+	{
+		vekt::presets::Preset preset;
+		REQUIRE(catalog.loadFactoryPreset(index, preset).wasOk());
+		REQUIRE(preset.soundSchemaVersion == 2);
+		const auto value = [&preset](const char* identifier)
+		{
+			const auto found = std::find_if(preset.parameters.begin(), preset.parameters.end(), [identifier](const auto& parameter)
+			{
+				return parameter.identifier == identifier;
+			});
+			REQUIRE(found != preset.parameters.end());
+			return found->value;
+		};
+		oscillatorShapes.insert(juce::String(value(vekt::mono::parameters::osc1Morph), 3) + "/"
+			+ juce::String(value(vekt::mono::parameters::osc2Morph), 3) + "/"
+			+ juce::String(value(vekt::mono::parameters::osc3Morph), 3) + ":"
+			+ juce::String(value(vekt::mono::parameters::osc1PulseWidth), 2) + "/"
+			+ juce::String(value(vekt::mono::parameters::osc2PulseWidth), 2) + "/"
+			+ juce::String(value(vekt::mono::parameters::osc3PulseWidth), 2));
+		oscillatorTunings.insert(juce::String(value(vekt::mono::parameters::osc1Octave), 0) + "/"
+			+ juce::String(value(vekt::mono::parameters::osc2Octave), 0) + "/"
+			+ juce::String(value(vekt::mono::parameters::osc3Octave), 0) + ":"
+			+ juce::String(value(vekt::mono::parameters::osc1Fine), 1) + "/"
+			+ juce::String(value(vekt::mono::parameters::osc2Fine), 1) + "/"
+			+ juce::String(value(vekt::mono::parameters::osc3Fine), 1));
+		noiseLevels.insert(value(vekt::mono::parameters::noiseLevel));
+		voicePans.insert(value(vekt::mono::parameters::voiceWidth));
+	}
+	REQUIRE(oscillatorShapes.size() >= 20);
+	REQUIRE(oscillatorTunings.size() >= 20);
+	REQUIRE(noiseLevels.size() >= 10);
+	REQUIRE(voicePans.size() >= 10);
+}
+
+TEST_CASE("Mono migrates legacy presets with neutral octave controls", "[mono][processor][preset]")
+{
+	vekt::mono::PluginProcessor processor;
+	vekt::presets::Preset preset;
+	REQUIRE(processor.getPresetSession().library().loadFactoryPreset(0, preset).wasOk());
+	preset.soundSchemaVersion = 1;
+	for (const auto* identifier : { vekt::mono::parameters::osc1Octave, vekt::mono::parameters::osc2Octave, vekt::mono::parameters::osc3Octave })
+		preset.parameters.erase(std::remove_if(preset.parameters.begin(), preset.parameters.end(), [identifier](const auto& parameter)
+		{
+			return parameter.identifier == identifier;
+		}), preset.parameters.end());
+	REQUIRE(processor.getPresetSession().prepare(preset).wasOk());
+	REQUIRE(preset.soundSchemaVersion == 2);
+	for (const auto* identifier : { vekt::mono::parameters::osc1Octave, vekt::mono::parameters::osc2Octave, vekt::mono::parameters::osc3Octave })
+	{
+		const auto found = std::find_if(preset.parameters.begin(), preset.parameters.end(), [identifier](const auto& parameter)
+		{
+			return parameter.identifier == identifier;
+		});
+		REQUIRE(found != preset.parameters.end());
+		REQUIRE(found->value == Catch::Approx(0.0f));
+	}
 }
 
 TEST_CASE("Mono preset changes stop voices from the previous patch", "[mono][processor][preset]")
@@ -261,6 +354,8 @@ TEST_CASE("Mono unison spread changes stereo rendering", "[mono][processor][unis
 		setParameter(*processor, vekt::mono::parameters::performanceMode, 1.0f);
 		setParameter(*processor, vekt::mono::parameters::unison, 2.0f);
 		setParameter(*processor, vekt::mono::parameters::unisonDetune, 20.0f);
+		setParameter(*processor, vekt::mono::parameters::unisonSpread, 0.0f);
+		setParameter(*processor, vekt::mono::parameters::voiceWidth, 0.0f);
 		setParameter(*processor, vekt::mono::parameters::osc2Level, 0.0f);
 		setParameter(*processor, vekt::mono::parameters::osc3Level, 0.0f);
 		processor->prepareToPlay(48'000.0, 512);
@@ -287,6 +382,7 @@ TEST_CASE("Mono voice pan controls round-robin stereo mix", "[mono][processor][s
 	vekt::mono::PluginProcessor centered, panned;
 	for (auto* processor : { &centered, &panned })
 	{
+		setParameter(*processor, vekt::mono::parameters::performanceMode, 0.0f);
 		setParameter(*processor, vekt::mono::parameters::unison, 0.0f);
 		setParameter(*processor, vekt::mono::parameters::unisonSpread, 0.0f);
 		setParameter(*processor, vekt::mono::parameters::osc2Level, 0.0f);

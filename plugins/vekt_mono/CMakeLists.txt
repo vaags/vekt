@@ -1,3 +1,32 @@
+juce_add_binary_data(VektMonoFactoryData
+	NAMESPACE VektMonoFactoryData
+	HEADER_NAME MonoBinaryData.h
+	SOURCES
+		"Resources/Presets/Lead/Aurora Lead.vektpreset"
+		"Resources/Presets/Lead/Circuit Lead.vektpreset"
+		"Resources/Presets/Lead/Glass Lead.vektpreset"
+		"Resources/Presets/Lead/Voyager Lead.vektpreset"
+		"Resources/Presets/Bass/Foundation Bass.vektpreset"
+		"Resources/Presets/Bass/Rubber Bass.vektpreset"
+		"Resources/Presets/Bass/Steel Bass.vektpreset"
+		"Resources/Presets/Bass/Subway Bass.vektpreset"
+		"Resources/Presets/Pad/Amber Pad.vektpreset"
+		"Resources/Presets/Pad/Horizon Pad.vektpreset"
+		"Resources/Presets/Pad/Nocturne Pad.vektpreset"
+		"Resources/Presets/Pad/Vapor Pad.vektpreset"
+		"Resources/Presets/Pluck/Copper Pluck.vektpreset"
+		"Resources/Presets/Pluck/Ember Pluck.vektpreset"
+		"Resources/Presets/Pluck/Needle Pluck.vektpreset"
+		"Resources/Presets/Pluck/Slate Pluck.vektpreset"
+		"Resources/Presets/Motion/Current Motion.vektpreset"
+		"Resources/Presets/Motion/Orbit Motion.vektpreset"
+		"Resources/Presets/Motion/Pulse Motion.vektpreset"
+		"Resources/Presets/Motion/Tide Motion.vektpreset"
+		"Resources/Presets/FX/Comet FX.vektpreset"
+		"Resources/Presets/FX/Entropy FX.vektpreset"
+		"Resources/Presets/FX/Polaris FX.vektpreset"
+		"Resources/Presets/FX/Transmission FX.vektpreset")
+
 add_library(VektMonoCore STATIC
 	Source/FactoryPresets.cpp
 	Source/Parameters.cpp
@@ -8,6 +37,7 @@ target_include_directories(VektMonoCore PUBLIC
 	include
 	Source)
 target_link_libraries(VektMonoCore PUBLIC
+	VektMonoFactoryData
 	vekt_project_options
 	vekt::juce_headers
 	vekt::ui

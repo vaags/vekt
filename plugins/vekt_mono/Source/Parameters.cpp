@@ -13,6 +13,7 @@ juce::AudioParameterChoiceAttributes nonAutomatable()
 	return juce::AudioParameterChoiceAttributes {}.withAutomatable(false);
 }
 
+
 void addOscillator(juce::AudioProcessorValueTreeState::ParameterLayout& layout, int index,
 	const char* range, const char* semitone, const char* fine, const char* level, const char* morph, const char* width)
 {
@@ -60,6 +61,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { filterSustain, version }, "Filter Sustain", juce::NormalisableRange<float> { 0.0f, 100.0f, 0.01f }, 25.0f, juce::AudioParameterFloatAttributes {}.withLabel("%")));
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ampVelocity, version }, "Amp Velocity", juce::NormalisableRange<float> { 0.0f, 100.0f, 0.01f }, 50.0f, juce::AudioParameterFloatAttributes {}.withLabel("%")));
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { filterVelocity, version }, "Filter Velocity", juce::NormalisableRange<float> { 0.0f, 100.0f, 0.01f }, 50.0f, juce::AudioParameterFloatAttributes {}.withLabel("%")));
+	// Append new parameters to preserve the registration indices of existing host automation.
+	for (const auto [identifier, name] : { std::pair { osc1Octave, "Osc 1 Octave" }, std::pair { osc2Octave, "Osc 2 Octave" }, std::pair { osc3Octave, "Osc 3 Octave" } })
+		layout.add(std::make_unique<juce::AudioParameterInt>(juce::ParameterID { identifier, version }, name, -2, 2, 0,
+			juce::AudioParameterIntAttributes {}.withLabel("oct")));
 	return layout;
 }
 }

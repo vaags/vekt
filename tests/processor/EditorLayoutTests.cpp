@@ -183,9 +183,11 @@ TEST_CASE("Mono editor presents symmetric oscillator controls without overlap", 
 		FAIL("Missing component " << name.toStdString());
 		return editor;
 	};
-	const std::array oscillatorControls { "Osc 1 Level", "Osc 1 Morph", "Osc 1 Width",
-		"Osc 2 Level", "Osc 2 Morph", "Osc 2 Width", "Osc 3 Level", "Osc 3 Morph", "Osc 3 Width" };
+	const std::array oscillatorControls { "O1 Level", "O1 Morph", "O1 Width", "O1 Octave", "O1 Fine",
+		"O2 Level", "O2 Morph", "O2 Width", "O2 Octave", "O2 Fine",
+		"O3 Level", "O3 Morph", "O3 Width", "O3 Octave", "O3 Fine", "Noise Level" };
 	juce::Rectangle<int> oscillatorSliderBounds;
+	std::vector<juce::Rectangle<int>> oscillatorControlBounds;
 	for (const auto* name : oscillatorControls)
 	{
 		bool found = false;
@@ -196,6 +198,12 @@ TEST_CASE("Mono editor presents symmetric oscillator controls without overlap", 
 				if (oscillatorSliderBounds.isEmpty()) oscillatorSliderBounds = rotary->getSlider().getBounds();
 				REQUIRE(rotary->getSlider().getBounds() == oscillatorSliderBounds);
 				if (juce::String(name).endsWith("Morph")) REQUIRE(static_cast<bool>(rotary->getSlider().getProperties()["waveformGuide"]));
+				REQUIRE(rotary->getHeight() == vekt::ui::RotaryControl::heightFor(vekt::ui::RotaryControl::Size::compact));
+				for (const auto bounds : oscillatorControlBounds) REQUIRE_FALSE(bounds.intersects(rotary->getBounds()));
+				oscillatorControlBounds.push_back(rotary->getBounds());
+				if (juce::String(name).endsWith("Octave")) REQUIRE(rotary->getSlider().getTooltip().contains("two octaves"));
+				if (juce::String(name).endsWith("Fine")) REQUIRE(rotary->getSlider().getTooltip().contains("cents"));
+				if (juce::String(name) == "Noise Level") REQUIRE(rotary->getSlider().getTooltip().contains("Noise mixer level"));
 			}
 		REQUIRE(found);
 	}
