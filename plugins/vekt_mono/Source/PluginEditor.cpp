@@ -53,7 +53,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	for (std::size_t index = 0; index < ampControls.size(); ++index) addRotary(ampPanel, ampControls[index], ampNames[index], ampIds[index], ampAttachments[index]);
 	const std::array filterEnvelopeIds { parameters::filterAttack, parameters::filterDecay, parameters::filterSustain, parameters::filterRelease, parameters::filterVelocity };
 	for (std::size_t index = 0; index < filterEnvelopeControls.size(); ++index) addRotary(filterEnvelopePanel, filterEnvelopeControls[index], ampNames[index], filterEnvelopeIds[index], filterEnvelopeAttachments[index]);
-	const std::array voiceNames { "Detune", "Uni Spread", "Voice Width", "Glide Time" };
+	const std::array voiceNames { "Detune", "Uni Spread", "Voice Pan", "Glide Time" };
 	const std::array voiceIds { parameters::unisonDetune, parameters::unisonSpread, parameters::voiceWidth, parameters::glideTime };
 	for (std::size_t index = 0; index < voiceControls.size(); ++index) addRotary(voicePanel, voiceControls[index], voiceNames[index], voiceIds[index], voiceAttachments[index]);
 	for (auto* component : { static_cast<juce::Component*>(&outputFader), static_cast<juce::Component*>(&outputMeter) })
@@ -82,6 +82,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	voiceCountBox.setTooltip("Voice-count changes apply after all active notes are released.");
 	performanceModeBox.setTooltip("Mono uses last-note priority; Mono Legato keeps the envelope active while notes overlap.");
 	glideBox.setTooltip("Always glides every note change; Legato glides only while another note is held.");
+	voiceControls[2].getSlider().setTooltip("Mixes polyphonic voices from centered at 0% to full round-robin stereo panning at 100%.");
 	refreshPresetLabel();
 	resized();
 	startTimerHz(10);

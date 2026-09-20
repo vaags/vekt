@@ -181,7 +181,7 @@ public:
 				mixer += noise * settings.noiseLevel;
 			}
 			const auto stackOutput = filter(std::tanh(mixer * dbToGain(settings.drive)), settings, filterEnvelopeValue, stack) * amplitude;
-			const auto pan = juce::jlimit(-1.0f, 1.0f, panPosition + settings.voiceWidth * panPosition
+			const auto pan = juce::jlimit(-1.0f, 1.0f, settings.voiceWidth * panPosition
 				+ normalizedStack * settings.unisonSpread);
 			left += stackOutput * std::sqrt(0.5f * (1.0f - pan)) / static_cast<float>(unisonCount);
 			right += stackOutput * std::sqrt(0.5f * (1.0f + pan)) / static_cast<float>(unisonCount);
@@ -301,7 +301,7 @@ void PluginProcessor::prepareToPlay(double newSampleRate, int maximumBlockSize)
 
 void PluginProcessor::releaseResources()
 {
-	for (auto& voice : voices) voice->reset();
+	resetPlayingState();
 	outputMeter.reset();
 }
 bool PluginProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const { return layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo(); }
@@ -350,6 +350,7 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
 {
 	juce::ScopedNoDenormals noDenormals;
 	buffer.clear();
+	if (pendingPresetReset.exchange(false)) resetPlayingState();
 	applyDeferredConfiguration();
 	int position {};
 	for (const auto metadata : midi)
@@ -470,6 +471,14 @@ void PluginProcessor::releaseSustainedNotes(int channel)
 			voice->releaseSustain();
 }
 
+void PluginProcessor::resetPlayingState()
+{
+	for (auto& voice : voices) voice->reset();
+	for (auto& heldNotes : heldNotesByChannel) heldNotes.clear();
+	sustainByChannel.fill(false);
+	noteAge = 0;
+}
+
 void PluginProcessor::render(juce::AudioBuffer<float>& buffer, int start, int count)
 {
 	if (count <= 0) return;
@@ -543,7 +552,9 @@ juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 {
 	if (const auto result = validatePresetSound(preset); result.failed()) return result;
 	undoManager.beginNewTransaction("Load preset: " + preset.name);
-	return presets::PresetSchema::apply(preset, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds, &undoManager);
+	const auto result = presets::PresetSchema::apply(preset, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds, &undoManager);
+	if (result.wasOk()) pendingPresetReset.store(true);
+	return result;
 }
 bool PluginProcessor::matchesPresetSound(const presets::Preset& preset) const
 {

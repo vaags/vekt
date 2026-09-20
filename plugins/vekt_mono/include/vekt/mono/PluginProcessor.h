@@ -64,6 +64,7 @@ private:
 	void noteOff(int channel, int note);
 	void allNotesOff(int channel, bool immediate);
 	void releaseSustainedNotes(int channel);
+	void resetPlayingState();
 	void render(juce::AudioBuffer<float>& buffer, int startSample, int numberOfSamples);
 	void applyDeferredConfiguration();
 	void configureQuality(int quality);
@@ -92,6 +93,7 @@ private:
 	dsp::StereoPeakMeter outputMeter;
 	std::atomic<bool> pendingVoiceCount {};
 	std::atomic<bool> pendingQuality {};
+	std::atomic<bool> pendingPresetReset {};
 	int activeVoiceCount { 8 };
 	int requestedVoiceCount { 8 };
 	int activeQuality {};

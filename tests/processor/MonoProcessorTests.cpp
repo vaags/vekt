@@ -90,6 +90,24 @@ TEST_CASE("Mono provides 24 categorized factory presets", "[mono][processor]")
 	REQUIRE(processor.getProgramName(23) == "Transmission FX");
 }
 
+TEST_CASE("Mono preset changes stop voices from the previous patch", "[mono][processor][preset]")
+{
+	vekt::mono::PluginProcessor processor;
+	setParameter(processor, vekt::mono::parameters::ampRelease, 20.0f);
+	processor.prepareToPlay(48'000.0, 128);
+	juce::AudioBuffer<float> buffer(2, 128);
+	juce::MidiBuffer noteOn;
+	noteOn.addEvent(juce::MidiMessage::noteOn(1, 60, 0.9f), 0);
+	processor.processBlock(buffer, noteOn);
+	REQUIRE(buffer.getMagnitude(0, 0, buffer.getNumSamples()) > 0.0f);
+
+	REQUIRE(processor.loadNextPreset().wasOk());
+	juce::MidiBuffer empty;
+	processor.processBlock(buffer, empty);
+	REQUIRE(buffer.getMagnitude(0, 0, buffer.getNumSamples()) == Catch::Approx(0.0f).margin(1.0e-7f));
+	REQUIRE(buffer.getMagnitude(1, 0, buffer.getNumSamples()) == Catch::Approx(0.0f).margin(1.0e-7f));
+}
+
 TEST_CASE("Mono Legato returns to the last held note", "[mono][processor][midi]")
 {
 	vekt::mono::PluginProcessor processor;
@@ -262,6 +280,36 @@ TEST_CASE("Mono unison spread changes stereo rendering", "[mono][processor][unis
 	}
 	REQUIRE(centeredDifference == Catch::Approx(0.0f).margin(1.0e-6f));
 	REQUIRE(spreadDifference > 0.01f);
+}
+
+TEST_CASE("Mono voice pan controls round-robin stereo mix", "[mono][processor][stereo]")
+{
+	vekt::mono::PluginProcessor centered, panned;
+	for (auto* processor : { &centered, &panned })
+	{
+		setParameter(*processor, vekt::mono::parameters::unison, 0.0f);
+		setParameter(*processor, vekt::mono::parameters::unisonSpread, 0.0f);
+		setParameter(*processor, vekt::mono::parameters::osc2Level, 0.0f);
+		setParameter(*processor, vekt::mono::parameters::osc3Level, 0.0f);
+		processor->prepareToPlay(48'000.0, 512);
+	}
+	setParameter(centered, vekt::mono::parameters::voiceWidth, 0.0f);
+	setParameter(panned, vekt::mono::parameters::voiceWidth, 100.0f);
+	juce::AudioBuffer<float> centeredBuffer(2, 512), pannedBuffer(2, 512);
+	juce::MidiBuffer centeredMidi, pannedMidi;
+	centeredMidi.addEvent(juce::MidiMessage::noteOn(1, 60, 0.9f), 0);
+	pannedMidi.addEvent(juce::MidiMessage::noteOn(1, 60, 0.9f), 0);
+	centered.processBlock(centeredBuffer, centeredMidi);
+	panned.processBlock(pannedBuffer, pannedMidi);
+
+	float centeredDifference {}, pannedDifference {};
+	for (int sample = 0; sample < centeredBuffer.getNumSamples(); ++sample)
+	{
+		centeredDifference += std::abs(centeredBuffer.getSample(0, sample) - centeredBuffer.getSample(1, sample));
+		pannedDifference += std::abs(pannedBuffer.getSample(0, sample) - pannedBuffer.getSample(1, sample));
+	}
+	REQUIRE(centeredDifference == Catch::Approx(0.0f).margin(1.0e-6f));
+	REQUIRE(pannedDifference > 0.01f);
 }
 
 TEST_CASE("Mono rendering is deterministic with drift enabled", "[mono][processor][determinism]")

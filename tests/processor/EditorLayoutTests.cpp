@@ -214,6 +214,14 @@ TEST_CASE("Mono editor presents symmetric oscillator controls without overlap", 
 		if (auto* slider = dynamic_cast<juce::Slider*>(child); slider != nullptr && slider->getName() == "Master Output")
 			foundOutputFader = true;
 	REQUIRE(foundOutputFader);
+	bool foundVoicePan = false;
+	for (auto* child : find("Voice").getChildren())
+		if (auto* rotary = dynamic_cast<vekt::ui::RotaryControl*>(child); rotary != nullptr && rotary->getName() == "Voice Pan")
+		{
+			foundVoicePan = true;
+			REQUIRE(rotary->getSlider().getTooltip().contains("round-robin"));
+		}
+	REQUIRE(foundVoicePan);
 	for (const auto* panelName : { "Oscillators & Mixer", "Ladder Filter", "Voice", "I/O", "Amp ADSR", "Filter ADSR", "Performance / Noise" })
 	{
 		auto& panel = find(panelName);
