@@ -18,6 +18,7 @@ constexpr float twoPi = 2.0f * std::numbers::pi_v<float>;
 constexpr float maximumContourOctaves = 5.0f;
 constexpr float maximumVelocityOctaves = 4.0f;
 constexpr float referenceOscillationFeedback = 4.58f;
+constexpr float voiceTransitionSeconds = 0.003f;
 
 struct LadderCoefficients
 {
@@ -156,16 +157,24 @@ public:
 		filterState = {};
 		filterControlsInitialized = false;
 		fadeInSamples = 0;
+		continuitySamples = 0;
+		continuityPending = false;
+		continuityOffset = {};
+		lastOutput = {};
 	}
 
 	void start(int newChannel, int newNote, float newVelocity, const Settings& settings, float bend, bool retrigger, std::uint64_t newAge)
 	{
+		const auto wasActive = active;
 		const auto target = static_cast<float>(newNote) + settings.calibration * 0.01f;
 		if (!active || settings.glideMode == 0 || !retrigger) currentNote = target + bend;
 		targetNote = target;
 		channel = newChannel; note = newNote; velocity = newVelocity; age = newAge;
 		active = held = true; sustained = false;
-		fadeInSamples = static_cast<int>(0.003f * sampleRate);
+		fadeInSamples = wasActive ? 0 : transitionLength();
+		continuitySamples = 0;
+		continuityPending = wasActive;
+		continuityOffset = {};
 		if (retrigger)
 		{
 			juce::ADSR::Parameters ampParameters { settings.ampAttack, settings.ampDecay, settings.ampSustain, settings.ampRelease };
@@ -193,11 +202,16 @@ public:
 		amp.reset(); filterEnvelope.reset();
 		filterState = {};
 		fadeInSamples = 0;
+		continuitySamples = 0;
+		continuityPending = false;
+		continuityOffset = {};
+		lastOutput = {};
 	}
 
 	void render(float& left, float& right, const Settings& settings, float bend)
 	{
 		if (!active) return;
+		float voiceLeft {}, voiceRight {};
 		const auto glideCoefficient = settings.glideTime <= 0.0f ? 1.0f : 1.0f - std::exp(-1.0f / (settings.glideTime * sampleRate));
 		currentNote += (targetNote + bend - currentNote) * glideCoefficient;
 		const auto baseHz = midiToHz(currentNote);
@@ -208,7 +222,9 @@ public:
 		const auto filterResonance = resonance.getNextValue();
 		const auto filterDrive = dbToGain(driveDecibels.getNextValue());
 		const auto velocityGain = (1.0f - settings.ampVelocity) + settings.ampVelocity * std::pow(velocity, 0.65f);
-		const auto allocationFade = fadeInSamples > 0 ? 1.0f - static_cast<float>(fadeInSamples--) / std::max(1.0f, 0.003f * sampleRate) : 1.0f;
+		const auto allocationFade = fadeInSamples > 0
+			? 1.0f - static_cast<float>(fadeInSamples--) / static_cast<float>(transitionLength())
+			: 1.0f;
 		const auto amplitude = amp.getNextSample() * velocityGain * allocationFade;
 		for (int stack = 0; stack < unisonCount; ++stack)
 		{
@@ -237,9 +253,24 @@ public:
 				filterResonance, filterDrive, stack) * amplitude;
 			const auto pan = juce::jlimit(-1.0f, 1.0f, settings.voiceWidth * panPosition
 				+ normalizedStack * settings.unisonSpread);
-			left += stackOutput * std::sqrt(0.5f * (1.0f - pan)) / static_cast<float>(unisonCount);
-			right += stackOutput * std::sqrt(0.5f * (1.0f + pan)) / static_cast<float>(unisonCount);
+			voiceLeft += stackOutput * std::sqrt(0.5f * (1.0f - pan)) / static_cast<float>(unisonCount);
+			voiceRight += stackOutput * std::sqrt(0.5f * (1.0f + pan)) / static_cast<float>(unisonCount);
 		}
+		if (continuityPending)
+		{
+			continuityOffset = { lastOutput[0] - voiceLeft, lastOutput[1] - voiceRight };
+			continuitySamples = transitionLength();
+			continuityPending = false;
+		}
+		if (continuitySamples > 0)
+		{
+			const auto continuityGain = static_cast<float>(continuitySamples--) / static_cast<float>(transitionLength());
+			voiceLeft += continuityOffset[0] * continuityGain;
+			voiceRight += continuityOffset[1] * continuityGain;
+		}
+		lastOutput = { voiceLeft, voiceRight };
+		left += voiceLeft;
+		right += voiceRight;
 		if (!amp.isActive()) active = false;
 	}
 
@@ -252,6 +283,11 @@ public:
 	void setPanPosition(float value) noexcept { panPosition = value; }
 
 private:
+	[[nodiscard]] int transitionLength() const noexcept
+	{
+		return std::max(1, static_cast<int>(std::round(voiceTransitionSeconds * sampleRate)));
+	}
+
 	static float polyBlep(float position, float phaseIncrement) noexcept
 	{
 		const auto increment = juce::jlimit(1.0e-6f, 0.5f, phaseIncrement);
@@ -343,16 +379,17 @@ private:
 	}
 
 	float sampleRate { 48'000.0f };
-	int fadeInSamples {};
+	int fadeInSamples {}, continuitySamples {};
 	juce::Random random;
 	juce::ADSR amp, filterEnvelope;
 	juce::SmoothedValue<float> cutoffOctaves, resonance, driveDecibels;
 	std::array<std::array<float, 3>, 4> phase {};
 	std::array<std::array<float, 4>, 4> filterState {};
+	std::array<float, 2> continuityOffset {}, lastOutput {};
 	float pink {}, currentNote {}, targetNote {}, velocity {}, panPosition {}, driftCents {};
 	int channel {}, note {};
 	std::uint64_t age {};
-	bool active {}, held {}, sustained {}, filterControlsInitialized {};
+	bool active {}, held {}, sustained {}, filterControlsInitialized {}, continuityPending {};
 };
 
 PluginProcessor::PluginProcessor()

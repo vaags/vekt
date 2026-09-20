@@ -642,6 +642,81 @@ TEST_CASE("Mono Legato returns to the last held note", "[mono][processor][midi]"
 	REQUIRE(returnedEnergy > 0.01f);
 }
 
+TEST_CASE("Mono active-note transitions preserve the sample boundary", "[mono][processor][midi][declick]")
+{
+	for (const auto mode : { 1.0f, 2.0f })
+	{
+		vekt::mono::PluginProcessor processor;
+		setParameter(processor, vekt::mono::parameters::performanceMode, mode);
+		setParameter(processor, vekt::mono::parameters::osc1Morph, 2.0f);
+		setParameter(processor, vekt::mono::parameters::osc2Level, 0.0f);
+		setParameter(processor, vekt::mono::parameters::osc3Level, 0.0f);
+		setParameter(processor, vekt::mono::parameters::filterCutoff, 12'000.0f);
+		setParameter(processor, vekt::mono::parameters::filterEnvelopeAmount, 0.0f);
+		setParameter(processor, vekt::mono::parameters::ampAttack, 0.0005f);
+		processor.prepareToPlay(48'000.0, 1'024);
+		juce::AudioBuffer<float> buffer(2, 1'024);
+		juce::MidiBuffer midi;
+		midi.addEvent(juce::MidiMessage::noteOn(1, 48, 1.0f), 0);
+		midi.addEvent(juce::MidiMessage::noteOn(1, 72, 0.35f), 512);
+		processor.processBlock(buffer, midi);
+		for (int channel = 0; channel < 2; ++channel)
+			REQUIRE(buffer.getSample(channel, 512) == Catch::Approx(buffer.getSample(channel, 511)).margin(1.0e-5f));
+	}
+}
+
+TEST_CASE("Mono held-note return preserves the sample boundary", "[mono][processor][midi][declick]")
+{
+	vekt::mono::PluginProcessor processor;
+	setParameter(processor, vekt::mono::parameters::performanceMode, 2.0f);
+	setParameter(processor, vekt::mono::parameters::osc1Morph, 3.0f);
+	setParameter(processor, vekt::mono::parameters::osc2Level, 0.0f);
+	setParameter(processor, vekt::mono::parameters::osc3Level, 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterCutoff, 12'000.0f);
+	setParameter(processor, vekt::mono::parameters::filterEnvelopeAmount, 0.0f);
+	processor.prepareToPlay(48'000.0, 1'024);
+	juce::AudioBuffer<float> buffer(2, 1'024);
+	juce::MidiBuffer midi;
+	midi.addEvent(juce::MidiMessage::noteOn(1, 48, 1.0f), 0);
+	midi.addEvent(juce::MidiMessage::noteOn(1, 72, 1.0f), 384);
+	midi.addEvent(juce::MidiMessage::noteOff(1, 72), 768);
+	processor.processBlock(buffer, midi);
+	for (int channel = 0; channel < 2; ++channel)
+		REQUIRE(buffer.getSample(channel, 768) == Catch::Approx(buffer.getSample(channel, 767)).margin(1.0e-5f));
+}
+
+TEST_CASE("Mono voice stealing avoids an exceptional sample-boundary jump", "[mono][processor][midi][declick]")
+{
+	vekt::mono::PluginProcessor processor;
+	setParameter(processor, vekt::mono::parameters::performanceMode, 0.0f);
+	setParameter(processor, vekt::mono::parameters::voiceCount, 0.0f);
+	setParameter(processor, vekt::mono::parameters::voiceWidth, 100.0f);
+	setParameter(processor, vekt::mono::parameters::osc1Morph, 2.0f);
+	setParameter(processor, vekt::mono::parameters::osc2Level, 0.0f);
+	setParameter(processor, vekt::mono::parameters::osc3Level, 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterCutoff, 12'000.0f);
+	setParameter(processor, vekt::mono::parameters::filterEnvelopeAmount, 0.0f);
+	setParameter(processor, vekt::mono::parameters::ampAttack, 0.0005f);
+	processor.prepareToPlay(48'000.0, 1'024);
+	juce::AudioBuffer<float> buffer(2, 1'024);
+	juce::MidiBuffer midi;
+	for (int voice = 0; voice < 8; ++voice)
+		midi.addEvent(juce::MidiMessage::noteOn(1, 48 + voice * 2, 1.0f), voice * 32);
+	constexpr auto stealSample = 768;
+	midi.addEvent(juce::MidiMessage::noteOn(1, 84, 0.25f), stealSample);
+	processor.processBlock(buffer, midi);
+
+	for (int channel = 0; channel < 2; ++channel)
+	{
+		float nearbyMaximumDelta {};
+		for (int sample = stealSample - 64; sample < stealSample; ++sample)
+			nearbyMaximumDelta = std::max(nearbyMaximumDelta,
+				std::abs(buffer.getSample(channel, sample) - buffer.getSample(channel, sample - 1)));
+		const auto boundaryDelta = std::abs(buffer.getSample(channel, stealSample) - buffer.getSample(channel, stealSample - 1));
+		REQUIRE(boundaryDelta <= nearbyMaximumDelta * 1.1f + 1.0e-5f);
+	}
+}
+
 TEST_CASE("Mono modes isolate held-note stacks by MIDI channel", "[mono][processor][midi]")
 {
 	vekt::mono::PluginProcessor processor;
