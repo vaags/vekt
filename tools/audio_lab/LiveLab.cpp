@@ -319,6 +319,19 @@ public:
 		glimmerProcessor.releaseResources();
 	}
 
+	bool keyPressed(const juce::KeyPress& key) override
+	{
+		// Keep the Audio Lab's QWERTY keyboard active while another product editor
+		// owns focus. MidiKeyboardComponent normally receives keys only when the
+		// on-screen keyboard itself is focused.
+		return requestedSource.load() == 9 && keyboard.keyPressed(key);
+	}
+
+	bool keyStateChanged(bool isKeyDown) override
+	{
+		return requestedSource.load() == 9 && keyboard.keyStateChanged(isKeyDown);
+	}
+
 	void paint(juce::Graphics& graphics) override
 	{
 		graphics.fillAll(juce::Colour::fromRGB(20, 24, 28));
