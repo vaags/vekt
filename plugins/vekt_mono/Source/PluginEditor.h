@@ -41,11 +41,12 @@ private:
 	preset_ui::PresetBrowser presetBrowser;
 	ui::Panel oscillatorPanel { "Oscillators & Mixer" };
 	ui::Panel filterPanel { "Ladder Filter" };
+	ui::Panel voicePanel { "Voice / Output" };
 	ui::Panel ampPanel { "Amp ADSR" };
 	ui::Panel filterEnvelopePanel { "Filter ADSR" };
-	ui::Panel voicePanel { "Voice / Unison / Output" };
-	std::array<ui::RotaryControl, 6> oscillatorControls;
-	std::array<std::unique_ptr<SliderAttachment>, 6> oscillatorAttachments;
+	ui::Panel performancePanel { "Performance / Noise" };
+	std::array<ui::RotaryControl, 9> oscillatorControls;
+	std::array<std::unique_ptr<SliderAttachment>, 9> oscillatorAttachments;
 	std::array<ui::RotaryControl, 5> filterControls;
 	std::array<std::unique_ptr<SliderAttachment>, 5> filterAttachments;
 	std::array<ui::RotaryControl, 5> ampControls;
@@ -55,6 +56,7 @@ private:
 	std::array<ui::RotaryControl, 5> voiceControls;
 	std::array<std::unique_ptr<SliderAttachment>, 5> voiceAttachments;
 	juce::ComboBox voiceCountBox, performanceModeBox, qualityBox, unisonBox, noiseBox, glideBox;
+	std::array<juce::Label, 6> performanceLabels;
 	std::unique_ptr<ComboBoxAttachment> voiceCountAttachment, performanceModeAttachment, qualityAttachment, unisonAttachment, noiseAttachment, glideAttachment;
 };
 }

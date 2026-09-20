@@ -84,6 +84,12 @@ void RotaryControl::setLayout(Size size, int width)
 	resized();
 }
 
+void RotaryControl::setWaveformGuide(bool shouldShow)
+{
+	slider.getProperties().set("waveformGuide", shouldShow);
+	slider.repaint();
+}
+
 void RotaryControl::refreshValueText() { updateValueText(); }
 
 juce::Slider& RotaryControl::getSlider() noexcept

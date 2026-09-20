@@ -2,6 +2,47 @@
 
 namespace vekt::ui
 {
+namespace
+{
+void drawWaveformGlyph(juce::Graphics& graphics, juce::Point<float> centre, float size, int waveform)
+{
+	juce::Path path;
+	const auto left = centre.x - size * 0.5f;
+	const auto right = centre.x + size * 0.5f;
+	const auto top = centre.y - size * 0.38f;
+	const auto bottom = centre.y + size * 0.38f;
+	switch (waveform)
+	{
+	case 0:
+		path.startNewSubPath(left, centre.y);
+		for (int point = 1; point <= 12; ++point)
+		{
+			const auto proportion = static_cast<float>(point) / 12.0f;
+			path.lineTo(left + proportion * size, centre.y - std::sin(proportion * juce::MathConstants<float>::twoPi) * size * 0.38f);
+		}
+		break;
+	case 1:
+		path.startNewSubPath(left, bottom);
+		path.lineTo(centre.x, top);
+		path.lineTo(right, bottom);
+		break;
+	case 2:
+		path.startNewSubPath(left, bottom);
+		path.lineTo(right, top);
+		break;
+	case 3:
+		path.startNewSubPath(left, bottom);
+		path.lineTo(left, top);
+		path.lineTo(centre.x, top);
+		path.lineTo(centre.x, bottom);
+		path.lineTo(right, bottom);
+		break;
+	default: break;
+	}
+	graphics.strokePath(path, juce::PathStrokeType(1.25f));
+}
+}
+
 VektLookAndFeel::VektLookAndFeel()
 {
 	setColour(juce::ResizableWindow::backgroundColourId, juce::Colour::fromRGB(16, 18, 20));
@@ -44,7 +85,7 @@ juce::Label* VektLookAndFeel::createSliderTextBox(juce::Slider& slider)
 }
 
 void VektLookAndFeel::drawRotarySlider(juce::Graphics& graphics, int x, int y, int width,
-	int height, float position, float startAngle, float endAngle, juce::Slider&)
+	int height, float position, float startAngle, float endAngle, juce::Slider& slider)
 {
 	const auto drawableBounds = juce::Rectangle<float>(
 		static_cast<float>(x), static_cast<float>(y),
@@ -64,7 +105,20 @@ void VektLookAndFeel::drawRotarySlider(juce::Graphics& graphics, int x, int y, i
 	juce::Path track;
 	track.addCentredArc(centre.x, centre.y, radius, radius, 0.0f, startAngle, endAngle, true);
 	graphics.strokePath(track, juce::PathStrokeType(3.0f));
-    graphics.setColour(findColour(juce::Slider::rotarySliderFillColourId));
+	if (static_cast<bool>(slider.getProperties()["waveformGuide"]))
+	{
+		const auto glyphRadius = radius + juce::jlimit(7.0f, 13.0f, dialSide * 0.11f);
+		const auto glyphSize = juce::jlimit(10.0f, 16.0f, dialSide * 0.16f);
+		graphics.setColour(juce::Colour::fromRGB(170, 181, 180));
+		for (int waveform = 0; waveform < 4; ++waveform)
+		{
+			const auto proportion = static_cast<float>(waveform) / 3.0f;
+			const auto angle = startAngle + proportion * (endAngle - startAngle) - juce::MathConstants<float>::halfPi;
+			drawWaveformGlyph(graphics, { centre.x + std::cos(angle) * glyphRadius,
+				centre.y + std::sin(angle) * glyphRadius }, glyphSize, waveform);
+		}
+	}
+	graphics.setColour(findColour(juce::Slider::rotarySliderFillColourId));
 	juce::Path arc;
 	arc.addCentredArc(centre.x, centre.y, radius, radius, 0.0f, startAngle,
 		startAngle + position * (endAngle - startAngle), true);

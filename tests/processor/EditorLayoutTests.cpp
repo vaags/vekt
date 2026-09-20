@@ -1,6 +1,7 @@
 #include <PluginEditor.h>
 #include <Parameters.h>
 #include "../../plugins/vekt_glimmer/Source/PluginEditor.h"
+#include "../../plugins/vekt_mono/Source/PluginEditor.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -164,7 +165,61 @@ TEST_CASE("Rav editor keeps its controls within the 16:10 canvas", "[processor][
 	for (const auto width : { 1040, 1560, 2080 })
 	{
 		editor.setSize(width, width * 10 / 16);
+		editor.resized();
 		checkVisibleBounds(editor.getContent());
+	}
+}
+
+TEST_CASE("Mono editor presents symmetric oscillator controls without overlap", "[processor][ui]")
+{
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	vekt::mono::PluginProcessor processor;
+	vekt::mono::PluginEditor editor(processor);
+	const auto find = [&](const juce::String& name) -> juce::Component&
+	{
+		for (auto* child : editor.getContent().getChildren())
+			if (child->getName() == name)
+				return *child;
+		FAIL("Missing component " << name.toStdString());
+		return editor;
+	};
+	const std::array oscillatorControls { "Osc 1 Level", "Osc 1 Morph", "Osc 1 Width",
+		"Osc 2 Level", "Osc 2 Morph", "Osc 2 Width", "Osc 3 Level", "Osc 3 Morph", "Osc 3 Width" };
+	for (const auto* name : oscillatorControls)
+	{
+		bool found = false;
+		for (auto* child : find("Oscillators & Mixer").getChildren())
+			if (auto* rotary = dynamic_cast<vekt::ui::RotaryControl*>(child); rotary != nullptr && rotary->getName() == name)
+			{
+				found = true;
+				if (juce::String(name).endsWith("Morph")) REQUIRE(static_cast<bool>(rotary->getSlider().getProperties()["waveformGuide"]));
+			}
+		REQUIRE(found);
+	}
+	for (const auto width : { 1040, 1560, 2080 })
+	{
+		editor.setSize(width, width * 10 / 16);
+		checkVisibleBounds(editor.getContent());
+	}
+	for (const auto* panelName : { "Oscillators & Mixer", "Ladder Filter", "Voice / Output", "Amp ADSR", "Filter ADSR", "Performance / Noise" })
+	{
+		auto& panel = find(panelName);
+		for (int first = 0; first < panel.getNumChildComponents(); ++first)
+			for (int second = first + 1; second < panel.getNumChildComponents(); ++second)
+			{
+				auto* firstChild = panel.getChildComponent(first);
+				auto* secondChild = panel.getChildComponent(second);
+				INFO(panelName << ": " << firstChild->getName().toStdString() << " / " << secondChild->getName().toStdString());
+				REQUIRE_FALSE(firstChild->getBounds().intersects(secondChild->getBounds()));
+			}
+	}
+	if (const auto* path = std::getenv("VEKT_MONO_SNAPSHOT"))
+	{
+		editor.resized();
+		const auto image = editor.createComponentSnapshot(editor.getLocalBounds(), true, 2.0f);
+		juce::FileOutputStream stream { juce::File(juce::String(path)) };
+		REQUIRE(stream.openedOk());
+		REQUIRE(juce::PNGImageFormat().writeImageToStream(image, stream));
 	}
 }
 

@@ -29,6 +29,7 @@ public:
 
 	void setLabel(juce::String text);
 	void setLayout(Size dialSize, int valueWidth);
+	void setWaveformGuide(bool shouldShow);
 	void refreshValueText();
 	[[nodiscard]] juce::Slider& getSlider() noexcept;
 	void resized() override;

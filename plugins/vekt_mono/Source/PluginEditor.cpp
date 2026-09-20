@@ -33,14 +33,18 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	};
 	presetNavigation.onPrevious = [this, reportLoad] { reportLoad(pluginProcessor.loadPreviousPreset()); };
 	presetNavigation.onNext = [this, reportLoad] { reportLoad(pluginProcessor.loadNextPreset()); };
-	for (auto* panel : { &oscillatorPanel, &filterPanel, &ampPanel, &filterEnvelopePanel, &voicePanel }) getContent().addAndMakeVisible(*panel);
+	for (auto* panel : { &oscillatorPanel, &filterPanel, &voicePanel, &ampPanel, &filterEnvelopePanel, &performancePanel }) getContent().addAndMakeVisible(*panel);
 	getContent().addAndMakeVisible(title); getContent().addAndMakeVisible(status);
 	getContent().addAndMakeVisible(historyControls);
 	getContent().addAndMakeVisible(presetNavigation);
 	getContent().addChildComponent(presetBrowser);
-	const std::array oscillatorNames { "Osc 1 Level", "Osc 2 Level", "Osc 3 Level", "Noise", "Osc 1 Morph", "Osc 1 Width" };
-	const std::array oscillatorIds { parameters::osc1Level, parameters::osc2Level, parameters::osc3Level, parameters::noiseLevel, parameters::osc1Morph, parameters::osc1PulseWidth };
+	const std::array oscillatorNames { "Osc 1 Level", "Osc 1 Morph", "Osc 1 Width",
+		"Osc 2 Level", "Osc 2 Morph", "Osc 2 Width", "Osc 3 Level", "Osc 3 Morph", "Osc 3 Width" };
+	const std::array oscillatorIds { parameters::osc1Level, parameters::osc1Morph, parameters::osc1PulseWidth,
+		parameters::osc2Level, parameters::osc2Morph, parameters::osc2PulseWidth,
+		parameters::osc3Level, parameters::osc3Morph, parameters::osc3PulseWidth };
 	for (std::size_t index = 0; index < oscillatorControls.size(); ++index) addRotary(oscillatorPanel, oscillatorControls[index], oscillatorNames[index], oscillatorIds[index], oscillatorAttachments[index]);
+	for (const auto index : { std::size_t { 1 }, std::size_t { 4 }, std::size_t { 7 } }) oscillatorControls[index].setWaveformGuide(true);
 	const std::array filterNames { "Cutoff", "Resonance", "Key Track", "Env Amount", "Drive" };
 	const std::array filterIds { parameters::filterCutoff, parameters::filterResonance, parameters::filterKeyTracking, parameters::filterEnvelopeAmount, parameters::filterDrive };
 	for (std::size_t index = 0; index < filterControls.size(); ++index) addRotary(filterPanel, filterControls[index], filterNames[index], filterIds[index], filterAttachments[index]);
@@ -52,21 +56,26 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	const std::array voiceNames { "Detune", "Uni Spread", "Voice Width", "Glide Time", "Output" };
 	const std::array voiceIds { parameters::unisonDetune, parameters::unisonSpread, parameters::voiceWidth, parameters::glideTime, parameters::masterOutput };
 	for (std::size_t index = 0; index < voiceControls.size(); ++index) addRotary(voicePanel, voiceControls[index], voiceNames[index], voiceIds[index], voiceAttachments[index]);
-	addChoice(voicePanel, voiceCountBox, { "8", "12", "16" }, parameters::voiceCount, voiceCountAttachment);
-	addChoice(voicePanel, performanceModeBox, { "Poly", "Mono", "Mono Legato" }, parameters::performanceMode, performanceModeAttachment);
-	addChoice(voicePanel, qualityBox, { "Real-time", "High" }, parameters::quality, qualityAttachment);
-	addChoice(voicePanel, unisonBox, { "1x", "2x", "4x" }, parameters::unison, unisonAttachment);
-	addChoice(oscillatorPanel, noiseBox, { "Off", "White", "Pink" }, parameters::noiseType, noiseAttachment);
-	addChoice(voicePanel, glideBox, { "Off", "Always", "Legato" }, parameters::glideMode, glideAttachment);
-	oscillatorControls[0].getSlider().setTooltip("Oscillator 1 level. Use factory presets to access its range, tuning, wave morph and pulse width.");
-	oscillatorControls[1].getSlider().setTooltip("Oscillator 2 level. Use factory presets to access its range, tuning, wave morph and pulse width.");
-	oscillatorControls[2].getSlider().setTooltip("Oscillator 3 level. Use factory presets to access its range, tuning, wave morph and pulse width.");
+	addChoice(performancePanel, noiseBox, { "Off", "White", "Pink" }, parameters::noiseType, noiseAttachment);
+	addChoice(performancePanel, voiceCountBox, { "8", "12", "16" }, parameters::voiceCount, voiceCountAttachment);
+	addChoice(performancePanel, performanceModeBox, { "Poly", "Mono", "Mono Legato" }, parameters::performanceMode, performanceModeAttachment);
+	addChoice(performancePanel, qualityBox, { "Real-time", "High" }, parameters::quality, qualityAttachment);
+	addChoice(performancePanel, unisonBox, { "1x", "2x", "4x" }, parameters::unison, unisonAttachment);
+	addChoice(performancePanel, glideBox, { "Off", "Always", "Legato" }, parameters::glideMode, glideAttachment);
+	const std::array performanceNames { "Voice count", "Mode", "Quality", "Unison", "Glide", "Noise" };
+	for (std::size_t index = 0; index < performanceLabels.size(); ++index)
+	{
+		performanceLabels[index].setText(performanceNames[index], juce::dontSendNotification);
+		performanceLabels[index].setJustificationType(juce::Justification::centredLeft);
+		performancePanel.addAndMakeVisible(performanceLabels[index]);
+	}
 	noiseBox.setTooltip("White or pink noise source.");
 	qualityBox.setTooltip("High uses 2x IIR oversampling and adds latency. Changes apply only after transport stops and all notes and sustain are released.");
 	voiceCountBox.setTooltip("Voice-count changes apply after all active notes are released.");
 	performanceModeBox.setTooltip("Mono uses last-note priority; Mono Legato keeps the envelope active while notes overlap.");
 	glideBox.setTooltip("Always glides every note change; Legato glides only while another note is held.");
 	refreshPresetLabel();
+	resized();
 	startTimerHz(10);
 }
 
@@ -99,13 +108,18 @@ void PluginEditor::paint(juce::Graphics& graphics) { graphics.fillAll(juce::Colo
 void PluginEditor::resized()
 {
 	ScalableEditor::resized(); auto& content = getContent(); title.setBounds(16, 16, 220, 36); presetNavigation.setBounds(244, 16, 300, 36); historyControls.setBounds(552, 16, 104, 36); status.setBounds(664, 16, 360, 36); presetBrowser.setBounds(content.getLocalBounds().reduced(16));
-	oscillatorPanel.setBounds(16, 62, 1008, 178); filterPanel.setBounds(16, 254, 1008, 170); ampPanel.setBounds(16, 438, 328, 196); filterEnvelopePanel.setBounds(360, 438, 328, 196); voicePanel.setBounds(704, 438, 320, 196);
-	for (std::size_t index = 0; index < oscillatorControls.size(); ++index) oscillatorControls[index].setBounds(8 + static_cast<int>(index) * 130, 28, 124, 135);
-	noiseBox.setBounds(806, 32, 170, 28);
-	for (std::size_t index = 0; index < filterControls.size(); ++index) filterControls[index].setBounds(10 + static_cast<int>(index) * 198, 28, 188, 130);
+	oscillatorPanel.setBounds(16, 62, 1008, 178); filterPanel.setBounds(16, 254, 488, 170); voicePanel.setBounds(520, 254, 504, 170); ampPanel.setBounds(16, 438, 328, 196); filterEnvelopePanel.setBounds(360, 438, 328, 196); performancePanel.setBounds(704, 438, 320, 196);
+	for (std::size_t index = 0; index < oscillatorControls.size(); ++index)
+	{
+		const auto oscillator = static_cast<int>(index / 3);
+		const auto control = static_cast<int>(index % 3);
+		oscillatorControls[index].setBounds(8 + oscillator * 336 + control * 108, 28, 104, 135);
+	}
+	for (std::size_t index = 0; index < filterControls.size(); ++index) filterControls[index].setBounds(4 + static_cast<int>(index) * 96, 28, 92, 130);
 	for (std::size_t index = 0; index < ampControls.size(); ++index) ampControls[index].setBounds(4 + static_cast<int>(index) * 64, 28, 64, 135);
 	for (std::size_t index = 0; index < filterEnvelopeControls.size(); ++index) filterEnvelopeControls[index].setBounds(4 + static_cast<int>(index) * 64, 28, 64, 135);
-	for (std::size_t index = 0; index < voiceControls.size(); ++index) voiceControls[index].setBounds(2 + static_cast<int>(index) * 63, 28, 63, 115);
-	voiceCountBox.setBounds(10, 156, 58, 26); performanceModeBox.setBounds(74, 156, 88, 26); qualityBox.setBounds(168, 156, 78, 26); unisonBox.setBounds(252, 156, 58, 26); glideBox.setBounds(252, 122, 58, 26); juce::ignoreUnused(content);
+	for (std::size_t index = 0; index < voiceControls.size(); ++index) voiceControls[index].setBounds(4 + static_cast<int>(index) * 100, 28, 96, 135);
+	voiceCountBox.setBounds(10, 54, 142, 26); performanceModeBox.setBounds(168, 54, 142, 26); qualityBox.setBounds(10, 104, 142, 26); unisonBox.setBounds(168, 104, 142, 26); glideBox.setBounds(10, 154, 142, 26); noiseBox.setBounds(168, 154, 142, 26);
+	performanceLabels[0].setBounds(10, 34, 142, 18); performanceLabels[1].setBounds(168, 34, 142, 18); performanceLabels[2].setBounds(10, 84, 142, 18); performanceLabels[3].setBounds(168, 84, 142, 18); performanceLabels[4].setBounds(10, 134, 142, 18); performanceLabels[5].setBounds(168, 134, 142, 18); juce::ignoreUnused(content);
 }
 }
