@@ -185,6 +185,7 @@ TEST_CASE("Mono editor presents symmetric oscillator controls without overlap", 
 	};
 	const std::array oscillatorControls { "Osc 1 Level", "Osc 1 Morph", "Osc 1 Width",
 		"Osc 2 Level", "Osc 2 Morph", "Osc 2 Width", "Osc 3 Level", "Osc 3 Morph", "Osc 3 Width" };
+	juce::Rectangle<int> oscillatorSliderBounds;
 	for (const auto* name : oscillatorControls)
 	{
 		bool found = false;
@@ -192,6 +193,8 @@ TEST_CASE("Mono editor presents symmetric oscillator controls without overlap", 
 			if (auto* rotary = dynamic_cast<vekt::ui::RotaryControl*>(child); rotary != nullptr && rotary->getName() == name)
 			{
 				found = true;
+				if (oscillatorSliderBounds.isEmpty()) oscillatorSliderBounds = rotary->getSlider().getBounds();
+				REQUIRE(rotary->getSlider().getBounds() == oscillatorSliderBounds);
 				if (juce::String(name).endsWith("Morph")) REQUIRE(static_cast<bool>(rotary->getSlider().getProperties()["waveformGuide"]));
 			}
 		REQUIRE(found);

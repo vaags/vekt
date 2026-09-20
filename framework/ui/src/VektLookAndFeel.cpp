@@ -29,6 +29,7 @@ void drawWaveformGlyph(juce::Graphics& graphics, juce::Point<float> centre, floa
 	case 2:
 		path.startNewSubPath(left, bottom);
 		path.lineTo(right, top);
+		path.lineTo(right, bottom);
 		break;
 	case 3:
 		path.startNewSubPath(left, bottom);
@@ -39,7 +40,7 @@ void drawWaveformGlyph(juce::Graphics& graphics, juce::Point<float> centre, floa
 		break;
 	default: break;
 	}
-	graphics.strokePath(path, juce::PathStrokeType(1.25f));
+	graphics.strokePath(path, juce::PathStrokeType(1.0f));
 }
 }
 
@@ -91,6 +92,9 @@ void VektLookAndFeel::drawRotarySlider(juce::Graphics& graphics, int x, int y, i
 		static_cast<float>(x), static_cast<float>(y),
 		static_cast<float>(width), static_cast<float>(height));
 	const auto dialSide = std::min(drawableBounds.getWidth(), drawableBounds.getHeight());
+	const auto waveformGuide = static_cast<bool>(slider.getProperties()["waveformGuide"]);
+	// Knob geometry depends only on the RotaryControl size. Waveform guides use the
+	// spare corners of the square slider canvas and must not make the knob smaller.
 	const auto bounds = drawableBounds.withSizeKeepingCentre(dialSide, dialSide).reduced(8.0f);
 	const auto radius = std::min(bounds.getWidth(), bounds.getHeight()) * 0.5f;
 	const auto centre = bounds.getCentre();
@@ -105,11 +109,13 @@ void VektLookAndFeel::drawRotarySlider(juce::Graphics& graphics, int x, int y, i
 	juce::Path track;
 	track.addCentredArc(centre.x, centre.y, radius, radius, 0.0f, startAngle, endAngle, true);
 	graphics.strokePath(track, juce::PathStrokeType(3.0f));
-	if (static_cast<bool>(slider.getProperties()["waveformGuide"]))
+	if (waveformGuide)
 	{
-		const auto glyphRadius = radius + juce::jlimit(7.0f, 13.0f, dialSide * 0.11f);
-		const auto glyphSize = juce::jlimit(10.0f, 16.0f, dialSide * 0.16f);
-		graphics.setColour(juce::Colour::fromRGB(170, 181, 180));
+		// Keep the annotations visually subordinate to the dial. A large, bright ring
+		// of glyphs makes an identically-sized guided knob appear smaller by contrast.
+		const auto glyphSize = juce::jlimit(8.0f, 10.0f, dialSide * 0.10f);
+		const auto glyphRadius = radius + 14.0f;
+		graphics.setColour(juce::Colour::fromRGB(150, 162, 162));
 		for (int waveform = 0; waveform < 4; ++waveform)
 		{
 			const auto proportion = static_cast<float>(waveform) / 3.0f;
