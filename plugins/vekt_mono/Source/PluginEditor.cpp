@@ -56,7 +56,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	const std::array filterIds { parameters::filterCutoff, parameters::filterResonance, parameters::filterKeyTracking, parameters::filterEnvelopeAmount, parameters::filterDrive };
 	for (std::size_t index = 0; index < filterControls.size(); ++index) addRotary(filterPanel, filterControls[index], filterNames[index], filterIds[index], filterAttachments[index]);
 	filterControls[0].getSlider().setTooltip("Ladder cutoff frequency. Sweeps exponentially from dark to fully open.");
-	filterControls[1].getSlider().setTooltip("Ladder emphasis. Adds a peak at cutoff and reaches self-oscillation near maximum.");
+	filterControls[1].getSlider().setTooltip("Ladder emphasis with Q compensation. Adds a peak without losing passband level and reaches self-oscillation near maximum.");
 	filterControls[2].getSlider().setTooltip("Keyboard tracking. At 100%, cutoff rises one octave per keyboard octave.");
 	filterControls[3].getSlider().setTooltip("Bipolar filter contour amount. Applies the filter envelope in octave pitch space.");
 	filterControls[4].getSlider().setTooltip("Ladder input overload. Drives the nonlinear filter while compensating output level.");

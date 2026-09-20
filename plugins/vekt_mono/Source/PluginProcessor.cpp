@@ -294,10 +294,14 @@ private:
 		// from a broad resonant peak into stable, playable self-oscillation.
 		const auto feedbackAmount = 4.05f * std::pow(juce::jlimit(0.0f, 1.0f, resonanceAmount), 0.72f);
 		const auto feedback = stackFilterState[3] * feedbackAmount;
+		// Q compensation offsets the passband loss caused by negative feedback.
+		// At low frequencies the ladder approaches unity gain, so multiplying its
+		// input by 1 + feedback preserves the programmed level as emphasis rises.
+		const auto qCompensation = 1.0f + feedbackAmount;
 		const auto thermalExcitation = resonanceAmount > 0.7f
 			? (random.nextFloat() * 2.0f - 1.0f) * 1.0e-5f * (resonanceAmount - 0.7f) / 0.3f
 			: 0.0f;
-		auto signal = std::tanh((input + thermalExcitation) * driveGain - feedback);
+		auto signal = std::tanh((input + thermalExcitation) * driveGain * qCompensation - feedback);
 		for (auto& stage : stackFilterState) { stage += g * (std::tanh(signal) - stage); signal = stage; }
 		return signal / std::sqrt(driveGain);
 	}

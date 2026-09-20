@@ -148,7 +148,36 @@ TEST_CASE("Mono Ladder emphasis builds a resonant peak and remains stable", "[mo
 	const auto [emphasizedPeak, emphasizedRms] = render(100.0f);
 	REQUIRE(std::isfinite(emphasizedRms));
 	REQUIRE(emphasizedRms < 2.0f);
-	REQUIRE(emphasizedPeak / emphasizedRms > flatPeak / flatRms * 1.5f);
+	REQUIRE(emphasizedRms >= flatRms);
+	REQUIRE(emphasizedPeak > flatPeak * 1.5f);
+}
+
+TEST_CASE("Mono Ladder Q compensation preserves oscillator level at maximum emphasis", "[mono][processor][filter]")
+{
+	auto levelFor = [](float emphasis)
+	{
+		vekt::mono::PluginProcessor processor;
+		setParameter(processor, vekt::mono::parameters::osc1Morph, 0.0f);
+		setParameter(processor, vekt::mono::parameters::osc2Level, 0.0f);
+		setParameter(processor, vekt::mono::parameters::osc3Level, 0.0f);
+		setParameter(processor, vekt::mono::parameters::filterCutoff, 500.0f);
+		setParameter(processor, vekt::mono::parameters::filterEnvelopeAmount, 0.0f);
+		setParameter(processor, vekt::mono::parameters::filterVelocity, 0.0f);
+		setParameter(processor, vekt::mono::parameters::filterKeyTracking, 0.0f);
+		setParameter(processor, vekt::mono::parameters::filterDrive, 0.0f);
+		setParameter(processor, vekt::mono::parameters::filterResonance, emphasis);
+		processor.prepareToPlay(48'000.0, 4096);
+		juce::AudioBuffer<float> buffer(2, 4096);
+		juce::MidiBuffer noteOn;
+		noteOn.addEvent(juce::MidiMessage::noteOn(1, 48, 1.0f), 0);
+		renderBlock(processor, buffer, noteOn);
+		renderBlock(processor, buffer);
+		return std::pair { rms(buffer), buffer.getMagnitude(0, 0, buffer.getNumSamples()) };
+	};
+	const auto [flatRms, flatPeak] = levelFor(0.0f);
+	const auto [emphasizedRms, emphasizedPeak] = levelFor(100.0f);
+	REQUIRE(emphasizedRms >= flatRms);
+	REQUIRE(emphasizedPeak >= flatPeak);
 }
 
 TEST_CASE("Mono Ladder keyboard tracking follows one octave per keyboard octave", "[mono][processor][filter]")

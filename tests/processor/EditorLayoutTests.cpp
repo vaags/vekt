@@ -232,7 +232,7 @@ TEST_CASE("Mono editor presents symmetric oscillator controls without overlap", 
 	REQUIRE(foundVoicePan);
 	const std::array ladderTooltips {
 		std::pair { "Cutoff", "exponentially" },
-		std::pair { "Resonance", "self-oscillation" },
+		std::pair { "Resonance", "Q compensation" },
 		std::pair { "Key Track", "one octave" },
 		std::pair { "Env Amount", "octave pitch space" },
 		std::pair { "Drive", "nonlinear filter" }
