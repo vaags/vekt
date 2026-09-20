@@ -25,6 +25,7 @@ public:
 
 private:
 	using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
+	using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
 	using ComboBoxAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
 	void timerCallback() override;
 	void refreshPresetLabel();
@@ -61,7 +62,9 @@ private:
 	ui::LevelMeter outputMeter { "OUT", juce::Colour::fromRGB(227, 156, 75), ui::LevelMeter::Orientation::vertical };
 	std::unique_ptr<SliderAttachment> outputAttachment;
 	juce::ComboBox voiceCountBox, performanceModeBox, qualityBox, unisonBox, noiseBox, glideBox;
+	juce::ToggleButton heldKeyReturnButton { "Held return" };
 	std::array<juce::Label, 6> performanceLabels;
 	std::unique_ptr<ComboBoxAttachment> voiceCountAttachment, performanceModeAttachment, qualityAttachment, unisonAttachment, noiseAttachment, glideAttachment;
+	std::unique_ptr<ButtonAttachment> heldKeyReturnAttachment;
 };
 }

@@ -10,6 +10,7 @@ TEST_CASE("Mono sound parameters exclude resource configuration", "[mono][parame
 	using namespace vekt::mono::parameters;
 	REQUIRE(presetProductIdentifier == "com.vekt.mono");
 	REQUIRE(std::find(soundParameterIds.begin(), soundParameterIds.end(), filterCutoff) != soundParameterIds.end());
+	REQUIRE(std::find(soundParameterIds.begin(), soundParameterIds.end(), heldKeyReturn) != soundParameterIds.end());
 	REQUIRE(std::find(soundParameterIds.begin(), soundParameterIds.end(), voiceCount) == soundParameterIds.end());
 	REQUIRE(std::find(soundParameterIds.begin(), soundParameterIds.end(), quality) == soundParameterIds.end());
 }

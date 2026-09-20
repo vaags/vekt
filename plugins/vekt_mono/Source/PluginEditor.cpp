@@ -58,7 +58,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	filterControls[0].getSlider().setTooltip("Ladder cutoff frequency. Sweeps exponentially from dark to fully open.");
 	filterControls[1].getSlider().setTooltip("Ladder emphasis with Q compensation. Adds a peak without losing passband level and reaches self-oscillation near maximum.");
 	filterControls[2].getSlider().setTooltip("Keyboard tracking. At 100%, cutoff rises one octave per keyboard octave.");
-	filterControls[3].getSlider().setTooltip("Bipolar filter contour amount. Applies the filter envelope in octave pitch space.");
+	filterControls[3].getSlider().setTooltip("Unipolar filter contour amount. Applies the filter envelope in octave pitch space.");
 	filterControls[4].getSlider().setTooltip("Ladder input overload. Drives the nonlinear filter while compensating output level.");
 	const std::array ampNames { "Attack", "Decay", "Sustain", "Release", "Velocity" };
 	const std::array ampIds { parameters::ampAttack, parameters::ampDecay, parameters::ampSustain, parameters::ampRelease, parameters::ampVelocity };
@@ -79,6 +79,8 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	addChoice(performancePanel, noiseBox, { "Off", "White", "Pink" }, parameters::noiseType, noiseAttachment);
 	addChoice(performancePanel, voiceCountBox, { "8", "12", "16" }, parameters::voiceCount, voiceCountAttachment);
 	addChoice(performancePanel, performanceModeBox, { "Poly", "Mono", "Mono Legato" }, parameters::performanceMode, performanceModeAttachment);
+	performancePanel.addAndMakeVisible(heldKeyReturnButton);
+	heldKeyReturnAttachment = std::make_unique<ButtonAttachment>(pluginProcessor.getParameters(), parameters::heldKeyReturn, heldKeyReturnButton);
 	addChoice(performancePanel, qualityBox, { "Real-time", "High" }, parameters::quality, qualityAttachment);
 	addChoice(performancePanel, unisonBox, { "1x", "2x", "4x" }, parameters::unison, unisonAttachment);
 	addChoice(performancePanel, glideBox, { "Off", "Always", "Legato" }, parameters::glideMode, glideAttachment);
@@ -92,7 +94,8 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	noiseBox.setTooltip("White or pink noise source.");
 	qualityBox.setTooltip("High uses 2x IIR oversampling and adds latency. Changes apply only after transport stops and all notes and sustain are released.");
 	voiceCountBox.setTooltip("Voice-count changes apply after all active notes are released.");
-	performanceModeBox.setTooltip("Mono uses last-note priority; Mono Legato keeps the envelope active while notes overlap.");
+	performanceModeBox.setTooltip("Mono retriggers each note; Mono Legato keeps the envelope active while notes overlap.");
+	heldKeyReturnButton.setTooltip("When enabled, releasing the active mono note returns to the latest still-held key.");
 	glideBox.setTooltip("Always glides every note change; Legato glides only while another note is held.");
 	voiceControls[2].getSlider().setTooltip("Mixes polyphonic voices from centered at 0% to full round-robin stereo panning at 100%.");
 	refreshPresetLabel();
@@ -143,6 +146,6 @@ void PluginEditor::resized()
 	outputFader.setBounds(18, 34, 88, 132);
 	outputMeter.setBounds(124, 38, 36, 104);
 	voiceCountBox.setBounds(12, 58, 154, 28); performanceModeBox.setBounds(184, 58, 154, 28); qualityBox.setBounds(12, 116, 154, 28); unisonBox.setBounds(184, 116, 154, 28); glideBox.setBounds(12, 174, 154, 28); noiseBox.setBounds(184, 174, 154, 28);
-	performanceLabels[0].setBounds(12, 38, 154, 18); performanceLabels[1].setBounds(184, 38, 154, 18); performanceLabels[2].setBounds(12, 96, 154, 18); performanceLabels[3].setBounds(184, 96, 154, 18); performanceLabels[4].setBounds(12, 154, 154, 18); performanceLabels[5].setBounds(184, 154, 154, 18); juce::ignoreUnused(content);
+	performanceLabels[0].setBounds(12, 38, 154, 18); performanceLabels[1].setBounds(184, 38, 50, 18); performanceLabels[2].setBounds(12, 96, 154, 18); performanceLabels[3].setBounds(184, 96, 154, 18); performanceLabels[4].setBounds(12, 154, 154, 18); performanceLabels[5].setBounds(184, 154, 154, 18); heldKeyReturnButton.setBounds(238, 34, 100, 22); juce::ignoreUnused(content);
 }
 }

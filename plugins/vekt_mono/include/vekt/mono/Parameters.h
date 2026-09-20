@@ -12,6 +12,7 @@ inline constexpr auto presetProductIdentifier = "com.vekt.mono";
 
 inline constexpr auto voiceCount = "voiceCount";
 inline constexpr auto performanceMode = "performanceMode";
+inline constexpr auto heldKeyReturn = "heldKeyReturn";
 inline constexpr auto quality = "quality";
 inline constexpr auto unison = "unison";
 inline constexpr auto unisonDetune = "unisonDetune";
@@ -65,7 +66,7 @@ inline constexpr auto ampVelocity = "ampVelocity";
 inline constexpr auto filterVelocity = "filterVelocity";
 
 inline constexpr std::array soundParameterIds {
-	performanceMode, unison, unisonDetune, unisonSpread, voiceWidth, glideMode, glideTime,
+	performanceMode, heldKeyReturn, unison, unisonDetune, unisonSpread, voiceWidth, glideMode, glideTime,
 	pitchBendRange, calibration, drift, masterOutput,
 	osc1Range, osc2Range, osc3Range, osc1Semitone, osc2Semitone, osc3Semitone,
 	osc1Fine, osc2Fine, osc3Fine, osc1Octave, osc2Octave, osc3Octave,

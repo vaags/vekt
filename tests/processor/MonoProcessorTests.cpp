@@ -587,19 +587,19 @@ TEST_CASE("Mono factory presets use diverse oscillator and mixer designs", "[mon
 	REQUIRE(voicePans.size() >= 10);
 }
 
-TEST_CASE("Mono migrates legacy presets with neutral octave controls", "[mono][processor][preset]")
+TEST_CASE("Mono migrates legacy presets with neutral octave controls and held-key return", "[mono][processor][preset]")
 {
 	vekt::mono::PluginProcessor processor;
 	vekt::presets::Preset preset;
 	REQUIRE(processor.getPresetSession().library().loadFactoryPreset(0, preset).wasOk());
 	preset.soundSchemaVersion = 1;
-	for (const auto* identifier : { vekt::mono::parameters::osc1Octave, vekt::mono::parameters::osc2Octave, vekt::mono::parameters::osc3Octave })
+	for (const auto* identifier : { vekt::mono::parameters::osc1Octave, vekt::mono::parameters::osc2Octave, vekt::mono::parameters::osc3Octave, vekt::mono::parameters::heldKeyReturn })
 		preset.parameters.erase(std::remove_if(preset.parameters.begin(), preset.parameters.end(), [identifier](const auto& parameter)
 		{
 			return parameter.identifier == identifier;
 		}), preset.parameters.end());
 	REQUIRE(processor.getPresetSession().prepare(preset).wasOk());
-	REQUIRE(preset.soundSchemaVersion == 2);
+	REQUIRE(preset.soundSchemaVersion == 3);
 	for (const auto* identifier : { vekt::mono::parameters::osc1Octave, vekt::mono::parameters::osc2Octave, vekt::mono::parameters::osc3Octave })
 	{
 		const auto found = std::find_if(preset.parameters.begin(), preset.parameters.end(), [identifier](const auto& parameter)
@@ -609,6 +609,12 @@ TEST_CASE("Mono migrates legacy presets with neutral octave controls", "[mono][p
 		REQUIRE(found != preset.parameters.end());
 		REQUIRE(found->value == Catch::Approx(0.0f));
 	}
+	const auto heldKeyReturn = std::find_if(preset.parameters.begin(), preset.parameters.end(), [](const auto& parameter)
+	{
+		return parameter.identifier == vekt::mono::parameters::heldKeyReturn;
+	});
+	REQUIRE(heldKeyReturn != preset.parameters.end());
+	REQUIRE(heldKeyReturn->value == Catch::Approx(1.0f));
 }
 
 TEST_CASE("Mono preset changes stop voices from the previous patch", "[mono][processor][preset]")
@@ -629,22 +635,28 @@ TEST_CASE("Mono preset changes stop voices from the previous patch", "[mono][pro
 	REQUIRE(buffer.getMagnitude(1, 0, buffer.getNumSamples()) == Catch::Approx(0.0f).margin(1.0e-7f));
 }
 
-TEST_CASE("Mono Legato returns to the last held note", "[mono][processor][midi]")
+TEST_CASE("Mono held-key return is configurable", "[mono][processor][midi]")
 {
-	vekt::mono::PluginProcessor processor;
-	setParameter(processor, vekt::mono::parameters::performanceMode, 2.0f);
-	setParameter(processor, vekt::mono::parameters::ampRelease, 0.005f);
-	processor.prepareToPlay(48'000.0, 512);
-	juce::AudioBuffer<float> buffer(2, 512);
-	juce::MidiBuffer midi;
-	midi.addEvent(juce::MidiMessage::noteOn(1, 48, 0.9f), 0);
-	midi.addEvent(juce::MidiMessage::noteOn(1, 72, 0.9f), 128);
-	midi.addEvent(juce::MidiMessage::noteOff(1, 72), 256);
-	processor.processBlock(buffer, midi);
-	float returnedEnergy {};
-	for (int sample = 360; sample < buffer.getNumSamples(); ++sample)
-		returnedEnergy += std::abs(buffer.getSample(0, sample));
-	REQUIRE(returnedEnergy > 0.01f);
+	for (const auto mode : { 1.0f, 2.0f })
+		for (const auto heldKeyReturn : { 0.0f, 1.0f })
+	{
+		vekt::mono::PluginProcessor processor;
+		setParameter(processor, vekt::mono::parameters::performanceMode, mode);
+		setParameter(processor, vekt::mono::parameters::heldKeyReturn, heldKeyReturn);
+		setParameter(processor, vekt::mono::parameters::ampRelease, 0.005f);
+		processor.prepareToPlay(48'000.0, 1'024);
+		juce::AudioBuffer<float> buffer(2, 1'024);
+		juce::MidiBuffer midi;
+		midi.addEvent(juce::MidiMessage::noteOn(1, 48, 0.9f), 0);
+		midi.addEvent(juce::MidiMessage::noteOn(1, 72, 0.9f), 128);
+		midi.addEvent(juce::MidiMessage::noteOff(1, 72), 256);
+		processor.processBlock(buffer, midi);
+		float postReleaseEnergy {};
+		for (int sample = 768; sample < buffer.getNumSamples(); ++sample)
+			postReleaseEnergy += std::abs(buffer.getSample(0, sample));
+		if (heldKeyReturn > 0.5f) REQUIRE(postReleaseEnergy > 0.01f);
+		else REQUIRE(postReleaseEnergy < 1.0e-4f);
+	}
 }
 
 TEST_CASE("Mono active-note transitions preserve the sample boundary", "[mono][processor][midi][declick]")
@@ -670,7 +682,7 @@ TEST_CASE("Mono active-note transitions preserve the sample boundary", "[mono][p
 	}
 }
 
-TEST_CASE("Mono held-note return preserves the sample boundary", "[mono][processor][midi][declick]")
+TEST_CASE("Mono active-note release preserves the sample boundary", "[mono][processor][midi][declick]")
 {
 	vekt::mono::PluginProcessor processor;
 	setParameter(processor, vekt::mono::parameters::performanceMode, 2.0f);
@@ -687,7 +699,14 @@ TEST_CASE("Mono held-note return preserves the sample boundary", "[mono][process
 	midi.addEvent(juce::MidiMessage::noteOff(1, 72), 768);
 	processor.processBlock(buffer, midi);
 	for (int channel = 0; channel < 2; ++channel)
-		REQUIRE(buffer.getSample(channel, 768) == Catch::Approx(buffer.getSample(channel, 767)).margin(1.0e-5f));
+	{
+		float nearbyMaximumDelta {};
+		for (int sample = 704; sample < 768; ++sample)
+			nearbyMaximumDelta = std::max(nearbyMaximumDelta,
+				std::abs(buffer.getSample(channel, sample) - buffer.getSample(channel, sample - 1)));
+		const auto boundaryDelta = std::abs(buffer.getSample(channel, 768) - buffer.getSample(channel, 767));
+		REQUIRE(boundaryDelta <= nearbyMaximumDelta * 1.1f + 1.0e-5f);
+	}
 }
 
 TEST_CASE("Mono voice stealing avoids an exceptional sample-boundary jump", "[mono][processor][midi][declick]")

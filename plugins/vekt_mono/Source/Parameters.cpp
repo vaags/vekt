@@ -65,6 +65,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 	for (const auto [identifier, name] : { std::pair { osc1Octave, "Osc 1 Octave" }, std::pair { osc2Octave, "Osc 2 Octave" }, std::pair { osc3Octave, "Osc 3 Octave" } })
 		layout.add(std::make_unique<juce::AudioParameterInt>(juce::ParameterID { identifier, version }, name, -2, 2, 0,
 			juce::AudioParameterIntAttributes {}.withLabel("oct")));
+	layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID { heldKeyReturn, version }, "Held Key Return", true));
 	return layout;
 }
 }

@@ -396,20 +396,25 @@ PluginProcessor::PluginProcessor()
 	: AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
 	  parameterState(*this, &undoManager, parameters::stateType, parameters::createLayout()),
 	  stateManager(parameterState, parameters::projectStateType, 2, migrateProjectState),
-	  presetSession(presetCatalog, { parameters::presetProductIdentifier, "Vekt Mono", 2 }, {
+	  presetSession(presetCatalog, { parameters::presetProductIdentifier, "Vekt Mono", 3 }, {
 		[this](const juce::String& name)
 		{
 			auto preset = presets::PresetSchema::create(parameters::presetProductIdentifier, name, parameterState, parameters::soundParameterIds);
-			preset.soundSchemaVersion = 2;
+			preset.soundSchemaVersion = 3;
 			return preset;
 		},
 		[](presets::Preset& preset)
 		{
-			if (preset.soundSchemaVersion != 1)
-				return preset.soundSchemaVersion == 2 ? juce::Result::ok() : juce::Result::fail("Unsupported Mono preset sound schema");
-			for (const auto* identifier : { parameters::osc1Octave, parameters::osc2Octave, parameters::osc3Octave })
-				preset.parameters.push_back({ identifier, 0.0f });
-			preset.soundSchemaVersion = 2;
+			if (preset.soundSchemaVersion == 1)
+			{
+				for (const auto* identifier : { parameters::osc1Octave, parameters::osc2Octave, parameters::osc3Octave })
+					preset.parameters.push_back({ identifier, 0.0f });
+				preset.soundSchemaVersion = 2;
+			}
+			if (preset.soundSchemaVersion != 2)
+				return preset.soundSchemaVersion == 3 ? juce::Result::ok() : juce::Result::fail("Unsupported Mono preset sound schema");
+			preset.parameters.push_back({ parameters::heldKeyReturn, 1.0f });
+			preset.soundSchemaVersion = 3;
 			return juce::Result::ok();
 		},
 		[this](const presets::Preset& preset) { return validatePresetSound(preset); },
@@ -429,6 +434,7 @@ PluginProcessor::PluginProcessor()
 	presetCatalog.setUserRepository(userPresetRepository.get());
 	presets::Preset initialPreset;
 	if (presetCatalog.loadFactoryPreset(0, initialPreset).wasOk()
+		&& presetSession.prepare(initialPreset).wasOk()
 		&& presets::PresetSchema::apply(initialPreset, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds).wasOk())
 		presetSession.adopt(initialPreset, presets::PresetOrigin::factory);
 }
@@ -583,13 +589,16 @@ void PluginProcessor::noteOff(int channel, int note)
 	if (mode != 0)
 	{
 		auto& heldNotes = heldNotesByChannel[static_cast<std::size_t>(channel - 1)];
+		auto& voice = monoVoiceForChannel(channel);
+		const auto wasActive = voice.matches(channel, note);
 		heldNotes.erase(std::remove(heldNotes.begin(), heldNotes.end(), note), heldNotes.end());
-		if (!heldNotes.empty())
+		if (wasActive && value(parameters::heldKeyReturn) >= 0.5f && !heldNotes.empty())
 		{
 			retargetMonophonicVoice(channel, mode == 1);
 			return;
 		}
-		monoVoiceForChannel(channel).release(sustainByChannel[static_cast<std::size_t>(channel - 1)]);
+		if (wasActive)
+			voice.release(sustainByChannel[static_cast<std::size_t>(channel - 1)]);
 		return;
 	}
 	for (auto& voice : voices) if (voice->matches(channel, note)) voice->release(sustainByChannel[static_cast<std::size_t>(channel - 1)]);
@@ -615,6 +624,7 @@ void PluginProcessor::retargetMonophonicVoice(int channel, bool retrigger)
 	const auto settings = snapshotSettings();
 	monoVoiceForChannel(channel).start(channel, heldNotes.back(), 1.0f, settings, pitchBendByChannel[static_cast<std::size_t>(channel - 1)], retrigger, ++noteAge);
 }
+
 void PluginProcessor::releaseSustainedNotes(int channel)
 {
 	for (auto& voice : voices)
@@ -696,7 +706,7 @@ juce::Result PluginProcessor::loadAdjacentPreset(bool next)
 }
 juce::Result PluginProcessor::validatePresetSound(const presets::Preset& preset) const
 {
-	return preset.soundSchemaVersion != 2 ? juce::Result::fail("Unsupported Mono preset sound schema")
+	return preset.soundSchemaVersion != 3 ? juce::Result::fail("Unsupported Mono preset sound schema")
 		: presets::PresetSchema::validate(preset, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds);
 }
 juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
