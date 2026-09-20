@@ -2,6 +2,7 @@
 
 #include <vekt/mono/Parameters.h>
 #include <vekt/dsp/OversamplingBank.h>
+#include <vekt/dsp/StereoPeakMeter.h>
 #include <vekt/presets/FilePresetRepository.h>
 #include <vekt/presets/PresetCatalog.h>
 #include <vekt/presets/PresetSession.h>
@@ -51,6 +52,7 @@ public:
 	[[nodiscard]] bool hasPendingVoiceCountChange() const noexcept { return pendingVoiceCount.load(); }
 	[[nodiscard]] bool hasPendingQualityChange() const noexcept { return pendingQuality.load(); }
 	[[nodiscard]] int getActiveQuality() const noexcept { return activeQuality; }
+	[[nodiscard]] std::array<float, 2> consumeOutputPeaks() noexcept { return outputMeter.consumePeaks(); }
 
 private:
 	struct Settings;
@@ -87,6 +89,7 @@ private:
 	std::array<float, 16> pitchBendByChannel {};
 	std::array<std::vector<int>, 16> heldNotesByChannel;
 	dsp::OversamplingBank<float> oversampling { 2 };
+	dsp::StereoPeakMeter outputMeter;
 	std::atomic<bool> pendingVoiceCount {};
 	std::atomic<bool> pendingQuality {};
 	int activeVoiceCount { 8 };

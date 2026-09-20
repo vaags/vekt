@@ -223,40 +223,40 @@ void PluginEditor::resized()
 {
 	ScalableEditor::resized();
 	auto& content = getContent();
-	title.setBounds(16, 16, 224, 36);
-	presetNavigation.setBounds(260, 16, 304, 44);
-	historyControls.setBounds(640, 16, 152, 44);
-	modelHeader.setBounds(16, 60, 160, 20);
+	title.setBounds(20, 16, 224, 40);
+	presetNavigation.setBounds(280, 16, 320, 44);
+	historyControls.setBounds(664, 16, 160, 44);
+	modelHeader.setBounds(20, 66, 160, 20);
 	for (std::size_t index = 0; index < modelButtons.size(); ++index)
-		modelButtons[index].setBounds(16 + static_cast<int>(index) * 338, 80, 332, 48);
-	autoTargetLabel.setBounds(830, 10, 194, 48);
-	presetBrowser.setBounds(content.getLocalBounds().reduced(16));
-	rotationPanel.setBounds(16, 140, 664, 224);
-	microphonePanel.setBounds(696, 140, 328, 224);
-	tonePanel.setBounds(16, 380, 664, 254);
-	ioPanel.setBounds(696, 380, 328, 254);
+		modelButtons[index].setBounds(20 + static_cast<int>(index) * 364, 86, 352, 48);
+	autoTargetLabel.setBounds(900, 10, 200, 52);
+	presetBrowser.setBounds(content.getLocalBounds().reduced(20));
+	rotationPanel.setBounds(20, 150, 710, 238);
+	microphonePanel.setBounds(746, 150, 354, 238);
+	tonePanel.setBounds(20, 404, 710, 276);
+	ioPanel.setBounds(746, 404, 354, 276);
 	for (std::size_t index = 0; index < rotationControls.size(); ++index)
-		rotationControls[index].setBounds(8 + static_cast<int>(index) * 130, 30, 124, 140);
-	speedModeBox.setBounds(16, 180, 120, 30);
-	manualButton.setBounds(146, 180, 82, 30);
-	speedLabel.setBounds(234, 180, 48, 30);
-	speedSlider.setBounds(282, 180, 254, 30);
-	brakeButton.setBounds(550, 180, 98, 30);
+		rotationControls[index].setBounds(10 + static_cast<int>(index) * 138, 32, 130, 146);
+	speedModeBox.setBounds(18, 190, 126, 30);
+	manualButton.setBounds(156, 190, 86, 30);
+	speedLabel.setBounds(254, 190, 48, 30);
+	speedSlider.setBounds(302, 190, 278, 30);
+	brakeButton.setBounds(594, 190, 98, 30);
 	for (std::size_t index = 0; index < microphoneControls.size(); ++index)
-		microphoneControls[index].setBounds(12 + static_cast<int>(index) * 102, 30, 98, 140);
-	widthLabel.setBounds(12, 180, 48, 30);
-	widthSlider.setBounds(64, 180, 252, 30);
+		microphoneControls[index].setBounds(14 + static_cast<int>(index) * 108, 32, 102, 146);
+	widthLabel.setBounds(14, 190, 48, 30);
+	widthSlider.setBounds(66, 190, 274, 30);
 	for (std::size_t index = 0; index < toneControls.size(); ++index)
-		toneControls[index].setBounds(8 + static_cast<int>(index) * 164, 42, 156, 170);
-	inputFader.setBounds(24, 32, 92, 126);
-	outputFader.setBounds(130, 32, 92, 126);
-	inputMeter.setBounds(238, 36, 28, 122);
-	outputMeter.setBounds(278, 36, 28, 122);
-	bypassButton.setBounds(22, 166, 100, 24);
-	autoGainButton.setBounds(136, 166, 110, 24);
-	trackingQualityBox.setBounds(16, 202, 144, 22);
-	offlineQualityBox.setBounds(168, 202, 144, 22);
-	qualityLabel.setBounds(16, 2, 296, 22);
+		toneControls[index].setBounds(10 + static_cast<int>(index) * 174, 48, 166, 176);
+	inputFader.setBounds(26, 38, 96, 138);
+	outputFader.setBounds(140, 38, 96, 138);
+	inputMeter.setBounds(254, 42, 30, 130);
+	outputMeter.setBounds(298, 42, 30, 130);
+	bypassButton.setBounds(28, 184, 104, 26);
+	autoGainButton.setBounds(146, 184, 116, 26);
+	trackingQualityBox.setBounds(18, 226, 152, 24);
+	offlineQualityBox.setBounds(184, 226, 152, 24);
+	qualityLabel.setBounds(18, 4, 318, 24);
 	juce::ignoreUnused(content);
 }
 }

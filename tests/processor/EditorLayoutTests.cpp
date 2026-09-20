@@ -64,11 +64,11 @@ TEST_CASE("Rav editor keeps its controls within the 16:10 canvas", "[processor][
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
 	vekt::rav::PluginProcessor processor;
 	vekt::rav::PluginEditor editor(processor);
-	REQUIRE(editor.getWidth() == 1040);
-	REQUIRE(editor.getHeight() == 650);
+	REQUIRE(editor.getWidth() == 1120);
+	REQUIRE(editor.getHeight() == 700);
 	REQUIRE(editor.getConstrainer()->getFixedAspectRatio() == 1.6);
 
-	for (const auto width : { 1040, 1560, 2080 })
+	for (const auto width : { 1120, 1680, 2240 })
 	{
 		editor.setSize(width, width * 10 / 16);
 		checkVisibleBounds(editor.getContent());
@@ -128,7 +128,7 @@ TEST_CASE("Rav editor keeps its controls within the 16:10 canvas", "[processor][
 	// Opt-in render artefact for visual review; normal test runs do not write files.
 	if (const auto* path = std::getenv("VEKT_EDITOR_SNAPSHOT"))
 	{
-		editor.setSize(1040, 650);
+		editor.setSize(1120, 700);
 		const auto image = editor.createComponentSnapshot(editor.getLocalBounds(), true, 2.0f);
 		juce::FileOutputStream stream { juce::File(juce::String(path)) };
 		REQUIRE(stream.openedOk());
@@ -162,7 +162,7 @@ TEST_CASE("Rav editor keeps its controls within the 16:10 canvas", "[processor][
 	REQUIRE(browser != nullptr);
 	browser->refresh();
 	browser->setVisible(true);
-	for (const auto width : { 1040, 1560, 2080 })
+	for (const auto width : { 1120, 1680, 2240 })
 	{
 		editor.setSize(width, width * 10 / 16);
 		editor.resized();
@@ -196,12 +196,22 @@ TEST_CASE("Mono editor presents symmetric oscillator controls without overlap", 
 			}
 		REQUIRE(found);
 	}
-	for (const auto width : { 1040, 1560, 2080 })
+	for (const auto width : { 1120, 1680, 2240 })
 	{
 		editor.setSize(width, width * 10 / 16);
 		checkVisibleBounds(editor.getContent());
 	}
-	for (const auto* panelName : { "Oscillators & Mixer", "Ladder Filter", "Voice / Output", "Amp ADSR", "Filter ADSR", "Performance / Noise" })
+	auto& ioPanel = find("I/O");
+	auto* outputMeter = findMeter(ioPanel, "OUT");
+	REQUIRE(outputMeter != nullptr);
+	REQUIRE(outputMeter->getWidth() >= 36);
+	REQUIRE(findMeter(ioPanel, "IN") == nullptr);
+	bool foundOutputFader = false;
+	for (auto* child : ioPanel.getChildren())
+		if (auto* slider = dynamic_cast<juce::Slider*>(child); slider != nullptr && slider->getName() == "Master Output")
+			foundOutputFader = true;
+	REQUIRE(foundOutputFader);
+	for (const auto* panelName : { "Oscillators & Mixer", "Ladder Filter", "Voice", "I/O", "Amp ADSR", "Filter ADSR", "Performance / Noise" })
 	{
 		auto& panel = find(panelName);
 		for (int first = 0; first < panel.getNumChildComponents(); ++first)
@@ -240,7 +250,7 @@ TEST_CASE("Glimmer editor keeps stereo meters within its canvas", "[processor][u
 			}
 	REQUIRE(foundTone);
 
-	for (const auto width : { 1040, 1560, 2080 })
+	for (const auto width : { 1120, 1680, 2240 })
 	{
 		editor.setSize(width, width * 10 / 16);
 		checkVisibleBounds(editor.getContent());
@@ -258,7 +268,7 @@ TEST_CASE("Glimmer editor keeps stereo meters within its canvas", "[processor][u
 				}
 	if (const auto* path = std::getenv("VEKT_GLIMMER_SNAPSHOT"))
 	{
-		editor.setSize(1040, 650);
+		editor.setSize(1120, 700);
 		const auto image = editor.createComponentSnapshot(editor.getLocalBounds(), true, 2.0f);
 		juce::FileOutputStream stream { juce::File(juce::String(path)) };
 		REQUIRE(stream.openedOk());
@@ -282,7 +292,7 @@ TEST_CASE("Glimmer editor keeps stereo meters within its canvas", "[processor][u
 	REQUIRE(history != nullptr);
 	auto* classicMode = dynamic_cast<vekt::ui::ModeButton*>(&classic);
 	REQUIRE(classicMode != nullptr);
-	REQUIRE(classic.getY() == 80);
+	REQUIRE(classic.getY() == 86);
 	REQUIRE(drum.getY() == classic.getY());
 	REQUIRE(wide.getY() == classic.getY());
 	REQUIRE(classic.getWidth() > 300);
@@ -352,14 +362,14 @@ TEST_CASE("Glimmer editor keeps stereo meters within its canvas", "[processor][u
 	load->onClick();
 	REQUIRE(preset.getButtonText() == "Slow Panorama");
 	REQUIRE(wide.getToggleState());
-	for (const auto width : { 1040, 1560, 2080 })
+	for (const auto width : { 1120, 1680, 2240 })
 	{
 		editor.setSize(width, width * 10 / 16);
 		checkVisibleBounds(editor.getContent());
 	}
 	if (const auto* path = std::getenv("VEKT_GLIMMER_BROWSER_SNAPSHOT"))
 	{
-		editor.setSize(1040, 650);
+		editor.setSize(1120, 700);
 		const auto image = editor.createComponentSnapshot(editor.getLocalBounds(), true, 2.0f);
 		juce::FileOutputStream stream { juce::File(juce::String(path)) };
 		REQUIRE(stream.openedOk());

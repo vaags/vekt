@@ -113,7 +113,7 @@ I/O, but includes OS interruptions; it is not a real-time scheduling guarantee.
 - Preset cases cover all five new sound parameters and rejection atomicity.
 - Factory tests cover all six documents, immutable host program count,
   factory/user navigation, modified state and project selection recall.
-- Editor tests check bounds at 1040/1560/2080 widths and non-overlapping controls.
+- Editor tests check bounds at 1120/1680/2240 widths and non-overlapping controls.
   They also check exclusive model selection and loading from the actual browser.
   Set `VEKT_GLIMMER_SNAPSHOT` to an absolute PNG path for a rendered snapshot.
   `VEKT_GLIMMER_BROWSER_SNAPSHOT` also captures the open browser.

@@ -33,7 +33,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	};
 	presetNavigation.onPrevious = [this, reportLoad] { reportLoad(pluginProcessor.loadPreviousPreset()); };
 	presetNavigation.onNext = [this, reportLoad] { reportLoad(pluginProcessor.loadNextPreset()); };
-	for (auto* panel : { &oscillatorPanel, &filterPanel, &voicePanel, &ampPanel, &filterEnvelopePanel, &performancePanel }) getContent().addAndMakeVisible(*panel);
+	for (auto* panel : { &oscillatorPanel, &filterPanel, &voicePanel, &ioPanel, &ampPanel, &filterEnvelopePanel, &performancePanel }) getContent().addAndMakeVisible(*panel);
 	getContent().addAndMakeVisible(title); getContent().addAndMakeVisible(status);
 	getContent().addAndMakeVisible(historyControls);
 	getContent().addAndMakeVisible(presetNavigation);
@@ -53,9 +53,17 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	for (std::size_t index = 0; index < ampControls.size(); ++index) addRotary(ampPanel, ampControls[index], ampNames[index], ampIds[index], ampAttachments[index]);
 	const std::array filterEnvelopeIds { parameters::filterAttack, parameters::filterDecay, parameters::filterSustain, parameters::filterRelease, parameters::filterVelocity };
 	for (std::size_t index = 0; index < filterEnvelopeControls.size(); ++index) addRotary(filterEnvelopePanel, filterEnvelopeControls[index], ampNames[index], filterEnvelopeIds[index], filterEnvelopeAttachments[index]);
-	const std::array voiceNames { "Detune", "Uni Spread", "Voice Width", "Glide Time", "Output" };
-	const std::array voiceIds { parameters::unisonDetune, parameters::unisonSpread, parameters::voiceWidth, parameters::glideTime, parameters::masterOutput };
+	const std::array voiceNames { "Detune", "Uni Spread", "Voice Width", "Glide Time" };
+	const std::array voiceIds { parameters::unisonDetune, parameters::unisonSpread, parameters::voiceWidth, parameters::glideTime };
 	for (std::size_t index = 0; index < voiceControls.size(); ++index) addRotary(voicePanel, voiceControls[index], voiceNames[index], voiceIds[index], voiceAttachments[index]);
+	for (auto* component : { static_cast<juce::Component*>(&outputFader), static_cast<juce::Component*>(&outputMeter) })
+		ioPanel.addAndMakeVisible(*component);
+	outputFader.setName("Master Output");
+	outputFader.setSliderStyle(juce::Slider::LinearVertical);
+	outputFader.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 76, 24);
+	outputFader.setTextValueSuffix(" dB");
+	outputFader.setDoubleClickReturnValue(true, 0.0);
+	outputAttachment = std::make_unique<SliderAttachment>(pluginProcessor.getParameters(), parameters::masterOutput, outputFader);
 	addChoice(performancePanel, noiseBox, { "Off", "White", "Pink" }, parameters::noiseType, noiseAttachment);
 	addChoice(performancePanel, voiceCountBox, { "8", "12", "16" }, parameters::voiceCount, voiceCountAttachment);
 	addChoice(performancePanel, performanceModeBox, { "Poly", "Mono", "Mono Legato" }, parameters::performanceMode, performanceModeAttachment);
@@ -97,6 +105,7 @@ void PluginEditor::timerCallback()
 	if (pluginProcessor.hasPendingVoiceCountChange()) message = "Voice count pending—release notes";
 	if (pluginProcessor.hasPendingQualityChange()) message += " • Quality pending—stop and release notes";
 	status.setText(message, juce::dontSendNotification);
+	outputMeter.setStereoLevels(pluginProcessor.consumeOutputPeaks());
 }
 void PluginEditor::refreshPresetLabel()
 {
@@ -107,19 +116,21 @@ void PluginEditor::refreshPresetLabel()
 void PluginEditor::paint(juce::Graphics& graphics) { graphics.fillAll(juce::Colour::fromRGB(20, 24, 28)); }
 void PluginEditor::resized()
 {
-	ScalableEditor::resized(); auto& content = getContent(); title.setBounds(16, 16, 220, 36); presetNavigation.setBounds(244, 16, 300, 36); historyControls.setBounds(552, 16, 104, 36); status.setBounds(664, 16, 360, 36); presetBrowser.setBounds(content.getLocalBounds().reduced(16));
-	oscillatorPanel.setBounds(16, 62, 1008, 178); filterPanel.setBounds(16, 254, 488, 170); voicePanel.setBounds(520, 254, 504, 170); ampPanel.setBounds(16, 438, 328, 196); filterEnvelopePanel.setBounds(360, 438, 328, 196); performancePanel.setBounds(704, 438, 320, 196);
+	ScalableEditor::resized(); auto& content = getContent(); title.setBounds(20, 16, 220, 40); presetNavigation.setBounds(260, 16, 320, 40); historyControls.setBounds(600, 16, 120, 40); status.setBounds(740, 16, 360, 40); presetBrowser.setBounds(content.getLocalBounds().reduced(20));
+	oscillatorPanel.setBounds(20, 68, 1080, 184); filterPanel.setBounds(20, 268, 500, 180); voicePanel.setBounds(536, 268, 360, 180); ioPanel.setBounds(912, 268, 188, 180); ampPanel.setBounds(20, 464, 348, 216); filterEnvelopePanel.setBounds(384, 464, 348, 216); performancePanel.setBounds(748, 464, 352, 216);
 	for (std::size_t index = 0; index < oscillatorControls.size(); ++index)
 	{
 		const auto oscillator = static_cast<int>(index / 3);
 		const auto control = static_cast<int>(index % 3);
-		oscillatorControls[index].setBounds(8 + oscillator * 336 + control * 108, 28, 104, 135);
+		oscillatorControls[index].setBounds(10 + oscillator * 360 + control * 116, 30, 112, 138);
 	}
-	for (std::size_t index = 0; index < filterControls.size(); ++index) filterControls[index].setBounds(4 + static_cast<int>(index) * 96, 28, 92, 130);
-	for (std::size_t index = 0; index < ampControls.size(); ++index) ampControls[index].setBounds(4 + static_cast<int>(index) * 64, 28, 64, 135);
-	for (std::size_t index = 0; index < filterEnvelopeControls.size(); ++index) filterEnvelopeControls[index].setBounds(4 + static_cast<int>(index) * 64, 28, 64, 135);
-	for (std::size_t index = 0; index < voiceControls.size(); ++index) voiceControls[index].setBounds(4 + static_cast<int>(index) * 100, 28, 96, 135);
-	voiceCountBox.setBounds(10, 54, 142, 26); performanceModeBox.setBounds(168, 54, 142, 26); qualityBox.setBounds(10, 104, 142, 26); unisonBox.setBounds(168, 104, 142, 26); glideBox.setBounds(10, 154, 142, 26); noiseBox.setBounds(168, 154, 142, 26);
-	performanceLabels[0].setBounds(10, 34, 142, 18); performanceLabels[1].setBounds(168, 34, 142, 18); performanceLabels[2].setBounds(10, 84, 142, 18); performanceLabels[3].setBounds(168, 84, 142, 18); performanceLabels[4].setBounds(10, 134, 142, 18); performanceLabels[5].setBounds(168, 134, 142, 18); juce::ignoreUnused(content);
+	for (std::size_t index = 0; index < filterControls.size(); ++index) filterControls[index].setBounds(6 + static_cast<int>(index) * 98, 32, 94, 136);
+	for (std::size_t index = 0; index < ampControls.size(); ++index) ampControls[index].setBounds(6 + static_cast<int>(index) * 67, 38, 65, 140);
+	for (std::size_t index = 0; index < filterEnvelopeControls.size(); ++index) filterEnvelopeControls[index].setBounds(6 + static_cast<int>(index) * 67, 38, 65, 140);
+	for (std::size_t index = 0; index < voiceControls.size(); ++index) voiceControls[index].setBounds(6 + static_cast<int>(index) * 87, 32, 83, 136);
+	outputFader.setBounds(18, 34, 88, 132);
+	outputMeter.setBounds(124, 38, 36, 104);
+	voiceCountBox.setBounds(12, 58, 154, 28); performanceModeBox.setBounds(184, 58, 154, 28); qualityBox.setBounds(12, 116, 154, 28); unisonBox.setBounds(184, 116, 154, 28); glideBox.setBounds(12, 174, 154, 28); noiseBox.setBounds(184, 174, 154, 28);
+	performanceLabels[0].setBounds(12, 38, 154, 18); performanceLabels[1].setBounds(184, 38, 154, 18); performanceLabels[2].setBounds(12, 96, 154, 18); performanceLabels[3].setBounds(184, 96, 154, 18); performanceLabels[4].setBounds(12, 154, 154, 18); performanceLabels[5].setBounds(184, 154, 154, 18); juce::ignoreUnused(content);
 }
 }

@@ -34,6 +34,24 @@ TEST_CASE("Mono renders finite stereo MIDI output", "[mono][processor]")
 	REQUIRE(energy > 0.01f);
 }
 
+TEST_CASE("Mono publishes post-output-gain stereo peaks", "[mono][processor][meter]")
+{
+	vekt::mono::PluginProcessor processor;
+	setParameter(processor, vekt::mono::parameters::masterOutput, -6.0f);
+	processor.prepareToPlay(48'000.0, 512);
+	juce::AudioBuffer<float> buffer(2, 512);
+	juce::MidiBuffer midi;
+	midi.addEvent(juce::MidiMessage::noteOn(1, 60, 0.9f), 0);
+	processor.processBlock(buffer, midi);
+	const auto peaks = processor.consumeOutputPeaks();
+	REQUIRE(std::max(peaks[0], peaks[1]) > 0.0f);
+	REQUIRE(peaks[0] == Catch::Approx(buffer.getMagnitude(0, 0, buffer.getNumSamples())).margin(1.0e-6f));
+	REQUIRE(peaks[1] == Catch::Approx(buffer.getMagnitude(1, 0, buffer.getNumSamples())).margin(1.0e-6f));
+	const auto consumed = processor.consumeOutputPeaks();
+	REQUIRE(consumed[0] == 0.0f);
+	REQUIRE(consumed[1] == 0.0f);
+}
+
 TEST_CASE("Mono preserves APVTS project state", "[mono][processor]")
 {
 	vekt::mono::PluginProcessor source;

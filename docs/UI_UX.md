@@ -24,8 +24,8 @@ Preset workflows are specified separately in [PRESET_UX.md](PRESET_UX.md).
   selection is exclusive and non-draggable.
 - Undo/redo use named, keyboard-focusable icon buttons with action tooltips and
   disabled states when unavailable. Changes update the preset's modified marker.
-- Use a 1040 x 650 logical canvas with a 16:10 aspect ratio. Constrain resizing to
-  1040 x 650 through 2080 x 1300 and provide a visible bottom-right resize handle.
+- Use a 1120 x 700 logical canvas with a 16:10 aspect ratio. Constrain resizing to
+  1120 x 700 through 2240 x 1400 and provide a visible bottom-right resize handle.
 - Rav uses a single row of standard-size Drive, Tone, Bias, and Mix controls,
   with standard-size Shape, Dynamics, and Texture beneath. Compact band mix and
   crossover controls occupy the middle column; input/output faders and meters
@@ -151,7 +151,7 @@ Preset workflows are specified separately in [PRESET_UX.md](PRESET_UX.md).
 
 ## Glimmer Controls
 
-Glimmer keeps its existing I/O strip and 1040 x 650 canvas. Classic/Drum/Wide
+Glimmer keeps its existing I/O strip and shared 1120 x 700 canvas. Classic/Drum/Wide
 selection lives in the command bar; the status region shows actual rotor speed
 and active/requested model transitions. Brake and Manual are separate overrides,
 not new indices in the existing Slow/Fast/Auto choice. Sensitivity is active only

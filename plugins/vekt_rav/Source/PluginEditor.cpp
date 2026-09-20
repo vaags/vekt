@@ -16,17 +16,17 @@ constexpr std::array parameterNames { "Input", "Drive", "Tone", "Bias", "Mix", "
 
 namespace layout
 {
-constexpr int margin = 16;
-constexpr int topBarMargin = 16;
+constexpr int margin = 20;
+constexpr int topBarMargin = 20;
 constexpr int topBarTop = 16;
 constexpr int topBarHeight = 44;
-constexpr int modeTop = 80;
+constexpr int modeTop = 86;
 constexpr int modeHeight = 44;
-constexpr int headerTop = 140;
-constexpr int sectionGap = 16;
-constexpr int panelGap = 16;
-constexpr int centerWidth = 448;
-constexpr int bandWidth = 288;
+constexpr int headerTop = 150;
+constexpr int sectionGap = 20;
+constexpr int panelGap = 20;
+constexpr int centerWidth = 480;
+constexpr int bandWidth = 300;
 constexpr int rightWidth = ui::ScalableEditor::logicalWidth - margin * 2 - centerWidth - bandWidth - sectionGap * 2;
 constexpr int primaryControlHeight = ui::RotaryControl::heightFor(ui::RotaryControl::Size::standard);
 constexpr int stageGap = 8;
@@ -276,7 +276,7 @@ void PluginEditor::resized()
 	auto& content = getContent();
 
 	const auto contentBounds = content.getLocalBounds();
-	presetBrowser.setBounds(24, 80, 800, 480);
+	presetBrowser.setBounds(contentBounds.reduced(24));
 	const auto centerArea = contentBounds.withX(layout::margin).withY(layout::headerTop)
 		.withWidth(layout::centerWidth).withHeight(layout::bodyHeight);
 	const auto bandArea = centerArea.withX(centerArea.getRight() + layout::sectionGap)
@@ -322,10 +322,10 @@ void PluginEditor::resized()
 		}
 	};
 	using Size = ui::RotaryControl::Size;
-	layoutRotaryRow(sliders, 1, 4, primaryPanel.getContentBounds(), 104, Size::standard, 96);
-	layoutRotaryRow(macroSliders, 0, 3, shapingPanel.getContentBounds(), 104, Size::standard, 96);
-	layoutRotaryRow(bandMixSliders, 0, 3, bandMixPanel.getContentBounds(), 84, Size::compact, 76);
-	layoutRotaryRow(cutoffSliders, 0, 2, crossoverPanel.getContentBounds(), 112, Size::compact, 96);
+	layoutRotaryRow(sliders, 1, 4, primaryPanel.getContentBounds(), 112, Size::standard, 96);
+	layoutRotaryRow(macroSliders, 0, 3, shapingPanel.getContentBounds(), 112, Size::standard, 96);
+	layoutRotaryRow(bandMixSliders, 0, 3, bandMixPanel.getContentBounds(), 88, Size::compact, 76);
+	layoutRotaryRow(cutoffSliders, 0, 2, crossoverPanel.getContentBounds(), 124, Size::compact, 96);
 
 	const auto outputContent = outputPanel.getContentBounds();
 	qualityLabel.setJustificationType(juce::Justification::centred);
@@ -347,13 +347,13 @@ void PluginEditor::resized()
 	outputMeter.setBounds(outputFader.getBounds().withTrimmedTop(8).withTrimmedBottom(40)
 		.withX(outputStrip.getX() + 68).withWidth(32));
 
-	settingsPanel.setBounds(contentBounds.getWidth() - layout::margin - 360, 64, 360, 224);
+	settingsPanel.setBounds(contentBounds.getWidth() - layout::margin - 380, 68, 380, 232);
 	const auto settingsContent = settingsPanel.getContentBounds();
 	trackingLabel.setBounds(settingsContent.withHeight(24));
 	trackingBox.setBounds(settingsContent.withTrimmedTop(24).withHeight(36));
 	offlineLabel.setBounds(settingsContent.withTrimmedTop(68).withHeight(24));
 	offlineBox.setBounds(settingsContent.withTrimmedTop(92).withHeight(36));
-	closeSettingsButton.setBounds(276, 4, 72, 28);
+	closeSettingsButton.setBounds(296, 4, 72, 28);
 	meterLabel.setVisible(false);
 	juce::ignoreUnused(content);
 }

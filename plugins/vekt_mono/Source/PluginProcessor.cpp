@@ -299,7 +299,11 @@ void PluginProcessor::prepareToPlay(double newSampleRate, int maximumBlockSize)
 	pendingQuality.store(false);
 }
 
-void PluginProcessor::releaseResources() { for (auto& voice : voices) voice->reset(); }
+void PluginProcessor::releaseResources()
+{
+	for (auto& voice : voices) voice->reset();
+	outputMeter.reset();
+}
 bool PluginProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const { return layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo(); }
 float PluginProcessor::value(const char* identifier) const noexcept { return parameterState.getRawParameterValue(identifier)->load(); }
 
@@ -356,6 +360,7 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
 		position = eventPosition;
 	}
 	render(buffer, position, buffer.getNumSamples() - position);
+	outputMeter.publish(buffer);
 }
 
 void PluginProcessor::handleMidi(const juce::MidiMessage& message)

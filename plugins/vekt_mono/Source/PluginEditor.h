@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vekt/mono/PluginProcessor.h>
+#include <vekt/ui/LevelMeter.h>
 #include <vekt/ui/Panel.h>
 #include <vekt/ui/PresetNavigation.h>
 #include <vekt/ui/RotaryControl.h>
@@ -41,7 +42,8 @@ private:
 	preset_ui::PresetBrowser presetBrowser;
 	ui::Panel oscillatorPanel { "Oscillators & Mixer" };
 	ui::Panel filterPanel { "Ladder Filter" };
-	ui::Panel voicePanel { "Voice / Output" };
+	ui::Panel voicePanel { "Voice" };
+	ui::Panel ioPanel { "I/O" };
 	ui::Panel ampPanel { "Amp ADSR" };
 	ui::Panel filterEnvelopePanel { "Filter ADSR" };
 	ui::Panel performancePanel { "Performance / Noise" };
@@ -53,8 +55,11 @@ private:
 	std::array<std::unique_ptr<SliderAttachment>, 5> ampAttachments;
 	std::array<ui::RotaryControl, 5> filterEnvelopeControls;
 	std::array<std::unique_ptr<SliderAttachment>, 5> filterEnvelopeAttachments;
-	std::array<ui::RotaryControl, 5> voiceControls;
-	std::array<std::unique_ptr<SliderAttachment>, 5> voiceAttachments;
+	std::array<ui::RotaryControl, 4> voiceControls;
+	std::array<std::unique_ptr<SliderAttachment>, 4> voiceAttachments;
+	juce::Slider outputFader;
+	ui::LevelMeter outputMeter { "OUT", juce::Colour::fromRGB(227, 156, 75), ui::LevelMeter::Orientation::vertical };
+	std::unique_ptr<SliderAttachment> outputAttachment;
 	juce::ComboBox voiceCountBox, performanceModeBox, qualityBox, unisonBox, noiseBox, glideBox;
 	std::array<juce::Label, 6> performanceLabels;
 	std::unique_ptr<ComboBoxAttachment> voiceCountAttachment, performanceModeAttachment, qualityAttachment, unisonAttachment, noiseAttachment, glideAttachment;
