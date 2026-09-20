@@ -20,6 +20,8 @@ target_link_libraries(vekt_project_options INTERFACE
     juce::juce_recommended_warning_flags
     $<$<CONFIG:Release>:juce::juce_recommended_lto_flags>)
 
+include(cmake/VektFactoryPresets.cmake)
+
 add_subdirectory(framework/juce)
 add_subdirectory(framework/dsp)
 add_subdirectory(framework/state)

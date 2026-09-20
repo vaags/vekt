@@ -1,4 +1,5 @@
 #include <vekt/presets/PresetBrowserModel.h>
+#include <vekt/presets/EmbeddedFactoryPresets.h>
 #include <vekt/presets/PresetSession.h>
 #include <vekt/presets/FilePresetRepository.h>
 #include <vekt/presets/PresetJsonCodec.h>
@@ -43,6 +44,39 @@ struct TestProduct
 		};
 	}
 };
+
+const char* embeddedPresetFixture(const char* resourceName, int& sizeInBytes)
+{
+	static constexpr auto first = R"({"format":"vekt.preset","schemaVersion":2,"id":"embedded-first","product":"test.embedded","soundSchemaVersion":1,"name":"First","tags":[],"parameters":{"gain":0.5}})";
+	static constexpr auto second = R"({"format":"vekt.preset","schemaVersion":2,"id":"embedded-second","product":"test.embedded","soundSchemaVersion":1,"name":"Second","tags":[],"parameters":{"gain":0.75}})";
+	const auto* json = juce::String(resourceName) == "first" ? first
+		: juce::String(resourceName) == "second" ? second : nullptr;
+	if (json == nullptr)
+	{
+		sizeInBytes = 0;
+		return nullptr;
+	}
+	sizeInBytes = static_cast<int>(std::char_traits<char>::length(json));
+	return json;
+}
+}
+
+TEST_CASE("Embedded factory presets preserve generated order and folders", "[presets][framework]")
+{
+	vekt::presets::PresetCatalog catalog;
+	catalog.setProductIdentifier("test.embedded");
+	const vekt::presets::EmbeddedFactoryPreset resources[] {
+		{ "first", "Bass" },
+		{ "second", "Lead" }
+	};
+	REQUIRE(vekt::presets::addEmbeddedFactoryPresets(catalog, resources, std::size(resources), embeddedPresetFixture).wasOk());
+	REQUIRE(catalog.factoryPresetCount() == 2);
+	REQUIRE(catalog.factoryPresetName(0) == "First");
+	REQUIRE(catalog.factoryPresetName(1) == "Second");
+	REQUIRE(catalog.entries()[0].folder == "Bass");
+	REQUIRE(catalog.entries()[1].folder == "Lead");
+	const vekt::presets::EmbeddedFactoryPreset missing[] { { "missing", "Bass" } };
+	REQUIRE(vekt::presets::addEmbeddedFactoryPresets(catalog, missing, std::size(missing), embeddedPresetFixture).failed());
 }
 
 TEST_CASE("Global preset format round trips independent product schemas", "[presets][framework]")

@@ -533,17 +533,49 @@ TEST_CASE("Mono defers voice count while a note is active", "[mono][processor]")
 	REQUIRE(processor.hasPendingVoiceCountChange());
 }
 
-TEST_CASE("Mono provides 24 categorized factory presets", "[mono][processor]")
+TEST_CASE("Mono provides 25 categorized factory presets", "[mono][processor]")
 {
 	vekt::mono::PluginProcessor processor;
 	auto& session = processor.getPresetSession();
 	const auto& catalog = session.library();
-	REQUIRE(catalog.factoryPresetCount() == 24);
+	REQUIRE(catalog.factoryPresetCount() == 25);
 	REQUIRE(catalog.folders(vekt::presets::PresetOrigin::factory).size() == 6);
-	REQUIRE(processor.getNumPrograms() == 24);
+	REQUIRE(processor.getNumPrograms() == 25);
 	processor.setCurrentProgram(23);
 	REQUIRE(processor.getCurrentProgram() == 23);
 	REQUIRE(processor.getProgramName(23) == "Transmission FX");
+}
+
+TEST_CASE("Mono Classic Three Bass uses three oscillators", "[mono][processor][preset]")
+{
+	vekt::mono::PluginProcessor processor;
+	const auto& catalog = processor.getPresetSession().library();
+	vekt::presets::Preset preset;
+	bool classicPresetFound {};
+	for (std::size_t index {}; index < catalog.factoryPresetCount(); ++index)
+	{
+		if (catalog.loadFactoryPreset(index, preset).wasOk() && preset.name == "Classic Three Bass")
+		{
+			classicPresetFound = true;
+			break;
+		}
+	}
+	REQUIRE(classicPresetFound);
+	const auto value = [&preset](const char* identifier)
+	{
+		const auto found = std::find_if(preset.parameters.begin(), preset.parameters.end(), [identifier](const auto& parameter)
+		{
+			return parameter.identifier == identifier;
+		});
+		REQUIRE(found != preset.parameters.end());
+		return found->value;
+	};
+	REQUIRE(value(vekt::mono::parameters::osc1Range) == Catch::Approx(0.0f));
+	REQUIRE(value(vekt::mono::parameters::osc2Range) == Catch::Approx(1.0f));
+	REQUIRE(value(vekt::mono::parameters::osc3Range) == Catch::Approx(1.0f));
+	REQUIRE(value(vekt::mono::parameters::osc1Level) > 0.0f);
+	REQUIRE(value(vekt::mono::parameters::osc2Level) > 0.0f);
+	REQUIRE(value(vekt::mono::parameters::osc3Level) > 0.0f);
 }
 
 TEST_CASE("Mono factory presets use diverse oscillator and mixer designs", "[mono][processor][preset]")

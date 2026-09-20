@@ -1,28 +1,12 @@
-juce_add_binary_data(VektRavFactoryData
+vekt_add_factory_presets(
+	TARGET VektRavFactoryData
 	NAMESPACE VektRavFactoryData
-	SOURCES
-		"Resources/Presets/Clean Heat.vektpreset"
-		"Resources/Presets/Warm Push.vektpreset"
-		"Resources/Presets/Parallel Grit.vektpreset"
-		"Resources/Presets/Bass/Deep Foundation.vektpreset"
-		"Resources/Presets/Bass/Grind Line.vektpreset"
-		"Resources/Presets/Bass/Parallel Punch.vektpreset"
-		"Resources/Presets/Guitar/Edge Breakup.vektpreset"
-		"Resources/Presets/Guitar/Lead Bite.vektpreset"
-		"Resources/Presets/Guitar/Velvet Drive.vektpreset"
-		"Resources/Presets/Keys/Analog Glow.vektpreset"
-		"Resources/Presets/Keys/Crushed Chords.vektpreset"
-		"Resources/Presets/Keys/Velvet Electric.vektpreset"
-		"Resources/Presets/Drums/Drum Bus Glue.vektpreset"
-		"Resources/Presets/Drums/Snare Crack.vektpreset"
-		"Resources/Presets/Drums/Transient Smash.vektpreset"
-		"Resources/Presets/Mastering/Low End Focus.vektpreset"
-		"Resources/Presets/Mastering/Parallel Sheen.vektpreset"
-		"Resources/Presets/Mastering/Transparent Polish.vektpreset"
-		"Resources/Presets/Bass/Circuit Grind.vektpreset"
-		"Resources/Presets/Guitar/Circuit Sustain.vektpreset"
-		"Resources/Presets/Keys/Circuit Bloom.vektpreset"
-		"Resources/Presets/Drums/Circuit Parallel.vektpreset")
+	HEADER_NAME BinaryData.h
+	PRESET_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/Resources/Presets"
+	ORDER_FILE "${CMAKE_CURRENT_SOURCE_DIR}/Resources/Presets/factory-order.txt"
+	LOCK_FILE "${CMAKE_CURRENT_SOURCE_DIR}/Resources/Presets/factory-order.lock"
+	MANIFEST_HEADER VektRavFactoryPresetManifest.h
+	MANIFEST_NAMESPACE vekt::rav::factory_presets)
 
 add_library(VektRavCore STATIC
 	Source/FactoryPresets.cpp

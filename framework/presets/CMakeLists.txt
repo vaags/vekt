@@ -1,4 +1,5 @@
 add_library(vekt_presets STATIC
+	src/EmbeddedFactoryPresets.cpp
 	src/FilePresetRepository.cpp
 	src/PresetCatalog.cpp
 	src/PresetJsonCodec.cpp

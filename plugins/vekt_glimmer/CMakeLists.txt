@@ -1,13 +1,12 @@
-juce_add_binary_data(VektGlimmerFactoryData
+vekt_add_factory_presets(
+	TARGET VektGlimmerFactoryData
 	NAMESPACE VektGlimmerFactoryData
 	HEADER_NAME GlimmerBinaryData.h
-	SOURCES
-		"Resources/Presets/Classic Chorale.vektpreset"
-		"Resources/Presets/Gospel Spin.vektpreset"
-		"Resources/Presets/Baffle Drive.vektpreset"
-		"Resources/Presets/Dynamic Drum.vektpreset"
-		"Resources/Presets/Glass Motion.vektpreset"
-		"Resources/Presets/Slow Panorama.vektpreset")
+	PRESET_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/Resources/Presets"
+	ORDER_FILE "${CMAKE_CURRENT_SOURCE_DIR}/Resources/Presets/factory-order.txt"
+	LOCK_FILE "${CMAKE_CURRENT_SOURCE_DIR}/Resources/Presets/factory-order.lock"
+	MANIFEST_HEADER VektGlimmerFactoryPresetManifest.h
+	MANIFEST_NAMESPACE vekt::glimmer::factory_presets)
 
 add_library(VektGlimmerCore STATIC
 	Source/FactoryPresets.cpp

@@ -1,0 +1,23 @@
+# Existing entries pin host program indices. New preset files are appended automatically.
+Clean Heat.vektpreset
+Warm Push.vektpreset
+Parallel Grit.vektpreset
+Bass/Deep Foundation.vektpreset
+Bass/Grind Line.vektpreset
+Bass/Parallel Punch.vektpreset
+Guitar/Edge Breakup.vektpreset
+Guitar/Lead Bite.vektpreset
+Guitar/Velvet Drive.vektpreset
+Keys/Analog Glow.vektpreset
+Keys/Crushed Chords.vektpreset
+Keys/Velvet Electric.vektpreset
+Drums/Drum Bus Glue.vektpreset
+Drums/Snare Crack.vektpreset
+Drums/Transient Smash.vektpreset
+Mastering/Low End Focus.vektpreset
+Mastering/Parallel Sheen.vektpreset
+Mastering/Transparent Polish.vektpreset
+Bass/Circuit Grind.vektpreset
+Guitar/Circuit Sustain.vektpreset
+Keys/Circuit Bloom.vektpreset
+Drums/Circuit Parallel.vektpreset

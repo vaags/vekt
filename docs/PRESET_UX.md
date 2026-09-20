@@ -50,3 +50,17 @@ stored preset, whereas Save As captures the live sound.
   desktop storage.
 - File chooser import/export is message-thread-only. Validate imported content
   completely before changing parameters or writing into the user repository.
+
+## Factory preset authoring
+
+- Factory presets are immutable resources embedded in each plugin. Add a valid
+  `.vektpreset` beneath that plugin's `Resources/Presets` directory; its parent
+  directory becomes the factory folder and it appears after the next build and
+  launch.
+- Existing host-program positions are locked by `factory-order.lock` and
+  ordered by `factory-order.txt`. The released order must remain its exact
+  prefix; removing, reordering, or inserting before a released entry is a
+  configure error. New files are appended after those entries in deterministic
+  path order; promote them to both files when their program position ships.
+- User presets remain disk-backed, writable, and visibly distinct from factory
+  presets in the browser.
