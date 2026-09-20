@@ -5,4 +5,5 @@ cd "${0:A:h}/.."
 cmake --preset dev
 cmake --build --preset dev --target \
 	VektRav_Standalone VektRav_VST3 \
-	VektGlimmer_Standalone VektGlimmer_VST3
+	VektGlimmer_Standalone VektGlimmer_VST3 \
+	VektMono_Standalone VektMono_VST3

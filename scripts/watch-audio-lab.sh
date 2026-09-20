@@ -9,6 +9,7 @@ watch_paths=(
 	"plugins/vekt_rav/Source"
 	"plugins/vekt_rav/Resources"
 	"plugins/vekt_glimmer"
+	"plugins/vekt_mono"
 	"framework"
 	"CMakeLists.txt"
 	"CMakePresets.json"
