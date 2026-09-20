@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <numbers>
 #include <set>
 
 namespace
@@ -14,6 +15,47 @@ void setParameter(vekt::mono::PluginProcessor& processor, const char* identifier
 	auto* parameter = processor.getParameters().getParameter(identifier);
 	REQUIRE(parameter != nullptr);
 	parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
+}
+
+float rms(const juce::AudioBuffer<float>& buffer)
+{
+	double sum {};
+	for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+	{
+		const auto value = buffer.getSample(0, sample);
+		sum += static_cast<double>(value) * value;
+	}
+	return static_cast<float>(std::sqrt(sum / static_cast<double>(buffer.getNumSamples())));
+}
+
+float differenceRms(const juce::AudioBuffer<float>& buffer)
+{
+	double sum {};
+	for (int sample = 1; sample < buffer.getNumSamples(); ++sample)
+	{
+		const auto difference = buffer.getSample(0, sample) - buffer.getSample(0, sample - 1);
+		sum += static_cast<double>(difference) * difference;
+	}
+	return static_cast<float>(std::sqrt(sum / static_cast<double>(buffer.getNumSamples() - 1)));
+}
+
+float sinusoidMagnitude(const juce::AudioBuffer<float>& buffer, float frequency, float sampleRate)
+{
+	double real {}, imaginary {};
+	for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+	{
+		const auto phase = 2.0 * std::numbers::pi * static_cast<double>(frequency) * static_cast<double>(sample) / sampleRate;
+		const auto value = static_cast<double>(buffer.getSample(0, sample));
+		real += value * std::cos(phase);
+		imaginary -= value * std::sin(phase);
+	}
+	return static_cast<float>(2.0 * std::sqrt(real * real + imaginary * imaginary) / static_cast<double>(buffer.getNumSamples()));
+}
+
+void renderBlock(vekt::mono::PluginProcessor& processor, juce::AudioBuffer<float>& buffer, juce::MidiBuffer midi = {})
+{
+	buffer.clear();
+	processor.processBlock(buffer, midi);
 }
 }
 
@@ -52,6 +94,140 @@ TEST_CASE("Mono publishes post-output-gain stereo peaks", "[mono][processor][met
 	const auto consumed = processor.consumeOutputPeaks();
 	REQUIRE(consumed[0] == 0.0f);
 	REQUIRE(consumed[1] == 0.0f);
+}
+
+TEST_CASE("Mono Ladder cutoff responds smoothly while a note is held", "[mono][processor][filter]")
+{
+	vekt::mono::PluginProcessor processor;
+	setParameter(processor, vekt::mono::parameters::osc1Morph, 2.0f);
+	setParameter(processor, vekt::mono::parameters::osc2Level, 0.0f);
+	setParameter(processor, vekt::mono::parameters::osc3Level, 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterEnvelopeAmount, 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterVelocity, 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterKeyTracking, 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterResonance, 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterCutoff, 120.0f);
+	processor.prepareToPlay(48'000.0, 4096);
+	juce::AudioBuffer<float> buffer(2, 4096);
+	juce::MidiBuffer noteOn;
+	noteOn.addEvent(juce::MidiMessage::noteOn(1, 48, 1.0f), 0);
+	renderBlock(processor, buffer, noteOn);
+	renderBlock(processor, buffer);
+	const auto closedBrightness = differenceRms(buffer);
+
+	setParameter(processor, vekt::mono::parameters::filterCutoff, 12'000.0f);
+	renderBlock(processor, buffer);
+	for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+		REQUIRE(std::isfinite(buffer.getSample(0, sample)));
+	const auto openBrightness = differenceRms(buffer);
+	REQUIRE(openBrightness > closedBrightness * 3.0f);
+}
+
+TEST_CASE("Mono Ladder emphasis builds a resonant peak and remains stable", "[mono][processor][filter]")
+{
+	auto render = [](float emphasis)
+	{
+		vekt::mono::PluginProcessor processor;
+		setParameter(processor, vekt::mono::parameters::osc1Level, 0.0f);
+		setParameter(processor, vekt::mono::parameters::noiseType, 1.0f);
+		setParameter(processor, vekt::mono::parameters::noiseLevel, 50.0f);
+		setParameter(processor, vekt::mono::parameters::filterCutoff, 1'000.0f);
+		setParameter(processor, vekt::mono::parameters::filterEnvelopeAmount, 0.0f);
+		setParameter(processor, vekt::mono::parameters::filterVelocity, 0.0f);
+		setParameter(processor, vekt::mono::parameters::filterKeyTracking, 0.0f);
+		setParameter(processor, vekt::mono::parameters::filterResonance, emphasis);
+		processor.prepareToPlay(48'000.0, 4096);
+		juce::AudioBuffer<float> buffer(2, 4096);
+		juce::MidiBuffer noteOn;
+		noteOn.addEvent(juce::MidiMessage::noteOn(1, 60, 1.0f), 0);
+		renderBlock(processor, buffer, noteOn);
+		renderBlock(processor, buffer);
+		return std::pair { sinusoidMagnitude(buffer, 1'000.0f, 48'000.0f), rms(buffer) };
+	};
+	const auto [flatPeak, flatRms] = render(0.0f);
+	const auto [emphasizedPeak, emphasizedRms] = render(100.0f);
+	REQUIRE(std::isfinite(emphasizedRms));
+	REQUIRE(emphasizedRms < 2.0f);
+	REQUIRE(emphasizedPeak / emphasizedRms > flatPeak / flatRms * 1.5f);
+}
+
+TEST_CASE("Mono Ladder keyboard tracking follows one octave per keyboard octave", "[mono][processor][filter]")
+{
+	auto brightnessFor = [](int note)
+	{
+		vekt::mono::PluginProcessor processor;
+		setParameter(processor, vekt::mono::parameters::osc1Level, 0.0f);
+		setParameter(processor, vekt::mono::parameters::noiseType, 1.0f);
+		setParameter(processor, vekt::mono::parameters::noiseLevel, 50.0f);
+		setParameter(processor, vekt::mono::parameters::filterCutoff, 500.0f);
+		setParameter(processor, vekt::mono::parameters::filterEnvelopeAmount, 0.0f);
+		setParameter(processor, vekt::mono::parameters::filterVelocity, 0.0f);
+		setParameter(processor, vekt::mono::parameters::filterKeyTracking, 100.0f);
+		setParameter(processor, vekt::mono::parameters::filterResonance, 0.0f);
+		processor.prepareToPlay(48'000.0, 4096);
+		juce::AudioBuffer<float> buffer(2, 4096);
+		juce::MidiBuffer noteOn;
+		noteOn.addEvent(juce::MidiMessage::noteOn(1, note, 1.0f), 0);
+		renderBlock(processor, buffer, noteOn);
+		renderBlock(processor, buffer);
+		return differenceRms(buffer);
+	};
+	REQUIRE(brightnessFor(72) > brightnessFor(48) * 1.8f);
+}
+
+TEST_CASE("Mono Ladder contour is bipolar in octave space", "[mono][processor][filter]")
+{
+	auto brightnessFor = [](float contour)
+	{
+		vekt::mono::PluginProcessor processor;
+		setParameter(processor, vekt::mono::parameters::osc1Level, 0.0f);
+		setParameter(processor, vekt::mono::parameters::noiseType, 1.0f);
+		setParameter(processor, vekt::mono::parameters::noiseLevel, 50.0f);
+		setParameter(processor, vekt::mono::parameters::filterCutoff, 1'000.0f);
+		setParameter(processor, vekt::mono::parameters::filterEnvelopeAmount, contour);
+		setParameter(processor, vekt::mono::parameters::filterAttack, 0.0005f);
+		setParameter(processor, vekt::mono::parameters::filterSustain, 100.0f);
+		setParameter(processor, vekt::mono::parameters::filterVelocity, 0.0f);
+		setParameter(processor, vekt::mono::parameters::filterKeyTracking, 0.0f);
+		processor.prepareToPlay(48'000.0, 4096);
+		juce::AudioBuffer<float> buffer(2, 4096);
+		juce::MidiBuffer noteOn;
+		noteOn.addEvent(juce::MidiMessage::noteOn(1, 60, 1.0f), 0);
+		renderBlock(processor, buffer, noteOn);
+		renderBlock(processor, buffer);
+		return differenceRms(buffer);
+	};
+	REQUIRE(brightnessFor(100.0f) > brightnessFor(-100.0f) * 5.0f);
+}
+
+TEST_CASE("Mono Ladder drive adds harmonics without acting as output gain", "[mono][processor][filter]")
+{
+	auto render = [](float drive)
+	{
+		vekt::mono::PluginProcessor processor;
+		setParameter(processor, vekt::mono::parameters::osc1Morph, 0.0f);
+		setParameter(processor, vekt::mono::parameters::osc2Level, 0.0f);
+		setParameter(processor, vekt::mono::parameters::osc3Level, 0.0f);
+		setParameter(processor, vekt::mono::parameters::filterCutoff, 20'000.0f);
+		setParameter(processor, vekt::mono::parameters::filterEnvelopeAmount, 0.0f);
+		setParameter(processor, vekt::mono::parameters::filterVelocity, 0.0f);
+		setParameter(processor, vekt::mono::parameters::filterKeyTracking, 0.0f);
+		setParameter(processor, vekt::mono::parameters::filterResonance, 0.0f);
+		setParameter(processor, vekt::mono::parameters::filterDrive, drive);
+		processor.prepareToPlay(48'000.0, 4096);
+		juce::AudioBuffer<float> buffer(2, 4096);
+		juce::MidiBuffer noteOn;
+		noteOn.addEvent(juce::MidiMessage::noteOn(1, 69, 1.0f), 0);
+		renderBlock(processor, buffer, noteOn);
+		renderBlock(processor, buffer);
+		const auto fundamental = sinusoidMagnitude(buffer, 440.0f, 48'000.0f);
+		const auto third = sinusoidMagnitude(buffer, 1'320.0f, 48'000.0f);
+		return std::pair { third / fundamental, rms(buffer) };
+	};
+	const auto [cleanHarmonics, cleanRms] = render(0.0f);
+	const auto [drivenHarmonics, drivenRms] = render(24.0f);
+	REQUIRE(drivenHarmonics > cleanHarmonics * 2.0f);
+	REQUIRE(drivenRms < cleanRms * 2.0f);
 }
 
 TEST_CASE("Mono preserves APVTS project state", "[mono][processor]")

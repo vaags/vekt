@@ -15,6 +15,8 @@ namespace vekt::mono
 namespace
 {
 constexpr float twoPi = 2.0f * std::numbers::pi_v<float>;
+constexpr float maximumContourOctaves = 5.0f;
+constexpr float maximumVelocityOctaves = 4.0f;
 
 float dbToGain(float decibels) noexcept { return std::pow(10.0f, decibels / 20.0f); }
 float midiToHz(float note) noexcept { return 440.0f * std::exp2((note - 69.0f) / 12.0f); }
@@ -115,6 +117,9 @@ public:
 		random.setSeed(seed);
 		amp.setSampleRate(newSampleRate);
 		filterEnvelope.setSampleRate(newSampleRate);
+		cutoffOctaves.reset(newSampleRate, 0.015);
+		resonance.reset(newSampleRate, 0.02);
+		driveDecibels.reset(newSampleRate, 0.02);
 		reset();
 	}
 
@@ -127,6 +132,7 @@ public:
 				oscillatorPhase = random.nextFloat();
 		driftCents = random.nextFloat() * 2.0f - 1.0f;
 		filterState = {};
+		filterControlsInitialized = false;
 		fadeInSamples = 0;
 	}
 
@@ -175,6 +181,10 @@ public:
 		const auto baseHz = midiToHz(currentNote);
 		const auto unisonCount = settings.unison;
 		const auto filterEnvelopeValue = filterEnvelope.getNextSample();
+		updateFilterControlTargets(settings);
+		const auto filterCutoff = std::exp2(cutoffOctaves.getNextValue());
+		const auto filterResonance = resonance.getNextValue();
+		const auto filterDrive = dbToGain(driveDecibels.getNextValue());
 		const auto velocityGain = (1.0f - settings.ampVelocity) + settings.ampVelocity * std::pow(velocity, 0.65f);
 		const auto allocationFade = fadeInSamples > 0 ? 1.0f - static_cast<float>(fadeInSamples--) / std::max(1.0f, 0.003f * sampleRate) : 1.0f;
 		const auto amplitude = amp.getNextSample() * velocityGain * allocationFade;
@@ -201,7 +211,8 @@ public:
 				if (settings.noiseType == 2) { pink = 0.98f * pink + 0.02f * noise; noise = pink; }
 				mixer += noise * settings.noiseLevel;
 			}
-			const auto stackOutput = filter(std::tanh(mixer * dbToGain(settings.drive)), settings, filterEnvelopeValue, stack) * amplitude;
+			const auto stackOutput = filter(mixer, settings, filterEnvelopeValue, filterCutoff,
+				filterResonance, filterDrive, stack) * amplitude;
 			const auto pan = juce::jlimit(-1.0f, 1.0f, settings.voiceWidth * panPosition
 				+ normalizedStack * settings.unisonSpread);
 			left += stackOutput * std::sqrt(0.5f * (1.0f - pan)) / static_cast<float>(unisonCount);
@@ -249,30 +260,59 @@ private:
 		return waves[static_cast<std::size_t>(segment)] + fraction * (waves[static_cast<std::size_t>(segment + 1)] - waves[static_cast<std::size_t>(segment)]);
 	}
 
-	float filter(float input, const Settings& settings, float envelopeValue, int stack)
+	void updateFilterControlTargets(const Settings& settings)
 	{
-		const auto velocityCutoff = settings.filterVelocity * velocity * 8'000.0f;
-		const auto keyRatio = std::exp2((currentNote - 60.0f) / 12.0f * settings.tracking);
-		const auto keyCutoff = settings.cutoff * (keyRatio - 1.0f);
-		const auto cutoff = juce::jlimit(20.0f, 20'000.0f, settings.cutoff + keyCutoff + settings.envelopeAmount * envelopeValue * 10'000.0f + velocityCutoff);
+		const auto cutoffTarget = std::log2(juce::jlimit(10.0f, 32'000.0f, settings.cutoff));
+		if (!filterControlsInitialized)
+		{
+			cutoffOctaves.setCurrentAndTargetValue(cutoffTarget);
+			resonance.setCurrentAndTargetValue(settings.resonance);
+			driveDecibels.setCurrentAndTargetValue(settings.drive);
+			filterControlsInitialized = true;
+			return;
+		}
+		if (!juce::approximatelyEqual(cutoffOctaves.getTargetValue(), cutoffTarget)) cutoffOctaves.setTargetValue(cutoffTarget);
+		if (!juce::approximatelyEqual(resonance.getTargetValue(), settings.resonance)) resonance.setTargetValue(settings.resonance);
+		if (!juce::approximatelyEqual(driveDecibels.getTargetValue(), settings.drive)) driveDecibels.setTargetValue(settings.drive);
+	}
+
+	float filter(float input, const Settings& settings, float envelopeValue, float baseCutoff,
+		float resonanceAmount, float driveGain, int stack)
+	{
+		// A ladder is controlled exponentially: keyboard, contour and velocity all
+		// offset cutoff in octave/control-voltage space rather than linear Hertz.
+		const auto keyOctaves = (currentNote - 60.0f) / 12.0f * settings.tracking;
+		const auto contourOctaves = settings.envelopeAmount * envelopeValue * maximumContourOctaves;
+		const auto velocityResponse = std::pow(juce::jlimit(0.0f, 1.0f, velocity), 0.65f);
+		const auto velocityOctaves = -settings.filterVelocity * (1.0f - velocityResponse) * maximumVelocityOctaves;
+		const auto maximumCutoff = std::min(32'000.0f, sampleRate * 0.45f);
+		const auto cutoff = juce::jlimit(10.0f, maximumCutoff,
+			baseCutoff * std::exp2(keyOctaves + contourOctaves + velocityOctaves));
 		const auto g = 1.0f - std::exp(-twoPi * cutoff / sampleRate);
 		auto& stackFilterState = filterState[static_cast<std::size_t>(stack)];
-		const auto feedback = stackFilterState[3] * settings.resonance * 3.8f;
-		auto signal = std::tanh(input - feedback);
+		// The upper part of Emphasis is intentionally expanded so the filter moves
+		// from a broad resonant peak into stable, playable self-oscillation.
+		const auto feedbackAmount = 4.05f * std::pow(juce::jlimit(0.0f, 1.0f, resonanceAmount), 0.72f);
+		const auto feedback = stackFilterState[3] * feedbackAmount;
+		const auto thermalExcitation = resonanceAmount > 0.7f
+			? (random.nextFloat() * 2.0f - 1.0f) * 1.0e-5f * (resonanceAmount - 0.7f) / 0.3f
+			: 0.0f;
+		auto signal = std::tanh((input + thermalExcitation) * driveGain - feedback);
 		for (auto& stage : stackFilterState) { stage += g * (std::tanh(signal) - stage); signal = stage; }
-		return signal;
+		return signal / std::sqrt(driveGain);
 	}
 
 	float sampleRate { 48'000.0f };
 	int fadeInSamples {};
 	juce::Random random;
 	juce::ADSR amp, filterEnvelope;
+	juce::SmoothedValue<float> cutoffOctaves, resonance, driveDecibels;
 	std::array<std::array<float, 3>, 4> phase {};
 	std::array<std::array<float, 4>, 4> filterState {};
 	float pink {}, currentNote {}, targetNote {}, velocity {}, panPosition {}, driftCents {};
 	int channel {}, note {};
 	std::uint64_t age {};
-	bool active {}, held {}, sustained {};
+	bool active {}, held {}, sustained {}, filterControlsInitialized {};
 };
 
 PluginProcessor::PluginProcessor()

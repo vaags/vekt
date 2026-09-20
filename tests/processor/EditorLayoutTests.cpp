@@ -230,6 +230,24 @@ TEST_CASE("Mono editor presents symmetric oscillator controls without overlap", 
 			REQUIRE(rotary->getSlider().getTooltip().contains("round-robin"));
 		}
 	REQUIRE(foundVoicePan);
+	const std::array ladderTooltips {
+		std::pair { "Cutoff", "exponentially" },
+		std::pair { "Resonance", "self-oscillation" },
+		std::pair { "Key Track", "one octave" },
+		std::pair { "Env Amount", "octave pitch space" },
+		std::pair { "Drive", "nonlinear filter" }
+	};
+	for (const auto& [controlName, expectedText] : ladderTooltips)
+	{
+		bool found = false;
+		for (auto* child : find("Ladder Filter").getChildren())
+			if (auto* rotary = dynamic_cast<vekt::ui::RotaryControl*>(child); rotary != nullptr && rotary->getName() == controlName)
+			{
+				found = true;
+				REQUIRE(rotary->getSlider().getTooltip().contains(expectedText));
+			}
+		REQUIRE(found);
+	}
 	for (const auto* panelName : { "Oscillators & Mixer", "Ladder Filter", "Voice", "I/O", "Amp ADSR", "Filter ADSR", "Performance / Noise" })
 	{
 		auto& panel = find(panelName);
