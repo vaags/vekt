@@ -27,6 +27,7 @@ add_executable(vekt_dsp_tests
 	processor/EditorLayoutTests.cpp
 	processor/ValueFormatTests.cpp
 	audio_lab/FileSourceTests.cpp
+    audio_lab/LabSettingsTests.cpp
     dsp/TanhStageTests.cpp
     ui/StereoMeterBallisticsTests.cpp
     ui/LevelMeterTests.cpp)

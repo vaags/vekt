@@ -1,5 +1,6 @@
 #include "SignalSources.h"
 #include "FileSource.h"
+#include "LabSettings.h"
 
 #include <PluginProcessor.h>
 #include <PluginEditor.h>
@@ -97,6 +98,7 @@ public:
 		#endif
 	{
 		restoreRackState();
+		requestedOctave.store(restoredSettings.octave);
         sourceBox.addItem("Sine", 1);
         sourceBox.addItem("Sawtooth", 2);
         sourceBox.addItem("Sweep", 3);
@@ -107,7 +109,7 @@ public:
 		sourceBox.addItem("Two Tone", 8);
 		sourceBox.addItem("Audio File", 9);
 		sourceBox.addItem("Vekt Mono", 10);
-        sourceBox.setSelectedId(1, juce::dontSendNotification);
+		sourceBox.setSelectedId(restoredSettings.source + 1, juce::dontSendNotification);
         for (auto *component : {static_cast<juce::Component *>(&sourceBox),
                                 static_cast<juce::Component *>(&octaveDownButton), static_cast<juce::Component *>(&octaveUpButton),
                                 static_cast<juce::Component *>(&armButton),
@@ -134,6 +136,7 @@ public:
 				productTabs.setSelectedId(1, juce::sendNotification);
 			orderButton.setTooltip("Process the selected source through this rack route.");
 		};
+		sourceBox.onChange();
 		fileLabel.setText("Drop WAV, MP3, FLAC or AIFF/AIF here", juce::dontSendNotification);
 		fileLabel.setTooltip("Drop one mono or stereo audio file anywhere in Audio Lab. Files loop at their original level.");
 		restartFileButton.setEnabled(false);
@@ -153,10 +156,10 @@ public:
         octaveUpButton.onClick = [this]
         { requestedOctave.store(std::min(3, requestedOctave.load() + 1)); };
         armButton.setClickingTogglesState(true);
+		setOutputArmed(restoredSettings.outputArmed);
 		armButton.onClick = [this]
 		{
-			outputArmed.store(armButton.getToggleState());
-			armButton.setButtonText(outputArmed.load() ? "Output armed" : "Arm output");
+			setOutputArmed(armButton.getToggleState());
 		};
 		productTabs.addItem("Mono", 1);
 		productTabs.addItem("RAV", 2);
@@ -177,8 +180,8 @@ public:
 		static constexpr std::array<const char*, 5> routeNames {
 			"Bypass", "RAV", "Glimmer", "RAV -> Glimmer", "Glimmer -> RAV" };
 		orderButton.setButtonText(routeNames[static_cast<std::size_t>(rackRoute.load())]);
-		midiInputBox.onChange = [this] { selectMidiInput(midiInputBox.getSelectedId() - 1); };
-		muteButton.onClick = [this] { outputArmed.store(false); armButton.setToggleState(false, juce::dontSendNotification); armButton.setButtonText("Arm output"); };
+		midiInputBox.onChange = [this] { selectMidiInput(midiInputBox.getSelectedItemIndex() - 1); };
+		muteButton.onClick = [this] { setOutputArmed(false); };
 		restartButton.onClick = []
 		{
 			const auto executable = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
@@ -193,6 +196,8 @@ public:
 		ravEditor.reset(ravProcessor.createEditor());
 		glimmerEditor.reset(glimmerProcessor.createEditor());
 		monoEditor.reset(monoProcessor.createEditor());
+		if (restoredSettings.audioFilePath.isNotEmpty())
+			loadFile(juce::File(restoredSettings.audioFilePath), restoredSettings.source == 8);
 		keyboard.setKeyPressBaseOctave(4);
 		keyboard.setOctaveForMiddleC(4);
 		keyboard.setWantsKeyboardFocus(true);
@@ -391,6 +396,13 @@ public:
 	}
 
 private:
+	void setOutputArmed(bool shouldArm)
+	{
+		outputArmed.store(shouldArm);
+		armButton.setToggleState(shouldArm, juce::dontSendNotification);
+		armButton.setButtonText(shouldArm ? "Output armed" : "Arm output");
+	}
+
 	void showProductEditor(int tab)
 	{
 		monoEditor->setVisible(tab == 1);
@@ -430,21 +442,28 @@ private:
 		if (!state.hasType("VektAudioLabRackState")
 			|| static_cast<int>(state.getProperty("schemaVersion", 0)) != 1)
 			return;
-		restoredSelectedTab = juce::jlimit(1, 3, static_cast<int>(state.getProperty("selectedTab", 1)));
-		rackRoute.store(juce::jlimit(0, 4, static_cast<int>(state.getProperty("rackRoute", 3))));
+		restoredSettings = vekt::audio_lab::readLabSettings(state);
+		restoredSelectedTab = restoredSettings.selectedTab;
+		rackRoute.store(restoredSettings.rackRoute);
 		restoreProcessorState(monoProcessor, state.getProperty("monoState", {}).toString());
 		restoreProcessorState(ravProcessor, state.getProperty("ravState", {}).toString());
 		restoreProcessorState(glimmerProcessor, state.getProperty("glimmerState", {}).toString());
-		restoredMidiInputIdentifier = state.getProperty("midiInput", {}).toString();
+		restoredMidiInputIdentifier = restoredSettings.midiInputIdentifier;
 	}
 
 	void saveRackState()
 	{
 		juce::ValueTree state("VektAudioLabRackState");
 		state.setProperty("schemaVersion", 1, nullptr);
-		state.setProperty("rackRoute", rackRoute.load(), nullptr);
-		state.setProperty("selectedTab", productTabs.getSelectedId(), nullptr);
-		state.setProperty("midiInput", selectedMidiInputIdentifier, nullptr);
+		vekt::audio_lab::writeLabSettings(state, {
+			requestedSource.load(),
+			requestedOctave.load(),
+			productTabs.getSelectedId(),
+			rackRoute.load(),
+			restoredMidiInputIdentifier,
+			loadedAudioFile.getFullPathName(),
+			outputArmed.load()
+		});
 		const auto capture = [](juce::AudioProcessor& processor)
 		{
 			juce::MemoryBlock data;
@@ -462,14 +481,15 @@ private:
 			juce::ignoreUnused(temporary.overwriteTargetFileWithTemporary());
 	}
 
-	void loadFile(const juce::File& file)
+	void loadFile(const juce::File& file, bool selectSource = true)
 	{
 		const auto generation = ++loadGeneration;
+		loadedAudioFile = file;
 		fileLabel.setText("Loading " + file.getFileName() + "...", juce::dontSendNotification);
-		loader.addJob([safe = juce::Component::SafePointer<LiveLab>(this), file, generation]
+		loader.addJob([safe = juce::Component::SafePointer<LiveLab>(this), file, generation, selectSource]
 		{
 			auto result = std::make_shared<vekt::audio_lab::FileLoadResult>(vekt::audio_lab::openAudioFile(file));
-			juce::MessageManager::callAsync([safe, result, generation]
+			juce::MessageManager::callAsync([safe, result, generation, selectSource]
 			{
 				if (safe == nullptr || safe->loadGeneration != generation)
 					return;
@@ -481,10 +501,14 @@ private:
 				}
 				safe->fileSource.install(std::move(result->reader));
 				safe->fileLoaded = true;
+				safe->loadedAudioFile = result->file;
 				safe->fileLabel.setText(result->file.getFileName(), juce::dontSendNotification);
 				safe->fileLabel.setTooltip(result->file.getFullPathName());
-				safe->sourceBox.setSelectedId(9, juce::dontSendNotification);
-				safe->sourceBox.onChange();
+				if (selectSource)
+				{
+					safe->sourceBox.setSelectedId(9, juce::dontSendNotification);
+					safe->sourceBox.onChange();
+				}
 			});
 		});
 	}
@@ -500,8 +524,7 @@ private:
 
 	void refreshMidiInputs()
 	{
-		const auto wantedIdentifier = selectedMidiInputIdentifier.isNotEmpty()
-			? selectedMidiInputIdentifier : restoredMidiInputIdentifier;
+		const auto wantedIdentifier = restoredMidiInputIdentifier;
 		midiInputDevices = juce::MidiInput::getAvailableDevices();
 		midiInputBox.clear(juce::dontSendNotification);
 		midiInputBox.addItem("MIDI Input: Off", 1);
@@ -514,8 +537,7 @@ private:
 				selectMidiInput(index);
 				return;
 			}
-		if (selectedMidiInputIdentifier.isNotEmpty())
-			selectMidiInput(-1);
+		disconnectMidiInput();
 		midiInputBox.setSelectedId(1, juce::dontSendNotification);
 	}
 
@@ -530,17 +552,25 @@ private:
 
 	void selectMidiInput(int index)
 	{
-		if (selectedMidiInputIdentifier.isNotEmpty())
-		{
-			removeMidiInputDeviceCallback(selectedMidiInputIdentifier, &midiCollector);
-			setMidiInputDeviceEnabled(selectedMidiInputIdentifier, false);
-			selectedMidiInputIdentifier.clear();
-		}
+		disconnectMidiInput();
 		if (!juce::isPositiveAndBelow(index, midiInputDevices.size()))
+		{
+			restoredMidiInputIdentifier.clear();
 			return;
+		}
 		selectedMidiInputIdentifier = midiInputDevices.getReference(index).identifier;
+		restoredMidiInputIdentifier = selectedMidiInputIdentifier;
 		setMidiInputDeviceEnabled(selectedMidiInputIdentifier, true);
 		addMidiInputDeviceCallback(selectedMidiInputIdentifier, &midiCollector);
+	}
+
+	void disconnectMidiInput()
+	{
+		if (selectedMidiInputIdentifier.isEmpty())
+			return;
+		removeMidiInputDeviceCallback(selectedMidiInputIdentifier, &midiCollector);
+		setMidiInputDeviceEnabled(selectedMidiInputIdentifier, false);
+		selectedMidiInputIdentifier.clear();
 	}
 
 	void timerCallback() override
@@ -627,6 +657,7 @@ private:
 	juce::Label fileLabel;
 	juce::Label positionLabel;
 	bool fileLoaded {};
+	juce::File loadedAudioFile;
 	bool draggingFile {};
 	unsigned int loadGeneration {};
 	vekt::rav::PluginProcessor ravProcessor;
@@ -659,6 +690,7 @@ private:
 	std::atomic<float> generatedPeak {};
 	std::atomic<float> pluginCpuLoadPercent {};
 	std::atomic<int> rackRoute { 3 };
+	vekt::audio_lab::LabSettings restoredSettings;
 	int restoredSelectedTab { 1 };
 	juce::Array<juce::MidiDeviceInfo> midiInputDevices;
 	juce::String selectedMidiInputIdentifier;
