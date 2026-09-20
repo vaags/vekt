@@ -422,7 +422,7 @@ TEST_CASE("Mono Ladder keyboard tracking follows one octave per keyboard octave"
 	REQUIRE(brightnessFor(72) > brightnessFor(48) * 1.8f);
 }
 
-TEST_CASE("Mono Ladder contour is bipolar in octave space", "[mono][processor][filter]")
+TEST_CASE("Mono Ladder contour is unipolar with a wide full-scale sweep", "[mono][processor][filter]")
 {
 	auto brightnessFor = [](float contour)
 	{
@@ -444,7 +444,12 @@ TEST_CASE("Mono Ladder contour is bipolar in octave space", "[mono][processor][f
 		renderBlock(processor, buffer);
 		return differenceRms(buffer);
 	};
-	REQUIRE(brightnessFor(100.0f) > brightnessFor(-100.0f) * 5.0f);
+	vekt::mono::PluginProcessor processor;
+	auto* parameter = processor.getParameters().getParameter(vekt::mono::parameters::filterEnvelopeAmount);
+	REQUIRE(parameter != nullptr);
+	REQUIRE(parameter->convertFrom0to1(0.0f) == 0.0f);
+	REQUIRE(parameter->convertFrom0to1(1.0f) == 100.0f);
+	REQUIRE(brightnessFor(100.0f) > brightnessFor(0.0f) * 5.0f);
 }
 
 TEST_CASE("Mono Ladder drive adds harmonics without acting as output gain", "[mono][processor][filter]")

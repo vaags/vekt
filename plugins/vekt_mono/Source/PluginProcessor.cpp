@@ -15,7 +15,7 @@ namespace vekt::mono
 namespace
 {
 constexpr float twoPi = 2.0f * std::numbers::pi_v<float>;
-constexpr float maximumContourOctaves = 5.0f;
+constexpr float maximumContourOctaves = 8.0f;
 constexpr float maximumVelocityOctaves = 4.0f;
 constexpr float referenceOscillationFeedback = 4.58f;
 constexpr float voiceTransitionSeconds = 0.003f;
