@@ -27,7 +27,7 @@ vekt_watch()
     watch_paths=("$@")
 
     while true; do
-        fswatch --one-per-batch --latency 0.25 --recursive "${watch_paths[@]}" >/dev/null
+        fswatch --one-event --latency 0.25 --recursive "${watch_paths[@]}" >/dev/null
         print
         print "$message"
         vekt_run_watch_build

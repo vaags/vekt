@@ -6,8 +6,7 @@ source scripts/lib/watch.zsh
 
 watch_paths=(
 	"tools/audio_lab"
-	"plugins/vekt_rav/Source"
-	"plugins/vekt_rav/Resources"
+	"plugins/vekt_rav"
 	"plugins/vekt_glimmer"
 	"plugins/vekt_mono"
 	"framework"
