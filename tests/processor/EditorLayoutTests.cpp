@@ -47,6 +47,18 @@ vekt::ui::LevelMeter* findMeter(juce::Component& parent, const juce::String& nam
 	return nullptr;
 }
 
+vekt::ui::RotaryControl* findRotary(juce::Component& parent, const juce::String& name)
+{
+	for (auto* child : parent.getChildren())
+	{
+		if (auto* rotary = dynamic_cast<vekt::ui::RotaryControl*>(child); rotary != nullptr && rotary->getName() == name)
+			return rotary;
+		if (auto* rotary = findRotary(*child, name))
+			return rotary;
+	}
+	return nullptr;
+}
+
 void checkMeterBounds(juce::Component& content, int minimumWidth)
 {
 	for (const auto* name : { "IN", "OUT" })
@@ -268,6 +280,22 @@ TEST_CASE("Mono editor presents symmetric oscillator controls without overlap", 
 		REQUIRE(stream.openedOk());
 		REQUIRE(juce::PNGImageFormat().writeImageToStream(image, stream));
 	}
+}
+
+TEST_CASE("Mono Resonance knob writes its full range to the processor", "[mono][processor][ui]")
+{
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	vekt::mono::PluginProcessor processor;
+	vekt::mono::PluginEditor editor(processor);
+	auto* resonance = findRotary(editor.getContent(), "Resonance");
+	REQUIRE(resonance != nullptr);
+	auto& slider = resonance->getSlider();
+	REQUIRE(slider.getMinimum() == Catch::Approx(0.0));
+	REQUIRE(slider.getMaximum() == Catch::Approx(100.0));
+	slider.setValue(slider.getMaximum(), juce::sendNotificationSync);
+	REQUIRE(slider.getValue() == Catch::Approx(100.0));
+	REQUIRE(processor.getParameters().getRawParameterValue(vekt::mono::parameters::filterResonance)->load()
+		== Catch::Approx(100.0f));
 }
 
 TEST_CASE("Glimmer editor keeps stereo meters within its canvas", "[processor][ui]")

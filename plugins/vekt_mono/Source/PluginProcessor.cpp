@@ -17,6 +17,28 @@ namespace
 constexpr float twoPi = 2.0f * std::numbers::pi_v<float>;
 constexpr float maximumContourOctaves = 5.0f;
 constexpr float maximumVelocityOctaves = 4.0f;
+constexpr float referenceOscillationFeedback = 4.58f;
+
+struct LadderCoefficients
+{
+	float stageCoefficient {};
+	float oscillationFeedback {};
+};
+
+LadderCoefficients ladderCoefficients(float cutoff, float sampleRate) noexcept
+{
+	// The feedback sample is one sample old, in addition to the phase shift of
+	// the four one-pole stages. Solve that complete loop at the requested cutoff
+	// so Resonance peaks and self-oscillates at the frequency shown by Cutoff.
+	const auto omega = juce::jlimit(1.0e-6f, std::numbers::pi_v<float> * 0.9f, twoPi * cutoff / sampleRate);
+	const auto stagePhase = (std::numbers::pi_v<float> - omega) * 0.25f;
+	const auto tangent = std::tan(stagePhase);
+	const auto pole = tangent / (std::sin(omega) + tangent * std::cos(omega));
+	const auto coefficient = 1.0f - pole;
+	const auto stageMagnitude = coefficient
+		/ std::sqrt(1.0f + pole * pole - 2.0f * pole * std::cos(omega));
+	return { coefficient, 1.0f / std::pow(stageMagnitude, 4.0f) };
+}
 
 float dbToGain(float decibels) noexcept { return std::pow(10.0f, decibels / 20.0f); }
 float midiToHz(float note) noexcept { return 440.0f * std::exp2((note - 69.0f) / 12.0f); }
@@ -288,21 +310,35 @@ private:
 		const auto maximumCutoff = std::min(32'000.0f, sampleRate * 0.45f);
 		const auto cutoff = juce::jlimit(10.0f, maximumCutoff,
 			baseCutoff * std::exp2(keyOctaves + contourOctaves + velocityOctaves));
-		const auto g = 1.0f - std::exp(-twoPi * cutoff / sampleRate);
+		const auto coefficients = ladderCoefficients(cutoff, sampleRate);
 		auto& stackFilterState = filterState[static_cast<std::size_t>(stack)];
-		// The upper part of Emphasis is intentionally expanded so the filter moves
-		// from a broad resonant peak into stable, playable self-oscillation.
-		const auto feedbackAmount = 4.05f * std::pow(juce::jlimit(0.0f, 1.0f, resonanceAmount), 0.72f);
+		// Preserve the established control taper at the 1 kHz / 48 kHz reference,
+		// but scale it by this cutoff's actual oscillation threshold. Resonance then
+		// has the same meaning as Cutoff or sample rate changes.
+		const auto normalizedResonance = juce::jlimit(0.0f, 1.0f, resonanceAmount);
+		const auto regenerationPosition = juce::jlimit(0.0f, 1.0f, (normalizedResonance - 0.65f) / 0.2f);
+		const auto regeneration = regenerationPosition * regenerationPosition * (3.0f - 2.0f * regenerationPosition);
+		const auto referenceFeedback = 4.05f * std::pow(normalizedResonance, 0.72f) + 3.0f * regeneration;
+		const auto feedbackAmount = coefficients.oscillationFeedback * referenceFeedback / referenceOscillationFeedback;
 		const auto feedback = stackFilterState[3] * feedbackAmount;
 		// Q compensation offsets the passband loss caused by negative feedback.
 		// At low frequencies the ladder approaches unity gain, so multiplying its
 		// input by 1 + feedback preserves the programmed level as emphasis rises.
 		const auto qCompensation = 1.0f + feedbackAmount;
-		const auto thermalExcitation = resonanceAmount > 0.7f
-			? (random.nextFloat() * 2.0f - 1.0f) * 1.0e-5f * (resonanceAmount - 0.7f) / 0.3f
-			: 0.0f;
-		auto signal = std::tanh((input + thermalExcitation) * driveGain * qCompensation - feedback);
-		for (auto& stage : stackFilterState) { stage += g * (std::tanh(signal) - stage); signal = stage; }
+		const auto stateEnergy = std::abs(stackFilterState[0]) + std::abs(stackFilterState[1])
+			+ std::abs(stackFilterState[2]) + std::abs(stackFilterState[3]);
+		const auto startupExcitation = regeneration > 0.0f && stateEnergy < 1.0e-12f ? 1.0e-4f * regeneration : 0.0f;
+		// Keep the nonlinear transfer fixed as Emphasis moves. Varying its headroom
+		// with resonance turns Q compensation into an unintended level control.
+		constexpr auto ladderHeadroom = 4.0f;
+		const auto summingNode = (input + startupExcitation) * driveGain * qCompensation - feedback;
+		auto signal = ladderHeadroom * std::tanh(summingNode / ladderHeadroom);
+		for (auto& stage : stackFilterState)
+		{
+			const auto saturated = ladderHeadroom * std::tanh(signal / ladderHeadroom);
+			stage += coefficients.stageCoefficient * (saturated - stage);
+			signal = stage;
+		}
 		return signal / std::sqrt(driveGain);
 	}
 

@@ -28,6 +28,18 @@ float rms(const juce::AudioBuffer<float>& buffer)
 	return static_cast<float>(std::sqrt(sum / static_cast<double>(buffer.getNumSamples())));
 }
 
+float stereoRms(const juce::AudioBuffer<float>& buffer)
+{
+	double sum {};
+	for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+		for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+		{
+			const auto value = buffer.getSample(channel, sample);
+			sum += static_cast<double>(value) * value;
+		}
+	return static_cast<float>(std::sqrt(sum / static_cast<double>(buffer.getNumChannels() * buffer.getNumSamples())));
+}
+
 float differenceRms(const juce::AudioBuffer<float>& buffer)
 {
 	double sum {};
@@ -50,6 +62,20 @@ float sinusoidMagnitude(const juce::AudioBuffer<float>& buffer, float frequency,
 		imaginary -= value * std::sin(phase);
 	}
 	return static_cast<float>(2.0 * std::sqrt(real * real + imaginary * imaginary) / static_cast<double>(buffer.getNumSamples()));
+}
+
+std::pair<float, float> dominantFrequency(const juce::AudioBuffer<float>& buffer, float startFrequency,
+	float endFrequency, float sampleRate)
+{
+	float strongestFrequency = startFrequency;
+	float strongestMagnitude {};
+	for (auto frequency = startFrequency; frequency <= endFrequency; frequency += 5.0f)
+		if (const auto magnitude = sinusoidMagnitude(buffer, frequency, sampleRate); magnitude > strongestMagnitude)
+		{
+			strongestFrequency = frequency;
+			strongestMagnitude = magnitude;
+		}
+	return { strongestFrequency, strongestMagnitude };
 }
 
 void renderBlock(vekt::mono::PluginProcessor& processor, juce::AudioBuffer<float>& buffer, juce::MidiBuffer midi = {})
@@ -152,15 +178,16 @@ TEST_CASE("Mono Ladder emphasis builds a resonant peak and remains stable", "[mo
 	REQUIRE(emphasizedPeak > flatPeak * 1.5f);
 }
 
-TEST_CASE("Mono Ladder Q compensation preserves oscillator level at maximum emphasis", "[mono][processor][filter]")
+TEST_CASE("Mono Ladder Q compensation preserves the source fundamental across emphasis", "[mono][processor][filter]")
 {
-	auto levelFor = [](float emphasis)
+	auto levelFor = [](float oscillatorLevel, float cutoff, float emphasis)
 	{
 		vekt::mono::PluginProcessor processor;
+		setParameter(processor, vekt::mono::parameters::osc1Level, oscillatorLevel);
 		setParameter(processor, vekt::mono::parameters::osc1Morph, 0.0f);
 		setParameter(processor, vekt::mono::parameters::osc2Level, 0.0f);
 		setParameter(processor, vekt::mono::parameters::osc3Level, 0.0f);
-		setParameter(processor, vekt::mono::parameters::filterCutoff, 500.0f);
+		setParameter(processor, vekt::mono::parameters::filterCutoff, cutoff);
 		setParameter(processor, vekt::mono::parameters::filterEnvelopeAmount, 0.0f);
 		setParameter(processor, vekt::mono::parameters::filterVelocity, 0.0f);
 		setParameter(processor, vekt::mono::parameters::filterKeyTracking, 0.0f);
@@ -169,15 +196,206 @@ TEST_CASE("Mono Ladder Q compensation preserves oscillator level at maximum emph
 		processor.prepareToPlay(48'000.0, 4096);
 		juce::AudioBuffer<float> buffer(2, 4096);
 		juce::MidiBuffer noteOn;
-		noteOn.addEvent(juce::MidiMessage::noteOn(1, 48, 1.0f), 0);
+		noteOn.addEvent(juce::MidiMessage::noteOn(1, 36, 1.0f), 0);
 		renderBlock(processor, buffer, noteOn);
-		renderBlock(processor, buffer);
-		return std::pair { rms(buffer), buffer.getMagnitude(0, 0, buffer.getNumSamples()) };
+		for (int block = 0; block < 12; ++block) renderBlock(processor, buffer);
+		return sinusoidMagnitude(buffer, 65.4064f, 48'000.0f);
 	};
-	const auto [flatRms, flatPeak] = levelFor(0.0f);
-	const auto [emphasizedRms, emphasizedPeak] = levelFor(100.0f);
-	REQUIRE(emphasizedRms >= flatRms);
-	REQUIRE(emphasizedPeak >= flatPeak);
+	for (const auto oscillatorLevel : { 20.0f, 50.0f, 100.0f })
+		for (const auto cutoff : { 500.0f, 1'000.0f, 4'000.0f })
+		{
+			const auto reference = levelFor(oscillatorLevel, cutoff, 0.0f);
+			REQUIRE(reference > 0.01f);
+			for (const auto emphasis : { 25.0f, 50.0f, 70.0f, 85.0f, 100.0f })
+			{
+				const auto level = levelFor(oscillatorLevel, cutoff, emphasis);
+				INFO("oscillator=" << oscillatorLevel << "%, cutoff=" << cutoff << " Hz, emphasis=" << emphasis
+					<< "%, fundamental=" << level << ", ratio=" << level / reference);
+				CHECK(level > reference * 0.85f);
+				CHECK(level < reference * 1.15f);
+			}
+		}
+}
+
+TEST_CASE("Mono Ladder self-oscillates at maximum emphasis", "[mono][processor][filter]")
+{
+	for (const auto quality : { 0.0f, 1.0f })
+		for (const auto sampleRate : { 44'100.0f, 48'000.0f, 96'000.0f })
+			for (const auto cutoff : { 250.0f, 1'000.0f, 4'000.0f })
+		{
+			vekt::mono::PluginProcessor processor;
+			setParameter(processor, vekt::mono::parameters::quality, quality);
+			setParameter(processor, vekt::mono::parameters::osc1Level, 0.0f);
+			setParameter(processor, vekt::mono::parameters::osc2Level, 0.0f);
+			setParameter(processor, vekt::mono::parameters::osc3Level, 0.0f);
+			setParameter(processor, vekt::mono::parameters::noiseType, 0.0f);
+			setParameter(processor, vekt::mono::parameters::noiseLevel, 0.0f);
+			setParameter(processor, vekt::mono::parameters::filterCutoff, cutoff);
+			setParameter(processor, vekt::mono::parameters::filterEnvelopeAmount, 0.0f);
+			setParameter(processor, vekt::mono::parameters::filterVelocity, 0.0f);
+			setParameter(processor, vekt::mono::parameters::filterKeyTracking, 0.0f);
+			setParameter(processor, vekt::mono::parameters::filterDrive, 0.0f);
+			setParameter(processor, vekt::mono::parameters::filterResonance, 100.0f);
+			setParameter(processor, vekt::mono::parameters::ampSustain, 100.0f);
+			setParameter(processor, vekt::mono::parameters::ampVelocity, 0.0f);
+			setParameter(processor, vekt::mono::parameters::unison, 0.0f);
+			setParameter(processor, vekt::mono::parameters::voiceWidth, 0.0f);
+			setParameter(processor, vekt::mono::parameters::masterOutput, 0.0f);
+			processor.prepareToPlay(sampleRate, 4096);
+			juce::AudioBuffer<float> buffer(2, 4096);
+			juce::MidiBuffer noteOn;
+			noteOn.addEvent(juce::MidiMessage::noteOn(1, 60, 1.0f), 0);
+			renderBlock(processor, buffer, noteOn);
+			for (int block = 0; block < 24; ++block) renderBlock(processor, buffer);
+			const auto settledRms = rms(buffer);
+			const auto [frequency, magnitude] = dominantFrequency(buffer, cutoff * 0.9f, cutoff * 1.1f, sampleRate);
+			const auto secondHarmonic = sinusoidMagnitude(buffer, frequency * 2.0f, sampleRate);
+			const auto thirdHarmonic = sinusoidMagnitude(buffer, frequency * 3.0f, sampleRate);
+			INFO("quality=" << quality << ", sample rate=" << sampleRate << ", cutoff=" << cutoff << ", fundamental=" << frequency
+				<< " Hz / " << magnitude << ", second=" << secondHarmonic << ", third=" << thirdHarmonic
+				<< ", rms=" << settledRms);
+			REQUIRE(settledRms > 0.1f);
+			REQUIRE(settledRms < 1.0f);
+			REQUIRE(frequency == Catch::Approx(cutoff).margin(cutoff * 0.03f));
+			REQUIRE(magnitude > settledRms);
+			REQUIRE(secondHarmonic < magnitude * 0.1f);
+			REQUIRE(thirdHarmonic < magnitude * 0.2f);
+			renderBlock(processor, buffer);
+			REQUIRE(rms(buffer) >= settledRms * 0.9f);
+		}
+}
+
+TEST_CASE("Mono Ladder self-oscillation is audible through a preset-style voice path", "[mono][processor][filter]")
+{
+	vekt::mono::PluginProcessor processor;
+	setParameter(processor, vekt::mono::parameters::osc1Level, 0.0f);
+	setParameter(processor, vekt::mono::parameters::osc2Level, 0.0f);
+	setParameter(processor, vekt::mono::parameters::osc3Level, 0.0f);
+	setParameter(processor, vekt::mono::parameters::noiseType, 0.0f);
+	setParameter(processor, vekt::mono::parameters::noiseLevel, 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterCutoff, 1'000.0f);
+	setParameter(processor, vekt::mono::parameters::filterEnvelopeAmount, 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterVelocity, 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterKeyTracking, 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterDrive, 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterResonance, 100.0f);
+	setParameter(processor, vekt::mono::parameters::ampSustain, 64.0f);
+	setParameter(processor, vekt::mono::parameters::ampVelocity, 55.0f);
+	setParameter(processor, vekt::mono::parameters::unison, 1.0f);
+	setParameter(processor, vekt::mono::parameters::unisonSpread, 48.0f);
+	setParameter(processor, vekt::mono::parameters::voiceWidth, 18.0f);
+	setParameter(processor, vekt::mono::parameters::masterOutput, -7.0f);
+	processor.prepareToPlay(48'000.0, 4096);
+	juce::AudioBuffer<float> buffer(2, 4096);
+	juce::MidiBuffer noteOn;
+	noteOn.addEvent(juce::MidiMessage::noteOn(1, 60, 1.0f), 0);
+	renderBlock(processor, buffer, noteOn);
+	for (int block = 0; block < 12; ++block) renderBlock(processor, buffer);
+	REQUIRE(stereoRms(buffer) > 0.025f);
+}
+
+TEST_CASE("Mono Ladder enters self-oscillation when emphasis reaches maximum in real time", "[mono][processor][filter]")
+{
+	vekt::mono::PluginProcessor processor;
+	setParameter(processor, vekt::mono::parameters::osc1Level, 0.0f);
+	setParameter(processor, vekt::mono::parameters::osc2Level, 0.0f);
+	setParameter(processor, vekt::mono::parameters::osc3Level, 0.0f);
+	setParameter(processor, vekt::mono::parameters::noiseType, 0.0f);
+	setParameter(processor, vekt::mono::parameters::noiseLevel, 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterCutoff, 1'000.0f);
+	setParameter(processor, vekt::mono::parameters::filterEnvelopeAmount, 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterVelocity, 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterKeyTracking, 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterDrive, 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterResonance, 0.0f);
+	setParameter(processor, vekt::mono::parameters::ampSustain, 100.0f);
+	setParameter(processor, vekt::mono::parameters::ampVelocity, 0.0f);
+	setParameter(processor, vekt::mono::parameters::unison, 0.0f);
+	setParameter(processor, vekt::mono::parameters::voiceWidth, 0.0f);
+	setParameter(processor, vekt::mono::parameters::masterOutput, 0.0f);
+	processor.prepareToPlay(48'000.0, 512);
+	juce::AudioBuffer<float> buffer(2, 512);
+	juce::MidiBuffer noteOn;
+	noteOn.addEvent(juce::MidiMessage::noteOn(1, 60, 1.0f), 0);
+	renderBlock(processor, buffer, noteOn);
+	for (int block = 0; block < 8; ++block) renderBlock(processor, buffer);
+	REQUIRE(stereoRms(buffer) < 1.0e-6f);
+
+	setParameter(processor, vekt::mono::parameters::filterResonance, 100.0f);
+	for (int block = 0; block < 120; ++block) renderBlock(processor, buffer);
+	REQUIRE(stereoRms(buffer) > 0.1f);
+	const auto [frequency, magnitude] = dominantFrequency(buffer, 700.0f, 1'400.0f, 48'000.0f);
+	REQUIRE(frequency > 750.0f);
+	REQUIRE(frequency < 1'300.0f);
+	REQUIRE(magnitude > rms(buffer));
+}
+
+TEST_CASE("Mono Ladder develops an audible cutoff tone when GUI-style emphasis is raised over an active oscillator", "[mono][processor][filter]")
+{
+	vekt::mono::PluginProcessor processor;
+	setParameter(processor, vekt::mono::parameters::osc1Level, 45.0f);
+	setParameter(processor, vekt::mono::parameters::osc1Morph, 0.0f);
+	setParameter(processor, vekt::mono::parameters::osc2Level, 0.0f);
+	setParameter(processor, vekt::mono::parameters::osc3Level, 0.0f);
+	setParameter(processor, vekt::mono::parameters::noiseType, 0.0f);
+	setParameter(processor, vekt::mono::parameters::noiseLevel, 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterCutoff, 1'000.0f);
+	setParameter(processor, vekt::mono::parameters::filterEnvelopeAmount, 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterVelocity, 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterKeyTracking, 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterDrive, 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterResonance, 0.0f);
+	setParameter(processor, vekt::mono::parameters::ampSustain, 100.0f);
+	setParameter(processor, vekt::mono::parameters::ampVelocity, 0.0f);
+	setParameter(processor, vekt::mono::parameters::unison, 0.0f);
+	setParameter(processor, vekt::mono::parameters::voiceWidth, 0.0f);
+	setParameter(processor, vekt::mono::parameters::masterOutput, 0.0f);
+	processor.prepareToPlay(48'000.0, 512);
+	juce::AudioBuffer<float> buffer(2, 512);
+	juce::MidiBuffer noteOn;
+	noteOn.addEvent(juce::MidiMessage::noteOn(1, 57, 1.0f), 0);
+	renderBlock(processor, buffer, noteOn);
+	for (int block = 0; block < 8; ++block) renderBlock(processor, buffer);
+	const auto lowResonanceCutoffTone = sinusoidMagnitude(buffer, 1'000.0f, 48'000.0f);
+
+	setParameter(processor, vekt::mono::parameters::filterResonance, 100.0f);
+	for (int block = 0; block < 120; ++block) renderBlock(processor, buffer);
+	const auto highResonanceCutoffTone = sinusoidMagnitude(buffer, 1'000.0f, 48'000.0f);
+	const auto [frequency, magnitude] = dominantFrequency(buffer, 700.0f, 1'400.0f, 48'000.0f);
+	INFO("low cutoff tone=" << lowResonanceCutoffTone << ", high cutoff tone=" << highResonanceCutoffTone
+		<< ", dominant=" << frequency << " Hz / " << magnitude << ", rms=" << rms(buffer));
+	REQUIRE(highResonanceCutoffTone > 0.1f);
+	REQUIRE(highResonanceCutoffTone > lowResonanceCutoffTone * 10.0f);
+	REQUIRE(frequency > 750.0f);
+	REQUIRE(frequency < 1'300.0f);
+	REQUIRE(magnitude > rms(buffer));
+}
+
+TEST_CASE("Mono Ladder does not self-oscillate below the upper emphasis range", "[mono][processor][filter]")
+{
+	vekt::mono::PluginProcessor processor;
+	setParameter(processor, vekt::mono::parameters::osc1Level, 0.0f);
+	setParameter(processor, vekt::mono::parameters::osc2Level, 0.0f);
+	setParameter(processor, vekt::mono::parameters::osc3Level, 0.0f);
+	setParameter(processor, vekt::mono::parameters::noiseType, 0.0f);
+	setParameter(processor, vekt::mono::parameters::noiseLevel, 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterCutoff, 1'000.0f);
+	setParameter(processor, vekt::mono::parameters::filterEnvelopeAmount, 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterVelocity, 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterKeyTracking, 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterResonance, 70.0f);
+	setParameter(processor, vekt::mono::parameters::ampSustain, 100.0f);
+	setParameter(processor, vekt::mono::parameters::ampVelocity, 0.0f);
+	setParameter(processor, vekt::mono::parameters::unison, 0.0f);
+	setParameter(processor, vekt::mono::parameters::voiceWidth, 0.0f);
+	setParameter(processor, vekt::mono::parameters::masterOutput, 0.0f);
+	processor.prepareToPlay(48'000.0, 4096);
+	juce::AudioBuffer<float> buffer(2, 4096);
+	juce::MidiBuffer noteOn;
+	noteOn.addEvent(juce::MidiMessage::noteOn(1, 60, 1.0f), 0);
+	renderBlock(processor, buffer, noteOn);
+	for (int block = 0; block < 12; ++block) renderBlock(processor, buffer);
+	REQUIRE(stereoRms(buffer) < 1.0e-4f);
 }
 
 TEST_CASE("Mono Ladder keyboard tracking follows one octave per keyboard octave", "[mono][processor][filter]")
