@@ -51,4 +51,8 @@ juce_add_plugin(VektGlimmer
 	NEEDS_CURL FALSE
 	HARDENED_RUNTIME_ENABLED TRUE)
 target_sources(VektGlimmer PRIVATE Source/PluginEntryPoint.cpp)
-target_link_libraries(VektGlimmer PRIVATE VektGlimmerCore)
+target_link_libraries(VektGlimmer PRIVATE
+	VektGlimmerCore
+	juce::juce_audio_utils
+	juce::juce_audio_formats
+	juce::juce_dsp)

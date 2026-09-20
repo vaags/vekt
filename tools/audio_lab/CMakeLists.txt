@@ -9,6 +9,7 @@ target_link_libraries(VektRavRender PRIVATE
 	VektRavCore
 	VektGlimmerCore
     vekt::juce_headers
+	vekt::juce_runtime
 	vekt_project_options)
 
 target_link_libraries(VektRavAudioLab PRIVATE
@@ -16,4 +17,5 @@ target_link_libraries(VektRavAudioLab PRIVATE
 	VektGlimmerCore
 	VektMonoCore
     vekt::juce_headers
+	vekt::juce_runtime
 	vekt_project_options)

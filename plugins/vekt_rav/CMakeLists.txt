@@ -69,4 +69,8 @@ juce_add_plugin(VektRav
 	HARDENED_RUNTIME_ENABLED TRUE)
 
 target_sources(VektRav PRIVATE Source/PluginEntryPoint.cpp)
-target_link_libraries(VektRav PRIVATE VektRavCore)
+target_link_libraries(VektRav PRIVATE
+	VektRavCore
+	juce::juce_audio_utils
+	juce::juce_audio_formats
+	juce::juce_dsp)

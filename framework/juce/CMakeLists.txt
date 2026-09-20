@@ -37,5 +37,3 @@ target_compile_definitions(vekt_juce_headers INTERFACE
     JUCE_MODULE_AVAILABLE_juce_graphics=1
     JUCE_MODULE_AVAILABLE_juce_gui_basics=1
     JUCE_MODULE_AVAILABLE_juce_gui_extra=1)
-target_link_libraries(vekt_juce_headers INTERFACE
-    vekt::juce_runtime)

@@ -69,4 +69,8 @@ juce_add_plugin(VektMono
 	NEEDS_CURL FALSE
 	HARDENED_RUNTIME_ENABLED TRUE)
 target_sources(VektMono PRIVATE Source/PluginEntryPoint.cpp)
-target_link_libraries(VektMono PRIVATE VektMonoCore)
+target_link_libraries(VektMono PRIVATE
+	VektMonoCore
+	juce::juce_audio_utils
+	juce::juce_audio_formats
+	juce::juce_dsp)
