@@ -506,6 +506,16 @@ The final development suite passed 269/269 cases, and ordinary Release VST3
 and Standalone targets built with development mode off; no acceptance gate
 changed. See `docs/MONO_VALIDATION.md` for dated logs.
 
+**Retained-quality reported-latency matrix (27 September 2026;
+development-only):** A focused regression checks coupled reported latency
+against the selected oversampling path and normal legacy at five host rates,
+128/257-sample blocks and all four retained qualities, before and during
+rendering. It passed 1,280 assertions. Host renegotiation, measured audio
+delay and an approved per-quality latency bound remain open.
+The final development suite passed 270/270 cases; ordinary Release VST3 and
+Standalone targets built with development mode off. This adds no production
+acceptance or permission to change engine selection.
+
 **Idle quality-pair matrix (27 September 2026; development-only):** A focused
 processor regression covers all 12 ordered changes among 1x/2x/4x/8x. It
 checks transport deferral while idle, activation after stop, target latency

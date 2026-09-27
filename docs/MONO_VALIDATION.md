@@ -107,6 +107,23 @@ rebuild needed; log: `/tmp/vekt-coupled-reprepare-release-20260927.log`,
 ephemeral). One status command timed out during polling, but the suite's
 completed exit status was 0; this is not production-host evidence.
 
+**Coupled retained-quality reported-latency matrix (27 September 2026):**
+`Mono coupled reports oversampling latency across retained rates and blocks`
+passed 1,280 assertions in one focused case (log:
+`/tmp/vekt-coupled-latency-focused-20260927.log`, ephemeral). The development
+coupled processor reports the same latency as the selected JUCE oversampling
+path and normal legacy processor at 44.1/48/88.2/96/192 kHz, 128/257-sample
+blocks and 1x/2x/4x/8x. The reported value remains constant over three
+callbacks after a note-on. This is not an independently measured audio-path
+delay, host-reported latency renegotiation test, or approved latency bound.
+The final development suite passed 270/270 cases (`ctest --preset dev
+--output-on-failure`, exit 0, 381.05 seconds; log:
+`/tmp/vekt-coupled-latency-full-20260927.log`, ephemeral). Ordinary Release
+VST3 and Standalone targets built with development mode off (exit 0, no source
+rebuild needed; log: `/tmp/vekt-coupled-latency-release-20260927.log`,
+ephemeral). A status-poll command timed out while the suite was running; the
+completed suite exit status was independently recorded as 0.
+
 **Sustained-note quality-pair matrix (27 September 2026):** The expanded
 `Mono coupled quality changes defer through sustain and retain the coupled
 engine` case covers all 12 directed 1x/2x/4x/8x transitions at 48 kHz/128

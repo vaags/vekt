@@ -604,6 +604,49 @@ TEST_CASE("Mono coupled preview exercises every retained quality", "[mono][proce
 	}
 }
 
+TEST_CASE("Mono coupled reports oversampling latency across retained rates and blocks", "[mono][processor][ladder-coupled][quality][latency]")
+{
+	const std::array paths {
+		vekt::dsp::OversamplingQuality { vekt::dsp::OversamplingFactor::off, vekt::dsp::OversamplingFilter::polyphaseIIR },
+		vekt::dsp::OversamplingQuality { vekt::dsp::OversamplingFactor::x2, vekt::dsp::OversamplingFilter::polyphaseIIR },
+		vekt::dsp::OversamplingQuality { vekt::dsp::OversamplingFactor::x4, vekt::dsp::OversamplingFilter::polyphaseFIR },
+		vekt::dsp::OversamplingQuality { vekt::dsp::OversamplingFactor::x8, vekt::dsp::OversamplingFilter::polyphaseFIR }
+	};
+	for (const auto rate : { 44'100.0, 48'000.0, 88'200.0, 96'000.0, 192'000.0 })
+	for (const auto blockSize : { 128, 257 })
+	{
+		vekt::dsp::OversamplingBank<float> expected(2);
+		expected.prepare(static_cast<std::size_t>(blockSize));
+		for (int quality = 0; quality < 4; ++quality)
+		{
+			CAPTURE(rate, blockSize, quality);
+			vekt::mono::PluginProcessor coupled(true, true), legacy;
+			for (auto* processor : { &coupled, &legacy })
+			{
+				initializeDryVoice(*processor);
+				setParameter(*processor, vekt::mono::parameters::quality, static_cast<float>(quality));
+				processor->prepareToPlay(rate, blockSize);
+			}
+			expected.activate(paths[static_cast<std::size_t>(quality)]);
+			const auto latency = expected.getActiveLatencySamples();
+			REQUIRE(coupled.isCoupledLadderActive());
+			REQUIRE_FALSE(legacy.isDevelopmentLadderActive());
+			REQUIRE(coupled.getActiveQuality() == quality);
+			REQUIRE(coupled.getLatencySamples() == latency);
+			REQUIRE(legacy.getLatencySamples() == latency);
+			juce::AudioBuffer<float> buffer(2, blockSize);
+			juce::MidiBuffer note;
+			note.addEvent(juce::MidiMessage::noteOn(1, 48, 0.8f), 0);
+			for (int block = 0; block < 3; ++block)
+			{
+				renderBlock(coupled, buffer, note);
+				note.clear();
+				REQUIRE(coupled.getLatencySamples() == latency);
+			}
+		}
+	}
+}
+
 TEST_CASE("Mono coupled quality state recalls without selecting coupled in the normal processor", "[mono][processor][ladder-coupled][quality][state]")
 {
 	for (int quality = 0; quality <= 3; ++quality)
