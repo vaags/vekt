@@ -472,10 +472,11 @@ the new test registered passed 265/265 cases. This narrows the development
 state/render gap; it does not validate a production coupled plugin, the
 separate playback/offline controls or host-managed normalized snapshots.
 
-**Development quality-transition check (27 September 2026):** A focused
-processor test checks 1x→2x, 2x→4x, 4x→8x and 8x→1x as separate transitions at
-48 kHz/128 samples. For each pair, the requested switch remains pending while
-transport plays, while a note is sustained after stop, and through sustain
+**Development quality-transition check (27 September 2026; historical
+four-pair run):** A focused processor test checked 1x→2x, 2x→4x, 4x→8x and
+8x→1x as separate transitions at 48 kHz/128 samples. For each pair, the
+requested switch remains pending while transport plays, while a note is
+sustained after stop, and through sustain
 release; once idle it updates active quality and matches legacy's reported
 latency. A new coupled note then produces finite output with zero reported
 solver fallback/non-finite samples. The focused case passed 4,296 assertions.
@@ -484,14 +485,26 @@ ordinary Release VST3 and Standalone targets built with development mode off.
 This does not measure transition clicks, host latency renegotiation, real-time
 allocation/CPU or playback/offline follow/override behavior.
 
+**Sustained-note quality-pair matrix (27 September 2026; development-only):**
+The earlier four-pair regression now covers all 12 ordered transitions among
+1x/2x/4x/8x with transport playing, sustained notes after stop, sustain
+release and a post-switch note. It verifies that source quality and latency
+remain active while pending, then checks target quality and latency against
+legacy, coupled engine selection and finite post-switch output with no solver
+fallback/non-finite samples. The focused case passed 12,984 assertions.
+The final development suite passed 268/268 cases; ordinary Release VST3 and
+Standalone targets built with development mode off. This does not measure
+clicks, host latency renegotiation, deadlines or production-host behavior.
+
 **Idle quality-pair matrix (27 September 2026; development-only):** A focused
 processor regression covers all 12 ordered changes among 1x/2x/4x/8x. It
 checks transport deferral while idle, activation after stop, target latency
 against fresh coupled and legacy processors, exact silence in the activation
 callback and finite post-switch audio against a fresh coupled instance with
-a note at sample 32. The focused case passed 28,404 assertions. This does not
-extend the sustained-note matrix to every pair or verify clicks, host latency
-renegotiation, device deadlines, or production selection.
+a note at sample 32. The focused case passed 28,404 assertions. Together with
+the expanded sustained-note matrix above, this covers all ordered pairs in
+both scenarios; neither verifies clicks, host latency renegotiation, device
+deadlines, or production selection.
 The final development suite passed 268/268 cases; ordinary Release VST3 and
 Standalone targets built with development mode off. A repeated identical
 status-poll loop hit the `run_commands` guard during the run; the final test

@@ -798,8 +798,10 @@ TEST_CASE("Mono coupled quality changes defer through sustain and retain the cou
 		}
 		bool playing { true };
 	};
-	for (const auto [initial, target] : { std::pair { 0, 1 }, { 1, 2 }, { 2, 3 }, { 3, 0 } })
+	for (int initial = 0; initial < 4; ++initial)
+	for (int target = 0; target < 4; ++target)
 	{
+		if (initial == target) continue;
 		PlayHead playHead;
 		vekt::mono::PluginProcessor coupled(true, true), legacy;
 		for (auto* processor : { &coupled, &legacy })
@@ -813,8 +815,9 @@ TEST_CASE("Mono coupled quality changes defer through sustain and retain the cou
 			processor->setPlayHead(&playHead);
 			processor->prepareToPlay(48'000.0, 128);
 		}
-		INFO("initial=" << initial << ", target=" << target);
+		CAPTURE(initial, target);
 		const auto previousLatency = coupled.getLatencySamples();
+		REQUIRE(previousLatency == legacy.getLatencySamples());
 		juce::AudioBuffer<float> actual(2, 128), baseline(2, 128);
 		juce::MidiBuffer held;
 		held.addEvent(juce::MidiMessage::controllerEvent(1, 64, 127), 0);
@@ -829,15 +832,22 @@ TEST_CASE("Mono coupled quality changes defer through sustain and retain the cou
 		REQUIRE(coupled.hasPendingQualityChange());
 		REQUIRE(coupled.getActiveQuality() == initial);
 		REQUIRE(coupled.getLatencySamples() == previousLatency);
+		REQUIRE(legacy.hasPendingQualityChange());
+		REQUIRE(legacy.getActiveQuality() == initial);
+		REQUIRE(legacy.getLatencySamples() == previousLatency);
 		playHead.playing = false;
 		renderBlock(coupled, actual);
 		renderBlock(legacy, baseline);
 		REQUIRE(coupled.hasPendingQualityChange());
+		REQUIRE(coupled.getActiveQuality() == initial);
+		REQUIRE(coupled.getLatencySamples() == previousLatency);
 		juce::MidiBuffer releaseSustain;
 		releaseSustain.addEvent(juce::MidiMessage::controllerEvent(1, 64, 0), 0);
 		renderBlock(coupled, actual, releaseSustain);
 		renderBlock(legacy, baseline, releaseSustain);
 		REQUIRE(coupled.hasPendingQualityChange());
+		REQUIRE(coupled.getActiveQuality() == initial);
+		REQUIRE(coupled.getLatencySamples() == previousLatency);
 		for (int block = 0; block < 32 && coupled.hasPendingQualityChange(); ++block)
 		{
 			renderBlock(coupled, actual);

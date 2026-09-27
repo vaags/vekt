@@ -66,7 +66,8 @@ focused case again passed 12,404 assertions (log:
 `/tmp/vekt-coupled-recall-final-test-20260927.log`, ephemeral). This is
 regression evidence, not a change to the release acceptance gate.
 
-**Development coupled quality-transition regression (27 September 2026):**
+**Development coupled quality-transition regression (27 September 2026;
+historical four-pair run):**
 `Mono coupled quality changes defer through sustain and retain the coupled
 engine` passed 4,296 assertions in one focused case (log:
 `/tmp/vekt-coupled-quality-transition-test-20260927.log`, ephemeral). At
@@ -86,6 +87,25 @@ development mode off (no source rebuild required; log:
 `/tmp/vekt-coupled-quality-transition-release-build-20260927.log`, ephemeral).
 Neither check exercised a coupled production host instance or qualified CPU.
 
+**Sustained-note quality-pair matrix (27 September 2026):** The expanded
+`Mono coupled quality changes defer through sustain and retain the coupled
+engine` case covers all 12 directed 1x/2x/4x/8x transitions at 48 kHz/128
+samples and passed 12,984 assertions (log:
+`/tmp/vekt-coupled-sustain-matrix-focused-20260927.log`, ephemeral). For each
+pair, source quality and latency remain active while transport plays and
+while sustain holds the note after stop and through its release; once idle,
+the requested quality and latency agree with legacy. A subsequent note
+renders finite coupled output with no reported solver fallback or non-finite
+samples. This is development processor evidence, not proof of click-free
+switching, host latency negotiation or real-time safety.
+The final development suite passed 268/268 cases (`ctest --preset dev
+--output-on-failure`, exit 0, 231.63 seconds; log:
+`/tmp/vekt-coupled-sustain-matrix-full-20260927.log`, ephemeral). Ordinary
+Release VST3 and Standalone targets built with development mode off (exit 0;
+no source rebuild needed; log:
+`/tmp/vekt-coupled-sustain-matrix-release-20260927.log`, ephemeral). Neither
+check qualifies a coupled production host or changes the acceptance gate.
+
 **Coupled idle quality-pair matrix (27 September 2026):**
 `Mono coupled idle quality changes cover every ordered pair` passed 28,404
 assertions in one focused case (log:
@@ -96,8 +116,9 @@ with latency matching fresh coupled and normal legacy processors. The
 activation callback is exactly silent; a subsequent callback containing a
 new note at sample 32 renders finite coupled output matching a fresh target-
 quality processor within `1e-5` per sample, with no reported solver fallback
-or non-finite samples. This is not a full sustain-transition matrix, host
-latency/click test, complete CPU or real-time safety qualification.
+or non-finite samples. The separate sustained-note matrix above now covers
+all directed pairs as well; neither is a host latency/click test or complete
+CPU/real-time safety qualification.
 The final development suite passed 268/268 cases (`ctest --preset dev
 --output-on-failure`, exit 0, 246.07 seconds; log:
 `/tmp/vekt-coupled-idle-matrix-full-20260927.log`, ephemeral). The ordinary
