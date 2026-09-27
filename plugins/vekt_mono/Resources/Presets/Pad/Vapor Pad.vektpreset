@@ -3,7 +3,7 @@
   "schemaVersion": 2,
   "id": "mono-pad-vapor",
   "product": "com.vekt.mono",
-  "soundSchemaVersion": 2,
+  "soundSchemaVersion": 4,
   "name": "Vapor Pad",
   "tags": [
     "Pad",
@@ -37,7 +37,7 @@
     "osc1Level": 100,
     "osc2Level": 58,
     "osc3Level": 66,
-    "osc1Morph": 0.0,
+    "osc1Morph": 0,
     "osc2Morph": 0.35,
     "osc3Morph": 1.2,
     "osc1PulseWidth": 50,
@@ -53,12 +53,14 @@
     "ampAttack": 1.1,
     "ampDecay": 0.42,
     "ampSustain": 68,
-    "ampRelease": 4.0,
+    "ampRelease": 4,
     "filterAttack": 0.825,
     "filterDecay": 0.52,
     "filterSustain": 40,
     "filterRelease": 3.2,
     "ampVelocity": 55,
-    "filterVelocity": 55
+    "filterVelocity": 55,
+    "heldKeyReturn": 1,
+    "filterQCompensation": 0
   }
 }

@@ -244,7 +244,7 @@ TEST_CASE("Mono editor presents symmetric oscillator controls without overlap", 
 	REQUIRE(foundVoicePan);
 	const std::array ladderTooltips {
 		std::pair { "Cutoff", "exponentially" },
-		std::pair { "Resonance", "Q compensation" },
+		std::pair { "Resonance", "natural bass loss" },
 		std::pair { "Key Track", "one octave" },
 		std::pair { "Env Amount", "octave pitch space" },
 		std::pair { "Drive", "nonlinear filter" }
@@ -279,6 +279,102 @@ TEST_CASE("Mono editor presents symmetric oscillator controls without overlap", 
 		juce::FileOutputStream stream { juce::File(juce::String(path)) };
 		REQUIRE(stream.openedOk());
 		REQUIRE(juce::PNGImageFormat().writeImageToStream(image, stream));
+	}
+}
+
+TEST_CASE("Mono quality menu exposes four selectable factors", "[mono][processor][ui][quality]")
+{
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	vekt::mono::PluginProcessor processor;
+	vekt::mono::PluginEditor editor(processor);
+	auto& performance = [&editor]() -> juce::Component&
+	{
+		for (auto* child : editor.getContent().getChildren())
+			if (child->getName() == "Performance / Noise") return *child;
+		FAIL("Missing Performance / Noise panel");
+		return editor;
+	}();
+	juce::ComboBox* quality = nullptr;
+	for (auto* child : performance.getChildren())
+		if (auto* box = dynamic_cast<juce::ComboBox*>(child);
+			box != nullptr && box->getTooltip().contains("2x uses minimum-phase IIR"))
+			quality = box;
+	REQUIRE(quality != nullptr);
+	REQUIRE(quality->getNumItems() == 4);
+	for (int index = 0; index < 4; ++index)
+		REQUIRE(quality->getItemText(index) == juce::String(1 << index) + "x");
+	REQUIRE(quality->getSelectedItemIndex() == 0);
+	quality->setSelectedItemIndex(3, juce::sendNotificationSync);
+	const auto* parameter = dynamic_cast<juce::AudioParameterChoice*>(
+		processor.getParameters().getParameter(vekt::mono::parameters::quality));
+	REQUIRE(parameter != nullptr);
+	REQUIRE(parameter->getIndex() == 3);
+}
+
+#if defined(VEKT_MONO_LADDER_DEVELOPMENT)
+TEST_CASE("Mono preview editor identifies the active development engine", "[mono][processor][ui][ladder-development]")
+{
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	const auto hasLabel = [](juce::Component& root, const juce::String& expected)
+	{
+		for (auto* child : root.getChildren())
+			if (const auto* label = dynamic_cast<juce::Label*>(child);
+				label != nullptr && label->getText().contains(expected)) return true;
+		return false;
+	};
+	vekt::mono::PluginProcessor candidate(true);
+	candidate.prepareToPlay(48'000.0, 128);
+	vekt::mono::PluginEditor candidateEditor(candidate);
+	REQUIRE(hasLabel(candidateEditor.getContent(), "MONO  PREVIEW"));
+	REQUIRE(hasLabel(candidateEditor.getContent(), "DEV NESTED 1x"));
+	vekt::mono::PluginProcessor coupled(true, true);
+	coupled.prepareToPlay(48'000.0, 128);
+	vekt::mono::PluginEditor coupledEditor(coupled);
+	REQUIRE(coupled.isCoupledLadderActive());
+	REQUIRE(hasLabel(coupledEditor.getContent(), "DEV COUPLED 1x"));
+	vekt::mono::PluginProcessor coupledHigh(true, true);
+	auto* highQuality = coupledHigh.getParameters().getParameter(vekt::mono::parameters::quality);
+	REQUIRE(highQuality != nullptr);
+	highQuality->setValueNotifyingHost(highQuality->convertTo0to1(3.0f));
+	coupledHigh.prepareToPlay(48'000.0, 128);
+	vekt::mono::PluginEditor coupledHighEditor(coupledHigh);
+	REQUIRE(hasLabel(coupledHighEditor.getContent(), "DEV COUPLED 8x"));
+	vekt::mono::PluginProcessor higher(true);
+	auto* quality = higher.getParameters().getParameter(vekt::mono::parameters::quality);
+	REQUIRE(quality != nullptr);
+	quality->setValueNotifyingHost(quality->convertTo0to1(3.0f));
+	higher.prepareToPlay(48'000.0, 128);
+	vekt::mono::PluginEditor higherEditor(higher);
+	REQUIRE(hasLabel(higherEditor.getContent(), "DEV PREVIEW: LEGACY"));
+	vekt::mono::PluginProcessor ordinary;
+	ordinary.prepareToPlay(48'000.0, 128);
+	vekt::mono::PluginEditor ordinaryEditor(ordinary);
+	REQUIRE(hasLabel(ordinaryEditor.getContent(), "VEKT  MONO"));
+	REQUIRE_FALSE(hasLabel(ordinaryEditor.getContent(), "DEV CANDIDATE"));
+}
+#endif
+
+TEST_CASE("Mono Q compensation checkbox binds the default-off sound parameter", "[mono][processor][ui][qcomp]")
+{
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	vekt::mono::PluginProcessor processor;
+	vekt::mono::PluginEditor editor(processor);
+	auto* button = findNamedButton(editor.getContent(), "Q Compensation");
+	REQUIRE(button != nullptr);
+	REQUIRE(button->isVisible());
+	REQUIRE_FALSE(button->getToggleState());
+	auto* parameter = processor.getParameters().getParameter(vekt::mono::parameters::filterQCompensation);
+	REQUIRE(parameter != nullptr);
+	button->setToggleState(true, juce::sendNotificationSync);
+	REQUIRE(parameter->getValue() == Catch::Approx(1.0f));
+	parameter->setValueNotifyingHost(0.0f);
+	REQUIRE_FALSE(button->getToggleState());
+	for (const auto width : { 1120, 1680, 2240 })
+	{
+		editor.setSize(width, width * 10 / 16);
+		checkVisibleBounds(editor.getContent());
+		for (auto* sibling : button->getParentComponent()->getChildren())
+			if (sibling != button) REQUIRE_FALSE(button->getBounds().intersects(sibling->getBounds()));
 	}
 }
 

@@ -3,7 +3,7 @@
   "schemaVersion": 2,
   "id": "mono-fx-transmission",
   "product": "com.vekt.mono",
-  "soundSchemaVersion": 2,
+  "soundSchemaVersion": 4,
   "name": "Transmission FX",
   "tags": [
     "FX",
@@ -38,8 +38,8 @@
     "osc2Level": 38,
     "osc3Level": 22,
     "osc1Morph": 2.85,
-    "osc2Morph": 3.0,
-    "osc3Morph": 1.0,
+    "osc2Morph": 3,
+    "osc3Morph": 1,
     "osc1PulseWidth": 30,
     "osc2PulseWidth": 66,
     "osc3PulseWidth": 50,
@@ -59,6 +59,8 @@
     "filterSustain": 22,
     "filterRelease": 0.72,
     "ampVelocity": 55,
-    "filterVelocity": 55
+    "filterVelocity": 55,
+    "heldKeyReturn": 1,
+    "filterQCompensation": 0
   }
 }

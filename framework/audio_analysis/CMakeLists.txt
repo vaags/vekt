@@ -1,0 +1,5 @@
+add_library(vekt_audio_analysis INTERFACE)
+add_library(vekt::audio_analysis ALIAS vekt_audio_analysis)
+
+target_include_directories(vekt_audio_analysis INTERFACE include)
+target_link_libraries(vekt_audio_analysis INTERFACE vekt_project_options)

@@ -3,7 +3,7 @@
   "schemaVersion": 2,
   "id": "mono-bass-steel",
   "product": "com.vekt.mono",
-  "soundSchemaVersion": 2,
+  "soundSchemaVersion": 4,
   "name": "Steel Bass",
   "tags": [
     "Bass",
@@ -37,9 +37,9 @@
     "osc1Level": 100,
     "osc2Level": 82,
     "osc3Level": 36,
-    "osc1Morph": 2.0,
-    "osc2Morph": 3.0,
-    "osc3Morph": 2.0,
+    "osc1Morph": 2,
+    "osc2Morph": 3,
+    "osc3Morph": 2,
     "osc1PulseWidth": 50,
     "osc2PulseWidth": 22,
     "osc3PulseWidth": 50,
@@ -59,6 +59,8 @@
     "filterSustain": 22,
     "filterRelease": 0.16,
     "ampVelocity": 55,
-    "filterVelocity": 55
+    "filterVelocity": 55,
+    "heldKeyReturn": 1,
+    "filterQCompensation": 0
   }
 }

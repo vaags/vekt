@@ -3,7 +3,7 @@
   "schemaVersion": 2,
   "id": "mono-pluck-needle",
   "product": "com.vekt.mono",
-  "soundSchemaVersion": 2,
+  "soundSchemaVersion": 4,
   "name": "Needle Pluck",
   "tags": [
     "Pluck",
@@ -37,9 +37,9 @@
     "osc1Level": 100,
     "osc2Level": 46,
     "osc3Level": 14,
-    "osc1Morph": 3.0,
-    "osc2Morph": 2.0,
-    "osc3Morph": 0.0,
+    "osc1Morph": 3,
+    "osc2Morph": 2,
+    "osc3Morph": 0,
     "osc1PulseWidth": 12,
     "osc2PulseWidth": 50,
     "osc3PulseWidth": 50,
@@ -59,6 +59,8 @@
     "filterSustain": 0,
     "filterRelease": 0.064,
     "ampVelocity": 55,
-    "filterVelocity": 55
+    "filterVelocity": 55,
+    "heldKeyReturn": 1,
+    "filterQCompensation": 0
   }
 }

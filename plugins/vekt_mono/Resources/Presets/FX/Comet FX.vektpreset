@@ -3,7 +3,7 @@
   "schemaVersion": 2,
   "id": "mono-fx-comet",
   "product": "com.vekt.mono",
-  "soundSchemaVersion": 2,
+  "soundSchemaVersion": 4,
   "name": "Comet FX",
   "tags": [
     "FX",
@@ -37,9 +37,9 @@
     "osc1Level": 68,
     "osc2Level": 52,
     "osc3Level": 34,
-    "osc1Morph": 2.0,
-    "osc2Morph": 3.0,
-    "osc3Morph": 0.0,
+    "osc1Morph": 2,
+    "osc2Morph": 3,
+    "osc3Morph": 0,
     "osc1PulseWidth": 50,
     "osc2PulseWidth": 16,
     "osc3PulseWidth": 50,
@@ -59,6 +59,8 @@
     "filterSustain": 22,
     "filterRelease": 2.08,
     "ampVelocity": 55,
-    "filterVelocity": 55
+    "filterVelocity": 55,
+    "heldKeyReturn": 1,
+    "filterQCompensation": 0
   }
 }

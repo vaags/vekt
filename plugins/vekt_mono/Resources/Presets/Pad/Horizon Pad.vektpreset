@@ -3,7 +3,7 @@
   "schemaVersion": 2,
   "id": "mono-pad-horizon",
   "product": "com.vekt.mono",
-  "soundSchemaVersion": 2,
+  "soundSchemaVersion": 4,
   "name": "Horizon Pad",
   "tags": [
     "Pad",
@@ -39,7 +39,7 @@
     "osc3Level": 42,
     "osc1Morph": 0.15,
     "osc2Morph": 2.2,
-    "osc3Morph": 3.0,
+    "osc3Morph": 3,
     "osc1PulseWidth": 50,
     "osc2PulseWidth": 50,
     "osc3PulseWidth": 72,
@@ -59,6 +59,8 @@
     "filterSustain": 40,
     "filterRelease": 2.48,
     "ampVelocity": 55,
-    "filterVelocity": 55
+    "filterVelocity": 55,
+    "heldKeyReturn": 1,
+    "filterQCompensation": 0
   }
 }

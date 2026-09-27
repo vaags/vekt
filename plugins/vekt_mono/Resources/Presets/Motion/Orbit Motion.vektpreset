@@ -3,7 +3,7 @@
   "schemaVersion": 2,
   "id": "mono-motion-orbit",
   "product": "com.vekt.mono",
-  "soundSchemaVersion": 2,
+  "soundSchemaVersion": 4,
   "name": "Orbit Motion",
   "tags": [
     "Motion",
@@ -37,9 +37,9 @@
     "osc1Level": 100,
     "osc2Level": 62,
     "osc3Level": 58,
-    "osc1Morph": 0.0,
-    "osc2Morph": 2.0,
-    "osc3Morph": 1.0,
+    "osc1Morph": 0,
+    "osc2Morph": 2,
+    "osc3Morph": 1,
     "osc1PulseWidth": 50,
     "osc2PulseWidth": 50,
     "osc3PulseWidth": 50,
@@ -59,6 +59,8 @@
     "filterSustain": 22,
     "filterRelease": 1.12,
     "ampVelocity": 55,
-    "filterVelocity": 55
+    "filterVelocity": 55,
+    "heldKeyReturn": 1,
+    "filterQCompensation": 0
   }
 }

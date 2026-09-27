@@ -28,6 +28,11 @@ add_subdirectory(framework/state)
 add_subdirectory(framework/presets)
 add_subdirectory(framework/ui)
 add_subdirectory(framework/preset_ui)
+
+if(VEKT_BUILD_TESTS OR VEKT_BUILD_AUDIO_LAB)
+    add_subdirectory(framework/audio_analysis)
+endif()
+
 add_subdirectory(plugins/vekt_rav)
 add_subdirectory(plugins/vekt_glimmer)
 add_subdirectory(plugins/vekt_mono)

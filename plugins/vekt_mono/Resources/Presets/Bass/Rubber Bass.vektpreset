@@ -3,7 +3,7 @@
   "schemaVersion": 2,
   "id": "mono-bass-rubber",
   "product": "com.vekt.mono",
-  "soundSchemaVersion": 2,
+  "soundSchemaVersion": 4,
   "name": "Rubber Bass",
   "tags": [
     "Bass",
@@ -37,9 +37,9 @@
     "osc1Level": 100,
     "osc2Level": 74,
     "osc3Level": 12,
-    "osc1Morph": 1.0,
+    "osc1Morph": 1,
     "osc2Morph": 2.72,
-    "osc3Morph": 0.0,
+    "osc3Morph": 0,
     "osc1PulseWidth": 50,
     "osc2PulseWidth": 30,
     "osc3PulseWidth": 50,
@@ -59,6 +59,8 @@
     "filterSustain": 22,
     "filterRelease": 0.096,
     "ampVelocity": 55,
-    "filterVelocity": 55
+    "filterVelocity": 55,
+    "heldKeyReturn": 1,
+    "filterQCompensation": 0
   }
 }

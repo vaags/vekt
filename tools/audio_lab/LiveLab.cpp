@@ -662,7 +662,11 @@ private:
 	unsigned int loadGeneration {};
 	vekt::rav::PluginProcessor ravProcessor;
 	vekt::glimmer::PluginProcessor glimmerProcessor;
+#if defined(VEKT_MONO_AUDIO_LAB_COUPLED_PREVIEW) && defined(VEKT_MONO_LADDER_DEVELOPMENT)
+	vekt::mono::PluginProcessor monoProcessor { true, true };
+#else
 	vekt::mono::PluginProcessor monoProcessor;
+#endif
 	juce::MidiKeyboardState keyboardState;
 	juce::MidiMessageCollector midiCollector;
 	juce::MidiKeyboardComponent keyboard { keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard };

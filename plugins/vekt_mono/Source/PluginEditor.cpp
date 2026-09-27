@@ -7,7 +7,8 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	  presetBrowser(newProcessor.getPresetSession())
 {
 	setLookAndFeel(&lookAndFeel);
-	title.setText("VEKT  MONO", juce::dontSendNotification);
+	title.setText(pluginProcessor.getName() == "Vekt Mono Ladder Preview"
+		? "MONO  PREVIEW" : "VEKT  MONO", juce::dontSendNotification);
 	title.setFont(juce::FontOptions(24.0f).withStyle("Bold"));
 	status.setJustificationType(juce::Justification::centredRight);
 	historyControls.beforeAction = [this] { juce::ignoreUnused(pluginProcessor.getParameters().copyState()); };
@@ -56,10 +57,15 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	const std::array filterIds { parameters::filterCutoff, parameters::filterResonance, parameters::filterKeyTracking, parameters::filterEnvelopeAmount, parameters::filterDrive };
 	for (std::size_t index = 0; index < filterControls.size(); ++index) addRotary(filterPanel, filterControls[index], filterNames[index], filterIds[index], filterAttachments[index]);
 	filterControls[0].getSlider().setTooltip("Ladder cutoff frequency. Sweeps exponentially from dark to fully open.");
-	filterControls[1].getSlider().setTooltip("Ladder emphasis with Q compensation. Adds a peak without losing passband level and reaches self-oscillation near maximum.");
+	filterControls[1].getSlider().setTooltip("Ladder emphasis. Adds a resonant peak with natural bass loss and reaches self-oscillation near maximum.");
 	filterControls[2].getSlider().setTooltip("Keyboard tracking. At 100%, cutoff rises one octave per keyboard octave.");
 	filterControls[3].getSlider().setTooltip("Unipolar filter contour amount. Applies the filter envelope in octave pitch space.");
 	filterControls[4].getSlider().setTooltip("Ladder input overload. Drives the nonlinear filter while compensating output level.");
+	filterPanel.addAndMakeVisible(qCompensationButton);
+	qCompensationButton.setName("Q Compensation");
+	qCompensationButton.setComponentID(parameters::filterQCompensation);
+	qCompensationButton.setTooltip("Restores some level lost to resonance after saturation. May raise peaks.");
+	qCompensationAttachment = std::make_unique<ButtonAttachment>(pluginProcessor.getParameters(), parameters::filterQCompensation, qCompensationButton);
 	const std::array ampNames { "Attack", "Decay", "Sustain", "Release", "Velocity" };
 	const std::array ampIds { parameters::ampAttack, parameters::ampDecay, parameters::ampSustain, parameters::ampRelease, parameters::ampVelocity };
 	for (std::size_t index = 0; index < ampControls.size(); ++index) addRotary(ampPanel, ampControls[index], ampNames[index], ampIds[index], ampAttachments[index]);
@@ -81,7 +87,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	addChoice(performancePanel, performanceModeBox, { "Poly", "Mono", "Mono Legato" }, parameters::performanceMode, performanceModeAttachment);
 	performancePanel.addAndMakeVisible(heldKeyReturnButton);
 	heldKeyReturnAttachment = std::make_unique<ButtonAttachment>(pluginProcessor.getParameters(), parameters::heldKeyReturn, heldKeyReturnButton);
-	addChoice(performancePanel, qualityBox, { "Real-time", "High" }, parameters::quality, qualityAttachment);
+	addChoice(performancePanel, qualityBox, { "1x", "2x", "4x", "8x" }, parameters::quality, qualityAttachment);
 	addChoice(performancePanel, unisonBox, { "1x", "2x", "4x" }, parameters::unison, unisonAttachment);
 	addChoice(performancePanel, glideBox, { "Off", "Always", "Legato" }, parameters::glideMode, glideAttachment);
 	const std::array performanceNames { "Voice count", "Mode", "Quality", "Unison", "Glide", "Noise" };
@@ -92,7 +98,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 		performancePanel.addAndMakeVisible(performanceLabels[index]);
 	}
 	noiseBox.setTooltip("White or pink noise source.");
-	qualityBox.setTooltip("High uses 2x IIR oversampling and adds latency. Changes apply only after transport stops and all notes and sustain are released.");
+	qualityBox.setTooltip("1x is the zero-oversampling default; 2x uses minimum-phase IIR, and 4x/8x use linear-phase FIR. Higher factors use more CPU and add latency. Changes apply only after transport stops and all notes and sustain are released.");
 	voiceCountBox.setTooltip("Voice-count changes apply after all active notes are released.");
 	performanceModeBox.setTooltip("Mono retriggers each note; Mono Legato keeps the envelope active while notes overlap.");
 	heldKeyReturnButton.setTooltip("When enabled, releasing the active mono note returns to the latest still-held key.");
@@ -100,6 +106,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	voiceControls[2].getSlider().setTooltip("Mixes polyphonic voices from centered at 0% to full round-robin stereo panning at 100%.");
 	refreshPresetLabel();
 	resized();
+	timerCallback();
 	startTimerHz(10);
 }
 
@@ -116,10 +123,19 @@ void PluginEditor::timerCallback()
 {
 	historyControls.refresh();
 	refreshPresetLabel();
-	juce::String message = "Quality: " + juce::String(pluginProcessor.getActiveQuality() == 1 ? "High (2x IIR)" : "Real-time")
+	const auto activeQuality = pluginProcessor.getActiveQuality();
+	const auto qualityName = activeQuality == 0 ? "1x" : activeQuality == 1 ? "2x IIR"
+		: activeQuality == 2 ? "4x FIR" : "8x FIR";
+	juce::String message = "Quality: " + juce::String(qualityName)
 		+ " • " + juce::String(pluginProcessor.getLatencySamples()) + " smp";
 	if (pluginProcessor.hasPendingVoiceCountChange()) message = "Voice count pending—release notes";
 	if (pluginProcessor.hasPendingQualityChange()) message += " • Quality pending—stop and release notes";
+#if defined(VEKT_MONO_LADDER_DEVELOPMENT)
+	if (pluginProcessor.isDevelopmentPreview())
+		message = juce::String(pluginProcessor.isCoupledLadderActive()
+			? "DEV COUPLED " + juce::String(1 << activeQuality) + "x | " : pluginProcessor.isDevelopmentLadderActive()
+				? "DEV NESTED 1x | " : "DEV PREVIEW: LEGACY | ") + message;
+#endif
 	status.setText(message, juce::dontSendNotification);
 	outputMeter.setStereoLevels(pluginProcessor.consumeOutputPeaks());
 }
@@ -140,6 +156,7 @@ void PluginEditor::resized()
 		oscillatorControls[index].setBounds(x, 40, 65, ui::RotaryControl::heightFor(ui::RotaryControl::Size::compact));
 	}
 	for (std::size_t index = 0; index < filterControls.size(); ++index) filterControls[index].setBounds(6 + static_cast<int>(index) * 98, 32, 94, 136);
+	qCompensationButton.setBounds(324, 5, 166, 24);
 	for (std::size_t index = 0; index < ampControls.size(); ++index) ampControls[index].setBounds(6 + static_cast<int>(index) * 67, 38, 65, 140);
 	for (std::size_t index = 0; index < filterEnvelopeControls.size(); ++index) filterEnvelopeControls[index].setBounds(6 + static_cast<int>(index) * 67, 38, 65, 140);
 	for (std::size_t index = 0; index < voiceControls.size(); ++index) voiceControls[index].setBounds(6 + static_cast<int>(index) * 87, 32, 83, 136);

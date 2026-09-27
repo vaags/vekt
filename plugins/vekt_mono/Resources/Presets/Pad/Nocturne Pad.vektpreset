@@ -3,7 +3,7 @@
   "schemaVersion": 2,
   "id": "mono-pad-nocturne",
   "product": "com.vekt.mono",
-  "soundSchemaVersion": 2,
+  "soundSchemaVersion": 4,
   "name": "Nocturne Pad",
   "tags": [
     "Pad",
@@ -38,8 +38,8 @@
     "osc2Level": 70,
     "osc3Level": 54,
     "osc1Morph": 2.75,
-    "osc2Morph": 1.0,
-    "osc3Morph": 0.0,
+    "osc2Morph": 1,
+    "osc3Morph": 0,
     "osc1PulseWidth": 36,
     "osc2PulseWidth": 50,
     "osc3PulseWidth": 50,
@@ -59,6 +59,8 @@
     "filterSustain": 40,
     "filterRelease": 2.72,
     "ampVelocity": 55,
-    "filterVelocity": 55
+    "filterVelocity": 55,
+    "heldKeyReturn": 1,
+    "filterQCompensation": 0
   }
 }

@@ -11,8 +11,20 @@ TEST_CASE("Mono sound parameters exclude resource configuration", "[mono][parame
 	REQUIRE(presetProductIdentifier == "com.vekt.mono");
 	REQUIRE(std::find(soundParameterIds.begin(), soundParameterIds.end(), filterCutoff) != soundParameterIds.end());
 	REQUIRE(std::find(soundParameterIds.begin(), soundParameterIds.end(), heldKeyReturn) != soundParameterIds.end());
+	REQUIRE(std::find(soundParameterIds.begin(), soundParameterIds.end(), filterQCompensation) != soundParameterIds.end());
 	REQUIRE(std::find(soundParameterIds.begin(), soundParameterIds.end(), voiceCount) == soundParameterIds.end());
 	REQUIRE(std::find(soundParameterIds.begin(), soundParameterIds.end(), quality) == soundParameterIds.end());
+}
+
+TEST_CASE("Mono quality choices retain legacy indices and expose oversampling factors", "[mono][parameters][quality]")
+{
+	vekt::mono::PluginProcessor processor;
+	const auto* parameter = dynamic_cast<juce::AudioParameterChoice*>(
+		processor.getParameters().getParameter(vekt::mono::parameters::quality));
+	REQUIRE(parameter != nullptr);
+	REQUIRE(parameter->choices == juce::StringArray { "1x", "2x", "4x", "8x" });
+	REQUIRE(parameter->getIndex() == 0);
+	REQUIRE_FALSE(parameter->isAutomatable());
 }
 
 TEST_CASE("Mono oscillator tuning exposes musical octave and cents ranges", "[mono][parameters]")

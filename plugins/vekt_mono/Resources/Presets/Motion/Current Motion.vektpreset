@@ -3,7 +3,7 @@
   "schemaVersion": 2,
   "id": "mono-motion-current",
   "product": "com.vekt.mono",
-  "soundSchemaVersion": 2,
+  "soundSchemaVersion": 4,
   "name": "Current Motion",
   "tags": [
     "Motion",
@@ -39,7 +39,7 @@
     "osc3Level": 44,
     "osc1Morph": 2.35,
     "osc2Morph": 0.65,
-    "osc3Morph": 3.0,
+    "osc3Morph": 3,
     "osc1PulseWidth": 62,
     "osc2PulseWidth": 50,
     "osc3PulseWidth": 28,
@@ -59,6 +59,8 @@
     "filterSustain": 22,
     "filterRelease": 0.576,
     "ampVelocity": 55,
-    "filterVelocity": 55
+    "filterVelocity": 55,
+    "heldKeyReturn": 1,
+    "filterQCompensation": 0
   }
 }

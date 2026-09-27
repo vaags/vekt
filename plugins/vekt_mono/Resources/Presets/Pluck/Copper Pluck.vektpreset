@@ -3,7 +3,7 @@
   "schemaVersion": 2,
   "id": "mono-pluck-copper",
   "product": "com.vekt.mono",
-  "soundSchemaVersion": 2,
+  "soundSchemaVersion": 4,
   "name": "Copper Pluck",
   "tags": [
     "Pluck",
@@ -37,9 +37,9 @@
     "osc1Level": 100,
     "osc2Level": 62,
     "osc3Level": 20,
-    "osc1Morph": 2.0,
-    "osc2Morph": 1.0,
-    "osc3Morph": 3.0,
+    "osc1Morph": 2,
+    "osc2Morph": 1,
+    "osc3Morph": 3,
     "osc1PulseWidth": 50,
     "osc2PulseWidth": 50,
     "osc3PulseWidth": 42,
@@ -59,6 +59,8 @@
     "filterSustain": 0,
     "filterRelease": 0.144,
     "ampVelocity": 55,
-    "filterVelocity": 55
+    "filterVelocity": 55,
+    "heldKeyReturn": 1,
+    "filterQCompensation": 0
   }
 }

@@ -3,7 +3,7 @@
   "schemaVersion": 2,
   "id": "mono-bass-classic-three",
   "product": "com.vekt.mono",
-  "soundSchemaVersion": 2,
+  "soundSchemaVersion": 4,
   "name": "Classic Three Bass",
   "tags": [
     "Bass",
@@ -37,9 +37,9 @@
     "osc1Level": 100,
     "osc2Level": 72,
     "osc3Level": 54,
-    "osc1Morph": 0.0,
-    "osc2Morph": 0.0,
-    "osc3Morph": 2.0,
+    "osc1Morph": 0,
+    "osc2Morph": 0,
+    "osc3Morph": 2,
     "osc1PulseWidth": 50,
     "osc2PulseWidth": 50,
     "osc3PulseWidth": 42,
@@ -59,6 +59,8 @@
     "filterSustain": 26,
     "filterRelease": 0.12,
     "ampVelocity": 48,
-    "filterVelocity": 46
+    "filterVelocity": 46,
+    "heldKeyReturn": 1,
+    "filterQCompensation": 0
   }
 }

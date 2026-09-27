@@ -36,7 +36,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 	juce::AudioProcessorValueTreeState::ParameterLayout layout;
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { voiceCount, version }, "Voice Count", juce::StringArray { "8", "12", "16" }, 0, nonAutomatable()));
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { performanceMode, version }, "Performance Mode", juce::StringArray { "Poly", "Mono", "Mono Legato" }, 0));
-	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { quality, version }, "Quality", juce::StringArray { "Real-time", "High" }, 0, nonAutomatable()));
+	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { quality, version }, "Quality", juce::StringArray { "1x", "2x", "4x", "8x" }, 0, nonAutomatable()));
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { unison, version }, "Unison", juce::StringArray { "1x", "2x", "4x" }, 0));
 	for (const auto [identifier, name, maximum] : { std::tuple { unisonDetune, "Unison Detune", 50.0f }, std::tuple { unisonSpread, "Unison Spread", 100.0f }, std::tuple { voiceWidth, "Voice Pan", 100.0f }, std::tuple { drift, "Drift", 100.0f } })
 		layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { identifier, version }, name, juce::NormalisableRange<float> { 0.0f, maximum, 0.01f }, 0.0f, juce::AudioParameterFloatAttributes {}.withLabel("%")));
@@ -66,6 +66,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 		layout.add(std::make_unique<juce::AudioParameterInt>(juce::ParameterID { identifier, version }, name, -2, 2, 0,
 			juce::AudioParameterIntAttributes {}.withLabel("oct")));
 	layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID { heldKeyReturn, version }, "Held Key Return", true));
+	layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID { filterQCompensation, version }, "Q Compensation", false));
 	return layout;
 }
 }

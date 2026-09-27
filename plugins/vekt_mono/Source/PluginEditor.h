@@ -52,6 +52,8 @@ private:
 	std::array<std::unique_ptr<SliderAttachment>, 16> oscillatorAttachments;
 	std::array<ui::RotaryControl, 5> filterControls;
 	std::array<std::unique_ptr<SliderAttachment>, 5> filterAttachments;
+	juce::ToggleButton qCompensationButton { "Q Compensation" };
+	std::unique_ptr<ButtonAttachment> qCompensationAttachment;
 	std::array<ui::RotaryControl, 5> ampControls;
 	std::array<std::unique_ptr<SliderAttachment>, 5> ampAttachments;
 	std::array<ui::RotaryControl, 5> filterEnvelopeControls;

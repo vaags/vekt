@@ -3,7 +3,7 @@
   "schemaVersion": 2,
   "id": "mono-lead-aurora",
   "product": "com.vekt.mono",
-  "soundSchemaVersion": 2,
+  "soundSchemaVersion": 4,
   "name": "Aurora Lead",
   "tags": [
     "Lead",
@@ -59,6 +59,8 @@
     "filterSustain": 22,
     "filterRelease": 0.192,
     "ampVelocity": 55,
-    "filterVelocity": 55
+    "filterVelocity": 55,
+    "heldKeyReturn": 1,
+    "filterQCompensation": 0
   }
 }

@@ -3,7 +3,7 @@
   "schemaVersion": 2,
   "id": "mono-fx-entropy",
   "product": "com.vekt.mono",
-  "soundSchemaVersion": 2,
+  "soundSchemaVersion": 4,
   "name": "Entropy FX",
   "tags": [
     "FX",
@@ -37,8 +37,8 @@
     "osc1Level": 36,
     "osc2Level": 72,
     "osc3Level": 58,
-    "osc1Morph": 3.0,
-    "osc2Morph": 0.0,
+    "osc1Morph": 3,
+    "osc2Morph": 0,
     "osc3Morph": 1.45,
     "osc1PulseWidth": 8,
     "osc2PulseWidth": 50,
@@ -59,6 +59,8 @@
     "filterSustain": 22,
     "filterRelease": 3.6,
     "ampVelocity": 55,
-    "filterVelocity": 55
+    "filterVelocity": 55,
+    "heldKeyReturn": 1,
+    "filterQCompensation": 0
   }
 }

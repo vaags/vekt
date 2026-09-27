@@ -54,6 +54,7 @@ inline constexpr auto filterResonance = "filterResonance";
 inline constexpr auto filterKeyTracking = "filterKeyTracking";
 inline constexpr auto filterEnvelopeAmount = "filterEnvelopeAmount";
 inline constexpr auto filterDrive = "filterDrive";
+inline constexpr auto filterQCompensation = "filterQCompensation";
 inline constexpr auto ampAttack = "ampAttack";
 inline constexpr auto ampDecay = "ampDecay";
 inline constexpr auto ampSustain = "ampSustain";
@@ -74,7 +75,7 @@ inline constexpr std::array soundParameterIds {
 	osc1Morph, osc2Morph, osc3Morph, osc1PulseWidth, osc2PulseWidth, osc3PulseWidth,
 	noiseType, noiseLevel, filterCutoff, filterResonance, filterKeyTracking,
 	filterEnvelopeAmount, filterDrive, ampAttack, ampDecay, ampSustain, ampRelease,
-	filterAttack, filterDecay, filterSustain, filterRelease, ampVelocity, filterVelocity };
+	filterAttack, filterDecay, filterSustain, filterRelease, ampVelocity, filterVelocity, filterQCompensation };
 
 [[nodiscard]] juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
 }

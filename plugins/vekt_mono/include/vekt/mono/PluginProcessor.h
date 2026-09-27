@@ -12,15 +12,23 @@
 
 #include <array>
 #include <atomic>
+#include <cstdint>
 #include <vector>
 
 namespace vekt::mono
 {
+struct MonoVoiceSettings;
+class MonoVoice;
+
 class PluginProcessor final : public juce::AudioProcessor,
 	private juce::AudioProcessorValueTreeState::Listener
 {
 public:
+#if defined(VEKT_MONO_LADDER_DEVELOPMENT)
+	explicit PluginProcessor(bool enableDevelopmentLadder = false, bool useCoupledSolver = false);
+#else
 	PluginProcessor();
+#endif
 	~PluginProcessor() override;
 
 	void prepareToPlay(double sampleRate, int maximumBlockSize) override;
@@ -31,7 +39,13 @@ public:
 
 	[[nodiscard]] juce::AudioProcessorEditor* createEditor() override;
 	[[nodiscard]] bool hasEditor() const override { return true; }
-	[[nodiscard]] const juce::String getName() const override { return "Vekt Mono"; }
+	[[nodiscard]] const juce::String getName() const override
+	{
+#if defined(VEKT_MONO_LADDER_DEVELOPMENT)
+		if (developmentLadder) return "Vekt Mono Ladder Preview";
+#endif
+		return "Vekt Mono";
+	}
 	[[nodiscard]] bool acceptsMidi() const override { return true; }
 	[[nodiscard]] bool producesMidi() const override { return false; }
 	[[nodiscard]] bool isMidiEffect() const override { return false; }
@@ -52,13 +66,24 @@ public:
 	[[nodiscard]] bool hasPendingVoiceCountChange() const noexcept { return pendingVoiceCount.load(); }
 	[[nodiscard]] bool hasPendingQualityChange() const noexcept { return pendingQuality.load(); }
 	[[nodiscard]] int getActiveQuality() const noexcept { return activeQuality; }
+#if defined(VEKT_MONO_LADDER_DEVELOPMENT)
+	[[nodiscard]] bool isDevelopmentLadderActive() const noexcept
+	{
+		return developmentLadder && (activeQuality == 0 || coupledLadder);
+	}
+	[[nodiscard]] bool isCoupledLadderActive() const noexcept { return isDevelopmentLadderActive() && coupledLadder; }
+	[[nodiscard]] bool isDevelopmentPreview() const noexcept { return developmentLadder; }
+	struct CoupledWorkSnapshot
+	{
+		std::uint64_t samples {}, iterations {}, lineSearchTrials {}, unconverged {}, nonFinite {};
+	};
+	[[nodiscard]] CoupledWorkSnapshot coupledWorkSnapshot() const noexcept;
+#endif
 	[[nodiscard]] std::array<float, 2> consumeOutputPeaks() noexcept { return outputMeter.consumePeaks(); }
 
 private:
-	struct Settings;
-	class Voice;
 	[[nodiscard]] float value(const char* identifier) const noexcept;
-	[[nodiscard]] Settings snapshotSettings() const;
+	[[nodiscard]] MonoVoiceSettings snapshotSettings() const;
 	void handleMidi(const juce::MidiMessage& message);
 	void noteOn(int channel, int note, float velocity);
 	void noteOff(int channel, int note);
@@ -73,8 +98,8 @@ private:
 	[[nodiscard]] juce::Result applyPreset(const presets::Preset& preset);
 	[[nodiscard]] bool matchesPresetSound(const presets::Preset& preset) const;
 	[[nodiscard]] juce::Result loadAdjacentPreset(bool next);
-	[[nodiscard]] Voice& findVoiceForNote(int channel, int note);
-	[[nodiscard]] Voice& monoVoiceForChannel(int channel);
+	[[nodiscard]] MonoVoice& findVoiceForNote(int channel, int note);
+	[[nodiscard]] MonoVoice& monoVoiceForChannel(int channel);
 	void retargetMonophonicVoice(int channel, bool retrigger);
 	[[nodiscard]] int activeVoiceLimit() const noexcept;
 	void parameterChanged(const juce::String& parameterId, float) override;
@@ -85,10 +110,15 @@ private:
 	std::unique_ptr<presets::FilePresetRepository> userPresetRepository;
 	presets::PresetCatalog presetCatalog;
 	presets::PresetSession presetSession;
-	std::array<std::unique_ptr<Voice>, 16> voices;
+	std::array<std::unique_ptr<MonoVoice>, 16> voices;
 	std::array<bool, 16> sustainByChannel {};
 	std::array<float, 16> pitchBendByChannel {};
-	std::array<std::vector<int>, 16> heldNotesByChannel;
+	struct HeldNote
+	{
+		int note {};
+		float velocity {};
+	};
+	std::array<std::vector<HeldNote>, 16> heldNotesByChannel;
 	dsp::OversamplingBank<float> oversampling { 2 };
 	dsp::StereoPeakMeter outputMeter;
 	std::atomic<bool> pendingVoiceCount {};
@@ -100,6 +130,10 @@ private:
 	int requestedQuality {};
 	std::uint64_t noteAge {};
 	double sampleRateHz { 48'000.0 };
+#if defined(VEKT_MONO_LADDER_DEVELOPMENT)
+	bool developmentLadder {};
+	bool coupledLadder {};
+#endif
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginProcessor)
 };
 }

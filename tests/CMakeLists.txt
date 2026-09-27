@@ -1,4 +1,5 @@
 add_executable(vekt_dsp_tests
+    TestMain.cpp
     dsp/DcBlockerTests.cpp
     dsp/LatencyAlignedBypassTests.cpp
     dsp/LatencyAlignedMixerTests.cpp
@@ -28,19 +29,25 @@ add_executable(vekt_dsp_tests
 	processor/ValueFormatTests.cpp
 	audio_lab/FileSourceTests.cpp
     audio_lab/LabSettingsTests.cpp
+	audio_lab/MeasurementsTests.cpp
+	audio_lab/MonoRenderTests.cpp
+	../tools/audio_lab/MonoRender.cpp
+	audio_lab/LadderPrototypeTests.cpp
+	../tools/audio_lab/LadderPrototype.cpp
     dsp/TanhStageTests.cpp
     ui/StereoMeterBallisticsTests.cpp
     ui/LevelMeterTests.cpp)
 
 target_link_libraries(vekt_dsp_tests PRIVATE
     vekt::dsp
+	vekt::audio_analysis
     vekt::ui
     VektRavCore
 	VektGlimmerCore
 	VektMonoCore
     vekt::juce_headers
     vekt::juce_runtime
-    Catch2::Catch2WithMain)
+    Catch2::Catch2)
 
 if(APPLE AND CMAKE_GENERATOR STREQUAL "Xcode")
     add_custom_command(TARGET vekt_dsp_tests POST_BUILD
