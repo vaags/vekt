@@ -495,10 +495,25 @@ post-load callbacks and silence after 32 empty blocks at all four qualities;
 the final version passed 42,057 assertions in one focused run, including a
 fresh-instance empty-block silence check. The final development suite passed
 267/267 cases and ordinary Release VST3/Standalone targets still build with
-development mode off. Do not score this as a strict preset-silence pass:
-decide the intended tail/click behavior and test the bounded residual against
-the fresh instance and host lifecycle before cutover. The existing legacy
-1x preset-silence test does not cover oversampled paths.
+development mode off. That historical test did not establish strict silence;
+the subsequent product decision and implementation below supersede its open
+tail-policy question. The existing legacy 1x preset-silence test did not cover
+oversampled paths.
+
+**Preset-load isolation decision and implementation (27 September 2026):**
+Thomas chose strict isolation for *every* preset load (factory, user, host
+program, next/previous): no old-preset output is permitted in the next audio
+callback, even if an abrupt cutoff clicks. With no new MIDI note, every sample
+of both channels must be exactly zero; a new note must sound immediately in
+that same callback using the new preset. Project-state restore is a separate,
+undecided policy. The shared successful-preset path now schedules a voice and
+oversampling-filter reset at the start of the next callback, before MIDI.
+A focused development regression exercises all five load routes at 1x–8x,
+both with no note and with a note at sample 32; it passed 82,628 assertions.
+The final development suite passed 267/267 cases; ordinary Release VST3 and
+Standalone targets built with development mode off. The normal plugin still
+selects legacy. Host timing/click behavior, concurrent preset-load safety and
+production acceptance remain unqualified.
 
 For **all** rows, playback/offline split and follow/override recall are planned,
 not implemented. The normal host plugin still selects legacy at every quality;

@@ -223,7 +223,13 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
 {
 	juce::ScopedNoDenormals noDenormals;
 	buffer.clear();
-	if (pendingPresetReset.exchange(false)) resetPlayingState();
+	if (pendingPresetReset.exchange(false))
+	{
+		resetPlayingState();
+		// Preset loads must not leak old-patch samples from the oversampling filters.
+		// Reset before handling MIDI so a new note can sound in this callback.
+		oversampling.reset();
+	}
 	applyDeferredConfiguration();
 	int position {};
 	for (const auto metadata : midi)

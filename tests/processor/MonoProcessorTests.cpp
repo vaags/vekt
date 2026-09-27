@@ -596,17 +596,36 @@ TEST_CASE("Mono coupled quality state recalls without selecting coupled in the n
 	}
 }
 
-TEST_CASE("Mono coupled factory preset change stops the previous voice and exposes oversampling tails", "[mono][processor][ladder-coupled][preset]")
+TEST_CASE("Mono preset loads clear old audio while allowing new notes in the first callback", "[mono][processor][ladder-coupled][preset]")
 {
 	for (int quality = 0; quality <= 3; ++quality)
+	for (int route = 0; route < 5; ++route)
+	for (const bool immediateNote : { false, true })
 	{
+		struct TemporaryPresetDirectory
+		{
+			juce::File path = juce::File::getSpecialLocation(juce::File::tempDirectory)
+				.getNonexistentChildFile("vekt-mono-preset-isolation", {}, true);
+			~TemporaryPresetDirectory() { path.deleteRecursively(); }
+		} directory;
+		vekt::presets::FilePresetRepository repository(directory.path);
 		vekt::mono::PluginProcessor changed(true, true), fresh(true, true), legacy;
+		if (route == 4)
+		{
+			vekt::presets::Preset preset;
+			REQUIRE(changed.getPresetSession().library().loadFactoryPreset(24, preset).wasOk());
+			preset.identifier = "mono-isolation-user-test";
+			preset.name = "Isolation Test Bass";
+			REQUIRE(repository.save(preset).wasOk());
+			for (auto* processor : { &changed, &fresh, &legacy })
+				processor->getPresetSession().library().setUserRepository(&repository);
+		}
 		for (auto* processor : { &changed, &fresh, &legacy })
 		{
 			setParameter(*processor, vekt::mono::parameters::quality, static_cast<float>(quality));
 			processor->prepareToPlay(48'000.0, 128);
 		}
-		INFO("quality=" << quality);
+		CAPTURE(quality, route, immediateNote);
 		juce::AudioBuffer<float> oldNote(2, 128), actual(2, 128), expected(2, 128);
 		juce::MidiBuffer note;
 		note.addEvent(juce::MidiMessage::noteOn(1, 48, 0.8f), 0);
@@ -616,31 +635,38 @@ TEST_CASE("Mono coupled factory preset change stops the previous voice and expos
 			note.clear();
 		}
 		REQUIRE(stereoRms(oldNote) > 1.0e-4f);
-		changed.setCurrentProgram(24); // Classic Three Bass
-		fresh.setCurrentProgram(24);
-		legacy.setCurrentProgram(24);
-		REQUIRE(changed.getCurrentProgram() == 24);
-		REQUIRE(fresh.getCurrentProgram() == 24);
-		renderBlock(changed, actual);
-		renderBlock(fresh, expected);
-		for (int channel = 0; channel < 2; ++channel)
-			for (int sample = 0; sample < 128; ++sample)
-				REQUIRE(std::isfinite(actual.getSample(channel, sample)));
-		const auto firstSilentBlockRms = stereoRms(actual);
-		CAPTURE(quality, firstSilentBlockRms);
-		REQUIRE(stereoRms(expected) < 1.0e-6f);
-		if (quality == 0) REQUIRE(firstSilentBlockRms < 1.0e-6f);
-		// The oversampling filter is not reset by preset loading, so it may emit
-		// samples from the old patch after its voice has been stopped.
-		for (int block = 0; block < 32; ++block)
+		const auto load = [route](vekt::mono::PluginProcessor& processor)
 		{
-			renderBlock(changed, actual);
-			renderBlock(fresh, expected);
-			for (int channel = 0; channel < 2; ++channel)
-				for (int sample = 0; sample < 128; ++sample)
-					REQUIRE(std::isfinite(actual.getSample(channel, sample)));
+			if (route == 0) processor.setCurrentProgram(24); // Classic Three Bass
+			else if (route == 1)
+			{
+				vekt::presets::Preset preset;
+				auto& session = processor.getPresetSession();
+				REQUIRE(session.library().loadFactoryPreset(24, preset).wasOk());
+				REQUIRE(session.load(preset.identifier, vekt::presets::PresetOrigin::factory).wasOk());
+			}
+			else if (route == 2)
+			{
+				processor.setCurrentProgram(23);
+				REQUIRE(processor.loadNextPreset().wasOk());
+			}
+			else if (route == 3)
+			{
+				processor.setCurrentProgram(24);
+				REQUIRE(processor.loadPreviousPreset().wasOk());
+			}
+			else REQUIRE(processor.getPresetSession().load("mono-isolation-user-test", vekt::presets::PresetOrigin::user).wasOk());
+		};
+		load(changed);
+		load(fresh);
+		load(legacy);
+		const auto program = route == 3 ? 23 : 24;
+		if (route != 4)
+		{
+			REQUIRE(changed.getCurrentProgram() == program);
+			REQUIRE(fresh.getCurrentProgram() == program);
 		}
-		REQUIRE(stereoRms(actual) < 1.0e-6f);
+		else REQUIRE(changed.getPresetSession().origin() == vekt::presets::PresetOrigin::user);
 		REQUIRE(changed.getActiveQuality() == quality);
 		REQUIRE(changed.getLatencySamples() == fresh.getLatencySamples());
 		REQUIRE(changed.getLatencySamples() == legacy.getLatencySamples());
@@ -648,7 +674,28 @@ TEST_CASE("Mono coupled factory preset change stops the previous voice and expos
 		REQUIRE_FALSE(legacy.isDevelopmentLadderActive());
 		REQUIRE(changed.getParameters().getRawParameterValue(vekt::mono::parameters::filterCutoff)->load()
 			== Catch::Approx(fresh.getParameters().getRawParameterValue(vekt::mono::parameters::filterCutoff)->load()));
-		note.addEvent(juce::MidiMessage::noteOn(1, 55, 0.8f), 0);
+		if (immediateNote) note.addEvent(juce::MidiMessage::noteOn(1, 55, 0.8f), 32);
+		renderBlock(changed, actual, note);
+		renderBlock(fresh, expected, note);
+		renderBlock(legacy, oldNote, note);
+		for (int channel = 0; channel < 2; ++channel)
+			for (int sample = 0; sample < (immediateNote ? 32 : 128); ++sample)
+			{
+				REQUIRE(actual.getSample(channel, sample) == 0.0f);
+				REQUIRE(oldNote.getSample(channel, sample) == 0.0f);
+			}
+		if (!immediateNote) continue;
+		double firstBlockEnergy {};
+		for (int channel = 0; channel < 2; ++channel)
+			for (int sample = 32; sample < 128; ++sample)
+			{
+				const auto value = actual.getSample(channel, sample);
+				REQUIRE(std::isfinite(value));
+				REQUIRE(std::abs(value - expected.getSample(channel, sample)) < 1.0e-5f);
+				firstBlockEnergy += static_cast<double>(value) * value;
+			}
+		REQUIRE(firstBlockEnergy > 0.0);
+		note.clear();
 		double energy {};
 		for (int block = 0; block < 4; ++block)
 		{
@@ -661,6 +708,7 @@ TEST_CASE("Mono coupled factory preset change stops the previous voice and expos
 					const auto value = actual.getSample(channel, sample);
 					REQUIRE(std::isfinite(value));
 					REQUIRE(std::isfinite(expected.getSample(channel, sample)));
+					REQUIRE(std::abs(value - expected.getSample(channel, sample)) < 1.0e-5f);
 					energy += static_cast<double>(value) * value;
 				}
 		}

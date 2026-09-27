@@ -98,9 +98,9 @@ voice remains active. The final focused diagnostic passed 42,057 assertions
 (log: `/tmp/vekt-coupled-preset-final-focused-20260927.log`, ephemeral):
 after 32 empty blocks its output was silent within `1e-6` RMS at 1x–8x,
 while a fresh instance loaded with the same preset was silent in the first
-empty block. The intended preset tail and host click policy require a product
-decision; this is not a
-strict-immediate-silence pass or a production host validation result.
+empty block. This historical diagnostic was not a strict-immediate-silence
+pass; the later product decision and implementation below supersede the open
+tail-policy question. It is not a production host validation result.
 The final rebuilt development binary passed the full 267/267-case suite
 (`ctest --preset dev --output-on-failure`, exit 0, 273.63 seconds; log:
 `/tmp/vekt-coupled-preset-final-full-ctest-20260927.log`, ephemeral). An
@@ -109,6 +109,30 @@ test edit; only the second run validates the final binary. The ordinary
 Release VST3 and Standalone targets built with development mode off (no source
 rebuild needed; `/tmp/vekt-coupled-preset-release-20260927.log`, ephemeral).
 Neither result changes the production acceptance decision.
+
+**Preset-load isolation implementation (27 September 2026):** Thomas selected
+an exact-silence contract for the next callback after every successful factory,
+user, host-program or next/previous preset load, unless new MIDI notes arrive;
+in that case the new patch must sound in the same callback. Strict removal of
+old audio takes priority over click suppression. Project-state restore is not
+covered by this decision. `PluginProcessor::processBlock` now clears both
+voice and oversampling-filter history before handling MIDI when a successful
+preset load has set the pending reset flag. The revised coupled development
+test passed 82,628 assertions across 1x/2x/4x/8x and five load routes,
+comparing an active instance to a fresh instance with a note at sample 32 and
+requiring exact zero in both channels with no note (log:
+`/tmp/vekt-preset-isolation-final-focused-20260927.log`, ephemeral). A
+temporary user-preset repository keeps the user route out of the real library.
+The normal legacy processor is also checked for exact silence in the idle
+case. This local test does not measure host clicks, callback deadlines or
+concurrent host/preset-thread safety; production ladder selection is unchanged.
+The final development suite passed 267/267 cases (`ctest --preset dev
+--output-on-failure`, exit 0, 427.94 seconds; log:
+`/tmp/vekt-preset-isolation-full-20260927.log`, ephemeral). Ordinary Release
+VST3 and Standalone targets built with development mode off (exit 0; log:
+`/tmp/vekt-preset-isolation-release-20260927.log`, ephemeral). These are
+local regression and build results, not a coupled production-host or
+real-time-safety acceptance pass.
 
 ## Target And Scope
 
