@@ -7,6 +7,12 @@
 solver as the preferred candidate and retire the legacy render engine as soon
 as the complete replacement is accepted and integrated safely. This is not
 permission to switch the host entry point or remove legacy today.
+**Cutover objective (27 September 2026):** Deliver one coupled production engine
+for every retained quality, validate the production host path, then remove
+legacy in a separately verified change. Prepare production-equivalent tests
+before cutover, but keep `production_integration_allowed=false` until Thomas
+signs the acceptance decision. A 1x-first *qualification order* is not approval
+to ship a 1x-only or mixed-engine plugin.
 
 **Current gate:** Provisional 1x candidate integration into Mono's development
 processor passes focused silence, reset, finite/bounded, determinism and
@@ -448,14 +454,30 @@ rewrite earlier measurements as if they tested a newer model or binary.
 
 ## Evidence ledger (not acceptance)
 
+### Retained-quality audit (27 September 2026)
+
+| Mode | Evidence obtained for coupled | Still needed before production approval |
+| --- | --- | --- |
+| 1x (default) | Development processor selection; focused numerical, finite-output, reset, latency and solver-work checks; Thomas's favorable unblinded audition; 30-second Release complete-processor *offline* runs with both passing and failing timing-rule outcomes. Covered C++ `new` probes reported zero callback allocations. | Broad reference-aligned spectral/IMD and control-modulation matrix; documented representative listening and gain/headroom; approved fallback and latency limits; full allocator coverage and long-run safety; repeatable controlled Release results meeting **all four** approved M1 Pro cases and live host/device evidence. No 1x operating claim is qualified. |
+| 2x (IIR) | Explicit development selection, finite output, effective-engine and latency smoke checks; short 48 kHz/128/eight-voice Release probe had zero simulated exceedances in eight callbacks. | Approved rate/block/voice envelope and distinct timing rule; per-path sound, reference/spectral, modulation, stability, latency, long-run allocation/fallback and complete-processor Release/host evidence. Short probe is not a pass. |
+| 4x (FIR) | Same focused development-path checks; short 48 kHz/128/eight-voice Release probe had zero simulated exceedances in four callbacks. | Same per-path gates as 2x, including FIR latency and host reporting/recall; four callbacks cannot qualify a tier. |
+| 8x (FIR) | Same focused development-path checks; short 48 kHz/128/eight-voice Release probe exceeded its simulated deadline on all four callbacks. | Same per-path gates as 4x; investigate cost, define/test a support envelope on named hardware and obtain reviewer approval. Do not infer either a supported real-time tier or an irrevocable product failure from four callbacks. |
+
+For **all** rows, playback/offline split and follow/override recall are planned,
+not implemented. The normal host plugin still selects legacy at every quality;
+focused development tests do not establish VST3/AUv3/Standalone lifecycle or
+actual device deadlines. Preserve the dated raw results in
+`docs/MONO_VALIDATION.md`; this audit does not rescore earlier runs.
+
 | Evidence | Verified scope | Unresolved implication |
 | --- | --- | --- |
+| Cutover-planning baseline verification (27 September 2026) | At source revision `d68aae9` plus documentation-only working-tree edits, the `dev` Debug arm64 configuration (`VEKT_MONO_LADDER_DEVELOPMENT=ON`) built its existing test executable with no work and `ctest --preset dev --output-on-failure` passed 264/264 tests in 232.25 seconds. The ordinary arm64 `release` configuration (`VEKT_MONO_LADDER_DEVELOPMENT=OFF`) built VST3 and Standalone targets. See `docs/MONO_VALIDATION.md` for ephemeral logs. | These are current baseline build/tests, not a coupled production binary, host/device test, accepted sound or CPU/safety result; no acceptance gate changed. |
 | Development suite before the latest 1x comparison | 246 cases, 6,645,095 assertions, exit 0; see `docs/MONO_VALIDATION.md` | Predates the 1x diagnostic; not a product gate. |
 | Focused 1x diagnostic | 120 assertions; coherent 48 kHz tone, 1/2/4-step outputs and 16/32-step reference returns; see `tests/audio_lab/LadderPrototypeTests.cpp` | Reference returns have no reconstruction low-pass; neither alias attribution nor audibility is settled. |
 | Filtered 1x reference probe (26 September 2026) | 38,578 assertions in one focused case. Offline 16x/32x internal samples pass through a symmetric Blackman-windowed sinc low-pass before host decimation; sampled 1–15 kHz passband and 25–47 kHz stopband, injected 47 kHz fold and exact last-substep/host-return equivalence are checked. At 48 kHz, resonance 0.98, 7 kHz input and +12/+24 dB drive, the 1 and 5 kHz reference bins change by less than 0.5 dB from 16x to 32x; see `tests/audio_lab/LadderPrototypeTests.cpp` and `docs/MONO_VALIDATION.md`. | One tone, two inspected output bins, 1 kHz-spaced filter-response points and no 32x-to-higher-factor full-render convergence or full-band error budget. Not a listening or product pass. |
 | Release cost probes | Half-second, filter-only M1 Pro diagnostics in `docs/MONO_VALIDATION.md` | Not a complete candidate processor, 30-second tail qualification or actual audio callbacks. |
 | Coupled 1x development audition (27 September 2026) | Thomas reports that coupled 1x sounds much better than legacy and favors removing legacy; see `docs/MONO_VALIDATION.md`. No further conditions or control-by-control observations were supplied. | This establishes a positive 1x sound preference, not control-specific listening, higher-mode acceptance, production cutover or legacy deletion. |
-| Reviewer and approval | Thomas identified himself as product owner and single developer on 26 September 2026; no contract decisions or listening review recorded. | Sound criteria, operating envelope and sign-off remain blocked on product review. |
+| Reviewer and approval | Thomas identified himself as product owner and single developer on 26 September 2026; approved the sound target and 1x CPU target, preferred coupled on 27 September and reported a favorable unblinded 1x audition. | Numerical sound limits, representative listening, higher-mode operating envelopes and final sign-off remain pending. |
 
 ## Ordered steps and checkpoints
 
@@ -779,6 +801,54 @@ deletion decisions. If any gate fails, retain legacy production and report
 the blocker; do not equate a development preview with replacement.
 **Remaining:** coupled sign-off, integration, host/regression validation and
 legacy removal.
+
+#### Staged coupled cutover and rollback contract (objective, not approval)
+
+1. **Prepare without switching production — in progress.** Keep the normal
+   entry point legacy. Exercise coupled in the development processor at 1x
+   first, then each retained 2x/4x/8x mode; run full Debug tests and build the
+   ordinary Release plugin. Add production-equivalent state/preset, quality
+   switching, effective latency, silence/reset and render comparisons without
+   mistaking a preview binary for a production host test. Record exact source
+   revision, flags, hardware and logs for each run.
+2. **Freeze and measure — blocked.** Thomas approves numerical/listening,
+   fallback, latency and per-quality operating rules *before scoring* results.
+   Require reference convergence, spectral/IMD/modulation, resonance/startup,
+   finite/bounded/zero-allocation long runs, and documented listening per mode.
+   For 1x retain the four M1 Pro combinations and 30-second p99.9 <75% of
+   deadline, zero simulated exceedances, allocations and fallbacks; repeat
+   under a documented controlled scheduling protocol and test a live device.
+   For 2x/4x/8x record separately approved timing rules, tested machine and
+   rate/block/voice boundaries; include actual host callbacks for claimed
+   playback support. Offline-only claims require bounded deterministic export
+   and correct effective quality/latency, not a playback deadline.
+3. **Decide — blocked.** Thomas records an attributable go/no-go with build ID,
+   per-mode evidence, supported/excluded combinations, remaining risks and
+   exceptions in ADR 0005. Keep `production_integration_allowed=false` until
+   every retained path and host/state contract is accepted. If 8x or another
+   mode cannot qualify, retain legacy production and explicitly revise ADR
+   0001/0005 and the quality contract before any narrower cutover; do not
+   silently route that mode to legacy.
+4. **Cut over and verify — blocked.** In a reviewable change, enable coupled
+   for the ordinary host-created plugin *without development flags*. Validate
+   Release Standalone/VST3 and AUv3 where built, host lifecycle and live
+   audio, playback/offline quality (including follow/override once implemented),
+   reported latency, project and preset recall, gain/headroom, all retained
+   modes, factory content and full regression tests. Explicitly test older
+   host-managed normalized quality snapshots: rejecting stored index 4 project
+   state cannot intercept those snapshots. Record the resulting build ID.
+5. **Rollback/cleanup — blocked.** Until production-format and state regressions
+   pass, keep a known-good legacy production build/source revision available;
+   on a safety failure (non-finite output, unapproved fallback or allocation),
+   missed approved timing/host boundary, incorrect latency/recall, or rejected
+   sound, stop promotion and restore that legacy path in a new verified build.
+   Do not switch engines mid-session or silently recall a different quality.
+   Record the failure, rollback revision and regression result. Only after the
+   coupled production build passes and Thomas records a separate deletion
+   decision, remove legacy DSP and development selectors and rerun the full
+   production regressions. Rollback after deletion requires restoring the
+   preserved legacy revision and revalidation, not an undocumented runtime
+   fallback.
 
 ## Research to inspect before implementing alternatives
 

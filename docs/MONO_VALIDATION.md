@@ -10,6 +10,43 @@ without changing live state, not silently mapped to 8x; indices 0–3 are stable
 This product change responds to CPU concern, **not** a measured CPU verdict
 from short diagnostic probes. The remaining modes still need validation.
 
+**Cutover evidence audit (27 September 2026):** Coupled is the selected
+*qualification target*, not the production engine. The development processor
+exercises 1x/2x/4x/8x and focused quality/latency/finite-output tests pass;
+the ordinary host entry point still constructs legacy. At 1x, Thomas's
+favorable unblinded audition and numerical comparisons establish neither the
+broad reference/spectral and per-control sound gates nor repeatable safe CPU:
+30-second offline Release runs across the four approved M1 Pro cases include
+both passing and failing timing-rule outcomes. Covered callback C++ `new`
+probes report zero in measured runs, not full allocation coverage or live-device
+behavior. At 2x and 4x, short 48 kHz/128/eight-voice probes had zero simulated
+exceedances in eight and four callbacks respectively; 8x exceeded the
+simulated deadline in all four callbacks. None has an approved per-mode timing
+rule/envelope, full spectral/stability/latency/listening matrix, long-run
+complete-processor safety or host evidence. Playback/offline split and
+follow/override are not yet implemented; production format, state and preset
+regressions after cutover have not run. Do not convert short probes into a
+per-quality pass or an 8x final failure. The gate-by-gate audit and staged
+cutover/rollback criteria are in `docs/MONO_LADDER_ACCEPTANCE_PLAN.md`;
+ADR 0005 remains Proposed and `production_integration_allowed=false`.
+Preserve a known-good legacy build through production host regression; if a
+gated safety, timing, sound, latency or recall check fails, restore legacy in
+a newly verified build and log the failing configuration and revision. No
+production cutover or rollback has occurred.
+
+**Cutover-planning baseline verification (27 September 2026):** At source
+revision `d68aae9` with only the three planning documents modified, the
+existing `dev` Debug arm64 test executable (`VEKT_MONO_LADDER_DEVELOPMENT=ON`)
+required no rebuild. `ctest --preset dev --output-on-failure` passed 264/264
+tests in 232.25 seconds (exit 0); the log is
+`/tmp/vekt-cutover-ctest-20260927.log` (ephemeral). The ordinary `release`
+arm64 build (`VEKT_MONO_LADDER_DEVELOPMENT=OFF`) produced Standalone and VST3
+targets (exit 0); its log is
+`/tmp/vekt-cutover-release-build-20260927.log` (ephemeral). These checks
+establish the current baseline build/test state only: the ordinary host entry
+point still selects legacy, and no coupled production host, live-device,
+per-quality acceptance or CPU/safety gate was exercised or passed.
+
 ## Target And Scope
 
 Target a well-maintained Minimoog-style bass/lead core with modern extensions:

@@ -44,6 +44,9 @@ Record results and regressions in `docs/MONO_LADDER_ACCEPTANCE_PLAN.md`.
 Newton solver of the same four implicit stage equations as the preferred
 candidate for replacing the legacy Mono render engine, with legacy removal as
 soon as appropriate after acceptance and verified production integration.
+The explicit objective is a single coupled production engine across all retained
+1x/2x/4x/8x modes, not permanent coexistence with legacy. Qualify 1x first,
+then the higher modes; that order does not authorize a 1x-only release.
 The nested solver remains a numerical comparator; neither solver is approved
 for the shipped host path yet. This choice does not approve coupled sound,
 CPU/safety, all retained quality modes or host
@@ -449,11 +452,33 @@ or a product decision changes; this ADR remains the authoritative decision.
    revision or supersession instead of treating development tests as a pass.
 6. Exercise and qualify coupled on every retained quality path in development
    before acceptance. After acceptance, switch and validate the host entry
-   point, including export eligibility, recall,
-   latency, gain/headroom and full production-format regressions. Keep legacy
+   point without development flags, including playback/offline follow and
+   override once implemented, recall (including older normalized host
+   snapshots), effective latency, gain/headroom, live-device behavior and full
+   production-format regressions. Keep legacy
    temporarily as a comparison fixture; once the replacement has passed,
    remove legacy DSP and obsolete development engine selectors in a separately
    tested cleanup. Record cutover and deletion decisions and build identifiers.
+
+**Cutover/rollback criteria (27 September 2026; not sign-off):** Thomas, product
+owner and sole developer, must record a dated go/no-go, exact source/build IDs,
+supported hardware and rate/block/voice envelopes, per-quality sound and
+reference/spectral/stability/latency results, complete-processor Release CPU and
+allocation evidence, live host/device checks and explicit exceptions before
+production integration is allowed. The 1x four-combination M1 Pro timing rule
+is unchanged; distinct 2x/4x/8x rules require approval before scoring. If a
+retained mode does not qualify, leave legacy in production and revise ADR 0001
+and this ADR before changing scope; do not silently retain a mixed engine.
+Keep a known-good legacy source/build available through host regressions. A
+non-finite sample, unapproved fallback/allocation, failure of an approved CPU
+or host envelope, incorrect recall/latency, or rejected sound blocks promotion:
+restore legacy in a separately tested build and record the regression and
+rollback revision. Do not attempt a mid-session engine substitution. After a
+verified coupled production build, legacy deletion requires a second recorded
+decision and full production regressions; restore and revalidate the archived
+legacy revision if rollback is needed after cleanup. Detailed staged checkpoints
+and the per-quality evidence audit live in
+`docs/MONO_LADDER_ACCEPTANCE_PLAN.md`.
 
 Measurement-only integration for step 3 may precede acceptance; switching
 Mono's shipped render path may not. The legacy engine remains active and
