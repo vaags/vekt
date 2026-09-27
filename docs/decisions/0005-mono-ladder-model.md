@@ -329,7 +329,8 @@ dry bass/lead sound target with controlled overload and smooth resonance,
 without a claimed match to a particular Moog or Mother-32. Hardware and SPICE
 comparisons remain diagnostic. This is approval of the *product target*, not
 of this candidate's sound, numerical limits, or listening results.
-Thomas subsequently superseded the earlier 16x removal: the *planned nonlinear
+**Historical offline-16x policy, superseded 27 September 2026:** Thomas
+subsequently superseded the earlier 16x removal: the *planned nonlinear
 candidate* has distinct Playback Quality (up to 8x) and Offline Render Quality
 (up to 16x); 16x must never run in real-time playback. ADR 0001 records these
 separate controls. The current legacy engine still allows 16x in playback;

@@ -40,7 +40,8 @@ The four-choice range also changes normalized host values: old normalized
 their meanings; host-managed normalized parameter snapshots cannot be
 intercepted by project-state validation. Check older host sessions explicitly.
 
-**Revised candidate scope, 26 September 2026:** Thomas, product owner,
+**Historical decision (superseded 27 September 2026); revised candidate scope,
+26 September 2026:** Thomas, product owner,
 superseded the earlier removal of 16x. The planned nonlinear candidate has
 separate, non-automatable **Playback Quality** (1x/2x/4x/8x, default 1x)
 and **Offline Render Quality** (follow Playback Quality by default; an explicit

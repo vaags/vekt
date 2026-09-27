@@ -4,6 +4,7 @@
 #include "MonoCostTimingRule.h"
 
 #include <juce_audio_basics/juce_audio_basics.h>
+#include <juce_events/juce_events.h>
 
 #include <algorithm>
 #include <array>
@@ -45,7 +46,8 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 	(void)work;
 	if (candidate || coupled) return 64;
 #endif
-	setParameter(processor, vekt::mono::parameters::quality, static_cast<float>(factor == 1 ? 0 : factor == 2 ? 1 : factor == 4 ? 2 : factor == 8 ? 3 : 4));
+	const auto qualityIndex = factor == 1 ? 0 : factor == 2 ? 1 : factor == 4 ? 2 : 3;
+	setParameter(processor, vekt::mono::parameters::quality, static_cast<float>(qualityIndex));
 	setParameter(processor, vekt::mono::parameters::voiceCount, static_cast<float>(voices == 8 ? 0 : voices == 12 ? 1 : 2));
 	setParameter(processor, vekt::mono::parameters::performanceMode, 0.0f);
 	setParameter(processor, vekt::mono::parameters::ampSustain, 100.0f);
@@ -54,7 +56,7 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 	setParameter(processor, vekt::mono::parameters::filterResonance, 85.0f);
 	setParameter(processor, vekt::mono::parameters::filterDrive, 12.0f);
 	processor.prepareToPlay(rate, blockSize);
-	if (processor.getActiveQuality() != (factor == 1 ? 0 : factor == 2 ? 1 : factor == 4 ? 2 : factor == 8 ? 3 : 4)) return 1;
+	if (processor.getActiveQuality() != qualityIndex) return 1;
 #if defined(VEKT_MONO_LADDER_DEVELOPMENT)
 	if (processor.isDevelopmentLadderActive() != candidate || processor.isCoupledLadderActive() != coupled)
 	{
@@ -260,6 +262,7 @@ int main(int argc, char** argv)
 			|| (work && engine != "candidate-coupled")
 			|| (cpu && engine != "candidate-coupled")
 			|| (transitions && engine == "legacy")) return 64;
+		juce::ScopedJuceInitialiser_GUI juceInitialiser;
 		return run(rate, block, voices, factor, seconds, engine != "legacy", engine == "candidate-coupled", work, transitions, cpu);
 	}
 	catch (const std::exception&) { return 64; }

@@ -52,12 +52,11 @@ validation even though ADR 0005 remains Proposed:
   from the linearized equations.
 - Static and audio-rate cutoff, resonance and drive modulation are required ladder
   validation scenarios.
-- The interim legacy engine exposes one 1x/2x/4x/8x/16x GUI setting with
-  1x default and does not restrict 16x during playback. Revised ADR 0001
-  plans separate Playback Quality (1x/2x/4x/8x, default 1x) and Offline
-  Render Quality (follows playback by default, explicitly overridable to
-  1x/2x/4x/8x/16x) for the candidate.
-  Historical 16x probes do not qualify offline-only behavior. No candidate
+- The legacy engine exposes one 1x/2x/4x/8x GUI setting with 1x default.
+  Revised ADR 0001 plans separate Playback Quality (1x/2x/4x/8x, default
+  1x) and Offline Render Quality (follows playback by default, explicitly
+  overridable up to 8x) for the candidate. Historical 16x probes remain
+  diagnostic references, not product-mode evidence. No candidate
   quality path is accepted.
 - Last-bounded-iterate solver behavior is not accepted merely because it is
   deterministic. The supported matrix must demonstrate zero fallback incidence or a
@@ -282,10 +281,10 @@ are representative evidence only: the report marks matrix completion as incomple
 - Controls: static; independently modulated cutoff, resonance and drive; and combined
   modulation.
 - Planned candidate controls: Playback Quality 1x (Off), 2x IIR, 4x/8x FIR;
-  Offline Render Quality additionally offers 16x FIR, eligible only when
-  offline processing is verified. Use still higher offline-reference rates
-  for ground-truth comparisons. Interim legacy still permits 16x playback;
-  the split controls and offline restriction are not implemented.
+  Offline Render Quality follows playback unless explicitly overridden with
+  1x/2x/4x/8x. Use higher offline-reference rates for ground-truth
+  comparisons. The interim legacy control has the same four factors;
+  split controls are not implemented.
 
 The matrix is complete only when every supported production path has explicit
 analytical/nonlinear-reference, stability, determinism, fallback, aliasing and Release
@@ -832,6 +831,11 @@ single-run timings are not a production-path CPU budget or an accepted quality c
 
 ### Proposed Acceptance Package — Requires Product Approval
 
+**Scope correction (27 September 2026):** The older offline-16x proposal and
+host-specific guard/export plan immediately below is historical, not a current
+acceptance gate. Current candidate playback/offline modes stop at 8x. The
+remaining numerical, sound, timing and host-safety proposals still need review.
+
 The following is a **proposal for review**, not an implemented or passing gate.
 ADR 0005 stays Proposed and the report's `production_integration_allowed` stays false.
 The revised 26 September 2026 product scope permits 1x as Mono's real-time
@@ -1169,9 +1173,8 @@ full gate passed; the root cause remains unknown. The temporary log is
    and complete-path CPU review, record a *credible default-path candidate*,
    not ADR acceptance. Qualify every retained higher mode for approved
    spectral, stability, latency and complete-path cost conditions. Qualify
-   16x separately for verified offline rendering, including how playback,
-   export, state recall, latency and transitions behave; do not infer an
-   offline guard from the current legacy implementation. A 1x-only
+   retained offline paths for bounded rendering, including how playback,
+   export, state recall, latency and transitions behave. A 1x-only
    or mixed legacy/candidate release requires explicit ADR 0001/0005
    revisions and quality-switch validation, not a silent waiver.
 5. **Close the model and obtain sign-off:** Finish agreed analytical and
