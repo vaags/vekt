@@ -484,6 +484,22 @@ ordinary Release VST3 and Standalone targets built with development mode off.
 This does not measure transition clicks, host latency renegotiation, real-time
 allocation/CPU or playback/offline follow/override behavior.
 
+**Preset-boundary diagnostic (27 September 2026; development-only):** A focused
+coupled processor test loads factory program 24 (Classic Three Bass) after an
+active note at each retained quality, checks program/parameter recall and
+engine isolation, then renders empty callbacks and a fresh note. The initial
+strict-silence assertion failed at 2x (first post-load block RMS approximately
+`0.02033`); inspection shows preset loading resets voices, but does not reset
+the oversampling bank's filter history. A revised diagnostic checks finite
+post-load callbacks and silence after 32 empty blocks at all four qualities;
+the final version passed 42,057 assertions in one focused run, including a
+fresh-instance empty-block silence check. The final development suite passed
+267/267 cases and ordinary Release VST3/Standalone targets still build with
+development mode off. Do not score this as a strict preset-silence pass:
+decide the intended tail/click behavior and test the bounded residual against
+the fresh instance and host lifecycle before cutover. The existing legacy
+1x preset-silence test does not cover oversampled paths.
+
 For **all** rows, playback/offline split and follow/override recall are planned,
 not implemented. The normal host plugin still selects legacy at every quality;
 focused development tests do not establish VST3/AUv3/Standalone lifecycle or
@@ -833,8 +849,8 @@ legacy removal.
    mistaking a preview binary for a production host test. Record exact source
    revision, flags, hardware and logs for each run. A focused development
    per-quality recall/render and sustained-note quality-transition regressions
-   now pass; preset, broader transition and production-host validation remain
-   open.
+   now pass; an oversampled preset-tail issue is under investigation. Preset
+   policy, broader transition and production-host validation remain open.
 2. **Freeze and measure — blocked.** Thomas approves numerical/listening,
    fallback, latency and per-quality operating rules *before scoring* results.
    Require reference convergence, spectral/IMD/modulation, resonance/startup,

@@ -86,6 +86,30 @@ development mode off (no source rebuild required; log:
 `/tmp/vekt-coupled-quality-transition-release-build-20260927.log`, ephemeral).
 Neither check exercised a coupled production host instance or qualified CPU.
 
+**Factory preset boundary probe (27 September 2026; coupled development
+processor):** After an active note at each quality, the test loads factory
+program 24 (Classic Three Bass), then checks preset selection, unchanged
+quality/latency, engine isolation, finite idle callbacks and a new coupled
+note. An initial *immediate silence* assertion failed at 2x: the first
+post-load callback had RMS approximately `0.02033`, despite voice reset. The
+processor's preset reset does not reset the active oversampling filter state;
+this is consistent with residual audio from that filter, not proof the old
+voice remains active. The final focused diagnostic passed 42,057 assertions
+(log: `/tmp/vekt-coupled-preset-final-focused-20260927.log`, ephemeral):
+after 32 empty blocks its output was silent within `1e-6` RMS at 1x–8x,
+while a fresh instance loaded with the same preset was silent in the first
+empty block. The intended preset tail and host click policy require a product
+decision; this is not a
+strict-immediate-silence pass or a production host validation result.
+The final rebuilt development binary passed the full 267/267-case suite
+(`ctest --preset dev --output-on-failure`, exit 0, 273.63 seconds; log:
+`/tmp/vekt-coupled-preset-final-full-ctest-20260927.log`, ephemeral). An
+earlier full run also passed 267/267 but started before the final focused
+test edit; only the second run validates the final binary. The ordinary
+Release VST3 and Standalone targets built with development mode off (no source
+rebuild needed; `/tmp/vekt-coupled-preset-release-20260927.log`, ephemeral).
+Neither result changes the production acceptance decision.
+
 ## Target And Scope
 
 Target a well-maintained Minimoog-style bass/lead core with modern extensions:

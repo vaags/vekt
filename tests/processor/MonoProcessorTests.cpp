@@ -596,6 +596,82 @@ TEST_CASE("Mono coupled quality state recalls without selecting coupled in the n
 	}
 }
 
+TEST_CASE("Mono coupled factory preset change stops the previous voice and exposes oversampling tails", "[mono][processor][ladder-coupled][preset]")
+{
+	for (int quality = 0; quality <= 3; ++quality)
+	{
+		vekt::mono::PluginProcessor changed(true, true), fresh(true, true), legacy;
+		for (auto* processor : { &changed, &fresh, &legacy })
+		{
+			setParameter(*processor, vekt::mono::parameters::quality, static_cast<float>(quality));
+			processor->prepareToPlay(48'000.0, 128);
+		}
+		INFO("quality=" << quality);
+		juce::AudioBuffer<float> oldNote(2, 128), actual(2, 128), expected(2, 128);
+		juce::MidiBuffer note;
+		note.addEvent(juce::MidiMessage::noteOn(1, 48, 0.8f), 0);
+		for (int block = 0; block < 8; ++block)
+		{
+			renderBlock(changed, oldNote, note);
+			note.clear();
+		}
+		REQUIRE(stereoRms(oldNote) > 1.0e-4f);
+		changed.setCurrentProgram(24); // Classic Three Bass
+		fresh.setCurrentProgram(24);
+		legacy.setCurrentProgram(24);
+		REQUIRE(changed.getCurrentProgram() == 24);
+		REQUIRE(fresh.getCurrentProgram() == 24);
+		renderBlock(changed, actual);
+		renderBlock(fresh, expected);
+		for (int channel = 0; channel < 2; ++channel)
+			for (int sample = 0; sample < 128; ++sample)
+				REQUIRE(std::isfinite(actual.getSample(channel, sample)));
+		const auto firstSilentBlockRms = stereoRms(actual);
+		CAPTURE(quality, firstSilentBlockRms);
+		REQUIRE(stereoRms(expected) < 1.0e-6f);
+		if (quality == 0) REQUIRE(firstSilentBlockRms < 1.0e-6f);
+		// The oversampling filter is not reset by preset loading, so it may emit
+		// samples from the old patch after its voice has been stopped.
+		for (int block = 0; block < 32; ++block)
+		{
+			renderBlock(changed, actual);
+			renderBlock(fresh, expected);
+			for (int channel = 0; channel < 2; ++channel)
+				for (int sample = 0; sample < 128; ++sample)
+					REQUIRE(std::isfinite(actual.getSample(channel, sample)));
+		}
+		REQUIRE(stereoRms(actual) < 1.0e-6f);
+		REQUIRE(changed.getActiveQuality() == quality);
+		REQUIRE(changed.getLatencySamples() == fresh.getLatencySamples());
+		REQUIRE(changed.getLatencySamples() == legacy.getLatencySamples());
+		REQUIRE(changed.isCoupledLadderActive());
+		REQUIRE_FALSE(legacy.isDevelopmentLadderActive());
+		REQUIRE(changed.getParameters().getRawParameterValue(vekt::mono::parameters::filterCutoff)->load()
+			== Catch::Approx(fresh.getParameters().getRawParameterValue(vekt::mono::parameters::filterCutoff)->load()));
+		note.addEvent(juce::MidiMessage::noteOn(1, 55, 0.8f), 0);
+		double energy {};
+		for (int block = 0; block < 4; ++block)
+		{
+			renderBlock(changed, actual, note);
+			renderBlock(fresh, expected, note);
+			note.clear();
+			for (int channel = 0; channel < 2; ++channel)
+				for (int sample = 0; sample < 128; ++sample)
+				{
+					const auto value = actual.getSample(channel, sample);
+					REQUIRE(std::isfinite(value));
+					REQUIRE(std::isfinite(expected.getSample(channel, sample)));
+					energy += static_cast<double>(value) * value;
+				}
+		}
+		REQUIRE(energy > 0.001);
+		const auto work = changed.coupledWorkSnapshot();
+		REQUIRE(work.samples > 0);
+		REQUIRE(work.unconverged == 0);
+		REQUIRE(work.nonFinite == 0);
+	}
+}
+
 TEST_CASE("Mono coupled and nested callbacks agree across MIDI and control boundaries", "[mono][processor][ladder-coupled]")
 {
 	for (const auto rate : { 44'100.0, 48'000.0 })
