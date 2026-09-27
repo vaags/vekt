@@ -66,6 +66,26 @@ focused case again passed 12,404 assertions (log:
 `/tmp/vekt-coupled-recall-final-test-20260927.log`, ephemeral). This is
 regression evidence, not a change to the release acceptance gate.
 
+**Development coupled quality-transition regression (27 September 2026):**
+`Mono coupled quality changes defer through sustain and retain the coupled
+engine` passed 4,296 assertions in one focused case (log:
+`/tmp/vekt-coupled-quality-transition-test-20260927.log`, ephemeral). At
+48 kHz/128 samples it tests individual transitions 1x→2x, 2x→4x, 4x→8x
+and 8x→1x: each requested change waits for active transport, sustain and
+release tails, then reports target quality/latency consistent with a legacy
+instance. A post-switch note renders finite coupled output and reports zero
+solver fallback/non-finite samples. The normal processor remains legacy.
+These focused callbacks do not prove click-free switching, latency negotiation
+in a host, full processor allocation/CPU safety, sound approval or the planned
+independent playback/offline controls.
+The full development suite with this test registered passed 266/266 cases
+(`ctest --preset dev --output-on-failure`, exit 0, 298.26 seconds; log:
+`/tmp/vekt-coupled-quality-transition-full-ctest-20260927.log`, ephemeral).
+The ordinary Release VST3 and Standalone build targets also succeeded with
+development mode off (no source rebuild required; log:
+`/tmp/vekt-coupled-quality-transition-release-build-20260927.log`, ephemeral).
+Neither check exercised a coupled production host instance or qualified CPU.
+
 ## Target And Scope
 
 Target a well-maintained Minimoog-style bass/lead core with modern extensions:

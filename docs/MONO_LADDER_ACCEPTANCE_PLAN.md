@@ -472,6 +472,18 @@ the new test registered passed 265/265 cases. This narrows the development
 state/render gap; it does not validate a production coupled plugin, the
 separate playback/offline controls or host-managed normalized snapshots.
 
+**Development quality-transition check (27 September 2026):** A focused
+processor test checks 1x→2x, 2x→4x, 4x→8x and 8x→1x as separate transitions at
+48 kHz/128 samples. For each pair, the requested switch remains pending while
+transport plays, while a note is sustained after stop, and through sustain
+release; once idle it updates active quality and matches legacy's reported
+latency. A new coupled note then produces finite output with zero reported
+solver fallback/non-finite samples. The focused case passed 4,296 assertions.
+The full development suite with this test registered passed 266/266 cases;
+ordinary Release VST3 and Standalone targets built with development mode off.
+This does not measure transition clicks, host latency renegotiation, real-time
+allocation/CPU or playback/offline follow/override behavior.
+
 For **all** rows, playback/offline split and follow/override recall are planned,
 not implemented. The normal host plugin still selects legacy at every quality;
 focused development tests do not establish VST3/AUv3/Standalone lifecycle or
@@ -820,8 +832,9 @@ legacy removal.
    switching, effective latency, silence/reset and render comparisons without
    mistaking a preview binary for a production host test. Record exact source
    revision, flags, hardware and logs for each run. A focused development
-   per-quality recall/render regression now passes; preset and transition
-   coverage and production-host validation remain open.
+   per-quality recall/render and sustained-note quality-transition regressions
+   now pass; preset, broader transition and production-host validation remain
+   open.
 2. **Freeze and measure — blocked.** Thomas approves numerical/listening,
    fallback, latency and per-quality operating rules *before scoring* results.
    Require reference convergence, spectral/IMD/modulation, resonance/startup,
