@@ -541,6 +541,61 @@ TEST_CASE("Mono coupled preview exercises every retained quality", "[mono][proce
 	}
 }
 
+TEST_CASE("Mono coupled quality state recalls without selecting coupled in the normal processor", "[mono][processor][ladder-coupled][quality][state]")
+{
+	for (int quality = 0; quality <= 3; ++quality)
+	{
+		vekt::mono::PluginProcessor source(true, true), restored(true, true), legacy;
+		initializeDryVoice(source);
+		setParameter(source, vekt::mono::parameters::quality, static_cast<float>(quality));
+		setParameter(source, vekt::mono::parameters::filterCutoff, 1'000.0f);
+		setParameter(source, vekt::mono::parameters::filterResonance, 85.0f);
+		setParameter(source, vekt::mono::parameters::filterDrive, 12.0f);
+		juce::MemoryBlock state;
+		source.getStateInformation(state);
+		REQUIRE(state.getSize() > 0);
+		restored.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
+		legacy.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
+		for (auto* processor : { &source, &restored, &legacy })
+			processor->prepareToPlay(48'000.0, 128);
+		INFO("quality=" << quality);
+		REQUIRE(source.getActiveQuality() == quality);
+		REQUIRE(restored.getActiveQuality() == quality);
+		REQUIRE(legacy.getActiveQuality() == quality);
+		REQUIRE(source.getLatencySamples() == restored.getLatencySamples());
+		REQUIRE(source.getLatencySamples() == legacy.getLatencySamples());
+		REQUIRE(source.isCoupledLadderActive());
+		REQUIRE(restored.isCoupledLadderActive());
+		REQUIRE_FALSE(legacy.isDevelopmentLadderActive());
+		juce::AudioBuffer<float> original(2, 128), recalled(2, 128);
+		juce::MidiBuffer note;
+		note.addEvent(juce::MidiMessage::noteOn(1, 48, 0.8f), 0);
+		double energy {};
+		for (int block = 0; block < 4; ++block)
+		{
+			renderBlock(source, original, note);
+			renderBlock(restored, recalled, note);
+			note.clear();
+			for (int channel = 0; channel < 2; ++channel)
+				for (int sample = 0; sample < 128; ++sample)
+				{
+					const auto expected = original.getSample(channel, sample);
+					const auto actual = recalled.getSample(channel, sample);
+					REQUIRE(std::isfinite(expected));
+					REQUIRE(std::isfinite(actual));
+					REQUIRE(std::bit_cast<std::uint32_t>(actual) == std::bit_cast<std::uint32_t>(expected));
+					energy += static_cast<double>(actual) * actual;
+				}
+		}
+		REQUIRE(energy > 0.01);
+		const auto work = restored.coupledWorkSnapshot();
+		REQUIRE(work.samples > 0);
+		REQUIRE(work.unconverged == 0);
+		REQUIRE(work.nonFinite == 0);
+		REQUIRE(legacy.coupledWorkSnapshot().samples == 0);
+	}
+}
+
 TEST_CASE("Mono coupled and nested callbacks agree across MIDI and control boundaries", "[mono][processor][ladder-coupled]")
 {
 	for (const auto rate : { 44'100.0, 48'000.0 })

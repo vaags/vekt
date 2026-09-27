@@ -463,6 +463,15 @@ rewrite earlier measurements as if they tested a newer model or binary.
 | 4x (FIR) | Same focused development-path checks; short 48 kHz/128/eight-voice Release probe had zero simulated exceedances in four callbacks. | Same per-path gates as 2x, including FIR latency and host reporting/recall; four callbacks cannot qualify a tier. |
 | 8x (FIR) | Same focused development-path checks; short 48 kHz/128/eight-voice Release probe exceeded its simulated deadline on all four callbacks. | Same per-path gates as 4x; investigate cost, define/test a support envelope on named hardware and obtain reviewer approval. Do not infer either a supported real-time tier or an irrevocable product failure from four callbacks. |
 
+**Development recall check (27 September 2026):** A new processor test restores
+each stored quality (indices 0–3) into a fresh coupled development processor,
+checks effective engine and latency against a normal legacy instance, and
+compares deterministic stereo output to the originating coupled processor.
+It passed 12,404 assertions in one focused case; the development suite with
+the new test registered passed 265/265 cases. This narrows the development
+state/render gap; it does not validate a production coupled plugin, the
+separate playback/offline controls or host-managed normalized snapshots.
+
 For **all** rows, playback/offline split and follow/override recall are planned,
 not implemented. The normal host plugin still selects legacy at every quality;
 focused development tests do not establish VST3/AUv3/Standalone lifecycle or
@@ -810,7 +819,9 @@ legacy removal.
    ordinary Release plugin. Add production-equivalent state/preset, quality
    switching, effective latency, silence/reset and render comparisons without
    mistaking a preview binary for a production host test. Record exact source
-   revision, flags, hardware and logs for each run.
+   revision, flags, hardware and logs for each run. A focused development
+   per-quality recall/render regression now passes; preset and transition
+   coverage and production-host validation remain open.
 2. **Freeze and measure — blocked.** Thomas approves numerical/listening,
    fallback, latency and per-quality operating rules *before scoring* results.
    Require reference convergence, spectral/IMD/modulation, resonance/startup,

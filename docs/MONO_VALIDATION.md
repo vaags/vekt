@@ -47,6 +47,25 @@ establish the current baseline build/test state only: the ordinary host entry
 point still selects legacy, and no coupled production host, live-device,
 per-quality acceptance or CPU/safety gate was exercised or passed.
 
+**Development quality recall regression (27 September 2026):** The test
+`Mono coupled quality state recalls without selecting coupled in the normal
+processor` in `tests/processor/MonoProcessorTests.cpp` passed 12,404 assertions
+in one focused case (log: `/tmp/vekt-coupled-recall-test-20260927.log`,
+ephemeral). For saved indices 0–3 it restores the same project state into a
+new coupled development processor and a normal legacy processor, verifies
+effective quality/latency/engine isolation and compares the original and
+restored coupled stereo callbacks bit for bit after a MIDI note. This is
+limited to a fresh 48 kHz/128-sample processor per mode, not host lifecycle,
+live quality switching, preset selection, planned playback/offline controls,
+normalized host snapshots, broad sound evidence or production acceptance.
+The development suite with this test registered passed 265/265 cases
+(`ctest --preset dev --output-on-failure`, exit 0; 552.53 seconds; log:
+`/tmp/vekt-coupled-recall-full-ctest-20260927.log`, ephemeral). After a
+whitespace-only test-source alignment, the Debug executable rebuilt and the
+focused case again passed 12,404 assertions (log:
+`/tmp/vekt-coupled-recall-final-test-20260927.log`, ephemeral). This is
+regression evidence, not a change to the release acceptance gate.
+
 ## Target And Scope
 
 Target a well-maintained Minimoog-style bass/lead core with modern extensions:
