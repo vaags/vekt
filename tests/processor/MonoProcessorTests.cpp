@@ -455,6 +455,69 @@ TEST_CASE("Mono development ladder stays silent and finite across driven notes",
 	}
 }
 
+TEST_CASE("Mono coupled reprepare clears active audio at every retained quality", "[mono][processor][ladder-coupled][quality][reset]")
+{
+	for (const auto rate : { 44'100.0, 48'000.0, 96'000.0 })
+	for (int quality = 0; quality < 4; ++quality)
+	{
+		CAPTURE(rate, quality);
+		vekt::mono::PluginProcessor restarted(true, true), fresh(true, true), legacy;
+		for (auto* processor : { &restarted, &fresh, &legacy })
+		{
+			initializeDryVoice(*processor);
+			setParameter(*processor, vekt::mono::parameters::filterCutoff, 1'000.0f);
+			setParameter(*processor, vekt::mono::parameters::filterResonance, 85.0f);
+			setParameter(*processor, vekt::mono::parameters::filterDrive, 12.0f);
+			setParameter(*processor, vekt::mono::parameters::quality, static_cast<float>(quality));
+			processor->prepareToPlay(rate, 128);
+		}
+		juce::AudioBuffer<float> actual(2, 128), expected(2, 128);
+		juce::MidiBuffer note;
+		note.addEvent(juce::MidiMessage::noteOn(1, 48, 0.8f), 0);
+		for (int block = 0; block < 8; ++block)
+		{
+			renderBlock(restarted, actual, note);
+			note.clear();
+		}
+		REQUIRE(stereoRms(actual) > 1.0e-4f);
+		restarted.releaseResources();
+		restarted.prepareToPlay(rate, 128);
+		REQUIRE(restarted.getActiveQuality() == quality);
+		REQUIRE(restarted.getLatencySamples() == fresh.getLatencySamples());
+		REQUIRE(restarted.getLatencySamples() == legacy.getLatencySamples());
+		REQUIRE(restarted.isCoupledLadderActive());
+		REQUIRE_FALSE(legacy.isDevelopmentLadderActive());
+		for (int block = 0; block < 4; ++block)
+		{
+			renderBlock(restarted, actual);
+			for (int channel = 0; channel < 2; ++channel)
+				for (int sample = 0; sample < 128; ++sample)
+					REQUIRE(actual.getSample(channel, sample) == 0.0f);
+		}
+		note.addEvent(juce::MidiMessage::noteOn(1, 55, 0.8f), 32);
+		double energy {};
+		for (int block = 0; block < 4; ++block)
+		{
+			renderBlock(restarted, actual, note);
+			renderBlock(fresh, expected, note);
+			note.clear();
+			for (int channel = 0; channel < 2; ++channel)
+				for (int sample = 0; sample < 128; ++sample)
+				{
+					const auto value = actual.getSample(channel, sample);
+					REQUIRE(std::isfinite(value));
+					REQUIRE(std::abs(value - expected.getSample(channel, sample)) < 1.0e-5f);
+					energy += static_cast<double>(value) * value;
+				}
+		}
+		REQUIRE(energy > 0.01);
+		const auto work = restarted.coupledWorkSnapshot();
+		REQUIRE(work.samples > 0);
+		REQUIRE(work.unconverged == 0);
+		REQUIRE(work.nonFinite == 0);
+	}
+}
+
 TEST_CASE("Mono coupled solver is development-only and leaves nested mode unchanged", "[mono][processor][ladder-coupled]")
 {
 	vekt::mono::PluginProcessor nested(true), coupled(true, true), legacy;

@@ -496,6 +496,16 @@ The final development suite passed 268/268 cases; ordinary Release VST3 and
 Standalone targets built with development mode off. This does not measure
 clicks, host latency renegotiation, deadlines or production-host behavior.
 
+**Release/re-prepare reset probe (27 September 2026; development-only):**
+Across 44.1/48/96 kHz and 1x/2x/4x/8x, a focused processor regression
+checks exact stereo silence for four callbacks after releasing and re-preparing
+an active coupled instance; a subsequent note matches a fresh coupled instance
+within `1e-5` per sample. It passed 37,524 assertions. It does not establish
+behavior between release and re-prepare or a live-host reset contract.
+The final development suite passed 269/269 cases, and ordinary Release VST3
+and Standalone targets built with development mode off; no acceptance gate
+changed. See `docs/MONO_VALIDATION.md` for dated logs.
+
 **Idle quality-pair matrix (27 September 2026; development-only):** A focused
 processor regression covers all 12 ordered changes among 1x/2x/4x/8x. It
 checks transport deferral while idle, activation after stop, target latency

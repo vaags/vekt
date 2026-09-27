@@ -87,6 +87,26 @@ development mode off (no source rebuild required; log:
 `/tmp/vekt-coupled-quality-transition-release-build-20260927.log`, ephemeral).
 Neither check exercised a coupled production host instance or qualified CPU.
 
+**Coupled release/re-prepare silence regression (27 September 2026):**
+`Mono coupled reprepare clears active audio at every retained quality` passed
+37,524 assertions in one focused case (log:
+`/tmp/vekt-coupled-reprepare-focused-20260927.log`, ephemeral). At 44.1,
+48 and 96 kHz and each of 1x/2x/4x/8x, the processor renders an active note,
+calls `releaseResources()` followed by `prepareToPlay()`, then produces exact
+zero in both channels for four empty 128-sample callbacks. Its latency matches
+a fresh coupled processor and legacy at the same quality; a new note at sample
+32 renders finite, nonzero output within `1e-5` per sample of the fresh
+coupled processor, with zero reported solver fallback/non-finite samples.
+This does not test output between release and re-prepare, live-host lifecycle,
+clicks, allocator coverage, or production coupled selection.
+The final development suite passed 269/269 cases (`ctest --preset dev
+--output-on-failure`, exit 0, 333.93 seconds; log:
+`/tmp/vekt-coupled-reprepare-full-20260927.log`, ephemeral). Ordinary Release
+VST3 and Standalone targets built with development mode off (exit 0, no source
+rebuild needed; log: `/tmp/vekt-coupled-reprepare-release-20260927.log`,
+ephemeral). One status command timed out during polling, but the suite's
+completed exit status was 0; this is not production-host evidence.
+
 **Sustained-note quality-pair matrix (27 September 2026):** The expanded
 `Mono coupled quality changes defer through sustain and retain the coupled
 engine` case covers all 12 directed 1x/2x/4x/8x transitions at 48 kHz/128
