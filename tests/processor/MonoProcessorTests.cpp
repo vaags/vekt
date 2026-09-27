@@ -872,6 +872,87 @@ TEST_CASE("Mono coupled quality changes defer through sustain and retain the cou
 		REQUIRE(work.nonFinite == 0);
 	}
 }
+
+TEST_CASE("Mono coupled idle quality changes cover every ordered pair", "[mono][processor][ladder-coupled][quality]")
+{
+	class PlayHead final : public juce::AudioPlayHead
+	{
+	public:
+		juce::Optional<PositionInfo> getPosition() const override
+		{
+			PositionInfo position;
+			position.setIsPlaying(playing);
+			return position;
+		}
+		bool playing { true };
+	};
+	for (int initial = 0; initial < 4; ++initial)
+	for (int target = 0; target < 4; ++target)
+	{
+		if (initial == target) continue;
+		CAPTURE(initial, target);
+		PlayHead playHead;
+		vekt::mono::PluginProcessor changed(true, true), fresh(true, true), legacy;
+		for (auto* processor : { &changed, &fresh, &legacy })
+		{
+			initializeDryVoice(*processor);
+			setParameter(*processor, vekt::mono::parameters::filterCutoff, 1'000.0f);
+			setParameter(*processor, vekt::mono::parameters::filterResonance, 85.0f);
+			setParameter(*processor, vekt::mono::parameters::filterDrive, 12.0f);
+			setParameter(*processor, vekt::mono::parameters::quality,
+				static_cast<float>(processor == &fresh ? target : initial));
+			processor->prepareToPlay(48'000.0, 128);
+		}
+		changed.setPlayHead(&playHead);
+		legacy.setPlayHead(&playHead);
+		juce::AudioBuffer<float> actual(2, 128), expected(2, 128), baseline(2, 128);
+		const auto initialLatency = changed.getLatencySamples();
+		setParameter(changed, vekt::mono::parameters::quality, static_cast<float>(target));
+		setParameter(legacy, vekt::mono::parameters::quality, static_cast<float>(target));
+		renderBlock(changed, actual);
+		renderBlock(legacy, baseline);
+		REQUIRE(changed.hasPendingQualityChange());
+		REQUIRE(changed.getActiveQuality() == initial);
+		REQUIRE(changed.getLatencySamples() == initialLatency);
+		REQUIRE(legacy.getActiveQuality() == initial);
+		playHead.playing = false;
+		renderBlock(changed, actual);
+		renderBlock(legacy, baseline);
+		REQUIRE_FALSE(changed.hasPendingQualityChange());
+		REQUIRE_FALSE(legacy.hasPendingQualityChange());
+		REQUIRE(changed.getActiveQuality() == target);
+		REQUIRE(legacy.getActiveQuality() == target);
+		REQUIRE(changed.getLatencySamples() == fresh.getLatencySamples());
+		REQUIRE(changed.getLatencySamples() == legacy.getLatencySamples());
+		REQUIRE(changed.isCoupledLadderActive());
+		REQUIRE_FALSE(legacy.isDevelopmentLadderActive());
+		for (int channel = 0; channel < 2; ++channel)
+			for (int sample = 0; sample < 128; ++sample)
+				REQUIRE(actual.getSample(channel, sample) == 0.0f);
+		juce::MidiBuffer note;
+		note.addEvent(juce::MidiMessage::noteOn(1, 55, 0.8f), 32);
+		double energy {};
+		for (int block = 0; block < 4; ++block)
+		{
+			renderBlock(changed, actual, note);
+			renderBlock(fresh, expected, note);
+			note.clear();
+			for (int channel = 0; channel < 2; ++channel)
+				for (int sample = 0; sample < 128; ++sample)
+				{
+					const auto value = actual.getSample(channel, sample);
+					REQUIRE(std::isfinite(value));
+					REQUIRE(std::abs(value - expected.getSample(channel, sample)) < 1.0e-5f);
+					energy += static_cast<double>(value) * value;
+				}
+		}
+		REQUIRE(energy > 0.01);
+		const auto work = changed.coupledWorkSnapshot();
+		REQUIRE(work.samples > 0);
+		REQUIRE(work.unconverged == 0);
+		REQUIRE(work.nonFinite == 0);
+	}
+}
 #endif
 
 TEST_CASE("Mono publishes post-output-gain stereo peaks", "[mono][processor][meter]")

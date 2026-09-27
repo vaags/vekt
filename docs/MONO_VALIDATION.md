@@ -86,6 +86,31 @@ development mode off (no source rebuild required; log:
 `/tmp/vekt-coupled-quality-transition-release-build-20260927.log`, ephemeral).
 Neither check exercised a coupled production host instance or qualified CPU.
 
+**Coupled idle quality-pair matrix (27 September 2026):**
+`Mono coupled idle quality changes cover every ordered pair` passed 28,404
+assertions in one focused case (log:
+`/tmp/vekt-coupled-idle-matrix-focused-20260927.log`, ephemeral). At
+48 kHz/128 samples it covers all 12 directed transitions between 1x/2x/4x/8x
+while voices are idle: pending during transport playback, applied when stopped,
+with latency matching fresh coupled and normal legacy processors. The
+activation callback is exactly silent; a subsequent callback containing a
+new note at sample 32 renders finite coupled output matching a fresh target-
+quality processor within `1e-5` per sample, with no reported solver fallback
+or non-finite samples. This is not a full sustain-transition matrix, host
+latency/click test, complete CPU or real-time safety qualification.
+The final development suite passed 268/268 cases (`ctest --preset dev
+--output-on-failure`, exit 0, 246.07 seconds; log:
+`/tmp/vekt-coupled-idle-matrix-full-20260927.log`, ephemeral). The ordinary
+Release VST3 and Standalone targets built with development mode off (exit 0;
+no source rebuild required; log:
+`/tmp/vekt-coupled-idle-matrix-release-20260927.log`, ephemeral).
+During this validation, five identical `run_commands` status polls triggered
+`tool_execution_failed: Detected 5 consecutive identical calls to
+run_commands; stopping to avoid a loop`. The tool failure was a polling
+guard, not a test failure; the completed suite status file subsequently
+reported exit 0. For future long-running runs, check the completion record
+once and avoid repeated identical status calls (see the workflow note below).
+
 **Factory preset boundary probe (27 September 2026; coupled development
 processor):** After an active note at each quality, the test loads factory
 program 24 (Classic Three Bass), then checks preset selection, unchanged

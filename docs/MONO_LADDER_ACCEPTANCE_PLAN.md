@@ -484,6 +484,20 @@ ordinary Release VST3 and Standalone targets built with development mode off.
 This does not measure transition clicks, host latency renegotiation, real-time
 allocation/CPU or playback/offline follow/override behavior.
 
+**Idle quality-pair matrix (27 September 2026; development-only):** A focused
+processor regression covers all 12 ordered changes among 1x/2x/4x/8x. It
+checks transport deferral while idle, activation after stop, target latency
+against fresh coupled and legacy processors, exact silence in the activation
+callback and finite post-switch audio against a fresh coupled instance with
+a note at sample 32. The focused case passed 28,404 assertions. This does not
+extend the sustained-note matrix to every pair or verify clicks, host latency
+renegotiation, device deadlines, or production selection.
+The final development suite passed 268/268 cases; ordinary Release VST3 and
+Standalone targets built with development mode off. A repeated identical
+status-poll loop hit the `run_commands` guard during the run; the final test
+exit was independently checked as 0. See `docs/MONO_VALIDATION.md` for the
+ephemeral logs and the polling-workflow note.
+
 **Preset-boundary diagnostic (27 September 2026; development-only):** A focused
 coupled processor test loads factory program 24 (Classic Three Bass) after an
 active note at each retained quality, checks program/parameter recall and
