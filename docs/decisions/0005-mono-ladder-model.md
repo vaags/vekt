@@ -46,7 +46,7 @@ candidate for replacing the legacy Mono render engine, with legacy removal as
 soon as appropriate after acceptance and verified production integration.
 The nested solver remains a numerical comparator; neither solver is approved
 for the shipped host path yet. This choice does not approve coupled sound,
-CPU/safety, all retained quality modes, offline 16x eligibility or host
+CPU/safety, all retained quality modes or host
 behavior. Do not switch the host entry point or delete the legacy implementation
 before those gates and cutover regressions pass. No permanent mixed-engine
 release is intended; any narrower release scope requires an explicit ADR
@@ -61,8 +61,8 @@ CPU/safety and host paths. On 27 September 2026 Thomas superseded the
 representative patches and settings are required, but randomization,
 level-matched three-repeat comparisons and blinding are not release gates.
 Use a blinded comparison optionally if a sound decision becomes uncertain.
-The normal plugin and development preview 16x still use legacy; development-only
-coupled 2x/4x/8x paths now exist but are not qualified. Keep this ADR Proposed
+The normal plugin still uses legacy; development-only coupled 2x/4x/8x paths
+now exist but are not qualified. Keep this ADR Proposed
 and defer production cutover and legacy deletion
 until the replacement and its retained paths pass the gates below.
 
@@ -163,12 +163,11 @@ closed-form digital response; the former quantifies the remaining frequency-axis
 Under the revised Mono-specific ADR 0001 scope, the *candidate release*
 has separate Playback Quality (1x/2x/4x/8x, default 1x) and Offline Render
 Quality (follows playback by default; explicit override allows
-1x/2x/4x/8x/16x) settings. The interim legacy engine has a single
-five-choice setting without enforcing an offline restriction. The candidate
-equations apply at the active internal
-processing rate; every retained candidate choice, including offline 16x,
-requires validation, **not** automatic acceptance at any factor. Existing
-16x development probes are partial diagnostic evidence only. The candidate
+1x/2x/4x/8x) settings. The interim legacy engine has a single
+four-choice setting. The candidate equations apply at the active internal
+processing rate; every retained candidate choice requires validation,
+**not** automatic acceptance at any factor. Existing 16x development probes
+are historical diagnostic evidence only. The candidate
 remains outside the production render path.
 
 ## Nonlinear solver and bounds
@@ -318,8 +317,7 @@ envelopes or require specified faster hardware; no faster machine or
 higher-mode real-time combination is qualified by this policy. Record the
 rate, block size, voice count, quality, hardware and timing rule for each
 claimed tier, then require repeatable complete-candidate Release measurements
-and live-host/device tests before advertising support. Offline 16x remains
-offline-only and has no playback deadline claim. Retained settings still
+and live-host/device tests before advertising support. Retained settings still
 require finite output, bounded work, processing-thread allocation safety,
 approved fallback behavior, latency, spectral and listening review regardless
 of hardware tier. Investigate variable M1 Pro callback tails under controlled
@@ -398,7 +396,7 @@ Thomas's positive 1x preference does not resolve them. The narrow filtered
 48 kHz probe is not an acceptance pass.
 Thomas, product owner and single developer, is the named listening reviewer.
 Compare the 1x candidate, legacy and converged reference where useful, then
-check retained 2x/4x/8x playback and offline-only 16x on intended cases.
+check retained 2x/4x/8x on intended cases.
 Record patch, quality, rate, controls, monitoring conditions, audible artifacts,
 gain differences and preference. Keep original renders for gain/headroom review;
 level and latency matching may help diagnose uncertain differences but are not
@@ -416,8 +414,7 @@ or a product decision changes; this ADR remains the authoritative decision.
    rate/block/voice envelope on physical target hardware. The numerical targets
    in `docs/MONO_VALIDATION.md` are proposals until signed off. Retained
    2x/4x/8x choices still require per-path evidence under explicitly
-   approved conditions; 16x requires an offline-only eligibility and
-   validation policy. Selectability alone guarantees no real-time performance
+   approved conditions. Selectability alone guarantees no real-time performance
    at every rate, block size and voice count.
 2. Establish coupled 1x sound feasibility before replacing the production filter:
    compare the raw one-step coupled path, nested comparator and at most two

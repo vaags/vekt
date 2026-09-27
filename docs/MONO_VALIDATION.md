@@ -1047,10 +1047,9 @@ documented unblinded listening. The listening method was revised on
 candidate's sound or the limited reference probe as an acceptance result.
 
 This changes the order of work, **not** revised ADR 0001 or the acceptance
-package below. The planned candidate retains 1x/2x/4x/8x and offline-only
-16x, with 1x default. Every retained candidate path needs spectral, latency
-and stability review; real-time paths need complete-processor CPU review,
-and 16x needs verified offline rendering and safe-mode review. The physical
+The planned candidate retains 1x/2x/4x/8x, with 1x default.
+Every retained candidate path needs spectral, latency
+and stability review; real-time paths need complete-processor CPU review. The physical
 Apple M1 Pro is the measurement target. Selectability does not promise glitch-free operation
 at every rate, block size and voice count, but a named product reviewer must
 approve operating conditions and exceptions. Hypothetical M5 Pro scaling and
@@ -1069,9 +1068,9 @@ does not reclassify earlier nested or legacy results as coupled evidence.
 standalone Ladder Preview selects coupled at 1x, and `audio-lab-coupled`
 configures Audio Lab to select the coupled Mono processor at 1x. The ordinary
 Audio Lab preset and the normal Mono plugin still select legacy. Coupled preview
-now exercises 1x/2x/4x/8x; preview 16x remains legacy until offline eligibility
-is implemented. The development editor explicitly identifies the effective
-engine (`DEV COUPLED Nx`, `DEV NESTED 1x`, or `DEV PREVIEW: LEGACY`). Use
+now exercises 1x/2x/4x/8x; 16x is no longer selectable. The development
+editor explicitly identifies the effective engine (`DEV COUPLED Nx`,
+`DEV NESTED 1x`, or `DEV PREVIEW: LEGACY`). Use
 `scripts/run-mono-coupled-audio-lab.sh` for the coupled Audio Lab build and
 verify the label when selecting Mono; start at a safe listening level because
 earlier legacy/candidate renders had different peaks. Thomas reports a manual
@@ -1234,8 +1233,8 @@ Proposed numerical *review targets* (not inferred from the representative report
   44.1/48 kHz × 128/257 samples × eight-voice 30-second target above, not a
   measured pass. For 2x/4x/8x the real-time operating envelopes and CPU
   targets remain proposed; measure exposed boundary cases before approving
-  restrictions. Verify 16x offline eligibility and rendering safety, not a
-  real-time deadline. Report median, p99.9, maximum, latency, per-voice cost
+  restrictions. Verify offline rendering safety for retained modes separately
+  from real-time deadlines. Report median, p99.9, maximum, latency, per-voice cost
   and a legacy comparison. Isolated solver or filter timing cannot pass the
   complete-processor gate; offline simulated exceedances are not actual
   audio-device callback misses.
@@ -1245,10 +1244,9 @@ randomized, level-matched three-repeat protocol approved on 26 September is
 superseded as a mandatory gate. Thomas's firsthand unblinded coupled 1x
 audition establishes a positive sound preference, not verification of gain,
 resonance, overload, modulation or the retained higher-quality paths.
-Document unblinded checks on representative patches and settings for 1x,
-retained 2x/4x/8x playback and offline-only 16x on their intended cases.
-The development coupled preview can exercise 2x/4x/8x for those checks;
-preview 16x still uses legacy and cannot provide a coupled 16x listening result.
+Document unblinded checks on representative patches and settings for
+retained 1x/2x/4x/8x on their intended cases. The development coupled preview
+can exercise all four factors for those checks.
 Include bass, near-resonant sweeps, self-oscillation startup/ringdown,
 high-register drive, two-tone intervals and independently/combined-modulated
 controls across representative rates. Record patch, quality, rate, controls,
@@ -1700,11 +1698,10 @@ audio-rate behavior, state recall and block/rate invariance pass.
 
 ### 11. Select Final Quality And Review Real-Time Safety
 
-Compare planned candidate 1x/2x/4x/8x paths and offline-only 16x against
-higher-rate offline references. Interim legacy 16x does not enforce offline
-eligibility. Each retained higher-factor choice still requires measured
-spectral and listening review; real-time paths need CPU deadlines, while 16x
-needs offline rendering and safe-mode validation rather than a real-time claim.
+Compare planned candidate 1x/2x/4x/8x paths against higher-rate offline
+references (which may use 16x/32x for diagnostics). Each retained higher-factor
+choice still requires measured spectral and listening review; real-time paths
+need CPU deadlines and offline claims need bounded rendering validation.
 Validate oscillator and nonlinear alias residuals,
 resampling-filter contribution, modulation sidebands, self-oscillation, latency and
 Release CPU separately.

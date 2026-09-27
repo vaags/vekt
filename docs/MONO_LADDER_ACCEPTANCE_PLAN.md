@@ -54,8 +54,7 @@ zero covered calling-thread `new` calls in seven 30-second runs, but does not co
 direct `malloc` or other threads. Do not promote the solver on median speed or
 isolated passing runs. Thomas still needs to audition the standalone
 preview at a safe monitoring level; engine-labeled, unequal-level WAVs alone
-do not establish gain/headroom safety. The Ableton/VST3 offline-16x gate and the
-broader acceptance matrix remain open.
+do not establish gain/headroom safety. The broader acceptance matrix remains open.
 
 ## Provisional integration track (pre-alpha, not ADR acceptance)
 
@@ -98,8 +97,8 @@ broader acceptance matrix remain open.
   continue using legacy. The editor identifies `DEV COUPLED 1x`, `DEV NESTED
   1x` or `DEV PREVIEW: LEGACY` so a listening report can identify the actual
   engine. The coupled preview now exercises coupled at 1x/2x/4x/8x;
-  16x and the normal plugin remain legacy. This is development wiring only,
-  not qualification or an offline-only 16x implementation. The launcher is
+  the normal plugin remains legacy. This is development wiring only,
+  not qualification. The launcher is
   `scripts/run-mono-coupled-audio-lab.sh`; select Mono as Audio Lab source,
   check the editor engine label, start muted/low and arm output only after
   checking the device level. Focused development processor/UI and coupled
@@ -395,15 +394,15 @@ broader acceptance matrix remain open.
   numerical comparison, not as an assumed release fallback. If the selected model
   needs changes, do them in the development instrument, then revisit the reference
   and literature alternatives. Resolve split playback/offline quality controls,
-  every retained candidate path and host-specific 16x policy before cutover.
+  every retained candidate path before cutover.
   After acceptance, switch the production path to coupled, validate all host
   formats, state/presets and audio regressions, then remove legacy implementation
   and development-only engine selectors in a separately verified cleanup.
   ADR 0005 remains Proposed until its sound, safety, CPU and product decision.
 
 **Scope rule:** pre-alpha development integration is permitted before ADR
-acceptance; do not equate it with acceptance, a released engine, or verified
-offline 16x. Update this track and the evidence ledger when builds, renders
+acceptance; do not equate it with acceptance or a released engine. Update this
+track and the evidence ledger when builds, renders
 or listening results are actually collected.
 
 ## Maintenance rule
@@ -484,10 +483,10 @@ representative listening checks separately.
 input drive, optional post-ladder compensation, nominal resonance-1 onset and
 required cutoff/resonance/drive modulation. ADR 0001 plans separate candidate
 Playback Quality (1x/2x/4x/8x, default 1x) and Offline Render Quality
-(follows playback by default; explicit override supports 1x/2x/4x/8x/16x).
-Interim legacy has one quality control
-and permits 16x playback. No mode promises glitch-free operation in every
-combination. The physical Apple M1 Pro (MacBookPro18,1, 32 GB) is the stated
+(follows playback by default; explicit override supports 1x/2x/4x/8x).
+Interim legacy has one four-choice quality control. No mode promises
+glitch-free operation in every combination. The physical Apple M1 Pro
+(MacBookPro18,1, 32 GB) is the stated
 measurement target. Neither existing filter-only timings nor the complete
 *legacy* processor benchmark measure the complete candidate processor.
 
@@ -496,14 +495,14 @@ measurement target. Neither existing filter-only timings nor the complete
 | Decision authority and sound target | **Approved by Thomas, product owner and single developer, 26 September 2026:** convincing classic-style dry bass/lead ladder with controlled overload and smooth resonance; no claimed match to a particular Moog or Mother-32. Hardware/SPICE comparisons remain diagnostic. This does not approve any candidate. | No decision pending on the target itself; candidate sound decision remains pending. |
 | Replacement direction | **Approved by Thomas, 27 September 2026:** coupled is the preferred solver to qualify for a single-engine replacement; retire legacy promptly after accepted coupled integration and full regression checks. Nested remains a diagnostic comparator. | Approve candidate sound and every retained path, CPU/safety and host behavior before switching production; verify cutover and legacy-code deletion separately. No cutover is approved yet. |
 | 1x default alias/artifact policy | **Review method approved by Thomas, 26 September 2026; listening method revised 27 September; no numerical ceiling approved.** Characterize Off separately rather than applying the proposed 2x/4x ceiling. A single 48 kHz driven case has excess 1/5 kHz bins relative to a narrow filtered reference. | Complete the broad reference-aligned comparison and documented unblinded listening checks; then separately decide a numerical ceiling or documented listening-led exception. Do not infer a pass from the probe. |
-| Higher qualities | **Scope and exceptional handling approved by Thomas, 26 September 2026:** Playback Quality (1x/2x IIR, 4x/8x FIR; default 1x); Offline Render Quality follows playback unless overridden up to 16x FIR. Select only at `prepareToPlay`/reinitialization. Offer 16x only where offline lifecycle and export cancellation are verified. Preserve saved 16x preferences in unverified hosts, visibly explain unavailability, and **block export** rather than render silently at another quality. If offline status disappears with 16x active, a last-resort guard returns silence, latches an off-thread diagnostic and requires reinitialization. No in-callback DSP/latency switch; legacy remains unchanged. **First unqualified test host:** Ableton Live 12 Suite 12.4.6 + VST3, selected by Thomas. | Prove host-specific export blocking without an invalid file; JUCE `processBlock` supplies no portable export-cancel result, and silence alone is not proof. Approve latency and other quality envelopes; test eligibility, interruption, recall and reporting. Do not offer 16x where this cannot be enforced. |
+| Higher qualities | **Revised 27 September 2026:** Playback Quality (1x/2x IIR, 4x/8x FIR; default 1x); planned Offline Render Quality follows playback unless overridden at up to 8x. The legacy plugin has one four-choice control; separate controls are not implemented. The former offline-16x host/export policy is superseded. Stored 16x project state is rejected in full, not silently recalled at 8x. | Approve latency and operating envelopes for each retained quality; test recall, effective-quality reporting and host behavior. |
 | Host rates and real-time envelope | **Approved target by Thomas, 26 September 2026:** the future 1x candidate must meet the agreed real-time CPU rule on the physical M1 Pro at **44.1/48 kHz × eight active voices × 128/257-sample blocks** (all four combinations). The 48 kHz/257/8 pilot remains the first measurement. This is a target, not evidence of a pass. | Measure and explicitly constrain every other exposed rate/block/voice combination before release; determine the retained 2x/4x/8x operating envelopes separately. No candidate processor timing qualifies any combination yet. |
-| Hardware tiers and maximum settings | **Policy approved by Thomas, 27 September 2026:** keep the above M1 Pro 1x baseline target; higher polyphony and 2x/4x/8x playback may have narrower M1 Pro envelopes or require faster hardware. A selectable setting is not a real-time claim at every rate, block size and voice count. Offline 16x has no real-time playback tier. | Define tested rate/block/voice/quality combinations and actual machine identifiers per tier; approve higher-mode timing rules and user-facing limits only after repeatable complete-candidate measurements and host tests. Do not infer faster-machine support by scaling M1 Pro results. |
-| Cost, safety and latency | **1x target approved by Thomas, 26 September 2026, for all four approved M1 Pro combinations:** 30-second complete-candidate Release runs, zero processing-thread allocations and solver fallbacks, p99.9 below 75% of each block deadline, zero simulated deadline exceedances; separately report maximum and latency. Offline timings are not device callback measurements. | Approve latency bound, allocation instrument and measurement protocol; approve separate 2x/4x/8x rules and offline 16x safety/performance policy. This is not a candidate pass. |
-| Spectral and nonlinear limits | Proposed `-60 dBc` 2x and `-80 dBc` 4x for a 0.5-peak, +12 dB tone, not overload; IMD `0.03 dB` fundamental/`1e-3` absolute product; modulation unexpected spur `-60 dBc` relative to the largest expected component. No approved 8x/16x or overload limits. | Approve/revise separate limits for 1x/2x/4x/8x and offline 16x, high drive and modulated cases after reference and listening review. |
+| Hardware tiers and maximum settings | **Policy approved by Thomas, 27 September 2026:** keep the above M1 Pro 1x baseline target; higher polyphony and 2x/4x/8x may have narrower M1 Pro envelopes or require faster hardware. A selectable setting is not a real-time claim at every rate, block size and voice count. | Define tested rate/block/voice/quality combinations and actual machine identifiers per tier; approve higher-mode timing rules and user-facing limits only after repeatable complete-candidate measurements and host tests. Do not infer faster-machine support by scaling M1 Pro results. |
+| Cost, safety and latency | **1x target approved by Thomas, 26 September 2026, for all four approved M1 Pro combinations:** 30-second complete-candidate Release runs, zero processing-thread allocations and solver fallbacks, p99.9 below 75% of each block deadline, zero simulated deadline exceedances; separately report maximum and latency. Offline timings are not device callback measurements. | Approve latency bound, allocation instrument and measurement protocol; approve separate 2x/4x/8x rules. This is not a candidate pass. |
+| Spectral and nonlinear limits | Proposed `-60 dBc` 2x and `-80 dBc` 4x for a 0.5-peak, +12 dB tone, not overload; IMD `0.03 dB` fundamental/`1e-3` absolute product; modulation unexpected spur `-60 dBc` relative to the largest expected component. No approved 8x or overload limits. | Approve/revise separate limits for 1x/2x/4x/8x, high drive and modulated cases after reference and listening review. |
 | Stopband, self-oscillation and startup | Proposed deep-stopband absolute error `1e-7` when analytical peak is below `1e-6`; otherwise `0.01 dB`/`0.001 rad`. The proposed 1 kHz onset/tail rule does not apply at 10 Hz or the cutoff ceiling. | Approve error policy and cutoff-specific tail, startup, frequency and purity limits (including noise seeding). |
 | Fallback and matrix sampling | ADR requires zero incidence in the supported matrix or an accepted continuous policy. The listed levels, controls and stimuli are a coverage plan, not an unreviewed Cartesian product. | Approve fallback behavior and named representative/boundary combinations per supported quality; specify any exclusions. |
-| Listening and decision record | **Revised by Thomas, 27 September 2026:** the 26 September blinded protocol is superseded. Thomas is the named reviewer. His unblinded coupled 1x audition establishes a positive sound preference, not control-by-control verification. Document unblinded checks on representative patches and settings at 1x and retained 2x/4x/8x playback and offline-only 16x. Blinding, randomization, level matching and three repeats are optional diagnostic methods, not release gates. | Record patch, quality, rate, controls, monitoring conditions, audible artifacts, gain/headroom observations and preference; sign off the scoped results in ADR 0005. Use a blind comparison only if a sound decision is uncertain. |
+| Listening and decision record | **Revised by Thomas, 27 September 2026:** the 26 September blinded protocol is superseded. Thomas is the named reviewer. His unblinded coupled 1x audition establishes a positive sound preference, not control-by-control verification. Document unblinded checks on representative patches and settings at 1x/2x/4x/8x. Blinding, randomization, level matching and three repeats are optional diagnostic methods, not release gates. | Record patch, quality, rate, controls, monitoring conditions, audible artifacts, gain/headroom observations and preference; sign off the scoped results in ADR 0005. Use a blind comparison only if a sound decision is uncertain. |
 
 **Why the approved measurement pilot is not a release result:** At 48 kHz,
 257 samples and eight active voices, the complete **legacy** processor's
@@ -528,7 +527,7 @@ qualified):**
 | --- | --- | --- |
 | M1 Pro baseline | Future candidate 1x, eight active voices, 44.1/48 kHz and 128/257-sample blocks: retain the approved 30-second timing and safety target for **each** combination. | Controlled, repeatable complete-candidate Release runs and live-host/device checks. Recent default-scheduler offline passes and failures do not qualify this tier. |
 | Extended playback | 12/16 voices, other rates or blocks, and 2x/4x/8x playback: M1 Pro coverage may be narrower; demanding combinations may be supported only on a specified faster **measured** machine. | Freeze per-quality rate/block/voice cases, tested hardware and timing policy with the reviewer. Measure the full candidate on every claimed boundary; disclose exclusions. No faster-machine tier is qualified today. |
-| Offline render | 16x is offline-only on verified hosts, not a real-time tier. | Bounded render time/work, finite output, allocation/safety, sound, latency, deterministic export and the host-specific eligibility/export-blocking policy; do not apply or imply a playback deadline. |
+| Offline render | Planned override follows playback by default or selects up to 8x. | Validate follow/override recall, bounded render time/work, finite output, allocation/safety, sound, latency and deterministic export; do not imply a playback deadline from offline timings. |
 
 CPU capability is hardware- and workload-dependent; finite output, bounded
 work, processing-thread allocation safety, approved fallback policy, spectral
@@ -573,7 +572,8 @@ Keep raw renders for numerical gain and headroom review. Optional level/latency
 matching or blind comparisons can resolve uncertain sound decisions; neither
 is a prerequisite for sign-off.
 
-**Host-export feasibility checkpoint (open):** JUCE's normal plugin
+**Historical host-export feasibility checkpoint (superseded by the 27 September
+2026 removal of offline 16x; not a current acceptance gate):** JUCE's normal plugin
 `processBlock` returns audio rather than a host export-cancellation status.
 Thomas selected **Ableton Live 12 Suite + VST3** as the first investigation
 target on 26 September 2026. Locally installed Live reports version 12.4.6;
@@ -733,8 +733,8 @@ candidate results and all four approved configurations.
 spectral, stability, latency and complete-processor Release evidence.
 Development-only coupled selection now reaches 2x/4x/8x in the preview and
 cost harness, with an explicit effective-engine label and focused finite-output,
-latency and solver-work smoke coverage. Nested preview above 1x, 16x preview
-and the normal plugin remain legacy. These smoke checks do not satisfy the
+latency and solver-work smoke coverage. Nested preview above 1x and the normal
+plugin remain legacy. These smoke checks do not satisfy the
 per-path matrix, Release CPU/safety budget or listening requirements.
 Short 48 kHz/128-sample/eight-voice Release harness diagnostics (0.01–0.02 s)
 reported zero covered callback `new` calls and finite energy: 2x had zero

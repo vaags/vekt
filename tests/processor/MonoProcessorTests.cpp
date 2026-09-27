@@ -371,8 +371,8 @@ TEST_CASE("Mono development ladder is explicit and restricted to 1x", "[mono][pr
 		setParameter(*processor, vekt::mono::parameters::filterResonance, 85.0f);
 		setParameter(*processor, vekt::mono::parameters::filterDrive, 12.0f);
 	}
-	setParameter(oversampled, vekt::mono::parameters::quality, 4.0f);
-	setParameter(higherLegacy, vekt::mono::parameters::quality, 4.0f);
+	setParameter(oversampled, vekt::mono::parameters::quality, 3.0f);
+	setParameter(higherLegacy, vekt::mono::parameters::quality, 3.0f);
 	for (auto* processor : { &legacy, &rerun, &oversampled, &higherLegacy, &enabled })
 		processor->prepareToPlay(48'000.0, 128);
 	REQUIRE_FALSE(legacy.isDevelopmentLadderActive());
@@ -380,7 +380,7 @@ TEST_CASE("Mono development ladder is explicit and restricted to 1x", "[mono][pr
 	REQUIRE(enabled.isDevelopmentLadderActive());
 	REQUIRE(rerun.isDevelopmentLadderActive());
 	REQUIRE(enabled.getLatencySamples() == 0);
-	REQUIRE(oversampled.getActiveQuality() == 4);
+	REQUIRE(oversampled.getActiveQuality() == 3);
 	REQUIRE(oversampled.getLatencySamples() == higherLegacy.getLatencySamples());
 	juce::AudioBuffer<float> first(2, 128), second(2, 128), baseline(2, 128);
 	juce::AudioBuffer<float> high(2, 128), highBaseline(2, 128);
@@ -1005,11 +1005,14 @@ TEST_CASE("Mono rejects stored 16x quality instead of silently recalling 8x", "[
 	source.getStateInformation(data);
 	const auto original = juce::ValueTree::readFromData(data.getData(), data.getSize());
 	REQUIRE(original.isValid());
+	for (const auto legacyRoot : { false, true })
 	for (int index = 0; index <= 4; ++index)
 	{
-		auto state = original.createCopy();
-		auto quality = state.getChildWithName(source.getParameters().state.getType())
-			.getChildWithProperty("id", vekt::mono::parameters::quality);
+		auto state = legacyRoot ? original.getChildWithName(source.getParameters().state.getType()).createCopy()
+			: original.createCopy();
+		if (legacyRoot) state.setProperty(vekt::state::StateManager::legacyVersionProperty, 3, nullptr);
+		auto parameters = legacyRoot ? state : state.getChildWithName(source.getParameters().state.getType());
+		auto quality = parameters.getChildWithProperty("id", vekt::mono::parameters::quality);
 		REQUIRE(quality.isValid());
 		quality.setProperty("value", index, nullptr);
 		juce::MemoryBlock serialized;
@@ -1017,12 +1020,13 @@ TEST_CASE("Mono rejects stored 16x quality instead of silently recalling 8x", "[
 		state.writeToStream(stream);
 		vekt::mono::PluginProcessor restored;
 		setParameter(restored, vekt::mono::parameters::filterCutoff, 4'321.0f);
+		setParameter(restored, vekt::mono::parameters::quality, 2.0f);
 		restored.setStateInformation(serialized.getData(), static_cast<int>(serialized.getSize()));
 		const auto* choice = dynamic_cast<juce::AudioParameterChoice*>(
 			restored.getParameters().getParameter(vekt::mono::parameters::quality));
 		REQUIRE(choice != nullptr);
-		INFO("stored quality index=" << index);
-		REQUIRE(choice->getIndex() == (index == 4 ? 0 : index));
+		INFO("stored quality index=" << index << ", legacy root=" << legacyRoot);
+		REQUIRE(choice->getIndex() == (index == 4 ? 2 : index));
 		REQUIRE(restored.getParameters().getRawParameterValue(vekt::mono::parameters::filterCutoff)->load()
 			== Catch::Approx(index == 4 ? 4'321.0f : 5'200.0f));
 	}
