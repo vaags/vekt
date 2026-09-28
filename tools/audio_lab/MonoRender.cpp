@@ -265,6 +265,33 @@ bool makeMonoRenderFixture(const juce::String& name, double sampleRate, int bloc
 		destination.windows = { { "settled", at(0.5, sampleRate), at(0.9, sampleRate) } };
 		return true;
 	}
+	if (name == "self-osc-held-off" || name == "self-osc-held-on")
+	{
+		// Excite once, then keep the voice and amplifier open with zero input.
+		// Changing Q Comp after excitation tests the zero-input invariant as well.
+		destination.totalSamples = at(2.0, sampleRate);
+		destination.settings.level = { 0.0f, 0.0f, 0.0f };
+		destination.settings.cutoff = 1'000.0f;
+		destination.settings.resonance = 1.0f;
+		destination.settings.drive = 0.0f;
+		destination.settings.noiseType = 1;
+		destination.settings.noiseLevel = 0.05f;
+		destination.settings.ampAttack = 0.0005f;
+		destination.settings.ampSustain = 1.0f;
+		destination.settings.qCompensation = false;
+		destination.events = {
+			{ 0, MonoEventType::noteOn, MonoParameter::cutoff, 1.0f, 60 },
+			{ at(0.1, sampleRate), MonoEventType::parameter, MonoParameter::noiseLevel, 0.0f }
+		};
+		if (name.endsWith("on"))
+			destination.events.push_back({ at(0.1, sampleRate), MonoEventType::parameter,
+				MonoParameter::qCompensation, 1.0f });
+		destination.windows = {
+			{ "early_zero_input", at(0.5, sampleRate), at(0.9, sampleRate) },
+			{ "late_zero_input", at(1.5, sampleRate), at(1.9, sampleRate) }
+		};
+		return true;
+	}
 	if (name == "q-comp-body-off" || name == "q-comp-body-on"
 		|| name == "q-comp-tone-off" || name == "q-comp-tone-on")
 	{

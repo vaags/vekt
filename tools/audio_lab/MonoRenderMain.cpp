@@ -50,7 +50,7 @@ int main(int argc, char** argv)
 	Options options;
 	if (!parse(argc, argv, options))
 	{
-		std::cerr << "Usage: VektMonoRender --fixture filter-sweep|envelope|q-comp-body-off|q-comp-body-on|q-comp-tone-off|q-comp-tone-on|q-comp-drive-{0,6,12,18,24}-{off,on}|q-comp-listen-95-{sustain,bass,sweep}-drive-{12,18,24}-{off,on} "
+		std::cerr << "Usage: VektMonoRender --fixture filter-sweep|envelope|self-osc-held-{off,on}|q-comp-body-off|q-comp-body-on|q-comp-tone-off|q-comp-tone-on|q-comp-drive-{0,6,12,18,24}-{off,on}|q-comp-listen-95-{sustain,bass,sweep}-drive-{12,18,24}-{off,on} "
 			"--wav path --report path [--sample-rate Hz] [--block-size samples] [--seed value]\n";
 		return 64;
 	}

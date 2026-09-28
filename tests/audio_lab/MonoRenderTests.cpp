@@ -175,6 +175,36 @@ TEST_CASE("Mono voice resonance onset stays finite with an unboosted output tap"
 	}
 }
 
+TEST_CASE("Mono held open self-oscillation survives removal of all excitation", "[audio-lab][mono][resonance-onset]")
+{
+	vekt::audio_lab::MonoRenderRequest off, on;
+	REQUIRE(vekt::audio_lab::makeMonoRenderFixture("self-osc-held-off", 48'000.0, 128, 42, off));
+	REQUIRE(vekt::audio_lab::makeMonoRenderFixture("self-osc-held-on", 48'000.0, 128, 42, on));
+	REQUIRE(off.events.size() == 2);
+	REQUIRE(on.events.size() == 3);
+	REQUIRE(off.events[1].sample == on.events[1].sample);
+	REQUIRE(off.events[1].value == Catch::Approx(0.0f));
+	REQUIRE(on.events[2].sample == off.events[1].sample);
+	REQUIRE(on.events[2].parameter == vekt::audio_lab::MonoParameter::qCompensation);
+	REQUIRE(off.settings.level[0] == Catch::Approx(0.0f));
+	REQUIRE(off.settings.level[1] == Catch::Approx(0.0f));
+	REQUIRE(off.settings.level[2] == Catch::Approx(0.0f));
+	REQUIRE(off.settings.ampSustain == Catch::Approx(1.0f));
+	const auto dry = vekt::audio_lab::renderMono(off);
+	const auto wet = vekt::audio_lab::renderMono(on);
+	const auto early = windowMeasurement(dry.report, "early_zero_input", "rms");
+	const auto late = windowMeasurement(dry.report, "late_zero_input", "rms");
+	INFO("early=" << early << ", late=" << late);
+	REQUIRE(std::isfinite(late));
+	REQUIRE(late > 0.01);
+	REQUIRE(late == Catch::Approx(early).epsilon(0.05));
+	REQUIRE(windowMeasurement(wet.report, "late_zero_input", "rms") == Catch::Approx(late).margin(1.0e-8));
+	for (int channel = 0; channel < dry.audio.getNumChannels(); ++channel)
+		for (int sample = 4'800; sample < dry.audio.getNumSamples(); ++sample)
+			REQUIRE(std::bit_cast<std::uint32_t>(dry.audio.getSample(channel, sample))
+				== std::bit_cast<std::uint32_t>(wet.audio.getSample(channel, sample)));
+}
+
 TEST_CASE("Mono half input compensation preserves the zero-input trajectory and reference solve", "[audio-lab][mono][qcomp][ladder-reference]")
 {
 	vekt::mono::NonlinearTptLadder off, on;

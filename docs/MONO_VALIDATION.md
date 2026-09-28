@@ -554,6 +554,46 @@ to pass this listening experiment. A new driven-voice regression checks that
 a universal musical or release-level acceptance test. The Audio Lab Release
 app and onset/voice tools build, and `git diff --check` passes.
 
+**28 September 2026 listening result and unforced-tone check:** Thomas reports
+that removing the 98–100% output ramp makes the transition much smoother.
+Keep the no-ramp, constant-`c=0.5` candidate for evaluation; do not change
+the feedback mapping or reduce the three existing maximum-resonance level
+requirements until the *unforced* tone has been judged by ear. A new
+`self-osc-held-{off,on}` Audio Lab fixture holds the amp open at 100% resonance,
+1 kHz cutoff, 0 dB Drive and unity voice sustain, with all oscillator levels
+at zero. White noise at 5% excites the ladder for 100 ms; noise level then
+becomes **exactly zero** while the MIDI note stays held. Q Comp On is switched
+only after excitation, so the decoded audio samples (including the late
+zero-input outputs) are bit-identical; the WAV container bytes need not match.
+At 48 kHz and seed 42, 0.5–0.9 s and 1.5–1.9 s left-channel RMS are ~0.08779
+and ~0.08780, respectively, on both paths; samples are finite and peak below
+0.13. This is voice output before any Audio Lab rack effects, not a judgment
+that the cutoff tone is musically loud enough. Re-render via `VektMonoRender
+--fixture self-osc-held-off --wav <path> --report <path>`; the corresponding
+`-on` fixture verifies the Q Comp zero-input invariant.
+
+To hear the *same kind of experiment live* in Audio Lab, select **Vekt Mono**
+as source and the **Mono** editor, set all three oscillator levels to 0,
+Noise to White, Noise Level to 5%, filter Cutoff to 1 kHz, Resonance to 100%,
+Drive to 0 dB, filter envelope amount/key tracking to 0, amp Sustain to 100%
+and Master Output to 0 dB; use 1x unison and no rack effects. Hold a keyboard
+or MIDI note continuously; after an initial burst of noise, set Noise Level
+to 0 **without releasing the note**. Then judge the sustained cutoff-pitched
+tone's loudness in context. From an *exactly* zero internal ladder state,
+enabling 100% resonance alone will not start the oscillator. If necessary,
+also compare a preset-style envelope/master setting rather than deciding
+from the unity-gain patch alone. The direct Audio Lab session, not numerical
+RMS or the presence of an offline WAV, is the pending musical decision.
+The new held-open fixture test and driven-onset test pass (2/2); all three
+unchanged maximum-resonance output-level tests still fail (3/3), as expected
+for the no-ramp candidate. No minimum-level threshold was changed. Both
+`VektMonoRender` and the existing Audio Lab Release app build; `git diff
+--check` passes. The **complete Debug suite after the stereo fixture test**
+passed **284/287** (265.80 s): only those same three pre-existing
+maximum-resonance audible-level gates failed. No musical sufficiency decision
+has been made for the held, zero-input tone; keep the gates pending that
+listening judgment rather than lowering them to clear the suite.
+
 **Remaining measurements:** Below self-oscillation (50/80/95% resonance),
 resolve local passband and bandwidth around the moving AC-pump peak; check
 pump-only leakage and whether more probe frequencies or other musical pumps
