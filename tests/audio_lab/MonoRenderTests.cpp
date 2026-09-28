@@ -160,6 +160,80 @@ TEST_CASE("Mono input Q compensation preserves the exact zero-input feedback tra
 	}
 }
 
+TEST_CASE("Mono maximum-resonance zero-input tail survives high-drive excitation", "[audio-lab][mono][filter][drive][ladder-self-oscillation]")
+{
+	constexpr double rate = 48'000.0;
+	constexpr int excitationSamples = 24'000; // 500 ms of strong driven input.
+	constexpr int tailSamples = 96'000; // Observe recovery for two seconds.
+	constexpr int windowSamples = 9'600; // Last 200 ms of the unforced tail.
+	for (const auto compensated : { false, true })
+	{
+		double baselineRms {}, baselineFrequency {};
+		for (const auto drive : { 0.0f, 6.0f, 12.0f, 18.0f, 24.0f })
+		{
+			vekt::mono::NonlinearTptLadder ladder;
+			ladder.prepare(rate);
+			const vekt::mono::NonlinearTptLadderSettings settings {
+				1'000.0f, 1.0f, drive, false, compensated ? 0.20f : 0.0f };
+			double squares {}, tailPeak {};
+			int crossings {}, firstCrossing = -1, lastCrossing = -1;
+			float previous {};
+			for (int sample = 0; sample < excitationSamples + tailSamples; ++sample)
+			{
+				const auto input = sample < excitationSamples
+					? 0.5f * static_cast<float>(std::sin(2.0 * std::numbers::pi * 317.0 * sample / rate)) : 0.0f;
+				const auto output = ladder.processCoupled(input, settings);
+				REQUIRE(std::isfinite(output));
+				if (sample < excitationSamples + tailSamples - windowSamples) continue;
+				squares += static_cast<double>(output) * output;
+				tailPeak = std::max(tailPeak, std::abs(static_cast<double>(output)));
+				if (previous <= 0.0f && output > 0.0f)
+				{
+					if (firstCrossing < 0) firstCrossing = sample;
+					lastCrossing = sample;
+					++crossings;
+				}
+				previous = output;
+			}
+			const auto tailRms = std::sqrt(squares / windowSamples);
+			const auto frequency = crossings > 1
+				? (crossings - 1) * rate / (lastCrossing - firstCrossing) : 0.0;
+			INFO("Q Comp=" << compensated << ", Drive=" << drive << " dB, tail RMS=" << tailRms
+				<< ", peak=" << tailPeak << ", frequency=" << frequency << " Hz");
+			REQUIRE(tailRms > 0.08);
+			REQUIRE(tailRms < 0.25);
+			REQUIRE(frequency == Catch::Approx(1'000.0).margin(30.0));
+			if (drive == 0.0f) { baselineRms = tailRms; baselineFrequency = frequency; }
+			else
+			{
+				REQUIRE(std::abs(tailRms - baselineRms) < 0.005);
+				REQUIRE(std::abs(frequency - baselineFrequency) < 10.0);
+			}
+			REQUIRE(ladder.diagnostics().nonFiniteSamples == 0);
+			REQUIRE(ladder.diagnostics().unconvergedSamples == 0);
+		}
+	}
+}
+
+TEST_CASE("Mono Drive is inert on an identical zero-input ladder state", "[audio-lab][mono][filter][drive]")
+{
+	vekt::mono::NonlinearTptLadder lowDrive, highDrive;
+	lowDrive.prepare(48'000.0); highDrive.prepare(48'000.0);
+	const vekt::mono::NonlinearTptLadderSettings low { 1'000.0f, 1.0f, 0.0f, false, 0.20f };
+	const vekt::mono::NonlinearTptLadderSettings high { 1'000.0f, 1.0f, 24.0f, false, 0.20f };
+	for (int sample = 0; sample < 48'000; ++sample)
+	{
+		const auto input = sample < 4'800 ? 0.05f * static_cast<float>(
+			std::sin(2.0 * std::numbers::pi * 317.0 * sample / 48'000.0)) : 0.0f;
+		const auto a = lowDrive.processCoupled(input, low);
+		const auto b = highDrive.processCoupled(input, sample < 4'800 ? low : high);
+		if (sample >= 4'800)
+			REQUIRE(std::bit_cast<std::uint32_t>(a) == std::bit_cast<std::uint32_t>(b));
+	}
+	REQUIRE(lowDrive.diagnostics().unconvergedSamples == 0);
+	REQUIRE(highDrive.diagnostics().unconvergedSamples == 0);
+}
+
 TEST_CASE("Mono input Q compensation changes body relative to the resonant component", "[audio-lab][mono][qcomp]")
 {
 	for (const auto drive : { 0.0f, 12.0f, 24.0f })

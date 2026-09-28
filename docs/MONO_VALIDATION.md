@@ -237,6 +237,25 @@ and `level-match.csv` are in `/tmp/vekt-q-input-candidate/drive-listening/`.
 Review them for an abrupt or natural transition without changing the coefficient.
 High-drive compression and complex-input behavior require sound-design review.
 These files are not host listening, a normalized transfer study or device evidence.
+**Drive/resonance zero-input follow-up (28 September 2026):** A raw production
+`processCoupled` regression drives the ladder for 500 ms with a 317 Hz, 0.5
+amplitude sine, then feeds *exactly zero* input for two seconds without changing
+cutoff (1 kHz), maximum resonance, Drive or Q Comp. At Drive 0/6/12/18/24 dB,
+with Q Comp Off and On, the final 200 ms of raw ladder output sustains
+approximately 0.12415–0.12417 RMS at approximately 1 kHz; the measured
+frequencies vary within the 200 ms zero-crossing resolution and all ten runs
+converge without nonfinite or unconverged samples. A separate test starts
+from an identical excited state and changes only Drive from 0 to +24 dB at
+the instant input becomes zero: the ensuing output is bit-identical. This
+distinguishes **suppression while strongly driven** from **failure of autonomous
+self-oscillation**; it does not yet quantify the resonant peak *under* drive.
+After rebuilding the Debug test target, the focused `[drive]` tests passed
+3/3 and the full `ctest --preset dev --output-on-failure` suite passed
+**281/281** in 271.87 seconds. No production DSP parameters were changed.
+The raw-filter tail test intentionally bypasses `MonoVoice` articulation: keep
+a note/envelope active when checking this behavior by ear, since note-off or
+voice reset can mute/reset the audible path even when the autonomous ladder
+equations permit oscillation.
 Modulated boundaries, representative maximum-resonance cost, host listening,
 and live audio validation also remain open.
 
