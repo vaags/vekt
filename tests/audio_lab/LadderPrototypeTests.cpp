@@ -208,6 +208,55 @@ TEST_CASE("Coupled ladder remains deterministic through abrupt controls and seed
 	}
 }
 
+TEST_CASE("Coupled ladder seeded resonance tail agrees with the nested solver", "[audio-lab][mono][ladder-coupled][ladder-self-oscillation]")
+{
+	// Diagnostic regression for the specified k=4 model, not an approved
+	// audible-level acceptance threshold. Keep processor sound failures open.
+	constexpr int sampleRate = 48'000;
+	constexpr int excitationSamples = sampleRate / 10;
+	constexpr int windowSamples = sampleRate / 10;
+	for (const auto resonance : { 0.98f, 1.0f })
+	{
+		vekt::audio_lab::NonlinearTptLadder coupled, nested;
+		coupled.prepare(sampleRate);
+		nested.prepare(sampleRate);
+		const vekt::audio_lab::NonlinearTptLadderSettings settings { 1'000.0f, resonance, 0.0f };
+		// Without excitation both solvers must retain the exact zero equilibrium.
+		for (int sample = 0; sample < 128; ++sample)
+		{
+			REQUIRE(std::abs(coupled.processCoupled(0.0f, settings)) <= 0.0f);
+			REQUIRE(std::abs(nested.process(0.0f, settings)) <= 0.0f);
+		}
+		std::uint32_t random = 0x12345678u;
+		double earlySquares {}, lateSquares {}, maximumDifference {};
+		for (int sample = 0; sample < 2 * sampleRate + windowSamples; ++sample)
+		{
+			random = random * 1664525u + 1013904223u;
+			const auto noise = (static_cast<float>(random >> 8) / 16777216.0f * 2.0f - 1.0f) * 0.05f;
+			const auto input = sample < excitationSamples ? noise : 0.0f;
+			const auto actual = coupled.processCoupled(input, settings);
+			const auto reference = nested.process(input, settings);
+			maximumDifference = std::max(maximumDifference, std::abs(static_cast<double>(actual) - reference));
+			if (sample >= excitationSamples && sample < excitationSamples + windowSamples)
+				earlySquares += static_cast<double>(actual) * actual;
+			if (sample >= 2 * sampleRate && sample < 2 * sampleRate + windowSamples)
+				lateSquares += static_cast<double>(actual) * actual;
+		}
+		const auto earlyRms = std::sqrt(earlySquares / windowSamples);
+		const auto lateRms = std::sqrt(lateSquares / windowSamples);
+		INFO("resonance=" << resonance << ", early RMS=" << earlyRms
+			<< ", late RMS=" << lateRms << ", solver difference=" << maximumDifference);
+		REQUIRE(maximumDifference < 1.0e-4);
+		REQUIRE(earlyRms > 0.001);
+		REQUIRE(lateRms < earlyRms * 0.9);
+		if (resonance == 1.0f) REQUIRE(lateRms > 0.002);
+		else REQUIRE(lateRms < 1.0e-4);
+		REQUIRE(coupled.diagnostics().unconvergedSamples == 0);
+		REQUIRE(coupled.diagnostics().nonFiniteSamples == 0);
+		REQUIRE(nested.diagnostics().unconvergedSamples == 0);
+	}
+}
+
 TEST_CASE("Nonlinear TPT ladder drive compensation is an external output wrapper", "[audio-lab][mono][ladder-candidate]")
 {
 	constexpr double sampleRate = 48'000.0;

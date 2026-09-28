@@ -36,6 +36,30 @@ returned finite output, zero covered C++ `new` calls and zero simulated
 deadline exceedances in eight callbacks; its short duration cannot establish
 an operating envelope or device safety. Release build success is not host evidence.
 
+**28 September resonance investigation (source `7b21006`):** Directly exercising
+`NonlinearTptLadder::processCoupled` at 48 kHz, 1 kHz cutoff, 0 dB drive with
+0.1 s of deterministic white-noise excitation (peak input 0.05), followed by
+silence, gave a 0.1–0.2 s raw output RMS of 0.00765 at resonance 1.0 and
+0.00406 at 2–2.1 s. At resonance 0.98 it fell from 0.00163 to less than
+0.000001 over the same windows. Both runs reported zero unconverged and
+nonfinite samples. A working-tree diagnostic regression compares the coupled and
+nested solvers over this seeded tail: it passes (526 assertions), including
+maximum sample difference below 1e-4 and exact silence from the zero state.
+The five focused `[audio-lab][mono][ladder-coupled]` cases pass (261706
+assertions). After adding the diagnostic, `ctest --preset dev
+--output-on-failure` completed in 230.18 seconds: 267/271 passed; the same
+four Mono resonance sound cases failed (tests 88, 96, 143 and 217 in this run).
+This evidence points to the **specified k=4 boundary and nonlinear damping**
+as the cause of weak finite-amplitude tails, rather than an obvious coupled
+solver divergence or voice-only bug; it does not prove the sound is acceptable.
+The unchanged processor filter tests still fail four of thirteen cases with
+the same sound discrepancies. The direct test's measured-shape bounds are
+diagnostic guards, not approved listening or release limits. Decide with Thomas
+whether finite-level free-running oscillation and a rising cutoff tone on the
+specified oscillator patch are required; if so, revise the model/control
+mapping and its independent reference together, then revalidate stability,
+headroom, sound and cost. Do not silently raise feedback or weaken these tests.
+
 Debug tests of the ordinary processor and a normal Release build are useful
 regression evidence only. **No normal Release VST3/Standalone host session,
 live audio device, audible click assessment, measured audio-delay test, or
