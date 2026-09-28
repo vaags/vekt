@@ -25,6 +25,30 @@ constexpr float voiceTransitionSeconds = 0.003f;
 // LFO sweeps do not accelerate into the saw anchor. Chosen by ear over linear, p = 1.5 and t^2.
 [[nodiscard]] inline float sawMorphWeight(float t) noexcept { return t * t * (2.0f - t); }
 
+// Width of the random phase offsets a new note gives its unison layers, in cycles: none at 0 cents (the layers
+// start as identical copies), fully random from this detune up.
+inline constexpr float unisonDecorrelatedDetuneCents = 5.0f;
+[[nodiscard]] inline float unisonSpreadFactor(float detuneCents) noexcept
+{
+	return std::clamp(detuneCents / unisonDecorrelatedDetuneCents, 0.0f, 1.0f);
+}
+
+// Gain for a sum of `layers` unison layers whose phases are spread by s cycles (0..1): 1/N for identical copies
+// and 1/sqrt(N) for decorrelated layers, so unison keeps the 1x level on average.
+[[nodiscard]] inline float unisonGain(int layers, float spread) noexcept
+{
+	return layers <= 1 ? 1.0f : std::pow(static_cast<float>(layers), 0.5f * spread - 1.0f);
+}
+
+// Correlation between the layers' noise that makes the summed noise keep the 1x level under unisonGain:
+// N + N(N - 1) rho = N^(2 - s), so identical noise at s = 0 and independent noise at s = 1.
+[[nodiscard]] inline float unisonNoiseCorrelation(int layers, float spread) noexcept
+{
+	if (layers <= 1) return 1.0f;
+	const auto count = static_cast<float>(layers);
+	return (std::pow(count, 1.0f - spread) - 1.0f) / (count - 1.0f);
+}
+
 inline float dbToGain(float decibels) noexcept { return std::pow(10.0f, decibels / 20.0f); }
 inline float midiToHz(float note) noexcept { return 440.0f * std::exp2((note - 69.0f) / 12.0f); }
 // One LFO's source settings plus its per-destination depths, already scaled by Amount.
@@ -65,7 +89,7 @@ public:
 		sampleRate = static_cast<float>(newSampleRate);
 		for (auto& ladder : filterLadders) ladder.prepare(newSampleRate);
 		random.setSeed(seed);
-		lfoSeed = seed;
+		voiceSeed = seed;
 		for (auto& lfo : lfos) lfo.setSampleRate(newSampleRate);
 		// About 1 ms of smoothing on each LFO output so square and saw edges do not click.
 		lfoSmoothing = 1.0f - std::exp(-1.0f / (0.001f * static_cast<float>(newSampleRate)));
@@ -84,6 +108,9 @@ public:
 
 	void reset()
 	{
+		// Restart the voice's random stream so everything after a reset (phases, drift, unison offsets, noise)
+		// is reproducible regardless of what played before, e.g. across preset loads.
+		random.setSeed(voiceSeed);
 		active = held = sustained = false;
 		hasPitch = gliding = false;
 		amp.reset(); filterEnvelope.reset();
@@ -91,8 +118,10 @@ public:
 			for (auto& oscillatorPhase : stackPhase)
 				oscillatorPhase = random.nextFloat();
 		driftCents = random.nextFloat() * 2.0f - 1.0f;
+		pinkStates = {};
+		unisonPhaseSpread = 0.0f;
 		for (std::size_t index = 0; index < lfos.size(); ++index)
-			lfos[index].reset(lfoSeed * 2'654'435'761u + static_cast<std::uint32_t>(index), lfoSharedSeeds[index]);
+			lfos[index].reset(voiceSeed * 2'654'435'761u + static_cast<std::uint32_t>(index), lfoSharedSeeds[index]);
 		lfoOutputs = {};
 		vibratoControl = polyPressure = 0.0f;
 		morphsInitialized = false;
@@ -118,7 +147,21 @@ public:
 		polyPressure = 0.0f;
 		active = held = true; sustained = false;
 		fadeInSamples = wasActive ? 0 : transitionLength();
-		if (!wasActive) morphsInitialized = false;
+		if (!wasActive)
+		{
+			morphsInitialized = false;
+			// Each new note draws fresh unison phase offsets, scaled by detune: at 0 cents the layers start in
+			// phase with the first (no static comb filter), and from 5 cents they are fully random. Drawing them
+			// per note, not per voice slot, keeps level and tone independent of which slot plays the note.
+			const auto spreadFactor = unisonSpreadFactor(settings.detune);
+			unisonPhaseSpread = spreadFactor;
+			for (std::size_t stack = 1; stack < phase.size(); ++stack)
+				for (std::size_t oscillator = 0; oscillator < 3; ++oscillator)
+				{
+					auto offsetPhase = phase[0][oscillator] + spreadFactor * random.nextFloat();
+					phase[stack][oscillator] = offsetPhase - std::floor(offsetPhase);
+				}
+		}
 		continuitySamples = 0;
 		continuityPending = wasActive;
 		continuityOffset = {};
@@ -195,6 +238,16 @@ public:
 			: 1.0f;
 		const auto amplitude = amp.getNextSample() * velocityGain * allocationFade * juce::jlimit(0.0f, 1.0f, 1.0f + modulation.amp);
 		const auto detune = juce::jlimit(0.0f, 50.0f, settings.detune + modulation.detune);
+		// The layers' phase spread only grows during a note: by the drift between neighbouring layers at the
+		// current detune. Gain follows this spread, not the detune setting, so automating detune while a note
+		// holds changes the level only as fast as the layers actually drift apart.
+		if (unisonCount > 1 && unisonPhaseSpread < 1.0f)
+		{
+			const auto neighbourCents = 2.0f * detune / static_cast<float>(unisonCount - 1);
+			unisonPhaseSpread = std::min(1.0f, unisonPhaseSpread + baseHz * (std::exp2(neighbourCents / 1'200.0f) - 1.0f) / sampleRate);
+		}
+		const auto noiseCorrelation = unisonNoiseCorrelation(unisonCount, unisonPhaseSpread);
+		const auto sharedNoise = settings.noiseType != 0 ? random.nextFloat() * 2.0f - 1.0f : 0.0f;
 		const auto unisonSpread = juce::jlimit(0.0f, 1.0f, settings.unisonSpread + modulation.spread);
 		const auto noiseLevel = juce::jlimit(0.0f, 1.0f, settings.noiseLevel + modulation.noise);
 		std::array<float, 3> levels {}, widths {};
@@ -228,17 +281,28 @@ public:
 			}
 			if (settings.noiseType != 0)
 			{
-				auto noise = random.nextFloat() * 2.0f - 1.0f;
-				if (settings.noiseType == 2) { pink = 0.98f * pink + 0.02f * noise; noise = pink; }
+				// Layer noise has the same correlation the gain assumes; identical layers share one noise source.
+				auto noise = sharedNoise;
+				if (noiseCorrelation < 1.0f)
+					noise = std::sqrt(noiseCorrelation) * sharedNoise + std::sqrt(1.0f - noiseCorrelation) * (random.nextFloat() * 2.0f - 1.0f);
+				if (settings.noiseType == 2)
+				{
+					auto& pink = pinkStates[static_cast<std::size_t>(stack)];
+					pink = 0.98f * pink + 0.02f * noise;
+					noise = pink;
+				}
 				mixer += noise * noiseLevel;
 			}
 			const auto stackOutput = filter(mixer, settings, filterEnvelopeValue, filterCutoff,
 				filterResonance, filterDriveDb, inputCompensation, stack, playedNote, modulation.filter) * amplitude;
 			const auto pan = juce::jlimit(-1.0f, 1.0f, settings.voiceWidth * panPosition
 				+ normalizedStack * unisonSpread);
-			voiceLeft += stackOutput * std::sqrt(0.5f * (1.0f - pan)) / static_cast<float>(unisonCount);
-			voiceRight += stackOutput * std::sqrt(0.5f * (1.0f + pan)) / static_cast<float>(unisonCount);
+			voiceLeft += stackOutput * std::sqrt(0.5f * (1.0f - pan));
+			voiceRight += stackOutput * std::sqrt(0.5f * (1.0f + pan));
 		}
+		const auto layerGain = unisonGain(unisonCount, unisonPhaseSpread);
+		voiceLeft *= layerGain;
+		voiceRight *= layerGain;
 		if (continuityPending)
 		{
 			continuityOffset = { lastOutput[0] - voiceLeft, lastOutput[1] - voiceRight };
@@ -451,7 +515,7 @@ private:
 	std::array<Lfo, lfoCount> lfos;
 	std::array<float, lfoCount> lfoOutputs {};
 	float lfoSmoothing { 1.0f }, vibratoSmoothing { 1.0f }, vibratoControl {}, polyPressure {};
-	std::uint32_t lfoSeed {};
+	std::uint32_t voiceSeed {};
 	int fadeInSamples {}, continuitySamples {};
 	juce::Random random;
 	ContourEnvelope amp, filterEnvelope;
@@ -462,7 +526,9 @@ private:
 	std::array<std::array<float, 3>, 4> phase {};
 	std::array<NonlinearTptLadder, 4> filterLadders;
 	std::array<float, 2> continuityOffset {}, lastOutput {};
-	float pink {}, currentNote {}, targetNote {}, velocity {}, panPosition {}, driftCents {};
+	std::array<float, 4> pinkStates {};
+	float unisonPhaseSpread {};
+	float currentNote {}, targetNote {}, velocity {}, panPosition {}, driftCents {};
 	int channel {}, note {};
 	std::uint64_t age {};
 	bool active {}, held {}, sustained {}, filterControlsInitialized {}, continuityPending {};

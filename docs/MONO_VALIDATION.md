@@ -1,3 +1,42 @@
+# Mono unison level policy (28 September 2026)
+
+Unison layers were summed and divided by N. Their oscillators start at independent
+random phases, so detuned layers are uncorrelated and add by sqrt(N): measured 2x
+and 4x were about -3 dB and -6 dB below 1x (down to -8.8 dB at 10 cents). At low
+detune the per-slot random phases also formed a static comb: at 0 cents the same
+note measured 0 to -6.1 dB (2x) and -0.8 to -10.5 dB (4x) depending on voice slot.
+
+Now each new note draws its layer phase offsets fresh, over
+`s = clamp(detune / 5 cents, 0, 1)` of a cycle (layers start in phase at 0 cents).
+Each voice tracks its layers' phase spread: `s` at note start, then growing by the
+drift between neighbouring layers at the current detune, capped at one cycle and
+never shrinking until the next note. The sum is scaled by `N^(spread/2 - 1)`: 1/N
+for identical copies, 1/sqrt(N) when decorrelated. Because gain follows the actual
+spread rather than the detune setting, automating detune on a held note cannot
+jump the level (the earlier detune-based gain jumped +6.65 dB at 4x from 0 to 5
+cents); the level changes only as fast as the layers drift apart. Noise has the
+matching correlation between layers, `(N^(1 - spread) - 1) / (N - 1)` (a shared
+source mixed with independent noise, each layer with its own pink filter), so
+noise keeps the 1x level at any spread and 0 cents, noise included, is identical
+to 1x. Retriggers of a sounding voice and legato keep the running layer phases. Averaged
+over 24 notes at 15 cents, 2x and 4x measure +0.09 dB and +0.46 dB relative to 1x;
+0 cents is identical to 1x. Beating still moves the level note to note, and
+momentary peaks can reach +3 dB (2x) / +6 dB (4x) when layers align. Each layer
+keeps its own ladder at full input, so ladder drive is unchanged.
+
+Reproducibility: oscillators keep their phase between notes (a slot's next note
+starts where its previous note stopped) and unison offsets are drawn per note, so
+repeating a note does not repeat it exactly. A playing-state reset (prepare, preset
+load, quality or voice-count change, host stop) restarts each voice's random stream
+from its seed, clears the pink-noise filter and restarts the shared Free-mode LFO
+and vibrato clocks, so the output after a preset load does not depend on what
+played before. Controller positions (mod wheel, pressure, pitch bend) are the
+player's state and survive a load.
+
+Unison Detune now defaults to 15 cents (labelled in cents). Presets store their
+own detune, but presets using unison get louder (about +3 dB at 2x, +6 dB at 4x)
+and low-detune unison presets lose their comb colouring.
+
 # Mono oscillator morph policy (28 September 2026)
 
 Morph interpolates linearly between two adjacent anchors read from one shared

@@ -94,8 +94,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { performanceMode, version }, "Performance Mode", juce::StringArray { "Poly", "Mono", "Mono Legato" }, 0));
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { quality, version }, "Quality", juce::StringArray { "1x", "2x", "4x", "8x" }, 0, nonAutomatable()));
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { unison, version }, "Unison", juce::StringArray { "1x", "2x", "4x" }, 0));
-	for (const auto [identifier, name, maximum] : { std::tuple { unisonDetune, "Unison Detune", 50.0f }, std::tuple { unisonSpread, "Unison Spread", 100.0f }, std::tuple { voiceWidth, "Voice Pan", 100.0f }, std::tuple { drift, "Drift", 100.0f } })
-		layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { identifier, version }, name, juce::NormalisableRange<float> { 0.0f, maximum, 0.01f }, 0.0f, juce::AudioParameterFloatAttributes {}.withLabel("%")));
+	// Unison Detune is in cents and defaults to 15 so switching unison on thickens the sound straight away.
+	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { unisonDetune, version }, "Unison Detune",
+		juce::NormalisableRange<float> { 0.0f, 50.0f, 0.01f }, 15.0f, juce::AudioParameterFloatAttributes {}.withLabel("ct")));
+	for (const auto [identifier, name] : { std::pair { unisonSpread, "Unison Spread" }, std::pair { voiceWidth, "Voice Pan" }, std::pair { drift, "Drift" } })
+		layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { identifier, version }, name, juce::NormalisableRange<float> { 0.0f, 100.0f, 0.01f }, 0.0f, juce::AudioParameterFloatAttributes {}.withLabel("%")));
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { glideMode, version }, "Glide", juce::StringArray { "Off", "Always", "Legato" }, 0));
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { glideTime, version }, "Glide Time", juce::NormalisableRange<float> { 0.0f, 5.0f, 0.001f, 0.35f }, 0.0f, juce::AudioParameterFloatAttributes {}.withLabel("s")));
 	layout.add(std::make_unique<juce::AudioParameterInt>(juce::ParameterID { pitchBendRange, version }, "Pitch Bend Range", 1, 24, 2, juce::AudioParameterIntAttributes {}.withLabel("st")));

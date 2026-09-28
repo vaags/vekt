@@ -441,6 +441,10 @@ void PluginProcessor::releaseSustainedNotes(int channel)
 
 void PluginProcessor::resetPlayingState()
 {
+	// Restart the shared modulation clocks with the voices, so output after a preset load does not depend on
+	// how long the previous patch ran. A synced Free LFO then re-locks to the host position while it plays.
+	for (auto& clock : lfoClocks) clock->reset();
+	vibratoClock->reset();
 	for (auto& voice : voices) voice->reset();
 	for (auto& heldNotes : heldNotesByChannel) heldNotes.clear();
 	sustainByChannel.fill(false);

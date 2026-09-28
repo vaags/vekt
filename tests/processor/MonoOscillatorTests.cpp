@@ -244,7 +244,7 @@ TEST_CASE("Mono triangle polyBLAMP reduces aliasing without changing the anchor"
 TEST_CASE("Mono Morph knob changes are smoothed but LFO morph modulation is not", "[mono][oscillator][lfo]")
 {
 	constexpr double sampleRate = 48'000.0;
-	vekt::mono::MonoVoiceSettings settings;
+	vekt::mono::MonoVoiceSettings settings {}; // value-initialised: the oscillator arrays have no default member initialisers
 	settings.range.fill(1.0f);
 	settings.level = { 1.0f, 0.0f, 0.0f };
 	settings.morph.fill(0.0f);
