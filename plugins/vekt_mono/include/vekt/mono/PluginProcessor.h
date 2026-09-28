@@ -20,8 +20,7 @@ namespace vekt::mono
 struct MonoVoiceSettings;
 class MonoVoice;
 
-class PluginProcessor final : public juce::AudioProcessor,
-	private juce::AudioProcessorValueTreeState::Listener
+class PluginProcessor final : public juce::AudioProcessor
 {
 public:
 	PluginProcessor();
@@ -53,8 +52,6 @@ public:
 	[[nodiscard]] presets::PresetSession& getPresetSession() noexcept { return presetSession; }
 	[[nodiscard]] juce::Result loadNextPreset();
 	[[nodiscard]] juce::Result loadPreviousPreset();
-	[[nodiscard]] bool hasPendingVoiceCountChange() const noexcept { return pendingVoiceCount.load(); }
-	[[nodiscard]] bool hasPendingQualityChange() const noexcept { return pendingQuality.load(); }
 	[[nodiscard]] int getActiveQuality() const noexcept { return activeQuality; }
 	struct CoupledWorkSnapshot
 	{
@@ -73,9 +70,8 @@ private:
 	void releaseSustainedNotes(int channel);
 	void resetPlayingState();
 	void render(juce::AudioBuffer<float>& buffer, int startSample, int numberOfSamples);
-	void applyDeferredConfiguration();
+	void applyConfigurationChanges();
 	void configureQuality(int quality);
-	[[nodiscard]] bool isTransportStopped() const noexcept;
 	[[nodiscard]] juce::Result validatePresetSound(const presets::Preset& preset) const;
 	[[nodiscard]] juce::Result applyPreset(const presets::Preset& preset);
 	[[nodiscard]] bool matchesPresetSound(const presets::Preset& preset) const;
@@ -84,7 +80,6 @@ private:
 	[[nodiscard]] MonoVoice& monoVoiceForChannel(int channel);
 	void retargetMonophonicVoice(int channel, bool retrigger);
 	[[nodiscard]] int activeVoiceLimit() const noexcept;
-	void parameterChanged(const juce::String& parameterId, float) override;
 
 	juce::UndoManager undoManager;
 	juce::AudioProcessorValueTreeState parameterState;
@@ -103,13 +98,9 @@ private:
 	std::array<std::vector<HeldNote>, 16> heldNotesByChannel;
 	dsp::OversamplingBank<float> oversampling { 2 };
 	dsp::StereoPeakMeter outputMeter;
-	std::atomic<bool> pendingVoiceCount {};
-	std::atomic<bool> pendingQuality {};
 	std::atomic<bool> pendingPresetReset {};
 	int activeVoiceCount { 8 };
-	int requestedVoiceCount { 8 };
 	int activeQuality {};
-	int requestedQuality {};
 	std::uint64_t noteAge {};
 	double sampleRateHz { 48'000.0 };
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginProcessor)

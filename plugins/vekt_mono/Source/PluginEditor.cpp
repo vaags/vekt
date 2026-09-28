@@ -99,8 +99,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 		performancePanel.addAndMakeVisible(performanceLabels[index]);
 	}
 	noiseBox.setTooltip("White or pink noise source.");
-	qualityBox.setTooltip("1x is the zero-oversampling default; 2x uses minimum-phase IIR, and 4x/8x use linear-phase FIR. Higher factors use more CPU and add latency. Changes apply only after transport stops and all notes and sustain are released.");
-	voiceCountBox.setTooltip("Voice-count changes apply after all active notes are released.");
+	qualityBox.setTooltip("1x is the zero-oversampling default; 2x uses minimum-phase IIR, and 4x/8x use linear-phase FIR. Higher factors use more CPU and add latency. Changing it cuts any sounding notes.");
 	performanceModeBox.setTooltip("Mono retriggers each note; Mono Legato keeps the envelope active while notes overlap.");
 	heldKeyReturnButton.setTooltip("When enabled, releasing the active mono note returns to the selected still-held key (last or lowest priority).");
 	glideBox.setTooltip("Always glides every note change; Legato glides only while another note is held.");
@@ -129,8 +128,6 @@ void PluginEditor::timerCallback()
 		: activeQuality == 2 ? "4x FIR" : "8x FIR";
 	juce::String message = "Quality: " + juce::String(qualityName)
 		+ " • " + juce::String(pluginProcessor.getLatencySamples()) + " smp";
-	if (pluginProcessor.hasPendingVoiceCountChange()) message = "Voice count pending—release notes";
-	if (pluginProcessor.hasPendingQualityChange()) message += " • Quality pending—stop and release notes";
 	status.setText(message, juce::dontSendNotification);
 	outputMeter.setStereoLevels(pluginProcessor.consumeOutputPeaks());
 }

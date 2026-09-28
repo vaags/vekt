@@ -959,68 +959,38 @@ TEST_CASE("Mono coupled callbacks remain finite across MIDI and control boundari
 		}
 }
 
-TEST_CASE("Mono coupled quality changes defer through sustain", "[mono][processor][ladder-coupled][quality]")
+TEST_CASE("Mono coupled quality changes cut sustained notes immediately", "[mono][processor][ladder-coupled][quality]")
 {
-	class PlayHead final : public juce::AudioPlayHead
-	{
-	public:
-		juce::Optional<PositionInfo> getPosition() const override
-		{
-			PositionInfo position;
-			position.setIsPlaying(playing);
-			return position;
-		}
-		bool playing { true };
-	};
 	for (int initial = 0; initial < 4; ++initial)
 	for (int target = 0; target < 4; ++target)
 	{
 		if (initial == target) continue;
-		PlayHead playHead;
-		vekt::mono::PluginProcessor coupled;
-		for (auto* processor : { &coupled })
+		CAPTURE(initial, target);
+		vekt::mono::PluginProcessor coupled, fresh;
+		for (auto* processor : { &coupled, &fresh })
 		{
 			initializeDryVoice(*processor);
 			setParameter(*processor, vekt::mono::parameters::ampRelease, 0.005f);
 			setParameter(*processor, vekt::mono::parameters::filterCutoff, 1'000.0f);
 			setParameter(*processor, vekt::mono::parameters::filterResonance, 85.0f);
 			setParameter(*processor, vekt::mono::parameters::filterDrive, 12.0f);
-			setParameter(*processor, vekt::mono::parameters::quality, static_cast<float>(initial));
-			processor->setPlayHead(&playHead);
+			setParameter(*processor, vekt::mono::parameters::quality,
+				static_cast<float>(processor == &fresh ? target : initial));
 			processor->prepareToPlay(48'000.0, 128);
 		}
-		CAPTURE(initial, target);
-		const auto previousLatency = coupled.getLatencySamples();
 		juce::AudioBuffer<float> actual(2, 128);
 		juce::MidiBuffer held;
 		held.addEvent(juce::MidiMessage::controllerEvent(1, 64, 127), 0);
 		held.addEvent(juce::MidiMessage::noteOn(1, 48, 0.8f), 0);
 		held.addEvent(juce::MidiMessage::noteOff(1, 48), 64);
 		renderBlock(coupled, actual, held);
-		for (auto* processor : { &coupled })
-			setParameter(*processor, vekt::mono::parameters::quality, static_cast<float>(target));
+		setParameter(coupled, vekt::mono::parameters::quality, static_cast<float>(target));
 		renderBlock(coupled, actual);
-		REQUIRE(coupled.hasPendingQualityChange());
-		REQUIRE(coupled.getActiveQuality() == initial);
-		REQUIRE(coupled.getLatencySamples() == previousLatency);
-		playHead.playing = false;
-		renderBlock(coupled, actual);
-		REQUIRE(coupled.hasPendingQualityChange());
-		REQUIRE(coupled.getActiveQuality() == initial);
-		REQUIRE(coupled.getLatencySamples() == previousLatency);
-		juce::MidiBuffer releaseSustain;
-		releaseSustain.addEvent(juce::MidiMessage::controllerEvent(1, 64, 0), 0);
-		renderBlock(coupled, actual, releaseSustain);
-		REQUIRE(coupled.hasPendingQualityChange());
-		REQUIRE(coupled.getActiveQuality() == initial);
-		REQUIRE(coupled.getLatencySamples() == previousLatency);
-		for (int block = 0; block < 32 && coupled.hasPendingQualityChange(); ++block)
-		{
-			renderBlock(coupled, actual);
-		}
-		REQUIRE_FALSE(coupled.hasPendingQualityChange());
 		REQUIRE(coupled.getActiveQuality() == target);
-		REQUIRE(coupled.getLatencySamples() >= 0);
+		REQUIRE(coupled.getLatencySamples() == fresh.getLatencySamples());
+		for (int channel = 0; channel < 2; ++channel)
+			for (int sample = 0; sample < 128; ++sample)
+				REQUIRE(actual.getSample(channel, sample) == 0.0f);
 		juce::MidiBuffer nextNote;
 		nextNote.addEvent(juce::MidiMessage::noteOn(1, 55, 0.8f), 0);
 		double energy {};
@@ -1046,23 +1016,11 @@ TEST_CASE("Mono coupled quality changes defer through sustain", "[mono][processo
 
 TEST_CASE("Mono coupled idle quality changes cover every ordered pair", "[mono][processor][ladder-coupled][quality]")
 {
-	class PlayHead final : public juce::AudioPlayHead
-	{
-	public:
-		juce::Optional<PositionInfo> getPosition() const override
-		{
-			PositionInfo position;
-			position.setIsPlaying(playing);
-			return position;
-		}
-		bool playing { true };
-	};
 	for (int initial = 0; initial < 4; ++initial)
 	for (int target = 0; target < 4; ++target)
 	{
 		if (initial == target) continue;
 		CAPTURE(initial, target);
-		PlayHead playHead;
 		vekt::mono::PluginProcessor changed, fresh;
 		for (auto* processor : { &changed, &fresh })
 		{
@@ -1074,17 +1032,9 @@ TEST_CASE("Mono coupled idle quality changes cover every ordered pair", "[mono][
 				static_cast<float>(processor == &fresh ? target : initial));
 			processor->prepareToPlay(48'000.0, 128);
 		}
-		changed.setPlayHead(&playHead);
 		juce::AudioBuffer<float> actual(2, 128), expected(2, 128);
-		const auto initialLatency = changed.getLatencySamples();
 		setParameter(changed, vekt::mono::parameters::quality, static_cast<float>(target));
 		renderBlock(changed, actual);
-		REQUIRE(changed.hasPendingQualityChange());
-		REQUIRE(changed.getActiveQuality() == initial);
-		REQUIRE(changed.getLatencySamples() == initialLatency);
-		playHead.playing = false;
-		renderBlock(changed, actual);
-		REQUIRE_FALSE(changed.hasPendingQualityChange());
 		REQUIRE(changed.getActiveQuality() == target);
 		REQUIRE(changed.getLatencySamples() == fresh.getLatencySamples());
 		for (int channel = 0; channel < 2; ++channel)
@@ -1654,18 +1604,20 @@ TEST_CASE("Mono rejects obsolete pre-alpha project schemas without changing live
 	}
 }
 
-TEST_CASE("Mono defers voice count while a note is active", "[mono][processor]")
+TEST_CASE("Mono voice count changes cut active notes immediately", "[mono][processor]")
 {
 	vekt::mono::PluginProcessor processor;
 	processor.prepareToPlay(48'000.0, 512);
 	juce::AudioBuffer<float> buffer(2, 128);
 	juce::MidiBuffer on;
 	on.addEvent(juce::MidiMessage::noteOn(1, 60, 0.8f), 0);
-	processor.processBlock(buffer, on);
+	renderBlock(processor, buffer, on);
+	REQUIRE(buffer.getMagnitude(0, buffer.getNumSamples()) > 0.0f);
 	setParameter(processor, vekt::mono::parameters::voiceCount, 4.0f);
-	juce::MidiBuffer empty;
-	processor.processBlock(buffer, empty);
-	REQUIRE(processor.hasPendingVoiceCountChange());
+	renderBlock(processor, buffer);
+	REQUIRE(buffer.getMagnitude(0, buffer.getNumSamples()) == 0.0f);
+	renderBlock(processor, buffer, on);
+	REQUIRE(buffer.getMagnitude(0, buffer.getNumSamples()) > 0.0f);
 }
 
 TEST_CASE("Mono provides 25 categorized factory presets", "[mono][processor]")
@@ -1947,75 +1899,6 @@ TEST_CASE("Mono modes isolate held-note stacks by MIDI channel", "[mono][process
 	for (int sample = 300; sample < buffer.getNumSamples(); ++sample)
 		postReleaseEnergy += std::abs(buffer.getSample(0, sample));
 	REQUIRE(postReleaseEnergy > 0.01f);
-}
-
-TEST_CASE("Mono defers quality changes while transport playback is active", "[mono][processor]")
-{
-	class PlayHead final : public juce::AudioPlayHead
-	{
-	public:
-		juce::Optional<PositionInfo> getPosition() const override
-		{
-			PositionInfo position;
-			position.setIsPlaying(playing);
-			return position;
-		}
-
-		bool playing { true };
-	} playHead;
-	vekt::mono::PluginProcessor processor;
-	processor.setPlayHead(&playHead);
-	processor.prepareToPlay(48'000.0, 128);
-	juce::AudioBuffer<float> buffer(2, 128);
-	setParameter(processor, vekt::mono::parameters::quality, 1.0f);
-	juce::MidiBuffer empty;
-	processor.processBlock(buffer, empty);
-	REQUIRE(processor.hasPendingQualityChange());
-	playHead.playing = false;
-	processor.processBlock(buffer, empty);
-	REQUIRE_FALSE(processor.hasPendingQualityChange());
-}
-
-TEST_CASE("Mono quality change waits for sustain and release tails after transport stops", "[mono][processor][quality]")
-{
-	class PlayHead final : public juce::AudioPlayHead
-	{
-	public:
-		juce::Optional<PositionInfo> getPosition() const override
-		{
-			PositionInfo position;
-			position.setIsPlaying(playing);
-			return position;
-		}
-
-		bool playing { true };
-	} playHead;
-	vekt::mono::PluginProcessor processor;
-	processor.setPlayHead(&playHead);
-	setParameter(processor, vekt::mono::parameters::ampRelease, 0.005f);
-	processor.prepareToPlay(48'000.0, 128);
-	juce::AudioBuffer<float> buffer(2, 128);
-	juce::MidiBuffer held;
-	held.addEvent(juce::MidiMessage::controllerEvent(1, 64, 127), 0);
-	held.addEvent(juce::MidiMessage::noteOn(1, 60, 0.8f), 0);
-	held.addEvent(juce::MidiMessage::noteOff(1, 60), 64);
-	processor.processBlock(buffer, held);
-
-	setParameter(processor, vekt::mono::parameters::quality, 1.0f);
-	playHead.playing = false;
-	juce::MidiBuffer empty;
-	processor.processBlock(buffer, empty);
-	REQUIRE(processor.hasPendingQualityChange());
-
-	juce::MidiBuffer releaseSustain;
-	releaseSustain.addEvent(juce::MidiMessage::controllerEvent(1, 64, 0), 0);
-	processor.processBlock(buffer, releaseSustain);
-	REQUIRE(processor.hasPendingQualityChange());
-
-	for (int block = 0; block < 8 && processor.hasPendingQualityChange(); ++block)
-		processor.processBlock(buffer, empty);
-	REQUIRE_FALSE(processor.hasPendingQualityChange());
-	REQUIRE(processor.getActiveQuality() == 1);
 }
 
 TEST_CASE("Mono High quality oversamples synthesis and reports latency", "[mono][processor][quality]")

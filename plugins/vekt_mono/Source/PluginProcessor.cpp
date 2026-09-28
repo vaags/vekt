@@ -118,8 +118,6 @@ PluginProcessor::PluginProcessor()
 		voices[index] = std::make_unique<MonoVoice>();
 	for (auto& heldNotes : heldNotesByChannel)
 		heldNotes.reserve(128);
-	parameterState.addParameterListener(parameters::voiceCount, this);
-	parameterState.addParameterListener(parameters::quality, this);
 	const auto factoryResult = addFactoryPresets(presetCatalog);
 	jassert(factoryResult.wasOk());
 	juce::ignoreUnused(factoryResult);
@@ -132,11 +130,7 @@ PluginProcessor::PluginProcessor()
 		presetSession.adopt(initialPreset, presets::PresetOrigin::factory);
 }
 
-PluginProcessor::~PluginProcessor()
-{
-	parameterState.removeParameterListener(parameters::voiceCount, this);
-	parameterState.removeParameterListener(parameters::quality, this);
-}
+PluginProcessor::~PluginProcessor() = default;
 
 PluginProcessor::CoupledWorkSnapshot PluginProcessor::coupledWorkSnapshot() const noexcept
 {
@@ -158,10 +152,7 @@ void PluginProcessor::prepareToPlay(double newSampleRate, int maximumBlockSize)
 	sampleRateHz = newSampleRate;
 	oversampling.prepare(static_cast<std::size_t>(std::max(maximumBlockSize, 1)));
 	activeVoiceCount = choiceToVoiceCount(value(parameters::voiceCount));
-	requestedVoiceCount = activeVoiceCount;
-	requestedQuality = juce::roundToInt(value(parameters::quality));
-	configureQuality(requestedQuality);
-	pendingQuality.store(false);
+	configureQuality(juce::roundToInt(value(parameters::quality)));
 }
 
 void PluginProcessor::releaseResources()
@@ -174,22 +165,16 @@ float PluginProcessor::value(const char* identifier) const noexcept { return par
 
 int PluginProcessor::activeVoiceLimit() const noexcept { return activeVoiceCount; }
 
-void PluginProcessor::parameterChanged(const juce::String& identifier, float newValue)
+void PluginProcessor::applyConfigurationChanges()
 {
-	if (identifier == parameters::voiceCount) { requestedVoiceCount = choiceToVoiceCount(newValue); pendingVoiceCount.store(requestedVoiceCount != activeVoiceCount); }
-	if (identifier == parameters::quality) { requestedQuality = juce::roundToInt(newValue); pendingQuality.store(requestedQuality != activeQuality); }
-}
-
-void PluginProcessor::applyDeferredConfiguration()
-{
-	const auto anyActive = std::any_of(voices.begin(), voices.end(), [] (const auto& voice) { return voice->isActive(); });
-	const auto sustainActive = std::any_of(sustainByChannel.begin(), sustainByChannel.end(), [] (bool active) { return active; });
-	if (!anyActive && !sustainActive && pendingVoiceCount.exchange(false)) activeVoiceCount = requestedVoiceCount;
-	if (!anyActive && !sustainActive && pendingQuality.load() && isTransportStopped())
-	{
-		configureQuality(requestedQuality);
-		pendingQuality.store(false);
-	}
+	const auto voiceCount = choiceToVoiceCount(value(parameters::voiceCount));
+	const auto quality = juce::roundToInt(value(parameters::quality));
+	if (voiceCount == activeVoiceCount && quality == activeQuality) return;
+	// Voice count and quality apply at once and cut whatever is sounding.
+	resetPlayingState();
+	oversampling.reset();
+	activeVoiceCount = voiceCount;
+	if (quality != activeQuality) configureQuality(quality);
 }
 
 void PluginProcessor::configureQuality(int quality)
@@ -205,15 +190,6 @@ void PluginProcessor::configureQuality(int quality)
 	setLatencySamples(oversampling.getActiveLatencySamples());
 }
 
-bool PluginProcessor::isTransportStopped() const noexcept
-{
-	if (isNonRealtime()) return true;
-	if (const auto* playHead = getPlayHead())
-		if (const auto position = playHead->getPosition())
-			return !position->getIsPlaying();
-	return true;
-}
-
 void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
 	juce::ScopedNoDenormals noDenormals;
@@ -225,7 +201,7 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
 		// Reset before handling MIDI so a new note can sound in this callback.
 		oversampling.reset();
 	}
-	applyDeferredConfiguration();
+	applyConfigurationChanges();
 	int position {};
 	for (const auto metadata : midi)
 	{
