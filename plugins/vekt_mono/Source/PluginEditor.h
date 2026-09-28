@@ -10,6 +10,7 @@
 #include <vekt/ui/VektLookAndFeel.h>
 #include <vekt/preset_ui/PresetBrowser.h>
 
+#include <algorithm>
 #include <array>
 #include <memory>
 
@@ -40,6 +41,32 @@ public:
 		const auto dot = juce::Rectangle<float>(bounds.getRight() - 16.0f, bounds.getCentreY() - 4.0f, 8.0f, 8.0f);
 		graphics.setColour(juce::Colour::fromRGB(227, 156, 75).withAlpha(0.2f + 0.8f * std::min(1.0f, std::abs(level))));
 		graphics.fillEllipse(dot);
+	}
+
+private:
+	float level {};
+};
+
+// Horizontal bar for the live mod wheel / aftertouch amount (0..1).
+class ControlMeter final : public juce::Component, public juce::SettableTooltipClient
+{
+public:
+	void setLevel(float newLevel)
+	{
+		if (juce::approximatelyEqual(level, newLevel)) return;
+		level = newLevel;
+		repaint();
+	}
+	[[nodiscard]] float getLevel() const noexcept { return level; }
+	void paint(juce::Graphics& graphics) override
+	{
+		const auto bounds = getLocalBounds().toFloat().reduced(0.5f);
+		graphics.setColour(juce::Colour::fromRGB(19, 24, 27));
+		graphics.fillRoundedRectangle(bounds, 3.0f);
+		graphics.setColour(juce::Colour::fromRGB(227, 156, 75));
+		graphics.fillRoundedRectangle(bounds.withWidth(bounds.getWidth() * std::clamp(level, 0.0f, 1.0f)), 3.0f);
+		graphics.setColour(juce::Colour::fromRGB(70, 82, 86));
+		graphics.drawRoundedRectangle(bounds, 3.0f, 1.0f);
 	}
 
 private:
@@ -99,6 +126,13 @@ private:
 	ui::Panel filterEnvelopePanel { "Filter ADSR" };
 	ui::Panel performancePanel { "Performance" };
 	ui::Panel lfoPanel { "LFO" };
+	ui::Panel vibratoPanel { "Vibrato" };
+	ui::RotaryControl vibratoRateControl, vibratoDepthControl;
+	std::unique_ptr<SliderAttachment> vibratoRateAttachment, vibratoDepthAttachment;
+	juce::ComboBox vibratoShapeBox;
+	std::unique_ptr<ComboBoxAttachment> vibratoShapeAttachment;
+	juce::Label vibratoShapeLabel, vibratoMeterLabel;
+	ControlMeter vibratoMeter;
 	std::array<LfoTabButton, 2> lfoTabs;
 	std::array<LfoControls, 2> lfoControls;
 	// Column headers (Pitch, Morph, Width, Level), oscillator rows, then the six single destinations.

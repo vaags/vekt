@@ -186,6 +186,28 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 		label.setJustificationType(index >= 4 && index < 7 ? juce::Justification::centredLeft : juce::Justification::centred);
 		lfoPanel.addAndMakeVisible(label);
 	}
+	getContent().addAndMakeVisible(vibratoPanel);
+	addRotary(vibratoPanel, vibratoRateControl, "Rate", parameters::vibratoRate, vibratoRateAttachment);
+	addRotary(vibratoPanel, vibratoDepthControl, "Depth", parameters::vibratoDepth, vibratoDepthAttachment);
+	for (auto* control : { &vibratoRateControl, &vibratoDepthControl })
+	{
+		const auto qualifiedName = "Vibrato " + control->getName();
+		control->setName(qualifiedName);
+		control->getSlider().setName(qualifiedName);
+	}
+	vibratoDepthControl.getSlider().setTooltip("Vibrato depth reached with the mod wheel or aftertouch fully up.");
+	addChoice(vibratoPanel, vibratoShapeBox, { "Sine", "Triangle" }, parameters::vibratoShape, vibratoShapeAttachment);
+	vibratoShapeBox.setName("Vibrato Shape");
+	vibratoShapeLabel.setText("Shape", juce::dontSendNotification);
+	vibratoMeterLabel.setText("Wheel / AT", juce::dontSendNotification);
+	for (auto* label : { &vibratoShapeLabel, &vibratoMeterLabel })
+	{
+		label->setJustificationType(juce::Justification::centredLeft);
+		vibratoPanel.addAndMakeVisible(*label);
+	}
+	vibratoMeter.setName("Vibrato Control");
+	vibratoMeter.setTooltip("Live mod wheel or aftertouch amount, whichever is higher.");
+	vibratoPanel.addAndMakeVisible(vibratoMeter);
 	selectLfo(0);
 	refreshPresetLabel();
 	resized();
@@ -240,6 +262,7 @@ void PluginEditor::timerCallback()
 		+ " • " + juce::String(pluginProcessor.getLatencySamples()) + " smp";
 	status.setText(message, juce::dontSendNotification);
 	for (std::size_t index = 0; index < lfoTabs.size(); ++index) lfoTabs[index].setLevel(pluginProcessor.getLfoDisplayValue(index));
+	vibratoMeter.setLevel(pluginProcessor.getVibratoControlDisplay());
 	refreshLfoVisibility();
 	outputMeter.setStereoLevels(pluginProcessor.consumeOutputPeaks());
 }
@@ -271,6 +294,11 @@ void PluginEditor::resized()
 	outputMeter.setBounds(124, 38, 36, 104);
 	voiceCountBox.setBounds(12, 58, 154, 28); performanceModeBox.setBounds(184, 58, 154, 28); qualityBox.setBounds(12, 116, 154, 28); unisonBox.setBounds(184, 116, 154, 28); glideBox.setBounds(12, 174, 154, 28);
 	lfoPanel.setBounds(1116, 68, 348, 380);
+	vibratoPanel.setBounds(1116, 464, 348, 216);
+	vibratoRateControl.setBounds(6, 38, 65, 140);
+	vibratoDepthControl.setBounds(73, 38, 65, 140);
+	vibratoShapeLabel.setBounds(156, 38, 180, 18); vibratoShapeBox.setBounds(156, 58, 180, 28);
+	vibratoMeterLabel.setBounds(156, 112, 180, 18); vibratoMeter.setBounds(156, 134, 180, 12);
 	for (std::size_t index = 0; index < lfoTabs.size(); ++index) lfoTabs[index].setBounds(64 + static_cast<int>(index) * 60, 5, 54, 24);
 	for (auto& controls : lfoControls)
 	{

@@ -64,6 +64,8 @@ public:
 	[[nodiscard]] std::array<float, 2> consumeOutputPeaks() noexcept { return outputMeter.consumePeaks(); }
 	// Latest output of each LFO on the most recently started sounding voice; 0 while silent. For display only.
 	[[nodiscard]] float getLfoDisplayValue(std::size_t index) const noexcept { return lfoDisplayValues[index].load(std::memory_order_relaxed); }
+	// Highest mod wheel or aftertouch amount currently applied (0..1). For display only.
+	[[nodiscard]] float getVibratoControlDisplay() const noexcept { return vibratoControlDisplay.load(std::memory_order_relaxed); }
 
 private:
 	[[nodiscard]] float value(const char* identifier) const noexcept;
@@ -105,6 +107,9 @@ private:
 	dsp::OversamplingBank<float> oversampling { 2 };
 	std::array<std::unique_ptr<LfoClock>, 2> lfoClocks;
 	std::array<std::atomic<float>, 2> lfoDisplayValues {};
+	std::unique_ptr<LfoClock> vibratoClock;
+	std::array<float, 16> modWheelByChannel {}, pressureByChannel {};
+	std::atomic<float> vibratoControlDisplay {};
 	double transportBpm { 120.0 };
 	std::optional<double> transportPpq;
 	dsp::StereoPeakMeter outputMeter;

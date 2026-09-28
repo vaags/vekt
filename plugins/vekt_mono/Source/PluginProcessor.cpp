@@ -30,18 +30,18 @@ juce::Result migrateContourPreset(presets::Preset& preset)
 	preset.soundSchemaVersion = 6;
 	return juce::Result::ok();
 }
-// Schema 7 adds the LFOs. Older presets get every LFO parameter at its default, where all depths are zero.
+// Schema 7 adds the LFOs and vibrato. Older presets get every new parameter at its default: no LFO depth, and a
+// vibrato that stays silent until the mod wheel or aftertouch is used.
 juce::Result migrateLfoPreset(presets::Preset& preset, const juce::AudioProcessorValueTreeState& state)
 {
 	if (preset.soundSchemaVersion == 4 || preset.soundSchemaVersion == 5)
 		if (const auto result = migrateContourPreset(preset); result.failed()) return result;
 	if (preset.soundSchemaVersion != 6) return juce::Result::fail("Unsupported Mono preset sound schema");
-	for (const auto& lfo : parameters::lfos)
-		for (const auto* identifier : lfo.all())
-		{
-			const auto* parameter = state.getParameter(identifier);
-			preset.parameters.push_back({ identifier, parameter->convertFrom0to1(parameter->getDefaultValue()) });
-		}
+	for (const auto* identifier : parameters::schema7ParameterIds)
+	{
+		const auto* parameter = state.getParameter(identifier);
+		preset.parameters.push_back({ identifier, parameter->convertFrom0to1(parameter->getDefaultValue()) });
+	}
 	preset.soundSchemaVersion = 7;
 	return juce::Result::ok();
 }
@@ -163,6 +163,7 @@ PluginProcessor::PluginProcessor()
 	for (std::size_t index = 0; index < voices.size(); ++index)
 		voices[index] = std::make_unique<MonoVoice>();
 	for (auto& clock : lfoClocks) clock = std::make_unique<LfoClock>();
+	vibratoClock = std::make_unique<LfoClock>();
 	for (auto& heldNotes : heldNotesByChannel)
 		heldNotes.reserve(128);
 	const auto factoryResult = addFactoryPresets(presetCatalog);
@@ -199,6 +200,7 @@ void PluginProcessor::prepareToPlay(double newSampleRate, int maximumBlockSize)
 	sampleRateHz = newSampleRate;
 	oversampling.prepare(static_cast<std::size_t>(std::max(maximumBlockSize, 1)));
 	for (auto& clock : lfoClocks) clock->reset();
+	vibratoClock->reset();
 	activeVoiceCount = choiceToVoiceCount(value(parameters::voiceCount));
 	configureQuality(juce::roundToInt(value(parameters::quality)));
 }
@@ -231,6 +233,7 @@ void PluginProcessor::configureQuality(int quality)
 	oversampling.activate(oversamplingQualityFor(activeQuality));
 	const auto effectiveSampleRate = sampleRateHz * static_cast<double>(oversampling.getActiveFactor());
 	for (auto& clock : lfoClocks) clock->setSampleRate(effectiveSampleRate);
+	vibratoClock->setSampleRate(effectiveSampleRate);
 	for (std::size_t index = 0; index < voices.size(); ++index)
 	{
 		voices[index]->prepare(effectiveSampleRate,
@@ -286,6 +289,10 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
 		if (voice->isActive() && (newest == nullptr || voice->getAge() > newest->getAge())) newest = voice.get();
 	for (std::size_t index = 0; index < lfoDisplayValues.size(); ++index)
 		lfoDisplayValues[index].store(newest != nullptr ? newest->getLfoOutput(index) : 0.0f, std::memory_order_relaxed);
+	auto control = std::max(*std::max_element(modWheelByChannel.begin(), modWheelByChannel.end()),
+		*std::max_element(pressureByChannel.begin(), pressureByChannel.end()));
+	for (const auto& voice : voices) if (voice->isActive()) control = std::max(control, voice->getPolyPressure());
+	vibratoControlDisplay.store(control, std::memory_order_relaxed);
 }
 
 void PluginProcessor::handleMidi(const juce::MidiMessage& message)
@@ -300,7 +307,19 @@ void PluginProcessor::handleMidi(const juce::MidiMessage& message)
 		const auto sustainWasDown = sustainByChannel[channelIndex];
 		sustainByChannel[channelIndex] = false;
 		pitchBendByChannel[channelIndex] = 0.0f;
+		modWheelByChannel[channelIndex] = pressureByChannel[channelIndex] = 0.0f;
+		for (auto& voice : voices) if (voice->getChannel() == message.getChannel()) voice->setPolyPressure(0.0f);
 		if (sustainWasDown) releaseSustainedNotes(message.getChannel());
+	}
+	else if (message.isController() && message.getControllerNumber() == 1)
+		modWheelByChannel[static_cast<std::size_t>(message.getChannel() - 1)] = static_cast<float>(message.getControllerValue()) / 127.0f;
+	else if (message.isChannelPressure())
+		pressureByChannel[static_cast<std::size_t>(message.getChannel() - 1)] = static_cast<float>(message.getChannelPressureValue()) / 127.0f;
+	else if (message.isAftertouch())
+	{
+		for (auto& voice : voices)
+			if (voice->matches(message.getChannel(), message.getNoteNumber()))
+				voice->setPolyPressure(static_cast<float>(message.getAfterTouchValue()) / 127.0f);
 	}
 	else if (message.isPitchWheel())
 		pitchBendByChannel[static_cast<std::size_t>(message.getChannel() - 1)]
@@ -419,6 +438,12 @@ void PluginProcessor::render(juce::AudioBuffer<float>& buffer, int start, int co
 	if (count <= 0) return;
 	const auto settings = snapshotSettings();
 	for (std::size_t index = 0; index < lfoClocks.size(); ++index) lfoClocks[index]->setRate(settings.lfo[index].source.rateHz);
+	vibratoClock->setRate(value(parameters::vibratoRate));
+	const auto vibratoShape = juce::roundToInt(value(parameters::vibratoShape)) == 1 ? LfoShape::triangle : LfoShape::sine;
+	const auto vibratoDepthSemitones = value(parameters::vibratoDepth) * 0.01f;
+	std::array<float, 16> channelControl {};
+	for (std::size_t channel = 0; channel < channelControl.size(); ++channel)
+		channelControl[channel] = std::max(modWheelByChannel[channel], pressureByChannel[channel]);
 	const auto outputGain = dbToGain(value(parameters::masterOutput));
 	juce::dsp::AudioBlock<float> outputBlock(buffer);
 	auto renderBlock = outputBlock.getSubBlock(static_cast<std::size_t>(start), static_cast<std::size_t>(count));
@@ -431,12 +456,14 @@ void PluginProcessor::render(juce::AudioBuffer<float>& buffer, int start, int co
 	{
 		float left {}, right {};
 		const std::array lfoPositions { lfoClocks[0]->getPosition(), lfoClocks[1]->getPosition() };
+		const auto vibrato = Lfo::bipolarShape(vibratoShape, vibratoClock->getPosition(), 0) * vibratoDepthSemitones;
 		for (auto& voice : voices)
 		{
-			const auto channelIndex = juce::jlimit(0, 15, voice->getChannel() - 1);
-			voice->render(left, right, settings, pitchBendByChannel[static_cast<std::size_t>(channelIndex)], lfoPositions);
+			const auto channelIndex = static_cast<std::size_t>(juce::jlimit(0, 15, voice->getChannel() - 1));
+			voice->render(left, right, settings, pitchBendByChannel[channelIndex], lfoPositions, vibrato, channelControl[channelIndex]);
 		}
 		for (auto& clock : lfoClocks) clock->advance();
+		vibratoClock->advance();
 		const auto sampleIndex = static_cast<int>(sample);
 		renderBlock.setSample(0, sampleIndex, left * outputGain);
 		renderBlock.setSample(1, sampleIndex, right * outputGain);
@@ -529,8 +556,7 @@ void PluginProcessor::setStateInformation(const void* data, int size)
 			parameter->setValueNotifyingHost(parameter->getDefaultValue());
 		};
 		restoreDefault(parameters::notePriority);
-		for (const auto& lfo : parameters::lfos)
-			for (const auto* identifier : lfo.all()) restoreDefault(identifier);
+		for (const auto* identifier : parameters::schema7ParameterIds) restoreDefault(identifier);
 		for (const auto* identifier : { parameters::heldKeyReturn, parameters::filterQCompensation })
 		{
 			auto* parameter = parameterState.getParameter(identifier);

@@ -125,6 +125,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 	layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID { filterQCompensation, version }, "Q Compensation", false));
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { notePriority, version }, "Mono Priority", juce::StringArray { "Last", "Low" }, 0));
 	for (std::size_t index = 0; index < lfos.size(); ++index) addLfo(layout, static_cast<int>(index) + 1, lfos[index]);
+	juce::NormalisableRange<float> vibratoRateRange { 0.1f, 12.0f };
+	vibratoRateRange.setSkewForCentre(4.0f);
+	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { vibratoRate, version }, "Vibrato Rate", vibratoRateRange, 5.5f, withDecimals(2, "Hz")));
+	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { vibratoShape, version }, "Vibrato Shape", juce::StringArray { "Sine", "Triangle" }, 0));
+	// Depth is reached with the mod wheel or aftertouch fully up; at rest the vibrato is silent.
+	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { vibratoDepth, version }, "Vibrato Depth",
+		juce::NormalisableRange<float> { 0.0f, 100.0f, 0.1f }, 50.0f, withDecimals(1, "ct")));
 	return layout;
 }
 }

@@ -93,6 +93,12 @@ inline constexpr std::array lfos {
 		"lfo2Filter", "lfo2Amp", "lfo2Drive", "lfo2Noise", "lfo2Detune", "lfo2Spread" }
 };
 
+// Performance vibrato: a shared LFO on oscillator pitch, played with the mod wheel and aftertouch.
+inline constexpr auto vibratoRate = "vibratoRate";
+inline constexpr auto vibratoShape = "vibratoShape";
+inline constexpr auto vibratoDepth = "vibratoDepth";
+inline constexpr std::array vibratoParameterIds { vibratoRate, vibratoShape, vibratoDepth };
+
 inline constexpr std::array legacySoundParameterIds {
 	performanceMode, heldKeyReturn, unison, unisonDetune, unisonSpread, voiceWidth, glideMode, glideTime,
 	pitchBendRange, calibration, drift, masterOutput,
@@ -105,14 +111,23 @@ inline constexpr std::array legacySoundParameterIds {
 	filterAttack, filterDecay, filterSustain, filterRelease, ampVelocity, filterVelocity, filterQCompensation,
 	notePriority };
 
-// Sound schema 7 appends both LFOs' parameters to the schema 6 set.
-inline constexpr auto soundParameterIds = []
+// Parameters added in sound schema 7: both LFOs and the performance vibrato.
+inline constexpr auto schema7ParameterIds = []
 {
-	std::array<const char*, legacySoundParameterIds.size() + 2 * 28> ids {};
+	std::array<const char*, 2 * 28 + vibratoParameterIds.size()> ids {};
 	std::size_t next {};
-	for (const auto* identifier : legacySoundParameterIds) ids[next++] = identifier;
 	for (const auto& lfo : lfos)
 		for (const auto* identifier : lfo.all()) ids[next++] = identifier;
+	for (const auto* identifier : vibratoParameterIds) ids[next++] = identifier;
+	return ids;
+}();
+
+inline constexpr auto soundParameterIds = []
+{
+	std::array<const char*, legacySoundParameterIds.size() + schema7ParameterIds.size()> ids {};
+	std::size_t next {};
+	for (const auto* identifier : legacySoundParameterIds) ids[next++] = identifier;
+	for (const auto* identifier : schema7ParameterIds) ids[next++] = identifier;
 	return ids;
 }();
 

@@ -63,6 +63,8 @@ public:
 		for (auto& lfo : lfos) lfo.setSampleRate(newSampleRate);
 		// About 1 ms of smoothing on each LFO output so square and saw edges do not click.
 		lfoSmoothing = 1.0f - std::exp(-1.0f / (0.001f * static_cast<float>(newSampleRate)));
+		// About 10 ms so the mod wheel's 128 steps do not step the vibrato depth audibly.
+		vibratoSmoothing = 1.0f - std::exp(-1.0f / (0.01f * static_cast<float>(newSampleRate)));
 		amp.setSampleRate(newSampleRate);
 		filterEnvelope.setSampleRate(newSampleRate);
 		cutoffOctaves.reset(newSampleRate, 0.015);
@@ -84,6 +86,7 @@ public:
 		for (std::size_t index = 0; index < lfos.size(); ++index)
 			lfos[index].reset(lfoSeed * 2'654'435'761u + static_cast<std::uint32_t>(index), lfoSharedSeeds[index]);
 		lfoOutputs = {};
+		vibratoControl = polyPressure = 0.0f;
 		for (auto& ladder : filterLadders) ladder.reset();
 		filterControlsInitialized = false;
 		qInputCompensation.setCurrentAndTargetValue(0.0f);
@@ -103,6 +106,7 @@ public:
 		hasPitch = true;
 		targetNote = target;
 		channel = newChannel; note = newNote; velocity = newVelocity; age = newAge;
+		polyPressure = 0.0f;
 		active = held = true; sustained = false;
 		fadeInSamples = wasActive ? 0 : transitionLength();
 		continuitySamples = 0;
@@ -148,15 +152,18 @@ public:
 		lastOutput = {};
 	}
 
+	// vibratoSemitones is the shared vibrato LFO at full depth; channelControl is the channel's mod wheel or pressure.
 	void render(float& left, float& right, const MonoVoiceSettings& settings, float bend,
-		const std::array<double, lfoCount>& lfoClockPositions = {})
+		const std::array<double, lfoCount>& lfoClockPositions = {}, float vibratoSemitones = 0.0f, float channelControl = 0.0f)
 	{
 		if (!active) return;
 		// Refresh the parameters at each rendered segment (the processor snapshots
 		// automation at MIDI/block boundaries), including while a key is held.
 		amp.setParameters({ settings.ampAttack, settings.ampDecay, settings.ampSustain, settings.ampRelease });
 		filterEnvelope.setParameters({ settings.filterAttack, settings.filterDecay, settings.filterSustain, settings.filterRelease });
-		const auto modulation = nextModulation(settings, lfoClockPositions);
+		auto modulation = nextModulation(settings, lfoClockPositions);
+		vibratoControl += (std::max(channelControl, polyPressure) - vibratoControl) * vibratoSmoothing;
+		for (auto& pitch : modulation.pitch) pitch += vibratoSemitones * vibratoControl;
 		float voiceLeft {}, voiceRight {};
 		const auto glideCoefficient = !gliding || settings.glideMode == 0 || settings.glideTime <= 0.0f
 			? 1.0f : 1.0f - std::exp(-1.0f / (settings.glideTime * sampleRate));
@@ -258,6 +265,8 @@ public:
 	[[nodiscard]] int getChannel() const noexcept { return channel; }
 	void setPanPosition(float value) noexcept { panPosition = value; }
 	[[nodiscard]] float getLfoOutput(std::size_t index) const noexcept { return lfoOutputs[index]; }
+	void setPolyPressure(float pressure) noexcept { polyPressure = pressure; }
+	[[nodiscard]] float getPolyPressure() const noexcept { return polyPressure; }
 
 private:
 	[[nodiscard]] int transitionLength() const noexcept
@@ -362,7 +371,7 @@ private:
 	float sampleRate { 48'000.0f };
 	std::array<Lfo, lfoCount> lfos;
 	std::array<float, lfoCount> lfoOutputs {};
-	float lfoSmoothing { 1.0f };
+	float lfoSmoothing { 1.0f }, vibratoSmoothing { 1.0f }, vibratoControl {}, polyPressure {};
 	std::uint32_t lfoSeed {};
 	int fadeInSamples {}, continuitySamples {};
 	juce::Random random;

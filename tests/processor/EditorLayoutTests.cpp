@@ -483,6 +483,39 @@ TEST_CASE("Mono LFO panel shows one LFO at a time with every destination", "[mon
 	}
 }
 
+TEST_CASE("Mono vibrato panel sits beside Performance with its controls and controller meter", "[mono][processor][ui][vibrato]")
+{
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	vekt::mono::PluginProcessor processor;
+	vekt::mono::PluginEditor editor(processor);
+	juce::Component* vibrato {};
+	juce::Component* performance {};
+	for (auto* child : editor.getContent().getChildren())
+	{
+		if (child->getName() == "Vibrato") vibrato = child;
+		if (child->getName() == "Performance") performance = child;
+	}
+	REQUIRE(vibrato != nullptr);
+	REQUIRE(performance != nullptr);
+	REQUIRE(vibrato->getY() == performance->getY());
+	REQUIRE(vibrato->getHeight() == performance->getHeight());
+	REQUIRE(editor.getContent().getLocalBounds().contains(vibrato->getBounds()));
+	const auto find = [&](const juce::String& name) -> juce::Component*
+	{
+		for (auto* child : vibrato->getChildren())
+			if (child->getName() == name) return child;
+		return nullptr;
+	};
+	for (const auto* name : { "Vibrato Rate", "Vibrato Depth", "Vibrato Shape", "Vibrato Control" }) REQUIRE(find(name) != nullptr);
+	auto* depth = dynamic_cast<vekt::ui::RotaryControl*>(find("Vibrato Depth"));
+	depth->getSlider().setValue(80.0, juce::sendNotificationSync);
+	REQUIRE(processor.getParameters().getRawParameterValue(vekt::mono::parameters::vibratoDepth)->load() == Catch::Approx(80.0f));
+	for (int first = 0; first < vibrato->getNumChildComponents(); ++first)
+		for (int second = first + 1; second < vibrato->getNumChildComponents(); ++second)
+			REQUIRE_FALSE(vibrato->getChildComponent(first)->getBounds().intersects(vibrato->getChildComponent(second)->getBounds()));
+	checkVisibleBounds(editor.getContent());
+}
+
 TEST_CASE("Glimmer editor keeps stereo meters within its canvas", "[processor][ui]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;

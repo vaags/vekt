@@ -10,6 +10,8 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <utility>
+#include <vector>
 
 namespace
 {
@@ -104,6 +106,36 @@ void initializeSine(vekt::mono::PluginProcessor& processor)
 }
 
 // A playing host transport that moves on by one 512-sample block at 48 kHz per query.
+// Renders one block per 512 samples; events are delivered in the first block at the given sample positions.
+juce::AudioBuffer<float> renderEvents(vekt::mono::PluginProcessor& processor, int samples,
+	const std::vector<std::pair<juce::MidiMessage, int>>& events)
+{
+	constexpr int blockSize = 512;
+	processor.prepareToPlay(48'000.0, blockSize);
+	juce::AudioBuffer<float> output(2, samples);
+	juce::AudioBuffer<float> block(2, blockSize);
+	for (int start = 0; start < samples; start += blockSize)
+	{
+		const auto count = std::min(blockSize, samples - start);
+		juce::MidiBuffer midi;
+		if (start == 0)
+			for (const auto& [message, position] : events) midi.addEvent(message, position);
+		block.setSize(2, count, false, false, true);
+		block.clear();
+		processor.processBlock(block, midi);
+		for (int channel = 0; channel < 2; ++channel) output.copyFrom(channel, start, block, channel, 0, count);
+	}
+	return output;
+}
+
+bool identical(const juce::AudioBuffer<float>& first, const juce::AudioBuffer<float>& second)
+{
+	for (int channel = 0; channel < 2; ++channel)
+		for (int sample = 0; sample < first.getNumSamples(); ++sample)
+			if (first.getSample(channel, sample) != second.getSample(channel, sample)) return false;
+	return true;
+}
+
 class TransportPlayHead final : public juce::AudioPlayHead
 {
 public:
@@ -124,7 +156,7 @@ public:
 TEST_CASE("Mono LFO parameters are sound parameters that default to no modulation", "[mono][lfo][parameters]")
 {
 	vekt::mono::PluginProcessor processor;
-	REQUIRE(parameters::soundParameterIds.size() == parameters::legacySoundParameterIds.size() + 56);
+	REQUIRE(parameters::soundParameterIds.size() == parameters::legacySoundParameterIds.size() + 56 + parameters::vibratoParameterIds.size());
 	for (const auto& lfo : parameters::lfos)
 	{
 		const auto ids = lfo.all();
@@ -166,7 +198,7 @@ TEST_CASE("Mono LFO source settings leave the sound unchanged at zero depth", "[
 			REQUIRE(actual.getSample(channel, sample) == expected.getSample(channel, sample));
 }
 
-TEST_CASE("Mono LFOs reach every destination", "[mono][lfo]")
+TEST_CASE("Mono LFOs reach every destination", "[mono][lfo][slow]")
 {
 	vekt::mono::PluginProcessor reference;
 	initializeRichPatch(reference);
@@ -322,4 +354,62 @@ TEST_CASE("Mono LFO settings recall with project state and reset for older proje
 	live.setStateInformation(legacy.getData(), static_cast<int>(legacy.getDataSize()));
 	REQUIRE(rawValue(live, parameters::lfos[0].pitch[2]) == 0.0f);
 	REQUIRE(rawValue(live, parameters::lfos[0].amount) == Catch::Approx(100.0f));
+}
+
+TEST_CASE("Mono vibrato is silent until the mod wheel or aftertouch is used", "[mono][vibrato]")
+{
+	vekt::mono::PluginProcessor withoutDepth, withDepth;
+	for (auto* processor : { &withoutDepth, &withDepth }) initializeSine(*processor);
+	setParameter(withoutDepth, parameters::vibratoDepth, 0.0f);
+	setParameter(withDepth, parameters::vibratoDepth, 100.0f);
+	const std::vector events { std::pair { juce::MidiMessage::noteOn(1, 69, 0.8f), 0 } };
+	REQUIRE(rawValue(withDepth, parameters::vibratoDepth) == Catch::Approx(100.0f));
+	REQUIRE(identical(renderEvents(withoutDepth, 9'600, events), renderEvents(withDepth, 9'600, events)));
+}
+
+TEST_CASE("Mono vibrato reaches its depth in cents with the mod wheel up", "[mono][vibrato]")
+{
+	vekt::mono::PluginProcessor processor;
+	initializeSine(processor);
+	setParameter(processor, parameters::vibratoRate, 0.1f);
+	setParameter(processor, parameters::vibratoDepth, 100.0f);
+	const auto output = renderEvents(processor, 134'400, {
+		{ juce::MidiMessage::controllerEvent(1, 1, 127), 0 }, { juce::MidiMessage::noteOn(1, 69, 0.8f), 0 } });
+	// Between 2.2 s and 2.8 s a 0.1 Hz sine is within 2% of its peak: about +99 cents above A440.
+	const auto measuredHz = zeroCrossings(output, 105'600, 134'400) / 2.0f / 0.6f;
+	REQUIRE(measuredHz == Catch::Approx(440.0f * std::exp2(1.0f / 12.0f)).margin(2.0f));
+	REQUIRE(processor.getVibratoControlDisplay() == Catch::Approx(1.0f));
+}
+
+TEST_CASE("Mono vibrato responds equally to mod wheel, channel pressure and poly aftertouch", "[mono][vibrato][midi]")
+{
+	const auto render = [](const juce::MidiMessage& control)
+	{
+		vekt::mono::PluginProcessor processor;
+		initializeSine(processor);
+		setParameter(processor, parameters::vibratoRate, 7.0f);
+		setParameter(processor, parameters::vibratoDepth, 100.0f);
+		return renderEvents(processor, 14'400, { { juce::MidiMessage::noteOn(1, 69, 0.8f), 0 }, { control, 1 } });
+	};
+	const auto wheel = render(juce::MidiMessage::controllerEvent(1, 1, 127));
+	REQUIRE(identical(wheel, render(juce::MidiMessage::channelPressureChange(1, 127))));
+	REQUIRE(identical(wheel, render(juce::MidiMessage::aftertouchChange(1, 69, 127))));
+	// Controllers only reach notes on their own channel and key.
+	const auto dry = render(juce::MidiMessage::controllerEvent(1, 7, 100));
+	REQUIRE_FALSE(identical(wheel, dry));
+	REQUIRE(identical(dry, render(juce::MidiMessage::controllerEvent(2, 1, 127))));
+	REQUIRE(identical(dry, render(juce::MidiMessage::aftertouchChange(1, 70, 127))));
+}
+
+TEST_CASE("Mono reset all controllers returns the vibrato controls to rest", "[mono][vibrato][midi]")
+{
+	vekt::mono::PluginProcessor processor;
+	initializeSine(processor);
+	renderEvents(processor, 512, { { juce::MidiMessage::controllerEvent(3, 1, 64), 0 }, { juce::MidiMessage::channelPressureChange(3, 100), 0 } });
+	REQUIRE(processor.getVibratoControlDisplay() == Catch::Approx(100.0f / 127.0f));
+	juce::AudioBuffer<float> block(2, 512);
+	juce::MidiBuffer reset;
+	reset.addEvent(juce::MidiMessage::controllerEvent(3, 121, 0), 0);
+	processor.processBlock(block, reset);
+	REQUIRE(processor.getVibratoControlDisplay() == 0.0f);
 }
