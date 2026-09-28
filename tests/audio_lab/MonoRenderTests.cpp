@@ -116,6 +116,106 @@ TEST_CASE("Mono 95 percent Q listening pairs hold matched harmonic notes and cut
 	REQUIRE_FALSE(vekt::audio_lab::makeMonoRenderFixture("q-comp-listen-95-sweep-drive-10-on", 48'000.0, 128, 42, invalid));
 }
 
+TEST_CASE("Mono constant-half Q Comp is an explicit offline fixture only", "[audio-lab][mono][qcomp]")
+{
+	for (const auto* kind : { "sustain", "bass", "sweep" })
+		for (const auto* drive : { "12", "18", "24" })
+		{
+			vekt::audio_lab::MonoRenderRequest legacyOff, legacyOn, candidateOff, candidateOn;
+			const auto tail = juce::String(kind) + "-drive-" + drive;
+			REQUIRE(vekt::audio_lab::makeMonoRenderFixture("q-comp-listen-95-" + tail + "-off",
+				48'000.0, 128, 42, legacyOff));
+			REQUIRE(vekt::audio_lab::makeMonoRenderFixture("q-comp-listen-95-" + tail + "-on",
+				48'000.0, 128, 42, legacyOn));
+			REQUIRE(vekt::audio_lab::makeMonoRenderFixture("q-comp-listen-c05-95-" + tail + "-off",
+				48'000.0, 128, 42, candidateOff));
+			REQUIRE(vekt::audio_lab::makeMonoRenderFixture("q-comp-listen-c05-95-" + tail + "-on",
+				48'000.0, 128, 42, candidateOn));
+			REQUIRE(legacyOn.settings.qCompensationCoefficientOverride < 0.0f);
+			REQUIRE(candidateOn.settings.qCompensationCoefficientOverride == Catch::Approx(0.5f));
+			REQUIRE_FALSE(candidateOff.settings.qCompensation);
+			REQUIRE(candidateOff.events.size() == legacyOff.events.size());
+			REQUIRE(candidateOn.events.size() == legacyOn.events.size());
+			REQUIRE(candidateOn.settings.resonance == Catch::Approx(legacyOn.settings.resonance));
+		}
+	vekt::audio_lab::MonoRenderRequest oldOff, newOff, oldOn, newOn;
+	for (auto* pair : { &oldOff, &newOff, &oldOn, &newOn })
+		REQUIRE(vekt::audio_lab::makeMonoRenderFixture(
+			(pair == &oldOff || pair == &oldOn ? "q-comp-listen-95-" : "q-comp-listen-c05-95-")
+			+ juce::String("bass-drive-12-") + (pair == &oldOff || pair == &newOff ? "off" : "on"),
+			48'000.0, 128, 42, *pair));
+	const auto baseline = vekt::audio_lab::renderMono(oldOff);
+	const auto candidateOff = vekt::audio_lab::renderMono(newOff);
+	const auto legacyOn = vekt::audio_lab::renderMono(oldOn);
+	const auto candidateOn = vekt::audio_lab::renderMono(newOn);
+	bool changed = false;
+	for (int sample = 0; sample < baseline.audio.getNumSamples(); ++sample)
+	{
+		REQUIRE(std::bit_cast<std::uint32_t>(baseline.audio.getSample(0, sample))
+			== std::bit_cast<std::uint32_t>(candidateOff.audio.getSample(0, sample)));
+		changed |= std::bit_cast<std::uint32_t>(legacyOn.audio.getSample(0, sample))
+			!= std::bit_cast<std::uint32_t>(candidateOn.audio.getSample(0, sample));
+	}
+	REQUIRE(changed);
+}
+
+TEST_CASE("Mono half input compensation preserves the zero-input trajectory and reference solve", "[audio-lab][mono][qcomp][ladder-reference]")
+{
+	vekt::mono::NonlinearTptLadder off, on;
+	vekt::audio_lab::NonlinearTptLadderOfflineReference reference;
+	off.prepare(48'000.0); on.prepare(48'000.0); reference.prepare(48'000.0, 1);
+	const vekt::mono::NonlinearTptLadderSettings dry { 1'000.0f, 1.0f, 12.0f };
+	auto wet = dry;
+	wet.inputFeedbackCompensation = 0.5f;
+	for (int sample = 0; sample < 48'000; ++sample)
+	{
+		const auto input = sample < 4'800 ? 0.05f * static_cast<float>(
+			std::sin(2.0 * std::numbers::pi * 317.0 * sample / 48'000.0)) : 0.0f;
+		const auto actual = on.processCoupled(input, sample < 4'800 ? dry : wet);
+		const auto expected = reference.process(input, { 1'000.0, 1.0, 12.0, false,
+			sample < 4'800 ? 0.0 : 0.5 });
+		const auto baseline = off.processCoupled(input, dry);
+		if (sample >= 4'800)
+			REQUIRE(std::bit_cast<std::uint32_t>(actual) == std::bit_cast<std::uint32_t>(baseline));
+		if (sample >= 4'801)
+			REQUIRE(std::abs(static_cast<double>(actual) - expected) < 1.0e-4);
+	}
+	REQUIRE(on.diagnostics().unconvergedSamples == 0);
+	REQUIRE(on.diagnostics().nonFiniteSamples == 0);
+	REQUIRE(reference.diagnostics().unconvergedSteps == 0);
+}
+
+TEST_CASE("Mono constant-half input compensation reaches the coupled solver under drive", "[audio-lab][mono][qcomp][ladder-reference]")
+{
+	for (const auto resonance : { 0.0f, 0.5f, 0.95f, 1.0f })
+	{
+		vekt::mono::NonlinearTptLadder off, on;
+		vekt::audio_lab::NonlinearTptLadderOfflineReference independent;
+		off.prepare(48'000.0); on.prepare(48'000.0); independent.prepare(48'000.0, 1);
+		const vekt::mono::NonlinearTptLadderSettings dry { 1'000.0f, resonance, 6.0f };
+		auto wet = dry;
+		wet.inputFeedbackCompensation = 0.5f;
+		bool changed = false;
+		for (int sample = 0; sample < 512; ++sample)
+		{
+			const auto input = 0.05f * static_cast<float>(
+				std::sin(2.0 * std::numbers::pi * 317.0 * sample / 48'000.0));
+			const auto a = off.processCoupled(input, dry);
+			const auto b = on.processCoupled(input, wet);
+			const auto expected = independent.process(input, { 1'000.0, resonance, 6.0, false, 0.5 });
+			CAPTURE(resonance, sample, a, b, expected);
+			REQUIRE(std::abs(static_cast<double>(b) - expected) < 1.0e-4);
+			if (resonance == 0.0f)
+				REQUIRE(std::bit_cast<std::uint32_t>(a) == std::bit_cast<std::uint32_t>(b));
+			else if (std::bit_cast<std::uint32_t>(a) != std::bit_cast<std::uint32_t>(b)) changed = true;
+		}
+		if (resonance > 0.0f) REQUIRE(changed);
+		REQUIRE(on.diagnostics().unconvergedSamples == 0);
+		REQUIRE(on.diagnostics().nonFiniteSamples == 0);
+		REQUIRE(independent.diagnostics().unconvergedSteps == 0);
+	}
+}
+
 TEST_CASE("Mono Audio Lab coupled render labels engine and remains deterministic", "[audio-lab][mono][ladder-coupled]")
 {
 	vekt::audio_lab::MonoRenderRequest request;

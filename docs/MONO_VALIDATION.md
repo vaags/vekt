@@ -188,7 +188,7 @@ cases passed after that addition. This level-only implementation was replaced
 by the candidate below. Files under `/tmp/vekt-q-comp-candidate/` are
 historical post-gain evidence, not candidate-2 renders.
 
-**28 September input-feedback candidate 2 (current working tree, not approved):**
+**28 September input-feedback candidate 2 (production Q Comp behavior, not approved):**
 Q Comp On applies a 20 ms-smoothed `c(r)=0.20 clamp(r,0,1)` to the driven,
 bounded input in `u1 = (1+k c) clamp(D x,-24,24) - k y4`. Q Comp Off retains
 the reference solver; the raw fourth-stage output and voice calibration remain
@@ -208,8 +208,10 @@ Debug suite completed **276/276** tests; the focused Q-compensation checks
 passed 8/8 and the revised headroom test passed. The simple sine body's level-matched settled
 difference RMS is about 0.00018; the paired tone difference is zero. This
 single-frequency example alone is not a compelling listening comparison.
-The 0.20 coefficient is **frozen for evaluation**, not tuned to force a +24 dB
-Drive result. The independent double-precision, nested-feedback offline ladder
+The 0.20 coefficient was initially frozen for evaluation, not tuned to force a +24 dB
+Drive result. Listening subsequently found insufficient bass restoration even at full
+resonance, so that freeze is lifted; see the explicit 0.5 candidate below. The
+independent double-precision, nested-feedback offline ladder
 reference now includes the bounded input-feedback term, coefficient interpolation
 and small-signal response. A new production coupled-solver versus reference
 test covers On and Off at three sample rates, two cutoffs, three resonance
@@ -413,8 +415,9 @@ body restoration *in this incremental experiment*, alongside a −100 Hz
 sampled peak shift. Whether the peak shift and texture are
 musically desirable is a listening question; neither matching a resonance
 suppression rate nor preserving a fixed conversion ratio is an acceptance
-criterion. Keep `c(Q)=0.20Q` and the production topology frozen pending
-level-matched listening. A Drive-dependent coefficient would need an
+criterion. At the time, `c(Q)=0.20Q` and the production topology were frozen pending
+level-matched listening; the subsequent listening rejected the coefficient as
+insufficiently restoring bass. A Drive-dependent coefficient would need an
 audibly justified goal (for example limiting objectionable peak movement),
 not a fit to the earlier DC or fixed-frequency measurements.
 
@@ -448,6 +451,47 @@ to +18/+24 dB sweeps for a perceived position change. The static and sweep
 RMS windows differ and sweep-wide matching does not ensure moment-by-moment
 loudness equality. These fixtures do **not** constitute a listening result or
 prove that the 173 Hz incremental pump peak shift is audible in a voice patch.
+
+**28 September 2026 listening follow-up (0.5 candidate; not approved):**
+Thomas heard insufficient low-end restoration at full resonance with Q Comp On,
+and a marked 97% → 100% loudness increase with Q Comp both Off and On. This
+unfreezes the coefficient but does not authorize a resonance remap. The normal
+plugin and legacy fixtures still use `c=0.20*r` when On; there is no new plugin
+parameter or preset change. Explicit `q-comp-listen-c05-95-*` offline fixtures
+select **constant `c=0.5`** when On (Off remains uncompensated). The solver and
+independent reference now accept coefficients up to 0.5; their zero-input
+feedback is unchanged. Run `VektMonoQCompListening
+/tmp/vekt-q-input-candidate/listening-c05-95 c05` for nine +12/+18/+24 dB
+held-saw, bass-saw, and cutoff-sweep triplets. Compare each `-off.wav` to its
+`-on-level-matched.wav`; the CSV lists the matching window and gains, and the
+JSON now records the candidate override. Off/On use the same seed and events;
+all WAV samples are finite and peaks stay below 1.0 (maximum 0.9805), and
+matched listening-window RMS differs by less than 1e-6 relative. At +12/+18/
++24 dB, the held/bass On levels exceed Off by about 7.02/4.79/2.49 dB before
+matching. These level figures do **not** establish better body or acceptable
+resonance position and texture; re-listen especially at +24 dB and to +18/+24
+dB sweeps. The earlier incremental peak shift may become more pronounced.
+
+`VektMonoResonanceOnset /tmp/vekt-mono-resonance-onset.csv` measures Q Comp Off
+at 48 kHz, 1 kHz cutoff, 0 dB Drive, in 0.1%-resonance steps from 90% to
+100%. A 0.5-amplitude 317 Hz sine excites the raw ladder for 0.5 s, then
+three seconds of zero input follow. The final 200 ms RMS is effectively zero
+through 98.3%; it is ~0.00113 at 98.4% (possibly transient over this window)
+and ~0.0333 at 98.5%, climbing to ~0.1242 at 100%. Thus sustained onset for
+this stimulus/observation interval is near 98.4–98.5%, **not** a special step
+at exactly 100%. The separate voice post-ladder gain also ramps from 1 at
+98% to 1.6 at 100% (+4.08 dB), on top of the growing raw oscillation. The
+driven raw-ladder RMS increases from ~0.0798 at 97% to ~0.1397 at 100%.
+These measurements explain plausible contributions to the perceived jump but
+do not isolate them in a complete voice or justify changing the mapping yet.
+All 101 rows report zero non-finite and unconverged samples. Keep the resonance
+mapping and top-end gain unchanged pending further listening and voice-level
+analysis; do not tune Q Comp to correct the Q Comp Off jump.
+The Debug target and Audio Lab Release listening/onset targets build. The new
+constant-half fixture, driven-reference, and zero-input tests pass individually;
+the complete Debug CTest run finished **284/284 passed** (273.61 s). WAV
+triplets were independently checked for finite samples, sub-unity peaks and
+matched-window RMS error below 1e-6; `git diff --check` passes.
 
 **Remaining measurements:** Below self-oscillation (50/80/95% resonance),
 resolve local passband and bandwidth around the moving AC-pump peak; check

@@ -215,7 +215,7 @@ float NonlinearTptLadder::processCoupled(float input, const NonlinearTptLadderSe
 	const auto driven = std::clamp(static_cast<double>(input) * driveGain, -signalLimit, signalLimit);
 	// Feed a bounded fraction of the driven input around the global feedback.
 	// With zero input this is exactly the uncompensated feedback system.
-	const auto excitation = driven + k * std::clamp(static_cast<double>(settings.inputFeedbackCompensation), 0.0, 0.20) * driven;
+	const auto excitation = driven + k * std::clamp(static_cast<double>(settings.inputFeedbackCompensation), 0.0, 0.5) * driven;
 	std::array<double, 4> output = previousOutput;
 	const auto residuals = [&](const std::array<double, 4>& values)
 	{

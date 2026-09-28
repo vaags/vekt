@@ -86,7 +86,7 @@ public:
 			const auto feedbackGain = mono::ladderFeedbackGain(resonance);
 			const auto driveGain = std::pow(10.0, driveDecibels / 20.0);
 			const auto compensation = std::clamp(previousSettings.inputFeedbackCompensation
-				+ fraction * (settings.inputFeedbackCompensation - previousSettings.inputFeedbackCompensation), 0.0, 0.20);
+				+ fraction * (settings.inputFeedbackCompensation - previousSettings.inputFeedbackCompensation), 0.0, 0.5);
 			output = processInternal(interpolatedInput * driveGain, integrationGain, feedbackGain, compensation);
 			if (static_cast<std::size_t>(substep) < internalOutput.size())
 				internalOutput[static_cast<std::size_t>(substep)] = output;
@@ -254,7 +254,7 @@ private:
 	const auto feedbackGain = mono::ladderFeedbackGain(settings.resonance);
 	const auto driveGain = std::pow(10.0, settings.driveDecibels / 20.0);
 	const auto wrapperGain = settings.driveCompensation ? std::sqrt(driveGain) : driveGain;
-	return wrapperGain * (1.0 + feedbackGain * std::clamp(settings.inputFeedbackCompensation, 0.0, 0.20))
+	return wrapperGain * (1.0 + feedbackGain * std::clamp(settings.inputFeedbackCompensation, 0.0, 0.5))
 		* cascade / (1.0 + feedbackGain * cascade);
 }
 
@@ -272,7 +272,7 @@ private:
 	const auto feedbackGain = mono::ladderFeedbackGain(settings.resonance);
 	const auto driveGain = std::pow(10.0, settings.driveDecibels / 20.0);
 	const auto wrapperGain = settings.driveCompensation ? std::sqrt(driveGain) : driveGain;
-	return wrapperGain * (1.0 + feedbackGain * std::clamp(settings.inputFeedbackCompensation, 0.0, 0.20))
+	return wrapperGain * (1.0 + feedbackGain * std::clamp(settings.inputFeedbackCompensation, 0.0, 0.5))
 		* cascade / (1.0 + feedbackGain * cascade);
 }
 
@@ -290,7 +290,7 @@ private:
 	const auto feedbackGain = mono::ladderFeedbackGain(settings.resonance);
 	const auto driveGain = std::pow(10.0, settings.driveDecibels / 20.0);
 	const auto wrapperGain = settings.driveCompensation ? std::sqrt(driveGain) : driveGain;
-	return wrapperGain * (1.0 + feedbackGain * std::clamp(settings.inputFeedbackCompensation, 0.0, 0.20))
+	return wrapperGain * (1.0 + feedbackGain * std::clamp(settings.inputFeedbackCompensation, 0.0, 0.5))
 		* cascade / (1.0 + feedbackGain * cascade);
 }
 }

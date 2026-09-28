@@ -116,6 +116,7 @@ void applyParameter(mono::MonoVoiceSettings& settings, MonoParameter parameter, 
 	object->setProperty("filter_sustain", settings.filterSustain);
 	object->setProperty("filter_release_seconds", settings.filterRelease);
 	object->setProperty("q_compensation", settings.qCompensation);
+	object->setProperty("q_compensation_coefficient_override", settings.qCompensationCoefficientOverride);
 	object->setProperty("noise_type", settings.noiseType);
 	object->setProperty("noise_level", settings.noiseLevel);
 	object->setProperty("drift", settings.drift);
@@ -210,15 +211,19 @@ bool makeMonoRenderFixture(const juce::String& name, double sampleRate, int bloc
 	destination.blockSize = blockSize;
 	destination.seed = seed;
 	destination.settings = defaultMonoRenderSettings();
-	if (name.startsWith("q-comp-listen-95-") && (name.endsWith("-off") || name.endsWith("-on")))
+	if ((name.startsWith("q-comp-listen-95-") || name.startsWith("q-comp-listen-c05-95-"))
+		&& (name.endsWith("-off") || name.endsWith("-on")))
 	{
-		const auto rest = name.fromFirstOccurrenceOf("q-comp-listen-95-", false, false);
+		const auto candidate = name.startsWith("q-comp-listen-c05-95-");
+		const auto fixturePrefix = candidate ? juce::String("q-comp-listen-c05-95-")
+			: juce::String("q-comp-listen-95-");
+		const auto rest = name.fromFirstOccurrenceOf(fixturePrefix, false, false);
 		const auto kind = rest.upToFirstOccurrenceOf("-drive-", false, false);
 		const auto driveText = rest.fromFirstOccurrenceOf("-drive-", false, false)
 			.upToFirstOccurrenceOf("-", false, false);
 		if ((kind != "sustain" && kind != "bass" && kind != "sweep")
 			|| (driveText != "12" && driveText != "18" && driveText != "24")
-			|| name != "q-comp-listen-95-" + kind + "-drive-" + driveText
+			|| name != fixturePrefix + kind + "-drive-" + driveText
 				+ (name.endsWith("-on") ? "-on" : "-off")) return false;
 		const bool sweep = kind == "sweep";
 		destination.totalSamples = at(sweep ? 3.6 : 2.0, sampleRate);
@@ -230,6 +235,7 @@ bool makeMonoRenderFixture(const juce::String& name, double sampleRate, int bloc
 		destination.settings.ampAttack = 0.0005f;
 		destination.settings.ampSustain = 1.0f;
 		destination.settings.qCompensation = name.endsWith("-on");
+		if (candidate) destination.settings.qCompensationCoefficientOverride = 0.5f;
 		destination.events = { { 0, MonoEventType::noteOn, MonoParameter::cutoff, 1.0f,
 			kind == "bass" ? 36 : 48 } };
 		if (sweep)

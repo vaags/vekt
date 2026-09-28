@@ -40,6 +40,13 @@ target_link_libraries(VektMonoAcPumpResponse PRIVATE
 	vekt::juce_runtime
 	vekt_project_options)
 
+add_executable(VektMonoResonanceOnset MonoResonanceOnsetMain.cpp)
+target_link_libraries(VektMonoResonanceOnset PRIVATE
+	VektMonoCore
+	vekt::juce_headers
+	vekt::juce_runtime
+	vekt_project_options)
+
 add_executable(VektLadderPrototype
 	LadderPrototype.cpp
 	LadderPrototypeMain.cpp)
