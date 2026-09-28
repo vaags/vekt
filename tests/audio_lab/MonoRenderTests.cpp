@@ -1,6 +1,7 @@
 #include "../../tools/audio_lab/MonoRender.h"
 
 #include "NonlinearTptLadder.h"
+#include "../../tools/audio_lab/NonlinearTptLadderReference.h"
 #include <vekt/audio_analysis/Measurements.h>
 
 #include <catch2/catch_approx.hpp>
@@ -65,6 +66,23 @@ TEST_CASE("Mono Audio Lab renders are deterministic and block-size invariant", "
 					!= std::bit_cast<std::uint32_t>(otherSeed.audio.getSample(channel, sample));
 		}
 	REQUIRE(seedChangedOutput);
+}
+
+TEST_CASE("Mono Q Comp Drive listening fixtures cover five matched pairs", "[audio-lab][mono][qcomp]")
+{
+	for (const auto* drive : { "0", "6", "12", "18", "24" })
+	{
+		vekt::audio_lab::MonoRenderRequest off, on;
+		const auto prefix = juce::String("q-comp-drive-") + drive;
+		REQUIRE(vekt::audio_lab::makeMonoRenderFixture(prefix + "-off", 48'000.0, 128, 42, off));
+		REQUIRE(vekt::audio_lab::makeMonoRenderFixture(prefix + "-on", 48'000.0, 128, 42, on));
+		REQUIRE(off.settings.drive == Catch::Approx(on.settings.drive));
+		REQUIRE(off.settings.resonance == Catch::Approx(on.settings.resonance));
+		REQUIRE_FALSE(off.settings.qCompensation);
+		REQUIRE(on.settings.qCompensation);
+	}
+	vekt::audio_lab::MonoRenderRequest invalid;
+	REQUIRE_FALSE(vekt::audio_lab::makeMonoRenderFixture("q-comp-drive-10-on", 48'000.0, 128, 42, invalid));
 }
 
 TEST_CASE("Mono Audio Lab coupled render labels engine and remains deterministic", "[audio-lab][mono][ladder-coupled]")
@@ -175,6 +193,61 @@ TEST_CASE("Mono input Q compensation changes body relative to the resonant compo
 		REQUIRE(off.diagnostics().nonFiniteSamples == 0);
 		REQUIRE(on.diagnostics().nonFiniteSamples == 0);
 		REQUIRE(on.diagnostics().unconvergedSamples == 0);
+	}
+}
+
+TEST_CASE("Mono compensated coupled ladder agrees with the independent nested reference", "[audio-lab][mono][qcomp][ladder-reference]")
+{
+	for (const auto rate : { 44'100.0, 48'000.0, 96'000.0 })
+		for (const auto cutoff : { 500.0f, 8'000.0f })
+			for (const auto resonance : { 0.0f, 0.8f, 1.0f })
+				for (const auto drive : { 0.0f, 12.0f, 24.0f })
+					for (const auto enabled : { false, true })
+					{
+						vekt::mono::NonlinearTptLadder coupled;
+						vekt::audio_lab::NonlinearTptLadderOfflineReference reference;
+						coupled.prepare(rate);
+						reference.prepare(rate, 1); // Same host-rate discretization; independent nested feedback solver.
+						for (int sample = 0; sample < 512; ++sample)
+						{
+							const auto time = sample / rate;
+							const auto input = sample < 128
+								? 0.35f * static_cast<float>(std::sin(2.0 * std::numbers::pi * 317.0 * time))
+								: sample % 64 < 32 ? 1.25f : -1.25f;
+							const auto q = resonance == 0.0f ? 0.0f : std::clamp(resonance
+								+ 0.02f * static_cast<float>(std::sin(2.0 * std::numbers::pi * 23.0 * time)), 0.0f, 1.0f);
+							const auto c = enabled ? 0.20f * q : 0.0f;
+							const vekt::mono::NonlinearTptLadderSettings actualSettings { cutoff, q, drive, false, c };
+							const vekt::audio_lab::NonlinearTptLadderReferenceSettings referenceSettings {
+								cutoff, q, drive, false, c };
+							const auto actual = coupled.processCoupled(input, actualSettings);
+							const auto expected = reference.process(input, referenceSettings);
+							CAPTURE(rate, cutoff, resonance, drive, enabled, sample, actual, expected);
+							REQUIRE(std::isfinite(actual));
+							REQUIRE(std::abs(static_cast<double>(actual) - expected) < 1.0e-4);
+						}
+						REQUIRE(coupled.diagnostics().unconvergedSamples == 0);
+						REQUIRE(coupled.diagnostics().nonFiniteSamples == 0);
+						REQUIRE(reference.diagnostics().unconvergedSteps == 0);
+						REQUIRE(reference.diagnostics().nonFiniteSteps == 0);
+					}
+}
+
+TEST_CASE("Mono Q Comp small-signal reference follows the input excitation factor", "[audio-lab][mono][qcomp][ladder-reference]")
+{
+	for (const auto resonance : { 0.0, 0.5, 0.8, 0.98, 1.0 })
+	{
+		vekt::audio_lab::NonlinearTptLadderReferenceSettings off { 500.0, resonance, 0.0 };
+		auto on = off;
+		on.inputFeedbackCompensation = 0.20 * resonance;
+		const auto expected = 1.0 + vekt::mono::ladderFeedbackGain(resonance) * on.inputFeedbackCompensation;
+		for (const auto frequency : { 100.0, 500.0, 2'000.0 })
+		{
+			const auto dry = vekt::audio_lab::nonlinearTptLadderDiscreteResponse(48'000.0, frequency, off);
+			const auto wet = vekt::audio_lab::nonlinearTptLadderDiscreteResponse(48'000.0, frequency, on);
+			CAPTURE(resonance, frequency);
+			REQUIRE(std::abs(wet / dry - expected) < 1.0e-12);
+		}
 	}
 }
 

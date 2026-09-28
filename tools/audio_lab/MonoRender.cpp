@@ -210,6 +210,25 @@ bool makeMonoRenderFixture(const juce::String& name, double sampleRate, int bloc
 	destination.blockSize = blockSize;
 	destination.seed = seed;
 	destination.settings = defaultMonoRenderSettings();
+	if (name.startsWith("q-comp-drive-") && (name.endsWith("-off") || name.endsWith("-on")))
+	{
+		const auto driveText = name.fromFirstOccurrenceOf("q-comp-drive-", false, false)
+			.upToFirstOccurrenceOf("-", false, false);
+		if (driveText != "0" && driveText != "6" && driveText != "12"
+			&& driveText != "18" && driveText != "24") return false;
+		destination.totalSamples = at(1.0, sampleRate);
+		destination.settings.level = { 0.7f, 0.0f, 0.0f };
+		destination.settings.morph[0] = 2.0f; // Harmonics expose Drive/Q interactions in listening.
+		destination.settings.cutoff = 500.0f;
+		destination.settings.resonance = 0.8f;
+		destination.settings.drive = static_cast<float>(driveText.getIntValue());
+		destination.settings.ampAttack = 0.0005f;
+		destination.settings.ampSustain = 1.0f;
+		destination.settings.qCompensation = name.endsWith("-on");
+		destination.events = { { 0, MonoEventType::noteOn, MonoParameter::cutoff, 1.0f, 48 } };
+		destination.windows = { { "settled", at(0.5, sampleRate), at(0.9, sampleRate) } };
+		return true;
+	}
 	if (name == "q-comp-body-off" || name == "q-comp-body-on"
 		|| name == "q-comp-tone-off" || name == "q-comp-tone-on")
 	{

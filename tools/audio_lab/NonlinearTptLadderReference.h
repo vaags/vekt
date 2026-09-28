@@ -18,6 +18,7 @@ struct NonlinearTptLadderReferenceSettings
 	double resonance {};
 	double driveDecibels {};
 	bool driveCompensation {};
+	double inputFeedbackCompensation {};
 };
 
 struct NonlinearTptLadderReferenceDiagnostics
@@ -84,7 +85,9 @@ public:
 				/ static_cast<double>(substeps);
 			const auto feedbackGain = mono::ladderFeedbackGain(resonance);
 			const auto driveGain = std::pow(10.0, driveDecibels / 20.0);
-			output = processInternal(interpolatedInput * driveGain, integrationGain, feedbackGain);
+			const auto compensation = std::clamp(previousSettings.inputFeedbackCompensation
+				+ fraction * (settings.inputFeedbackCompensation - previousSettings.inputFeedbackCompensation), 0.0, 0.20);
+			output = processInternal(interpolatedInput * driveGain, integrationGain, feedbackGain, compensation);
 			if (static_cast<std::size_t>(substep) < internalOutput.size())
 				internalOutput[static_cast<std::size_t>(substep)] = output;
 			outputDriveGain = driveGain;
@@ -169,12 +172,13 @@ private:
 	}
 
 	[[nodiscard]] double processInternal(double drivenInput, double integrationGain,
-		double feedbackGain) noexcept
+		double feedbackGain, double inputFeedbackCompensation) noexcept
 	{
 		const auto boundedInput = std::clamp(drivenInput, -signalLimit, signalLimit);
+		const auto excitation = boundedInput * (1.0 + feedbackGain * inputFeedbackCompensation);
 		const auto span = feedbackGain * (signalLimit + 2.0 * integrationGain);
-		auto lower = boundedInput - span;
-		auto upper = boundedInput + span;
+		auto lower = excitation - span;
+		auto upper = excitation + span;
 		auto feedbackInput = std::clamp(previousFeedbackInput, lower, upper);
 		Evaluation evaluation;
 		bool converged = false;
@@ -183,7 +187,7 @@ private:
 		for (; iteration < maximumFeedbackIterations; ++iteration)
 		{
 			evaluation = evaluate(feedbackInput, integrationGain);
-			residual = (feedbackInput - boundedInput) + feedbackGain * evaluation.output.back();
+			residual = (feedbackInput - excitation) + feedbackGain * evaluation.output.back();
 			if (std::abs(residual) <= convergenceTolerance)
 			{
 				converged = evaluation.converged;
@@ -200,7 +204,7 @@ private:
 		if (!converged)
 		{
 			evaluation = evaluate(feedbackInput, integrationGain);
-			residual = (feedbackInput - boundedInput) + feedbackGain * evaluation.output.back();
+			residual = (feedbackInput - excitation) + feedbackGain * evaluation.output.back();
 			converged = evaluation.converged && std::abs(residual) <= convergenceTolerance;
 		}
 
@@ -250,7 +254,8 @@ private:
 	const auto feedbackGain = mono::ladderFeedbackGain(settings.resonance);
 	const auto driveGain = std::pow(10.0, settings.driveDecibels / 20.0);
 	const auto wrapperGain = settings.driveCompensation ? std::sqrt(driveGain) : driveGain;
-	return wrapperGain * cascade / (1.0 + feedbackGain * cascade);
+	return wrapperGain * (1.0 + feedbackGain * std::clamp(settings.inputFeedbackCompensation, 0.0, 0.20))
+		* cascade / (1.0 + feedbackGain * cascade);
 }
 
 [[nodiscard]] inline std::complex<double> nonlinearTptLadderBilinearMappedResponse(
@@ -267,7 +272,8 @@ private:
 	const auto feedbackGain = mono::ladderFeedbackGain(settings.resonance);
 	const auto driveGain = std::pow(10.0, settings.driveDecibels / 20.0);
 	const auto wrapperGain = settings.driveCompensation ? std::sqrt(driveGain) : driveGain;
-	return wrapperGain * cascade / (1.0 + feedbackGain * cascade);
+	return wrapperGain * (1.0 + feedbackGain * std::clamp(settings.inputFeedbackCompensation, 0.0, 0.20))
+		* cascade / (1.0 + feedbackGain * cascade);
 }
 
 [[nodiscard]] inline std::complex<double> nonlinearTptLadderDiscreteResponse(
@@ -284,6 +290,7 @@ private:
 	const auto feedbackGain = mono::ladderFeedbackGain(settings.resonance);
 	const auto driveGain = std::pow(10.0, settings.driveDecibels / 20.0);
 	const auto wrapperGain = settings.driveCompensation ? std::sqrt(driveGain) : driveGain;
-	return wrapperGain * cascade / (1.0 + feedbackGain * cascade);
+	return wrapperGain * (1.0 + feedbackGain * std::clamp(settings.inputFeedbackCompensation, 0.0, 0.20))
+		* cascade / (1.0 + feedbackGain * cascade);
 }
 }

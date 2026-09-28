@@ -203,16 +203,40 @@ fundamental change of +3.597/+3.800/+0.007 dB at 500 Hz cutoff, 80% resonance,
 and 0/12/24 dB Drive; the effect nearly vanishes at maximum Drive. A paired
 body example gains 3.592 dB RMS, versus 0 dB for the zero-input tone. Fresh
 On/Off 32-bit float WAVs and a settled-RMS-matched On copy are in
-`/tmp/vekt-q-input-candidate/`. The new Debug suite completed **276/276**
-tests (`ctest --preset dev --output-on-failure`); the focused Q-compensation
-tests passed 8/8 and the revised headroom test passed. The simple sine body's level-matched settled
+`/tmp/vekt-q-input-candidate/`. At the initial candidate-2 checkpoint, the
+Debug suite completed **276/276** tests; the focused Q-compensation checks
+passed 8/8 and the revised headroom test passed. The simple sine body's level-matched settled
 difference RMS is about 0.00018; the paired tone difference is zero. This
 single-frequency example alone is not a compelling listening comparison.
-The independent offline ladder reference has **not** been extended to Q Comp
-On: reference-agreement results apply only to the Off path. The 0.20
-coefficient is provisional; high-drive compression and complex-input behavior
-require sound-design review. These files are not host listening, a normalized
-transfer study or device evidence.
+The 0.20 coefficient is **frozen for evaluation**, not tuned to force a +24 dB
+Drive result. The independent double-precision, nested-feedback offline ladder
+reference now includes the bounded input-feedback term, coefficient interpolation
+and small-signal response. A new production coupled-solver versus reference
+test covers On and Off at three sample rates, two cutoffs, three resonance
+settings and 0/12/24 dB Drive (including time-varying resonance and overload).
+Its one-substep host-rate comparison passes within 1e-4 with zero unconverged
+or nonfinite samples. One-substep agreement checks the equations and solver;
+it does **not** establish high-substep convergence, aliasing equivalence or
+audible approval. After these reference and fixture additions, a rebuilt Debug
+target passed **279/279** tests with `ctest --preset dev --output-on-failure`
+(271.87 s); focused `[qcomp]` checks passed **11/11**. The production
+coefficient and topology were unchanged by this evaluation step.
+
+`tools/audio_lab/mono_q_comp_efficiency.py` extracts the 500 Hz cutoff,
+80%-resonance sine fundamental from the existing 640-row matrix and writes
+`efficiency.csv` and `efficiency.svg` under `/tmp/vekt-q-input-candidate/`.
+The input-term prediction is `20 log10(1 + k c) = 3.591 dB` (`k=3.2`, `c=0.16`);
+measured On/Off fundamental changes for Drive 0/6/12/18/24 dB are
+3.597/3.500/3.800/0.045/0.007 dB, so E is
+1.002/0.975/1.058/0.012/0.002. These are **output-component diagnostics**, not
+measurements of input-to-output transfer or listening judgments: for example,
+the separate saw fixture retains a 1.651 dB settled-RMS On/Off change at
++18 dB Drive. Ten new 48 kHz/128-sample/seed-42 saw-wave On/Off listening WAVs
+for the same five Drive values, their reports, settled-RMS-matched On copies
+and `level-match.csv` are in `/tmp/vekt-q-input-candidate/drive-listening/`.
+Review them for an abrupt or natural transition without changing the coefficient.
+High-drive compression and complex-input behavior require sound-design review.
+These files are not host listening, a normalized transfer study or device evidence.
 Modulated boundaries, representative maximum-resonance cost, host listening,
 and live audio validation also remain open.
 
