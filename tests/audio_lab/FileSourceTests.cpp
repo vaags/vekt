@@ -102,7 +102,7 @@ TEST_CASE("Audio Lab rejects multichannel files and can replace a playing file",
 	}
 }
 
-TEST_CASE("Audio Lab decodes MP3 and the AIF alias", "[file-source]")
+TEST_CASE("Audio Lab decodes MP3 and the AIF alias", "[file-source][slow]")
 {
 	juce::ScopedJuceInitialiser_GUI initialise;
 	const auto root = juce::File(__FILE__).getParentDirectory().getParentDirectory().getParentDirectory();

@@ -58,7 +58,7 @@ if(APPLE AND CMAKE_GENERATOR STREQUAL "Xcode")
 endif()
 
 include(Catch)
-catch_discover_tests(vekt_dsp_tests)
+catch_discover_tests(vekt_dsp_tests ADD_TAGS_AS_LABELS)
 
 function(add_factory_preset_configure_test name fixtureCase)
     add_test(NAME "Factory preset configure: ${name}"

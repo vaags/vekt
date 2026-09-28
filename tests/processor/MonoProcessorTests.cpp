@@ -167,7 +167,7 @@ TEST_CASE("Mono oscillator ranges follow footage labels", "[mono][processor][osc
 		}
 }
 
-TEST_CASE("Mono input Q compensation is inert at zero resonance and changes driven sound", "[mono][processor][filter][qcomp]")
+TEST_CASE("Mono input Q compensation is inert at zero resonance and changes driven sound", "[mono][processor][filter][qcomp][slow]")
 {
 	juce::ScopedJuceInitialiser_GUI juceInitializer;
 	for (const auto sampleRate : { 44'100.0, 48'000.0, 96'000.0 })
@@ -1140,7 +1140,7 @@ TEST_CASE("Mono Ladder emphasis builds a resonant peak and remains stable", "[mo
 	REQUIRE(emphasizedPeak > flatPeak * 1.5f);
 }
 
-TEST_CASE("Mono uncompensated Ladder loses passband level with emphasis", "[mono][processor][filter][qcomp]")
+TEST_CASE("Mono uncompensated Ladder loses passband level with emphasis", "[mono][processor][filter][qcomp][slow]")
 {
 	juce::ScopedJuceInitialiser_GUI juceInitializer;
 	auto levelFor = [](float oscillatorLevel, float cutoff, float emphasis)
@@ -1181,7 +1181,7 @@ TEST_CASE("Mono uncompensated Ladder loses passband level with emphasis", "[mono
 		}
 }
 
-TEST_CASE("Mono Ladder self-oscillates at maximum emphasis", "[mono][processor][filter]")
+TEST_CASE("Mono Ladder self-oscillates at maximum emphasis", "[mono][processor][filter][slow]")
 {
 	for (const auto quality : { 0.0f, 1.0f })
 		for (const auto sampleRate : { 44'100.0f, 48'000.0f, 96'000.0f })
@@ -1458,7 +1458,7 @@ TEST_CASE("Mono Ladder drive adds harmonics without acting as output gain", "[mo
 	REQUIRE(drivenRms < cleanRms * 4.0f);
 }
 
-TEST_CASE("Mono maximum resonance keeps floating-point peaks and obeys master trim", "[mono][processor][filter][headroom]")
+TEST_CASE("Mono maximum resonance keeps floating-point peaks and obeys master trim", "[mono][processor][filter][headroom][slow]")
 {
 	for (const auto quality : { 0.0f, 1.0f })
 		for (const auto drive : { 0.0f, 24.0f })

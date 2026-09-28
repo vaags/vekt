@@ -505,7 +505,7 @@ TEST_CASE("Rav processor defers quality changes during playback", "[processor][q
 	REQUIRE_FALSE(processor.hasPendingQualityChange());
 }
 
-TEST_CASE("Rav auto-gain holds reference loudness through the wet chain", "[processor][auto-gain]")
+TEST_CASE("Rav auto-gain holds reference loudness through the wet chain", "[processor][auto-gain][slow]")
 {
 	struct QualityMode
 	{

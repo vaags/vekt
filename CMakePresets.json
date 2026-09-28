@@ -100,6 +100,15 @@
       "output": {
         "outputOnFailure": true
       }
+    },
+    {
+      "name": "dev-quick",
+      "inherits": "dev",
+      "filter": {
+        "exclude": {
+          "label": "^slow$"
+        }
+      }
     }
   ]
 }

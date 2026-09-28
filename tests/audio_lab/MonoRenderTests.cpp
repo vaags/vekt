@@ -119,7 +119,7 @@ TEST_CASE("Mono 95 percent Q listening pairs hold matched harmonic notes and cut
 	REQUIRE_FALSE(vekt::audio_lab::makeMonoRenderFixture("q-comp-listen-95-sweep-drive-10-on", 48'000.0, 128, 42, invalid));
 }
 
-TEST_CASE("Mono voice resonance onset stays finite with an unboosted output tap", "[audio-lab][mono][resonance-onset]")
+TEST_CASE("Mono voice resonance onset stays finite with an unboosted output tap", "[audio-lab][mono][resonance-onset][slow]")
 {
 	for (const auto compensated : { false, true })
 	{
