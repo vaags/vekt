@@ -13,12 +13,15 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <memory>
+#include <optional>
 #include <vector>
 
 namespace vekt::mono
 {
 struct MonoVoiceSettings;
 class MonoVoice;
+class LfoClock;
 
 class PluginProcessor final : public juce::AudioProcessor
 {
@@ -71,6 +74,7 @@ private:
 	void resetPlayingState();
 	void render(juce::AudioBuffer<float>& buffer, int startSample, int numberOfSamples);
 	void applyConfigurationChanges();
+	void readTransport();
 	void configureQuality(int quality);
 	[[nodiscard]] juce::Result validatePresetSound(const presets::Preset& preset) const;
 	[[nodiscard]] juce::Result applyPreset(const presets::Preset& preset);
@@ -97,6 +101,9 @@ private:
 	};
 	std::array<std::vector<HeldNote>, 16> heldNotesByChannel;
 	dsp::OversamplingBank<float> oversampling { 2 };
+	std::array<std::unique_ptr<LfoClock>, 2> lfoClocks;
+	double transportBpm { 120.0 };
+	std::optional<double> transportPpq;
 	dsp::StereoPeakMeter outputMeter;
 	std::atomic<bool> pendingPresetReset {};
 	int activeVoiceCount { 8 };

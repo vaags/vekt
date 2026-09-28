@@ -67,7 +67,33 @@ inline constexpr auto filterRelease = "filterRelease";
 inline constexpr auto ampVelocity = "ampVelocity";
 inline constexpr auto filterVelocity = "filterVelocity";
 
-inline constexpr std::array soundParameterIds {
+// LFO parameters. Each LFO has its source controls, a master Amount and one
+// dedicated depth per destination; there is no modulation matrix.
+struct LfoParameterIds
+{
+	const char* rate; const char* sync; const char* division; const char* shape; const char* polarity;
+	const char* mode; const char* phase; const char* delay; const char* fade; const char* amount;
+	std::array<const char*, 3> pitch, morph, width, level;
+	const char* filter; const char* amp; const char* drive; const char* noise; const char* detune; const char* spread;
+
+	[[nodiscard]] constexpr std::array<const char*, 28> all() const noexcept
+	{
+		return { rate, sync, division, shape, polarity, mode, phase, delay, fade, amount,
+			pitch[0], pitch[1], pitch[2], morph[0], morph[1], morph[2], width[0], width[1], width[2], level[0], level[1], level[2],
+			filter, amp, drive, noise, detune, spread };
+	}
+};
+
+inline constexpr std::array lfos {
+	LfoParameterIds { "lfo1Rate", "lfo1Sync", "lfo1Division", "lfo1Shape", "lfo1Polarity", "lfo1Mode", "lfo1Phase", "lfo1Delay", "lfo1Fade", "lfo1Amount",
+		{ "lfo1Osc1Pitch", "lfo1Osc2Pitch", "lfo1Osc3Pitch" }, { "lfo1Osc1Morph", "lfo1Osc2Morph", "lfo1Osc3Morph" }, { "lfo1Osc1Width", "lfo1Osc2Width", "lfo1Osc3Width" }, { "lfo1Osc1Level", "lfo1Osc2Level", "lfo1Osc3Level" },
+		"lfo1Filter", "lfo1Amp", "lfo1Drive", "lfo1Noise", "lfo1Detune", "lfo1Spread" },
+	LfoParameterIds { "lfo2Rate", "lfo2Sync", "lfo2Division", "lfo2Shape", "lfo2Polarity", "lfo2Mode", "lfo2Phase", "lfo2Delay", "lfo2Fade", "lfo2Amount",
+		{ "lfo2Osc1Pitch", "lfo2Osc2Pitch", "lfo2Osc3Pitch" }, { "lfo2Osc1Morph", "lfo2Osc2Morph", "lfo2Osc3Morph" }, { "lfo2Osc1Width", "lfo2Osc2Width", "lfo2Osc3Width" }, { "lfo2Osc1Level", "lfo2Osc2Level", "lfo2Osc3Level" },
+		"lfo2Filter", "lfo2Amp", "lfo2Drive", "lfo2Noise", "lfo2Detune", "lfo2Spread" }
+};
+
+inline constexpr std::array legacySoundParameterIds {
 	performanceMode, heldKeyReturn, unison, unisonDetune, unisonSpread, voiceWidth, glideMode, glideTime,
 	pitchBendRange, calibration, drift, masterOutput,
 	osc1Range, osc2Range, osc3Range, osc1Semitone, osc2Semitone, osc3Semitone,
@@ -78,6 +104,17 @@ inline constexpr std::array soundParameterIds {
 	filterEnvelopeAmount, filterDrive, ampAttack, ampDecay, ampSustain, ampRelease,
 	filterAttack, filterDecay, filterSustain, filterRelease, ampVelocity, filterVelocity, filterQCompensation,
 	notePriority };
+
+// Sound schema 7 appends both LFOs' parameters to the schema 6 set.
+inline constexpr auto soundParameterIds = []
+{
+	std::array<const char*, legacySoundParameterIds.size() + 2 * 28> ids {};
+	std::size_t next {};
+	for (const auto* identifier : legacySoundParameterIds) ids[next++] = identifier;
+	for (const auto& lfo : lfos)
+		for (const auto* identifier : lfo.all()) ids[next++] = identifier;
+	return ids;
+}();
 
 [[nodiscard]] juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
 }

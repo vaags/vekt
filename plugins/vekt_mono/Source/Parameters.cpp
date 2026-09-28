@@ -1,5 +1,7 @@
 #include <vekt/mono/Parameters.h>
 
+#include "Lfo.h"
+
 #include <memory>
 
 namespace vekt::mono::parameters
@@ -28,6 +30,53 @@ void addOscillator(juce::AudioProcessorValueTreeState::ParameterLayout& layout, 
 		juce::NormalisableRange<float> { 0.0f, 3.0f, 0.001f }, 2.0f));
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { width, version }, "Osc " + juce::String(index) + " Pulse Width",
 		juce::NormalisableRange<float> { 5.0f, 95.0f, 0.01f }, 50.0f, juce::AudioParameterFloatAttributes {}.withLabel("%")));
+}
+
+// Depths are bipolar; a symmetric skew keeps small vibrato and sweep amounts easy to set.
+void addDepth(juce::AudioProcessorValueTreeState::ParameterLayout& layout, const char* identifier, const juce::String& name,
+	float maximum, float skew, const char* label)
+{
+	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { identifier, version }, name,
+		juce::NormalisableRange<float> { -maximum, maximum, 0.0f, skew, true }, 0.0f, juce::AudioParameterFloatAttributes {}.withLabel(label)));
+}
+
+void addLfo(juce::AudioProcessorValueTreeState::ParameterLayout& layout, int number, const LfoParameterIds& ids)
+{
+	const auto prefix = "LFO " + juce::String(number) + " ";
+	juce::NormalisableRange<float> rateRange { minimumLfoRateHz, maximumLfoRateHz };
+	rateRange.setSkewForCentre(1.0f);
+	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids.rate, version }, prefix + "Rate", rateRange, 2.0f,
+		juce::AudioParameterFloatAttributes {}.withLabel("Hz")));
+	layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID { ids.sync, version }, prefix + "Sync", false));
+	juce::StringArray divisions;
+	for (const auto& [division, beats] : lfoDivisions) { juce::ignoreUnused(beats); divisions.add(division); }
+	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { ids.division, version }, prefix + "Division", divisions, defaultLfoDivision));
+	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { ids.shape, version }, prefix + "Shape",
+		juce::StringArray { "Sine", "Triangle", "Saw Up", "Saw Down", "Square", "Smooth Random" }, 0));
+	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { ids.polarity, version }, prefix + "Polarity", juce::StringArray { "Bipolar", "Unipolar" }, 0));
+	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { ids.mode, version }, prefix + "Mode", juce::StringArray { "Free", "Retrigger", "One Shot" }, 0));
+	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids.phase, version }, prefix + "Phase",
+		juce::NormalisableRange<float> { 0.0f, 360.0f, 0.1f }, 0.0f, juce::AudioParameterFloatAttributes {}.withLabel("deg")));
+	for (const auto [identifier, name] : { std::pair { ids.delay, "Delay" }, std::pair { ids.fade, "Fade" } })
+		layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { identifier, version }, prefix + name,
+			juce::NormalisableRange<float> { 0.0f, 10.0f, 0.0001f, 0.35f }, 0.0f, juce::AudioParameterFloatAttributes {}.withLabel("s")));
+	// Amount defaults to full so turning up any one destination is immediately audible; all depths default to zero.
+	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids.amount, version }, prefix + "Amount",
+		juce::NormalisableRange<float> { 0.0f, 100.0f, 0.01f }, 100.0f, juce::AudioParameterFloatAttributes {}.withLabel("%")));
+	for (std::size_t oscillator = 0; oscillator < 3; ++oscillator)
+	{
+		const auto target = prefix + "Osc " + juce::String(static_cast<int>(oscillator) + 1) + " ";
+		addDepth(layout, ids.pitch[oscillator], target + "Pitch", 24.0f, 0.35f, "st");
+		addDepth(layout, ids.morph[oscillator], target + "Morph", 100.0f, 1.0f, "%");
+		addDepth(layout, ids.width[oscillator], target + "Width", 100.0f, 1.0f, "%");
+		addDepth(layout, ids.level[oscillator], target + "Level", 100.0f, 1.0f, "%");
+	}
+	addDepth(layout, ids.filter, prefix + "Filter", 6.0f, 0.5f, "oct");
+	addDepth(layout, ids.amp, prefix + "Amp", 100.0f, 1.0f, "%");
+	addDepth(layout, ids.drive, prefix + "Drive", 24.0f, 1.0f, "dB");
+	addDepth(layout, ids.noise, prefix + "Noise", 100.0f, 1.0f, "%");
+	addDepth(layout, ids.detune, prefix + "Detune", 100.0f, 1.0f, "%");
+	addDepth(layout, ids.spread, prefix + "Spread", 100.0f, 1.0f, "%");
 }
 }
 
@@ -68,6 +117,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 	layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID { heldKeyReturn, version }, "Held Key Return", true));
 	layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID { filterQCompensation, version }, "Q Compensation", false));
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { notePriority, version }, "Mono Priority", juce::StringArray { "Last", "Low" }, 0));
+	for (std::size_t index = 0; index < lfos.size(); ++index) addLfo(layout, static_cast<int>(index) + 1, lfos[index]);
 	return layout;
 }
 }

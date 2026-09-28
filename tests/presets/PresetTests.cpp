@@ -31,10 +31,12 @@ float getParameter(
 class ScopedTemporaryDirectory final
 {
 public:
+	// A unique, immediately created directory: tests run in parallel processes must never share one.
 	ScopedTemporaryDirectory()
 		: directory(juce::File::getSpecialLocation(juce::File::tempDirectory)
-			.getNonexistentChildFile("vekt-preset-tests", {}, true))
+			.getChildFile("vekt-preset-tests-" + juce::Uuid().toString()))
 	{
+		directory.createDirectory();
 	}
 
 	~ScopedTemporaryDirectory()

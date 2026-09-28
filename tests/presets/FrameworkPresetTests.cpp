@@ -11,7 +11,7 @@ namespace
 struct Directory
 {
 	juce::File root = juce::File::getSpecialLocation(juce::File::tempDirectory)
-		.getNonexistentChildFile("vekt-framework", {}, false);
+		.getChildFile("vekt-framework-" + juce::Uuid().toString()); // unique across parallel test processes
 	~Directory() { root.deleteRecursively(); }
 };
 

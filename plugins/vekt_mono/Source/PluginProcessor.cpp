@@ -16,6 +16,7 @@ namespace
 {
 juce::Result migrateContourPreset(presets::Preset& preset)
 {
+	if (preset.soundSchemaVersion == 6) return juce::Result::ok();
 	if (preset.soundSchemaVersion == 4)
 		preset.parameters.push_back({ parameters::notePriority, 0.0f });
 	else if (preset.soundSchemaVersion == 5)
@@ -29,6 +30,22 @@ juce::Result migrateContourPreset(presets::Preset& preset)
 	preset.soundSchemaVersion = 6;
 	return juce::Result::ok();
 }
+// Schema 7 adds the LFOs. Older presets get every LFO parameter at its default, where all depths are zero.
+juce::Result migrateLfoPreset(presets::Preset& preset, const juce::AudioProcessorValueTreeState& state)
+{
+	if (preset.soundSchemaVersion == 4 || preset.soundSchemaVersion == 5)
+		if (const auto result = migrateContourPreset(preset); result.failed()) return result;
+	if (preset.soundSchemaVersion != 6) return juce::Result::fail("Unsupported Mono preset sound schema");
+	for (const auto& lfo : parameters::lfos)
+		for (const auto* identifier : lfo.all())
+		{
+			const auto* parameter = state.getParameter(identifier);
+			preset.parameters.push_back({ identifier, parameter->convertFrom0to1(parameter->getDefaultValue()) });
+		}
+	preset.soundSchemaVersion = 7;
+	return juce::Result::ok();
+}
+
 int choiceToVoiceCount(float value) noexcept
 {
 	constexpr std::array counts { 2, 4, 8, 12, 16 };
@@ -95,6 +112,35 @@ MonoVoiceSettings PluginProcessor::snapshotSettings() const
 	settings.drift = value(parameters::drift);
 	settings.glideMode = juce::roundToInt(value(parameters::glideMode));
 	settings.glideTime = value(parameters::glideTime);
+	for (std::size_t index = 0; index < parameters::lfos.size(); ++index)
+	{
+		const auto& ids = parameters::lfos[index];
+		auto& lfo = settings.lfo[index];
+		const auto division = juce::roundToInt(value(ids.division));
+		lfo.source.rateHz = value(ids.sync) >= 0.5f ? syncedLfoRateHz(transportBpm, division) : value(ids.rate);
+		lfo.source.shape = static_cast<LfoShape>(juce::roundToInt(value(ids.shape)));
+		lfo.source.polarity = static_cast<LfoPolarity>(juce::roundToInt(value(ids.polarity)));
+		lfo.source.mode = static_cast<LfoMode>(juce::roundToInt(value(ids.mode)));
+		lfo.source.phase = value(ids.phase) / 360.0f;
+		lfo.source.delaySeconds = value(ids.delay);
+		lfo.source.fadeSeconds = value(ids.fade);
+		lfo.source.drift = settings.drift * 0.01f;
+		// Convert each depth to its destination's own units, scaled by the master Amount.
+		const auto amount = value(ids.amount) * 0.01f;
+		for (std::size_t oscillator = 0; oscillator < 3; ++oscillator)
+		{
+			lfo.pitch[oscillator] = amount * value(ids.pitch[oscillator]);
+			lfo.morph[oscillator] = amount * value(ids.morph[oscillator]) * 0.03f;
+			lfo.width[oscillator] = amount * value(ids.width[oscillator]) * 0.45f;
+			lfo.level[oscillator] = amount * value(ids.level[oscillator]) * 0.01f;
+		}
+		lfo.filter = amount * value(ids.filter);
+		lfo.amp = amount * value(ids.amp) * 0.01f;
+		lfo.drive = amount * value(ids.drive);
+		lfo.noise = amount * value(ids.noise) * 0.01f;
+		lfo.detune = amount * value(ids.detune) * 0.5f;
+		lfo.spread = amount * value(ids.spread) * 0.01f;
+	}
 	return settings;
 }
 
@@ -102,20 +148,21 @@ PluginProcessor::PluginProcessor()
 	: AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
 	  parameterState(*this, &undoManager, parameters::stateType, parameters::createLayout()),
 	  stateManager(parameterState, parameters::projectStateType, 3),
-	  presetSession(presetCatalog, { parameters::presetProductIdentifier, "Vekt Mono", 6 }, {
+	  presetSession(presetCatalog, { parameters::presetProductIdentifier, "Vekt Mono", 7 }, {
 		[this](const juce::String& name)
 		{
 			auto preset = presets::PresetSchema::create(parameters::presetProductIdentifier, name, parameterState, parameters::soundParameterIds);
-			preset.soundSchemaVersion = 6;
+			preset.soundSchemaVersion = 7;
 			return preset;
 		},
-		migrateContourPreset,
+		[this](presets::Preset& preset) { return migrateLfoPreset(preset, parameterState); },
 		[this](const presets::Preset& preset) { return validatePresetSound(preset); },
 		[this](const presets::Preset& preset) { return applyPreset(preset); },
 		[this](const presets::Preset& preset) { return matchesPresetSound(preset); } })
 {
 	for (std::size_t index = 0; index < voices.size(); ++index)
 		voices[index] = std::make_unique<MonoVoice>();
+	for (auto& clock : lfoClocks) clock = std::make_unique<LfoClock>();
 	for (auto& heldNotes : heldNotesByChannel)
 		heldNotes.reserve(128);
 	const auto factoryResult = addFactoryPresets(presetCatalog);
@@ -151,6 +198,7 @@ void PluginProcessor::prepareToPlay(double newSampleRate, int maximumBlockSize)
 {
 	sampleRateHz = newSampleRate;
 	oversampling.prepare(static_cast<std::size_t>(std::max(maximumBlockSize, 1)));
+	for (auto& clock : lfoClocks) clock->reset();
 	activeVoiceCount = choiceToVoiceCount(value(parameters::voiceCount));
 	configureQuality(juce::roundToInt(value(parameters::quality)));
 }
@@ -182,12 +230,32 @@ void PluginProcessor::configureQuality(int quality)
 	activeQuality = quality;
 	oversampling.activate(oversamplingQualityFor(activeQuality));
 	const auto effectiveSampleRate = sampleRateHz * static_cast<double>(oversampling.getActiveFactor());
+	for (auto& clock : lfoClocks) clock->setSampleRate(effectiveSampleRate);
 	for (std::size_t index = 0; index < voices.size(); ++index)
 	{
 		voices[index]->prepare(effectiveSampleRate,
 			0x4d6f6e6fu + static_cast<std::uint32_t>(index * 977));
 	}
 	setLatencySamples(oversampling.getActiveLatencySamples());
+}
+
+void PluginProcessor::readTransport()
+{
+	transportPpq.reset();
+	if (const auto* playHead = getPlayHead())
+		if (const auto position = playHead->getPosition())
+		{
+			if (const auto bpm = position->getBpm(); bpm && *bpm > 0.0) transportBpm = *bpm;
+			if (const auto ppq = position->getPpqPosition(); ppq && position->getIsPlaying()) transportPpq = *ppq;
+		}
+	// While the host plays, a synced Free LFO follows the song position, so it lands on the grid on every playback.
+	if (!transportPpq) return;
+	for (std::size_t index = 0; index < parameters::lfos.size(); ++index)
+	{
+		const auto& ids = parameters::lfos[index];
+		if (value(ids.sync) >= 0.5f)
+			lfoClocks[index]->setPosition(*transportPpq / lfoDivisionBeats(juce::roundToInt(value(ids.division))));
+	}
 }
 
 void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
@@ -202,6 +270,7 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
 		oversampling.reset();
 	}
 	applyConfigurationChanges();
+	readTransport();
 	int position {};
 	for (const auto metadata : midi)
 	{
@@ -344,6 +413,7 @@ void PluginProcessor::render(juce::AudioBuffer<float>& buffer, int start, int co
 {
 	if (count <= 0) return;
 	const auto settings = snapshotSettings();
+	for (std::size_t index = 0; index < lfoClocks.size(); ++index) lfoClocks[index]->setRate(settings.lfo[index].source.rateHz);
 	const auto outputGain = dbToGain(value(parameters::masterOutput));
 	juce::dsp::AudioBlock<float> outputBlock(buffer);
 	auto renderBlock = outputBlock.getSubBlock(static_cast<std::size_t>(start), static_cast<std::size_t>(count));
@@ -355,11 +425,13 @@ void PluginProcessor::render(juce::AudioBuffer<float>& buffer, int start, int co
 	for (std::size_t sample = 0; sample < renderBlock.getNumSamples(); ++sample)
 	{
 		float left {}, right {};
+		const std::array lfoPositions { lfoClocks[0]->getPosition(), lfoClocks[1]->getPosition() };
 		for (auto& voice : voices)
 		{
 			const auto channelIndex = juce::jlimit(0, 15, voice->getChannel() - 1);
-			voice->render(left, right, settings, pitchBendByChannel[static_cast<std::size_t>(channelIndex)]);
+			voice->render(left, right, settings, pitchBendByChannel[static_cast<std::size_t>(channelIndex)], lfoPositions);
 		}
+		for (auto& clock : lfoClocks) clock->advance();
 		const auto sampleIndex = static_cast<int>(sample);
 		renderBlock.setSample(0, sampleIndex, left * outputGain);
 		renderBlock.setSample(1, sampleIndex, right * outputGain);
@@ -406,14 +478,14 @@ juce::Result PluginProcessor::loadAdjacentPreset(bool next)
 }
 juce::Result PluginProcessor::validatePresetSound(const presets::Preset& preset) const
 {
-	return preset.soundSchemaVersion != 6 ? juce::Result::fail("Unsupported Mono preset sound schema")
+	return preset.soundSchemaVersion != 7 ? juce::Result::fail("Unsupported Mono preset sound schema")
 		: presets::PresetSchema::validate(preset, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds);
 }
 juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 {
 	auto prepared = preset;
-	if (prepared.soundSchemaVersion == 4 || prepared.soundSchemaVersion == 5)
-		if (const auto result = migrateContourPreset(prepared); result.failed()) return result;
+	if (prepared.soundSchemaVersion >= 4 && prepared.soundSchemaVersion <= 6)
+		if (const auto result = migrateLfoPreset(prepared, parameterState); result.failed()) return result;
 	if (const auto result = validatePresetSound(prepared); result.failed()) return result;
 	undoManager.beginNewTransaction("Load preset: " + preset.name);
 	const auto result = presets::PresetSchema::apply(prepared, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds, &undoManager);
@@ -423,7 +495,7 @@ juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 bool PluginProcessor::matchesPresetSound(const presets::Preset& preset) const
 {
 	auto prepared = preset;
-	if ((prepared.soundSchemaVersion == 4 || prepared.soundSchemaVersion == 5) && migrateContourPreset(prepared).failed()) return false;
+	if (prepared.soundSchemaVersion >= 4 && prepared.soundSchemaVersion <= 6 && migrateLfoPreset(prepared, parameterState).failed()) return false;
 	return validatePresetSound(prepared).wasOk()
 		&& presets::PresetSchema::matches(prepared, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds);
 }
@@ -444,12 +516,16 @@ void PluginProcessor::setStateInformation(const void* data, int size)
 	if (savedQuality.isValid() && static_cast<double>(savedQuality.getProperty("value")) >= 4.0) return;
 	if (state.isValid() && stateManager.restoreState(state))
 	{
-		for (const auto* identifier : { parameters::notePriority })
-			if (!parameterTree.getChildWithProperty("id", identifier).isValid())
-			{
-				auto* parameter = parameterState.getParameter(identifier);
-				parameter->setValueNotifyingHost(parameter->convertTo0to1(0.0f));
-			}
+		// Parameters added after a project was saved take their defaults rather than keeping the live value.
+		const auto restoreDefault = [&](const char* identifier)
+		{
+			if (parameterTree.getChildWithProperty("id", identifier).isValid()) return;
+			auto* parameter = parameterState.getParameter(identifier);
+			parameter->setValueNotifyingHost(parameter->getDefaultValue());
+		};
+		restoreDefault(parameters::notePriority);
+		for (const auto& lfo : parameters::lfos)
+			for (const auto* identifier : lfo.all()) restoreDefault(identifier);
 		for (const auto* identifier : { parameters::heldKeyReturn, parameters::filterQCompensation })
 		{
 			auto* parameter = parameterState.getParameter(identifier);

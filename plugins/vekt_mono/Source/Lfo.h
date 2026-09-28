@@ -1,9 +1,11 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <numbers>
+#include <utility>
 
 namespace vekt::mono
 {
@@ -13,6 +15,25 @@ enum class LfoMode { free, retrigger, oneShot };
 
 inline constexpr float minimumLfoRateHz = 0.01f;
 inline constexpr float maximumLfoRateHz = 50.0f;
+
+// Tempo-sync divisions as parameter choices, each with its cycle length in quarter-note beats.
+inline constexpr std::array<std::pair<const char*, double>, 15> lfoDivisions { {
+	{ "1/1", 4.0 }, { "1/1 D", 6.0 }, { "1/1 T", 8.0 / 3.0 },
+	{ "1/2", 2.0 }, { "1/2 D", 3.0 }, { "1/2 T", 4.0 / 3.0 },
+	{ "1/4", 1.0 }, { "1/4 D", 1.5 }, { "1/4 T", 2.0 / 3.0 },
+	{ "1/8", 0.5 }, { "1/8 D", 0.75 }, { "1/8 T", 1.0 / 3.0 },
+	{ "1/16", 0.25 }, { "1/16 D", 0.375 }, { "1/16 T", 1.0 / 6.0 } } };
+inline constexpr int defaultLfoDivision = 6;
+
+[[nodiscard]] inline double lfoDivisionBeats(int division) noexcept
+{
+	return lfoDivisions[static_cast<std::size_t>(std::clamp(division, 0, static_cast<int>(lfoDivisions.size()) - 1))].second;
+}
+
+[[nodiscard]] inline float syncedLfoRateHz(double beatsPerMinute, int division) noexcept
+{
+	return static_cast<float>(beatsPerMinute / 60.0 / lfoDivisionBeats(division));
+}
 
 // Free-running cycle counter shared by every voice's LFO in Free mode, so all
 // voices move together. Tempo sync sets its position from the host timeline.

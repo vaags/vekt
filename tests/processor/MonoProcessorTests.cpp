@@ -799,7 +799,7 @@ TEST_CASE("Mono preset loads clear old audio while allowing new notes in the fir
 		struct TemporaryPresetDirectory
 		{
 			juce::File path = juce::File::getSpecialLocation(juce::File::tempDirectory)
-				.getNonexistentChildFile("vekt-mono-preset-isolation", {}, true);
+				.getChildFile("vekt-mono-preset-isolation-" + juce::Uuid().toString()); // unique across parallel test processes
 			~TemporaryPresetDirectory() { path.deleteRecursively(); }
 		} directory;
 		vekt::presets::FilePresetRepository repository(directory.path);
@@ -1746,7 +1746,7 @@ TEST_CASE("Mono migrates schema 4 and 5 presets to analog independent ADSR", "[m
 		const auto previousAmp = std::find_if(preset.parameters.begin(), preset.parameters.end(), [](const auto& p) { return p.identifier == vekt::mono::parameters::ampRelease; })->value;
 		const auto previousFilter = std::find_if(preset.parameters.begin(), preset.parameters.end(), [](const auto& p) { return p.identifier == vekt::mono::parameters::filterRelease; })->value;
 		REQUIRE(processor.getPresetSession().prepare(preset).wasOk());
-		REQUIRE(preset.soundSchemaVersion == 6);
+		REQUIRE(preset.soundSchemaVersion == 7);
 		REQUIRE(vekt::presets::PresetSchema::apply(preset, vekt::mono::parameters::presetProductIdentifier,
 			processor.getParameters(), vekt::mono::parameters::soundParameterIds).wasOk());
 		REQUIRE(processor.getParameters().getRawParameterValue(vekt::mono::parameters::ampRelease)->load() == Catch::Approx(previousAmp).margin(0.0001f));
