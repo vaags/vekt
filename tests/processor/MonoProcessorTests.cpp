@@ -41,6 +41,20 @@ float stereoRms(const juce::AudioBuffer<float>& buffer)
 	return static_cast<float>(std::sqrt(sum / static_cast<double>(buffer.getNumChannels() * buffer.getNumSamples())));
 }
 
+// Root-sum-square of channel RMS values, not an arithmetic waveform sum and
+// not the per-channel average used by stereoRms. Preserves equal-power pan.
+float stereoPowerRms(const juce::AudioBuffer<float>& buffer)
+{
+	double sum {};
+	for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+		for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+		{
+			const auto value = buffer.getSample(channel, sample);
+			sum += static_cast<double>(value) * value;
+		}
+	return static_cast<float>(std::sqrt(sum / static_cast<double>(buffer.getNumSamples())));
+}
+
 float differenceRms(const juce::AudioBuffer<float>& buffer)
 {
 	const std::span samples(buffer.getReadPointer(0), static_cast<std::size_t>(buffer.getNumSamples()));
@@ -91,6 +105,37 @@ void initializeDryVoice(vekt::mono::PluginProcessor& processor)
 	setParameter(processor, vekt::mono::parameters::ampSustain, 100.0f);
 	setParameter(processor, vekt::mono::parameters::ampVelocity, 0.0f);
 }
+}
+
+TEST_CASE("Mono stereo power RMS preserves mono power across equal-power pan and phase", "[mono][processor][stereo]")
+{
+	juce::AudioBuffer<float> buffer(2, 4);
+	const std::array mono { 0.4f, -0.4f, 0.2f, -0.2f };
+	const auto sourceRms = std::sqrt((0.4f * 0.4f + 0.4f * 0.4f
+		+ 0.2f * 0.2f + 0.2f * 0.2f) / 4.0f);
+	for (const auto pan : { -1.0f, 0.0f, 1.0f })
+	{
+		const auto left = std::sqrt(0.5f * (1.0f - pan));
+		const auto right = std::sqrt(0.5f * (1.0f + pan));
+		for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+		{
+			buffer.setSample(0, sample, mono[static_cast<std::size_t>(sample)] * left);
+			buffer.setSample(1, sample, mono[static_cast<std::size_t>(sample)] * right);
+		}
+		CAPTURE(pan);
+		REQUIRE(stereoPowerRms(buffer) == Catch::Approx(sourceRms).margin(1.0e-7f));
+		REQUIRE(stereoRms(buffer) == Catch::Approx(sourceRms / std::sqrt(2.0f)).margin(1.0e-7f));
+	}
+	// Root-sum-square power must not accidentally turn into a waveform sum:
+	// opposite-polarity channels cancel in L+R, but not in channel power.
+	for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+	{
+		const auto value = mono[static_cast<std::size_t>(sample)] / std::sqrt(2.0f);
+		buffer.setSample(0, sample, value);
+		buffer.setSample(1, sample, -value);
+		REQUIRE(std::abs(buffer.getSample(0, sample) + buffer.getSample(1, sample)) < 1.0e-7f);
+	}
+	REQUIRE(stereoPowerRms(buffer) == Catch::Approx(sourceRms).margin(1.0e-7f));
 }
 
 TEST_CASE("Mono oscillator ranges follow footage labels", "[mono][processor][oscillator]")
@@ -1130,13 +1175,14 @@ TEST_CASE("Mono Ladder self-oscillates at maximum emphasis", "[mono][processor][
 			setParameter(processor, vekt::mono::parameters::noiseLevel, 0.0f);
 			for (int block = 0; block < 24; ++block) renderBlock(processor, buffer);
 			const auto settledRms = rms(buffer);
+			const auto selfOscPowerRms = stereoPowerRms(buffer);
 			const auto [frequency, magnitude] = dominantFrequency(buffer, cutoff * 0.9f, cutoff * 1.1f, sampleRate);
 			const auto secondHarmonic = sinusoidMagnitude(buffer, frequency * 2.0f, sampleRate);
 			const auto thirdHarmonic = sinusoidMagnitude(buffer, frequency * 3.0f, sampleRate);
 			INFO("quality=" << quality << ", sample rate=" << sampleRate << ", cutoff=" << cutoff << ", fundamental=" << frequency
 				<< " Hz / " << magnitude << ", second=" << secondHarmonic << ", third=" << thirdHarmonic
-				<< ", rms=" << settledRms);
-			REQUIRE(settledRms > 0.1f);
+				<< ", left RMS=" << settledRms << ", stereo power RMS=" << selfOscPowerRms);
+			REQUIRE(selfOscPowerRms > 0.1f);
 			REQUIRE(settledRms < 1.0f);
 			REQUIRE(frequency == Catch::Approx(cutoff).margin(cutoff * 0.03f));
 			REQUIRE(magnitude > settledRms);
@@ -1174,7 +1220,7 @@ TEST_CASE("Mono Ladder self-oscillation is audible through a preset-style voice 
 	renderBlock(processor, buffer, noteOn);
 	setParameter(processor, vekt::mono::parameters::noiseLevel, 0.0f);
 	for (int block = 0; block < 12; ++block) renderBlock(processor, buffer);
-	REQUIRE(stereoRms(buffer) > 0.025f);
+	REQUIRE(stereoPowerRms(buffer) > 0.025f);
 }
 
 TEST_CASE("Mono Ladder enters self-oscillation when emphasis reaches maximum in real time", "[mono][processor][filter]")
@@ -1213,7 +1259,7 @@ TEST_CASE("Mono Ladder enters self-oscillation when emphasis reaches maximum in 
 	renderBlock(processor, buffer);
 	setParameter(processor, vekt::mono::parameters::noiseLevel, 0.0f);
 	for (int block = 0; block < 120; ++block) renderBlock(processor, buffer);
-	REQUIRE(stereoRms(buffer) > 0.1f);
+	REQUIRE(stereoPowerRms(buffer) > 0.1f);
 	const auto [frequency, magnitude] = dominantFrequency(buffer, 700.0f, 1'400.0f, 48'000.0f);
 	REQUIRE(frequency > 750.0f);
 	REQUIRE(frequency < 1'300.0f);
@@ -1963,6 +2009,12 @@ TEST_CASE("Mono voice pan controls round-robin stereo mix", "[mono][processor][s
 	}
 	REQUIRE(centeredDifference == Catch::Approx(0.0f).margin(1.0e-6f));
 	REQUIRE(pannedDifference > 0.01f);
+	// A mono voice changes channel balance, not its summed stereo power.
+	const auto centeredPower = stereoPowerRms(centeredBuffer);
+	const auto pannedPower = stereoPowerRms(pannedBuffer);
+	INFO("centered stereo power RMS=" << centeredPower << ", panned=" << pannedPower);
+	REQUIRE(centeredPower > 0.001f);
+	REQUIRE(pannedPower == Catch::Approx(centeredPower).epsilon(0.01f));
 }
 
 TEST_CASE("Mono rendering is deterministic with drift enabled", "[mono][processor][determinism]")

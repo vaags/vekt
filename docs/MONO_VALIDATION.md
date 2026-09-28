@@ -739,6 +739,31 @@ For a future relative loudness requirement, first measure a normal
 full-level oscillator through the *same* voice, pan, amp and master path;
 the desired self-oscillator-to-reference ratio remains a product decision.
 
+**28 September 2026 self-oscillation level-gate measurement decision:**
+The three processor-output *minimum-level* assertions now use stereo
+root-sum-square power RMS, `sqrt(RMS_L² + RMS_R²)`, rather than left-channel
+RMS or the previous channel-averaged `stereoRms`. The existing >0.1,
+>0.025 and >0.1 thresholds are **unchanged**. This deliberately defines
+these tests as pan-independent processor-output strength requirements; it
+does not equate their preset-style master/amp/unison result with the raw
+ladder. The maximum-emphasis case still measures its pitch, harmonics,
+per-channel upper bound and tail-retention checks with the original
+per-channel signals. The realtime zero-state assertions still use the
+original channel-averaged metric. `stereoRms` and `rms` remain available
+for tests where per-channel levels matter. `stereoPowerRms` sums squared
+channel samples and divides by **sample count only**, not channel count;
+it does **not** sum L+R waveforms (which would depend on correlation).
+A synthetic-buffer regression covers center and hard pan plus opposite
+channel polarity, and a separate processor pan test checks that stereo
+power RMS survives moving a single voice off center. All three old
+minimum-level assertions pass under this explicitly changed measurement
+contract in the focused Debug run; the earlier failures above remain
+historical observations with the old convention. No DSP, master gain,
+resonance mapping, Q Comp, output ramp or numerical threshold changed.
+The complete Debug suite subsequently passed **293/293** (267.61 s),
+including all three redefined level gates and both stereo-power/pan
+regressions; `git diff --check` passes.
+
 **Remaining measurements:** Below self-oscillation (50/80/95% resonance),
 resolve local passband and bandwidth around the moving AC-pump peak; check
 pump-only leakage and whether more probe frequencies or other musical pumps
