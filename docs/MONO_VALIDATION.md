@@ -252,6 +252,27 @@ self-oscillation**; it does not yet quantify the resonant peak *under* drive.
 After rebuilding the Debug test target, the focused `[drive]` tests passed
 3/3 and the full `ctest --preset dev --output-on-failure` suite passed
 **281/281** in 271.87 seconds. No production DSP parameters were changed.
+**Driven incremental-response follow-up (28 September 2026):**
+`VektMonoIncrementalResonance` (Audio Lab Release) measures the production
+`processCoupled` ladder with 0.1 DC input and a 0.001-amplitude sine in a
+paired run, subtracting an otherwise identical DC-only run before projecting
+the difference. Each frequency starts with fresh ladder state, settles for
+one second and measures for one second at 48 kHz. The CSV at
+`/tmp/vekt-mono-incremental-resonance.csv` records 360 points: resonance
+50/80/95/100%, Drive 0/6/12/18/24 dB, Q Comp Off/On, and nine frequencies
+250–2000 Hz. Both runs had zero nonfinite and unconverged samples throughout.
+With Q Comp Off, peak-minus-250-Hz contrasts (dB) over the five Drive values
+were 6.6/6.6/6.7/7.0/4.2 at 50%, 15.2/15.3/15.8/17.0/12.3 at 80%,
+and 26.9/26.4/24.6/19.3/23.9 at 95%. Peaks also shift downward at high Drive.
+This **does not establish monotonic peak collapse** or prove that Q Comp's
+high-Drive effect disappears at the same rate as resonance; changing operating
+signal amplitude or using a more representative driven waveform may change
+the result. At 100% resonance, the difference RMS can exceed the probe by
+orders of magnitude because a perturbation can shift the phase of a free-running
+tone; do not interpret those projected differences as small-signal transfer.
+The +24 dB Q-compensation collapse is treated as an **expected nonlinear
+interaction pending listening validation**, not a reason to change
+`c(Q)=0.20Q` or introduce Drive dependence. Level-matched listening remains open.
 The raw-filter tail test intentionally bypasses `MonoVoice` articulation: keep
 a note/envelope active when checking this behavior by ear, since note-off or
 voice reset can mute/reset the audible path even when the autonomous ladder
