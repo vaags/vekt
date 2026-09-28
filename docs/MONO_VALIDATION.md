@@ -269,8 +269,9 @@ AC-driven musical response: a DC offset holds the symmetric nonlinear stages
 off-centre, whereas an oscillator drives them through both polarities. Nine
 sampled frequencies and a fixed 250 Hz reference cannot reliably characterize
 a moving peak or its bandwidth. These data **do not establish monotonic peak
-collapse** or a causal link between resonance changes and Q Comp's vanishing
-high-Drive effect. At 100% resonance, a perturbation can shift the phase or
+collapse** or a causal link between resonance changes and the near-zero
+high-Drive On/Off change in the earlier sine-fundamental observable. At 100%
+resonance, a perturbation can shift the phase or
 frequency of a free-running tone (the difference RMS can greatly exceed the
 probe); do not interpret those projected differences as an LTI transfer.
 
@@ -340,7 +341,8 @@ production topology was changed.
 **AC harmonic-transfer reduction (28 September 2026):** Run
 `python3 tools/audio_lab/mono_ac_pump_analysis.py /tmp/vekt-mono-ac-response.csv /tmp/vekt-mono-ac-analysis`
 to regenerate 615 paired frequency rows in `points.csv`, 15 drive summaries in
-`summary.csv`, and 12 dependency-free SVGs (direct On/Off, direct On-minus-Off,
+`summary.csv`, 15 curve-relative rows in `curve_relative.csv`, and 12
+dependency-free SVGs (direct On/Off, direct On-minus-Off,
 resolved conversion On/Off and conversion/direct ratio On/Off, per resonance).
 The script checks the complete 41-point/three-Q/five-Drive/five-component
 matrix, On/Off pairing, stimulus and solver diagnostics before emitting data.
@@ -371,17 +373,53 @@ The AC pump is one sine amplitude/frequency, not a validated musical or
 perceptual acceptance condition. These summaries are explanatory; preserve
 `c(Q)=0.20Q` and prioritize level-matched listening before a product decision.
 
-**Candidate 2 interpretation and acceptance:** At extreme Drive, the measured
-input-in-feedback compensation becomes almost ineffective. Strong Drive also
-materially changes resonance, but this DC experiment does not establish a
-simple causal relationship. The input term `u=(1+k*c)*x_driven-k*y4` restores
-body at moderate levels and may naturally lose incremental influence under
-saturation; **matching the rate of resonance-peak suppression is not an
-acceptance criterion**. Keep `c(Q)=0.20Q` and the topology frozen. The +24 dB
-behaviour is an expected *possible* nonlinear characteristic pending
-level-matched listening, not evidence by itself for a Drive-dependent `c`.
-If listening exposes a conspicuous problem, investigate output/feedforward
-alternatives rather than tuning the coefficient to fit this DC experiment.
+**Curve-relative AC summary (28 September 2026):** `curve_relative.csv`
+finds each On/Off curve's own sampled direct peak on the 25 Hz grid, its
+absolute height, its contrast above the **400 Hz lowest-available probe**,
+and the resolved ±346 Hz conversion level and conversion/direct ratio at
+that curve's own peak. The 400 Hz point is *not* established as a flat
+passband; sampled peak frequencies are not fitted pole frequencies. None
+of the 15 sampled peaks lies on the 400/1400 Hz sweep boundary. Selected
+On-minus-Off values (peak shift / own-peak height / own peak-minus-400 Hz
+contrast / own-peak resolved-conversion level) are:
+
+| Q | Drive | Peak Off → On | Shift | Height Δ | Contrast Δ | Conversion Δ |
+| --- | --- | --- | --- | --- | --- | --- |
+| 80% | +12 dB | 950 → 925 Hz | −46 cents | +3.66 dB | +0.05 dB | +10.81 dB |
+| 80% | +18 dB | 925 → 900 Hz | −47 cents | +3.40 dB | −0.29 dB | +10.47 dB |
+| 80% | +24 dB | 875 → 800 Hz | −155 cents | +1.82 dB | −1.93 dB | +8.82 dB |
+| 95% | +12 dB | 975 → 975 Hz | 0 cents | +6.07 dB | +1.32 dB | +15.44 dB |
+| 95% | +18 dB | 975 → 950 Hz | −45 cents | +3.23 dB | −1.59 dB | +12.53 dB |
+| 95% | +24 dB | 925 → 825 Hz | −198 cents | +0.44 dB | −4.93 dB | +9.32 dB |
+
+The 95%/+24 dB 100 Hz shift is approximately 10.8% of the Off peak;
+the cents value is computed as `1200*log2(825/925)`. At each curve's
+*own* sampled peak, the conversion/direct ratio also rises (8.88 dB at
+95%/+24 dB). These contrasts describe different pump-dependent operating
+trajectories, not energy redistributed from a lost direct component. The
+absolute peak and fixed-frequency On/Off differences are distinct quantities.
+
+**Candidate 2 interpretation and acceptance:** The old sine-fundamental
+On/Off body change approaches zero at +24 dB *in that observable*, but Q Comp
+is **not generally ineffective** at extreme Drive: for this 173 Hz periodic
+pump it materially reshapes the direct peak location, body-to-peak contrast
+and resolved even-order conversion. Its input term
+`u=(1+k*c)*x_driven-k*y4` preserves zero-input invariance while changing
+the driven operating trajectory. Whether the peak shift and texture are
+musically desirable is a listening question; neither matching a resonance
+suppression rate nor preserving a fixed conversion ratio is an acceptance
+criterion. Keep `c(Q)=0.20Q` and the production topology frozen pending
+level-matched listening. A Drive-dependent coefficient would need an
+audibly justified goal (for example limiting objectionable peak movement),
+not a fit to the earlier DC or fixed-frequency measurements.
+
+**Listening preparation:** Existing Off/On saw-wave WAVs and settled-RMS-
+matched On WAVs in `/tmp/vekt-q-input-candidate/drive-listening/` cover
+Q=80% and Drive 0/6/12/18/24 dB; compare Off with the level-matched On
+at +12/+18/+24 dB for body, resonant emphasis and texture. These files
+are not a completed listening assessment. They do **not** supply matched
+Q=95% sustained notes, slow cutoff sweeps or bass-note examples: prepare
+those separately before judging whether the AC peak shift is objectionable.
 
 **Remaining measurements:** Below self-oscillation (50/80/95% resonance),
 resolve local passband and bandwidth around the moving AC-pump peak; check

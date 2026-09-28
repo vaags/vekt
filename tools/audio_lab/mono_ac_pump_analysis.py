@@ -2,7 +2,7 @@
 """Analyze resolved harmonic-transfer bins from VektMonoAcPumpResponse.
 
 Usage: mono_ac_pump_analysis.py input.csv output-directory
-Produces points.csv, summary.csv, and four SVGs per resonance. P_conv uses
+Produces points.csv, summary.csv, curve_relative.csv, and four SVGs per resonance. P_conv uses
 ONLY the measured +/-2 pump sidebands; it is not total incremental energy.
 """
 
@@ -101,6 +101,32 @@ def summaries(points):
     return summary
 
 
+def curve_relative(points):
+    """Compare each curve at its own sampled direct peak and at 400 Hz.
+
+    400 Hz is the lowest available probe, not an established flat passband.
+    Peak positions have 25 Hz grid resolution, not fitted-frequency precision.
+    """
+    rows = []
+    for resonance in sorted({row[0] for row in points}):
+        for drive in DRIVES:
+            subset = [row for row in points if row[:2] == (resonance, drive)]
+            body = next(row for row in subset if row[2] == 400)
+            off = max(subset, key=lambda row: row[3])
+            on = max(subset, key=lambda row: row[6])
+            shift = on[2] - off[2]
+            off_contrast, on_contrast = off[3] - body[3], on[6] - body[6]
+            rows.append((resonance, drive, off[2], on[2], shift,
+                         100 * shift / off[2], 1200 * math.log2(on[2] / off[2]),
+                         off[3], on[6], on[6] - off[3],
+                         body[3], body[6], body[6] - body[3],
+                         off_contrast, on_contrast, on_contrast - off_contrast,
+                         off[4], on[7], on[7] - off[4],
+                         off[5], on[8], on[8] - off[5],
+                         int(off[2] in (400, 1400)), int(on[2] in (400, 1400))))
+    return rows
+
+
 def write_csv(path, header, rows):
     with path.open("w", newline="") as output:
         writer = csv.writer(output)
@@ -155,19 +181,28 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     points = records(groups)
     summary = summaries(points)
+    relative = curve_relative(points)
     write_csv(output / "points.csv", ("resonance", "drive_db", "probe_hz", "h0_off_db", "conversion_off_db",
               "ratio_off_db", "h0_on_db", "conversion_on_db", "ratio_on_db", "h0_delta_db",
               "conversion_delta_db", "ratio_delta_db"), points)
     write_csv(output / "summary.csv", ("resonance", "drive_db", "peak_off_hz", "peak_off_db", "peak_on_hz",
               "peak_on_db", "at900_h0_delta_db", "at900_conversion_delta_db", "at900_ratio_delta_db",
               "at900_h0_off_db", "at900_h0_on_db", "at900_conversion_off_db", "at900_conversion_on_db"), summary)
+    write_csv(output / "curve_relative.csv", (
+        "resonance", "drive_db", "peak_off_hz", "peak_on_hz", "peak_shift_hz", "peak_shift_percent",
+        "peak_shift_cents", "peak_h0_off_db", "peak_h0_on_db", "peak_h0_delta_db",
+        "at400_h0_off_db", "at400_h0_on_db", "at400_h0_delta_db",
+        "peak_minus_400_off_db", "peak_minus_400_on_db", "peak_minus_400_delta_db",
+        "at_own_peak_conversion_off_db", "at_own_peak_conversion_on_db", "at_own_peak_conversion_delta_db",
+        "at_own_peak_ratio_off_db", "at_own_peak_ratio_on_db", "at_own_peak_ratio_delta_db",
+        "peak_off_at_grid_edge", "peak_on_at_grid_edge"), relative)
     for resonance in sorted({row[0] for row in points}):
         for name, column, title in (("direct", 3, "Direct |H0| (dB)"),
                                     ("direct_delta", 9, "Direct On − Off (dB)"),
                                     ("conversion", 4, "Resolved conversion sqrt(Pconv) (dB)"),
                                     ("conversion_ratio", 5, "Resolved conversion / direct (dB)")):
             plot(output / f"q{resonance:g}_{name}.svg", resonance, points, column, title)
-    print(f"pairs={len(points)} summaries={len(summary)} output={output}")
+    print(f"pairs={len(points)} summaries={len(summary)} curve_relative={len(relative)} output={output}")
     return 0
 
 
