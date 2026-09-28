@@ -285,7 +285,7 @@ TEST_CASE("Mono contour engine measures analog timing and retrigger continuity",
 	for (int i = 0; i < 9'600; ++i) envelope.getNextSample();
 	REQUIRE(envelope.getNextSample() == Catch::Approx(0.5f).margin(0.005f));
 	envelope.noteOff();
-	for (int i = 0; i < 38'402; ++i) envelope.getNextSample();
+	for (int i = 0; i < 76'802; ++i) envelope.getNextSample();
 	REQUIRE_FALSE(envelope.isActive());
 	envelope.noteOn();
 	for (int i = 0; i < 16'000; ++i) envelope.getNextSample();
@@ -307,10 +307,10 @@ TEST_CASE("Mono amp and filter contours use their independent release times", "[
 	amp.noteOn(); filter.noteOn();
 	for (int i = 0; i < 20; ++i) { amp.getNextSample(); filter.getNextSample(); }
 	amp.noteOff(); filter.noteOff();
-	for (int i = 0; i < 105; ++i) { amp.getNextSample(); filter.getNextSample(); }
+	for (int i = 0; i < 210; ++i) { amp.getNextSample(); filter.getNextSample(); }
 	REQUIRE_FALSE(amp.isActive());
 	REQUIRE(filter.isActive());
-	for (int i = 0; i < 200; ++i) filter.getNextSample();
+	for (int i = 0; i < 410; ++i) filter.getNextSample();
 	REQUIRE_FALSE(filter.isActive());
 }
 
@@ -329,7 +329,48 @@ TEST_CASE("Mono contour updates held sustain and release without resetting the l
 	const auto before = envelope.getNextSample();
 	envelope.setParameters({ 0.01f, 0.05f, 0.8f, 0.012f });
 	REQUIRE(envelope.getNextSample() < before);
-	for (int i = 0; i < 20; ++i) envelope.getNextSample();
+	for (int i = 0; i < 30; ++i) envelope.getNextSample();
+	REQUIRE_FALSE(envelope.isActive());
+}
+
+TEST_CASE("Mono decay and release tails do not snap at an audible level", "[mono][processor][contour]")
+{
+	vekt::mono::ContourEnvelope envelope;
+	envelope.setSampleRate(1'000.0);
+	envelope.setParameters({ 0.0f, 0.2f, 0.0f, 0.2f });
+	envelope.noteOn();
+	REQUIRE(envelope.getNextSample() == Catch::Approx(1.0f));
+	for (int i = 0; i < 200; ++i) (void) envelope.getNextSample();
+	const auto decayAtDisplayedTime = envelope.getNextSample();
+	REQUIRE(decayAtDisplayedTime > 0.009f);
+	REQUIRE(decayAtDisplayedTime < 0.011f);
+	float previous = decayAtDisplayedTime;
+	for (int i = 0; i < 210; ++i)
+	{
+		const auto current = envelope.getNextSample();
+		REQUIRE(current <= previous);
+		REQUIRE(previous - current < 0.0003f);
+		previous = current;
+	}
+	REQUIRE(previous == 0.0f);
+
+	envelope.setParameters({ 0.0f, 0.0f, 1.0f, 0.2f });
+	envelope.noteOn();
+	for (int i = 0; i < 2; ++i) (void) envelope.getNextSample();
+	envelope.noteOff();
+	for (int i = 0; i < 200; ++i) (void) envelope.getNextSample();
+	const auto releaseAtDisplayedTime = envelope.getNextSample();
+	REQUIRE(releaseAtDisplayedTime > 0.009f);
+	REQUIRE(releaseAtDisplayedTime < 0.011f);
+	previous = releaseAtDisplayedTime;
+	for (int i = 0; i < 210; ++i)
+	{
+		const auto current = envelope.getNextSample();
+		REQUIRE(current <= previous);
+		REQUIRE(previous - current < 0.0003f);
+		previous = current;
+	}
+	REQUIRE(previous == 0.0f);
 	REQUIRE_FALSE(envelope.isActive());
 }
 

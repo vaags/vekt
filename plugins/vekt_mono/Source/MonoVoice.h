@@ -290,19 +290,46 @@ private:
 		return 0.0f;
 	}
 
+public:
+	// Morph anchors: 0 sine, 1 triangle, 2 saw, 3 pulse (square at 50% width). Every anchor's fundamental
+	// is +sin(2 pi phase), so morphing moves harmonics between shapes instead of cancelling the fundamental,
+	// and every anchor has the saw's RMS (1/sqrt 3) so Morph does not act as a hidden ladder drive.
+	static constexpr float sineAnchorGain = 0.81649658f;  // sqrt(2/3): sine RMS 0.707 -> 0.577 (-1.76 dB)
+	static constexpr float pulseAnchorGain = 0.57735027f; // 1/sqrt 3: a +/-1 pulse has RMS 1 at every width (-4.77 dB)
+
+	static float anchorWave(int anchor, float position, float phaseIncrement, float width) noexcept
+	{
+		switch (anchor)
+		{
+		case 0: return sineAnchorGain * std::sin(twoPi * position);
+		case 1:
+		{
+			// Peaks at a quarter cycle, in phase with the sine.
+			auto shifted = position + 0.25f;
+			shifted -= std::floor(shifted);
+			return 1.0f - 4.0f * std::abs(shifted - 0.5f);
+		}
+		case 2: return 1.0f - 2.0f * position + polyBlep(position, phaseIncrement); // falling ramp: fundamental +sin
+		default:
+		{
+			const auto pulseWidth = width * 0.01f;
+			const auto pulsePhase = position < pulseWidth ? position + 1.0f - pulseWidth : position - pulseWidth;
+			return pulseAnchorGain * ((position < pulseWidth ? 1.0f : -1.0f) + polyBlep(position, phaseIncrement) - polyBlep(pulsePhase, phaseIncrement));
+		}
+		}
+	}
+
+	// Linear interpolation between the two adjacent anchors, from one shared phase.
 	static float waveform(float position, float phaseIncrement, float morph, float width) noexcept
 	{
-		const auto sine = std::sin(twoPi * position);
-		const auto triangle = 1.0f - 4.0f * std::abs(position - 0.5f);
-		const auto saw = 2.0f * position - 1.0f - polyBlep(position, phaseIncrement);
-		const auto pulseWidth = width * 0.01f;
-		const auto pulsePhase = position < pulseWidth ? position + 1.0f - pulseWidth : position - pulseWidth;
-		const auto pulse = (position < pulseWidth ? 1.0f : -1.0f) + polyBlep(position, phaseIncrement) - polyBlep(pulsePhase, phaseIncrement);
 		const auto segment = juce::jlimit(0, 2, static_cast<int>(morph));
 		const auto fraction = morph - static_cast<float>(segment);
-		const std::array<float, 4> waves { sine, triangle, saw, pulse };
-		return waves[static_cast<std::size_t>(segment)] + fraction * (waves[static_cast<std::size_t>(segment + 1)] - waves[static_cast<std::size_t>(segment)]);
+		const auto from = anchorWave(segment, position, phaseIncrement, width);
+		if (fraction <= 0.0f) return from;
+		return from + fraction * (anchorWave(segment + 1, position, phaseIncrement, width) - from);
 	}
+
+private:
 
 	void updateFilterControlTargets(const MonoVoiceSettings& settings)
 	{

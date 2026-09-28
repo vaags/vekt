@@ -2,7 +2,9 @@
 
 Mono amp and filter use the same analog exponential contour implementation,
 with separate attack, decay, sustain and release values. Displayed times reach
-99% of the target, then snap to the endpoint. Retriggers begin at the current
+99% of the target; decay and release continue exponentially to 99.99% (about
+twice the displayed time) before snapping at a near-silent level. Attack still
+snaps at 99%. Retriggers begin at the current
 value; Mono Legato does not retrigger overlapping notes. Live ADSR changes
 are read while notes sound. The existing 3 ms allocation fade remains separate
 from envelope attack.

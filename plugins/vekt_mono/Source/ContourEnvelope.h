@@ -6,8 +6,8 @@
 
 namespace vekt::mono
 {
-// Times denote 99% of the distance to the target. Snap at that point
-// so each segment has a finite duration.
+// Times denote 99% of the distance to the target. The remaining quiet tail
+// continues to 99.99% before snapping so the endpoint is effectively silent.
 class ContourEnvelope
 {
 public:
@@ -42,7 +42,7 @@ public:
 		case State::decay:
 			advance(parameters.sustain, parameters.decay, decayCoefficient);
 			if (value <= parameters.sustain
-				|| std::abs(value - parameters.sustain) <= 0.01f * (1.0f - parameters.sustain))
+				|| std::abs(value - parameters.sustain) <= endpointThreshold * (1.0f - parameters.sustain))
 			{
 				value = parameters.sustain; state = State::sustain;
 			}
@@ -51,7 +51,7 @@ public:
 		case State::release:
 		{
 			advance(0.0f, parameters.release, releaseCoefficient);
-			if (value <= 0.01f * releaseStart) reset();
+			if (value <= endpointThreshold * releaseStart) reset();
 			break;
 		}
 		}
@@ -59,6 +59,7 @@ public:
 	}
 private:
 	enum class State { idle, attack, decay, sustain, release };
+	static constexpr float endpointThreshold = 0.0001f;
 	void recalculate() noexcept
 	{
 		const auto coefficient = [this](float seconds)
