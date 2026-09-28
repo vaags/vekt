@@ -188,7 +188,7 @@ cases passed after that addition. This level-only implementation was replaced
 by the candidate below. Files under `/tmp/vekt-q-comp-candidate/` are
 historical post-gain evidence, not candidate-2 renders.
 
-**28 September input-feedback candidate 2 (production Q Comp behavior, not approved):**
+**28 September input-feedback candidate 2 (historical 0.20Q behavior, not approved):**
 Q Comp On applies a 20 ms-smoothed `c(r)=0.20 clamp(r,0,1)` to the driven,
 bounded input in `u1 = (1+k c) clamp(D x,-24,24) - k y4`. Q Comp Off retains
 the reference solver; the raw fourth-stage output and voice calibration remain
@@ -210,7 +210,7 @@ difference RMS is about 0.00018; the paired tone difference is zero. This
 single-frequency example alone is not a compelling listening comparison.
 The 0.20 coefficient was initially frozen for evaluation, not tuned to force a +24 dB
 Drive result. Listening subsequently found insufficient bass restoration even at full
-resonance, so that freeze is lifted; see the explicit 0.5 candidate below. The
+resonance, so that freeze was lifted; see the current live 0.5 candidate below. The
 independent double-precision, nested-feedback offline ladder
 reference now includes the bounded input-feedback term, coefficient interpolation
 and small-signal response. A new production coupled-solver versus reference
@@ -372,8 +372,8 @@ Sidebands do not establish that "lost" direct energy was transferred to
 conversion: On and Off have different pumped trajectories, and these are
 input-normalized incremental gains, not an energy-conserving partition.
 The AC pump is one sine amplitude/frequency, not a validated musical or
-perceptual acceptance condition. These summaries are explanatory; preserve
-`c(Q)=0.20Q` and prioritize level-matched listening before a product decision.
+perceptual acceptance condition. These historical summaries were recorded
+before the live constant-0.5 candidate replaced `c(Q)=0.20Q`.
 
 **Curve-relative AC summary (28 September 2026):** `curve_relative.csv`
 finds each On/Off curve's own sampled direct peak on the 25 Hz grid, its
@@ -452,25 +452,32 @@ RMS windows differ and sweep-wide matching does not ensure moment-by-moment
 loudness equality. These fixtures do **not** constitute a listening result or
 prove that the 173 Hz incremental pump peak shift is audible in a voice patch.
 
-**28 September 2026 listening follow-up (0.5 candidate; not approved):**
+**28 September 2026 listening follow-up (live 0.5 candidate; not approved):**
 Thomas heard insufficient low-end restoration at full resonance with Q Comp On,
 and a marked 97% → 100% loudness increase with Q Comp both Off and On. This
-unfreezes the coefficient but does not authorize a resonance remap. The normal
-plugin and legacy fixtures still use `c=0.20*r` when On; there is no new plugin
-parameter or preset change. Explicit `q-comp-listen-c05-95-*` offline fixtures
-select **constant `c=0.5`** when On (Off remains uncompensated). The solver and
-independent reference now accept coefficients up to 0.5; their zero-input
-feedback is unchanged. Run `VektMonoQCompListening
-/tmp/vekt-q-input-candidate/listening-c05-95 c05` for nine +12/+18/+24 dB
-held-saw, bass-saw, and cutoff-sweep triplets. Compare each `-off.wav` to its
-`-on-level-matched.wav`; the CSV lists the matching window and gains, and the
-JSON now records the candidate override. Off/On use the same seed and events;
-all WAV samples are finite and peaks stay below 1.0 (maximum 0.9805), and
-matched listening-window RMS differs by less than 1e-6 relative. At +12/+18/
-+24 dB, the held/bass On levels exceed Off by about 7.02/4.79/2.49 dB before
-matching. These level figures do **not** establish better body or acceptable
-resonance position and texture; re-listen especially at +24 dB and to +18/+24
-dB sweeps. The earlier incremental peak shift may become more pronounced.
+unfreezes the coefficient but does not authorize a resonance remap. Pre-alpha
+has no production/development distinction: **Q Comp On now uses a constant
+`c=0.5` in the Mono voice itself**, including the Mono processor played from
+Audio Lab. Off remains uncompensated; at zero resonance `k=0` makes On and Off
+identical. The 20 ms On/Off smoothing remains. No extra parameter or preset
+change is required; the former offline-only override and `c05` fixture split
+were removed. The solver and independent reference accept coefficients up to
+0.5; their zero-input feedback is unchanged. In Audio Lab choose **Vekt Mono**
+as the source, select the **Mono** tab, and toggle **Q Compensation** in its
+filter panel while playing notes on the keyboard or via MIDI. If Audio Lab was
+already open, restart the newly rebuilt app; changing the file alone does not
+update a running process. Compare with matched playback volume: live toggling
+does *not* automatically level-match. Do not use the historical
+`/tmp/vekt-q-input-candidate/listening-95/` WAVs as the new candidate.
+
+The previously generated `/tmp/vekt-q-input-candidate/listening-c05-95/`
+files remain a historical offline preview of this coefficient, but listening
+should now take place directly in Audio Lab. Matching windows, headroom and
+the pre-match +12/+18/+24 dB held/bass level changes (~7.02/4.79/2.49 dB)
+refer to those offline files, not to an automatically level-matched live output.
+They do **not** establish better body or acceptable resonance position and
+texture; re-listen especially at +24 dB and to +18/+24 dB sweeps. The earlier
+incremental peak shift may become more pronounced.
 
 `VektMonoResonanceOnset /tmp/vekt-mono-resonance-onset.csv` measures Q Comp Off
 at 48 kHz, 1 kHz cutoff, 0 dB Drive, in 0.1%-resonance steps from 90% to
@@ -487,18 +494,30 @@ do not isolate them in a complete voice or justify changing the mapping yet.
 All 101 rows report zero non-finite and unconverged samples. Keep the resonance
 mapping and top-end gain unchanged pending further listening and voice-level
 analysis; do not tune Q Comp to correct the Q Comp Off jump.
-The Debug target and Audio Lab Release listening/onset targets build. The new
-constant-half fixture, driven-reference, and zero-input tests pass individually;
-the complete Debug CTest run finished **284/284 passed** (273.61 s). WAV
+At the offline-only candidate checkpoint, the Debug target and Audio Lab Release
+listening/onset targets built. The then-new constant-half fixture,
+driven-reference, and zero-input tests passed individually; the complete Debug
+CTest run finished **284/284 passed** (273.61 s). WAV
 triplets were independently checked for finite samples, sub-unity peaks and
 matched-window RMS error below 1e-6; `git diff --check` passes.
+
+After moving `c=0.5` into the ordinary Mono voice, the Debug test target and
+Audio Lab Release app rebuilt successfully. The revised focused Q Comp/
+headroom tests passed 16/16, and the complete Debug suite passed **285/285**
+(275.95 s). The ordinary `q-comp-listen-95-*` On/Off renderer produced 27 WAVs
+bit-identical to the earlier 0.5 offline-preview WAVs, confirming the live
+voice no longer relies on a fixture-only coefficient override. The newly
+built Audio Lab executable is at
+`build/audio-lab-release/tools/audio_lab/VektRavAudioLab.app`.
 
 **Remaining measurements:** Below self-oscillation (50/80/95% resonance),
 resolve local passband and bandwidth around the moving AC-pump peak; check
 pump-only leakage and whether more probe frequencies or other musical pumps
 change the result. At 100% resonance, instead measure autonomous frequency,
 amplitude, weak-tone pulling, driven perturbation and zero-input recovery.
-The existing level-matched listening renders remain the product decision.
+The next product decision is direct listening in the rebuilt Audio Lab; use
+matched playback volume when judging the stronger Q Comp against Off. The
+older 0.20Q renders are historical evidence, not the live candidate.
 The raw-filter tail test intentionally bypasses `MonoVoice` articulation: keep
 a note/envelope active when checking this behavior by ear, since note-off or
 voice reset can mute/reset the audible path even when the autonomous ladder
@@ -816,7 +835,12 @@ octave/semitone/fine tuning and drift disabled:
 Previously every non-neutral range ran in the opposite direction. Presets retain
 their labeled range choices, not their erroneous previous pitches.
 
-### Optional Q Compensation
+### Optional Q Compensation (historical post-gain candidate; superseded)
+
+The following describes a discarded post-gain experiment, **not** the current
+Audio Lab Mono sound. The active pre-alpha Q Comp On behavior is the constant
+`c=0.5` input-feedback tap documented in the 28 September listening follow-up
+above. The default-off checkbox remains available in Audio Lab's Mono editor.
 
 `filterQCompensation` is an automatable sound parameter, exposed by the filter
 panel's **Q Compensation** checkbox. The parameter, startup preset and all factory

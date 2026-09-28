@@ -6,7 +6,6 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-#include <string_view>
 
 namespace
 {
@@ -42,13 +41,11 @@ bool write(const juce::File& directory, const juce::String& name,
 
 int main(int argc, char** argv)
 {
-	if (argc != 2 && argc != 3)
+	if (argc != 2)
 	{
-		std::cerr << "Usage: VektMonoQCompListening output-directory [c05]\n";
+		std::cerr << "Usage: VektMonoQCompListening output-directory\n";
 		return 64;
 	}
-	const bool candidate = argc == 3 && std::string_view(argv[2]) == "c05";
-	if (argc == 3 && !candidate) return 64;
 	juce::ScopedJuceInitialiser_GUI juceInitialiser;
 	const juce::File directory { juce::String(argv[1]) };
 	if (!directory.createDirectory()) return 1;
@@ -60,7 +57,7 @@ int main(int argc, char** argv)
 	for (const auto* kind : { "sustain", "bass", "sweep" })
 		for (const auto drive : { 12, 18, 24 })
 		{
-			const auto prefix = juce::String(candidate ? "q-comp-listen-c05-95-" : "q-comp-listen-95-") + kind + "-drive-"
+			const auto prefix = juce::String("q-comp-listen-95-") + kind + "-drive-"
 				+ juce::String(drive);
 			vekt::audio_lab::MonoRenderRequest offRequest, onRequest;
 			if (!vekt::audio_lab::makeMonoRenderFixture(prefix + "-off", rate, blockSize, seed, offRequest)
@@ -82,7 +79,7 @@ int main(int argc, char** argv)
 			matched.audio.applyGain(playbackGain);
 			if (!vekt::audio_lab::writeMonoRenderWav(
 				directory.getChildFile(prefix + "-on-level-matched.wav"), matched, rate)) return 1;
-			csv << kind << ',' << drive << ",0.95," << (candidate ? 0.5f : 0.19f)
+			csv << kind << ',' << drive << ",0.95,0.5"
 				<< ',' << offRequest.events.front().note << ','
 				<< offRequest.settings.cutoff << ',' << offRms << ',' << onRms << ',' << gain
 				<< ',' << 20.0 * std::log10(onRms / offRms) << ',' << matchedRms << ','

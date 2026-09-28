@@ -116,45 +116,34 @@ TEST_CASE("Mono 95 percent Q listening pairs hold matched harmonic notes and cut
 	REQUIRE_FALSE(vekt::audio_lab::makeMonoRenderFixture("q-comp-listen-95-sweep-drive-10-on", 48'000.0, 128, 42, invalid));
 }
 
-TEST_CASE("Mono constant-half Q Comp is an explicit offline fixture only", "[audio-lab][mono][qcomp]")
+TEST_CASE("Mono Q Comp uses the same constant-half coefficient in ordinary Audio Lab renders", "[audio-lab][mono][qcomp]")
 {
 	for (const auto* kind : { "sustain", "bass", "sweep" })
 		for (const auto* drive : { "12", "18", "24" })
 		{
-			vekt::audio_lab::MonoRenderRequest legacyOff, legacyOn, candidateOff, candidateOn;
+			vekt::audio_lab::MonoRenderRequest off, on;
 			const auto tail = juce::String(kind) + "-drive-" + drive;
 			REQUIRE(vekt::audio_lab::makeMonoRenderFixture("q-comp-listen-95-" + tail + "-off",
-				48'000.0, 128, 42, legacyOff));
+				48'000.0, 128, 42, off));
 			REQUIRE(vekt::audio_lab::makeMonoRenderFixture("q-comp-listen-95-" + tail + "-on",
-				48'000.0, 128, 42, legacyOn));
-			REQUIRE(vekt::audio_lab::makeMonoRenderFixture("q-comp-listen-c05-95-" + tail + "-off",
-				48'000.0, 128, 42, candidateOff));
-			REQUIRE(vekt::audio_lab::makeMonoRenderFixture("q-comp-listen-c05-95-" + tail + "-on",
-				48'000.0, 128, 42, candidateOn));
-			REQUIRE(legacyOn.settings.qCompensationCoefficientOverride < 0.0f);
-			REQUIRE(candidateOn.settings.qCompensationCoefficientOverride == Catch::Approx(0.5f));
-			REQUIRE_FALSE(candidateOff.settings.qCompensation);
-			REQUIRE(candidateOff.events.size() == legacyOff.events.size());
-			REQUIRE(candidateOn.events.size() == legacyOn.events.size());
-			REQUIRE(candidateOn.settings.resonance == Catch::Approx(legacyOn.settings.resonance));
+				48'000.0, 128, 42, on));
+			REQUIRE_FALSE(off.settings.qCompensation);
+			REQUIRE(on.settings.qCompensation);
+			REQUIRE(off.events.size() == on.events.size());
+			REQUIRE(off.settings.resonance == Catch::Approx(on.settings.resonance));
 		}
-	vekt::audio_lab::MonoRenderRequest oldOff, newOff, oldOn, newOn;
-	for (auto* pair : { &oldOff, &newOff, &oldOn, &newOn })
-		REQUIRE(vekt::audio_lab::makeMonoRenderFixture(
-			(pair == &oldOff || pair == &oldOn ? "q-comp-listen-95-" : "q-comp-listen-c05-95-")
-			+ juce::String("bass-drive-12-") + (pair == &oldOff || pair == &newOff ? "off" : "on"),
-			48'000.0, 128, 42, *pair));
-	const auto baseline = vekt::audio_lab::renderMono(oldOff);
-	const auto candidateOff = vekt::audio_lab::renderMono(newOff);
-	const auto legacyOn = vekt::audio_lab::renderMono(oldOn);
-	const auto candidateOn = vekt::audio_lab::renderMono(newOn);
+	vekt::audio_lab::MonoRenderRequest off, on;
+	REQUIRE(vekt::audio_lab::makeMonoRenderFixture("q-comp-listen-95-bass-drive-12-off",
+		48'000.0, 128, 42, off));
+	REQUIRE(vekt::audio_lab::makeMonoRenderFixture("q-comp-listen-95-bass-drive-12-on",
+		48'000.0, 128, 42, on));
+	const auto baseline = vekt::audio_lab::renderMono(off);
+	const auto compensated = vekt::audio_lab::renderMono(on);
 	bool changed = false;
 	for (int sample = 0; sample < baseline.audio.getNumSamples(); ++sample)
 	{
-		REQUIRE(std::bit_cast<std::uint32_t>(baseline.audio.getSample(0, sample))
-			== std::bit_cast<std::uint32_t>(candidateOff.audio.getSample(0, sample)));
-		changed |= std::bit_cast<std::uint32_t>(legacyOn.audio.getSample(0, sample))
-			!= std::bit_cast<std::uint32_t>(candidateOn.audio.getSample(0, sample));
+		changed |= std::bit_cast<std::uint32_t>(baseline.audio.getSample(0, sample))
+			!= std::bit_cast<std::uint32_t>(compensated.audio.getSample(0, sample));
 	}
 	REQUIRE(changed);
 }
@@ -276,7 +265,7 @@ TEST_CASE("Mono input Q compensation preserves the exact zero-input feedback tra
 		off.prepare(48'000.0); on.prepare(48'000.0);
 		const vekt::mono::NonlinearTptLadderSettings dry { 1'000.0f, 1.0f, drive };
 		auto compensated = dry;
-		compensated.inputFeedbackCompensation = 0.20f;
+		compensated.inputFeedbackCompensation = 0.5f;
 		for (int sample = 0; sample < 48'000; ++sample)
 		{
 			const auto input = sample < 4'800 ? 0.05f * std::sin(2.0f * std::numbers::pi_v<float>
@@ -305,7 +294,7 @@ TEST_CASE("Mono maximum-resonance zero-input tail survives high-drive excitation
 			vekt::mono::NonlinearTptLadder ladder;
 			ladder.prepare(rate);
 			const vekt::mono::NonlinearTptLadderSettings settings {
-				1'000.0f, 1.0f, drive, false, compensated ? 0.20f : 0.0f };
+				1'000.0f, 1.0f, drive, false, compensated ? 0.5f : 0.0f };
 			double squares {}, tailPeak {};
 			int crossings {}, firstCrossing = -1, lastCrossing = -1;
 			float previous {};
@@ -350,8 +339,8 @@ TEST_CASE("Mono Drive is inert on an identical zero-input ladder state", "[audio
 {
 	vekt::mono::NonlinearTptLadder lowDrive, highDrive;
 	lowDrive.prepare(48'000.0); highDrive.prepare(48'000.0);
-	const vekt::mono::NonlinearTptLadderSettings low { 1'000.0f, 1.0f, 0.0f, false, 0.20f };
-	const vekt::mono::NonlinearTptLadderSettings high { 1'000.0f, 1.0f, 24.0f, false, 0.20f };
+	const vekt::mono::NonlinearTptLadderSettings low { 1'000.0f, 1.0f, 0.0f, false, 0.5f };
+	const vekt::mono::NonlinearTptLadderSettings high { 1'000.0f, 1.0f, 24.0f, false, 0.5f };
 	for (int sample = 0; sample < 48'000; ++sample)
 	{
 		const auto input = sample < 4'800 ? 0.05f * static_cast<float>(
@@ -373,7 +362,7 @@ TEST_CASE("Mono input Q compensation changes body relative to the resonant compo
 		off.prepare(48'000.0); on.prepare(48'000.0);
 		const vekt::mono::NonlinearTptLadderSettings dry { 1'000.0f, 1.0f, drive };
 		auto compensated = dry;
-		compensated.inputFeedbackCompensation = 0.20f;
+		compensated.inputFeedbackCompensation = 0.5f;
 		vekt::audio_analysis::SinusoidalProjector dryBody(48'000.0, 100.0, 24'000), wetBody(48'000.0, 100.0, 24'000);
 		vekt::audio_analysis::SinusoidalProjector dryTone(48'000.0, 1'000.0, 24'000), wetTone(48'000.0, 1'000.0, 24'000);
 		for (int sample = 0; sample < 48'000; ++sample)
@@ -421,7 +410,7 @@ TEST_CASE("Mono compensated coupled ladder agrees with the independent nested re
 								: sample % 64 < 32 ? 1.25f : -1.25f;
 							const auto q = resonance == 0.0f ? 0.0f : std::clamp(resonance
 								+ 0.02f * static_cast<float>(std::sin(2.0 * std::numbers::pi * 23.0 * time)), 0.0f, 1.0f);
-							const auto c = enabled ? 0.20f * q : 0.0f;
+							const auto c = enabled ? 0.5f : 0.0f;
 							const vekt::mono::NonlinearTptLadderSettings actualSettings { cutoff, q, drive, false, c };
 							const vekt::audio_lab::NonlinearTptLadderReferenceSettings referenceSettings {
 								cutoff, q, drive, false, c };
@@ -444,7 +433,7 @@ TEST_CASE("Mono Q Comp small-signal reference follows the input excitation facto
 	{
 		vekt::audio_lab::NonlinearTptLadderReferenceSettings off { 500.0, resonance, 0.0 };
 		auto on = off;
-		on.inputFeedbackCompensation = 0.20 * resonance;
+		on.inputFeedbackCompensation = 0.5;
 		const auto expected = 1.0 + vekt::mono::ladderFeedbackGain(resonance) * on.inputFeedbackCompensation;
 		for (const auto frequency : { 100.0, 500.0, 2'000.0 })
 		{

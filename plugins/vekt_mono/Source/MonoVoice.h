@@ -29,9 +29,6 @@ struct MonoVoiceSettings
 	float detune {}, unisonSpread {}, voiceWidth {}, glideTime {}, drift {};
 	int unison {}, glideMode {}, noiseType {};
 	bool qCompensation {};
-	// Offline candidate selector only: negative retains the production 0.20*Q curve.
-	// No plugin parameter or serialized state is added by this setting.
-	float qCompensationCoefficientOverride { -1.0f };
 };
 
 class MonoVoice
@@ -253,11 +250,8 @@ private:
 	void updateFilterControlTargets(const MonoVoiceSettings& settings)
 	{
 		const auto cutoffTarget = std::log2(juce::jlimit(10.0f, 32'000.0f, settings.cutoff));
-		// Candidate input tap: zero at Q=0, bounded at maximum resonance.
-		const auto compensationTarget = settings.qCompensation
-			? (settings.qCompensationCoefficientOverride >= 0.0f
-				? settings.qCompensationCoefficientOverride
-				: 0.20f * juce::jlimit(0.0f, 1.0f, settings.resonance)) : 0.0f;
+		// Feedback gain k already makes the input tap inert at zero resonance.
+		const auto compensationTarget = settings.qCompensation ? 0.5f : 0.0f;
 		if (!filterControlsInitialized)
 		{
 			cutoffOctaves.setCurrentAndTargetValue(cutoffTarget);
