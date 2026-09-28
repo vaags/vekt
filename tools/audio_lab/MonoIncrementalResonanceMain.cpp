@@ -1,8 +1,12 @@
 #include "../../plugins/vekt_mono/Source/NonlinearTptLadder.h"
+#include "../../plugins/vekt_mono/Source/LadderResonance.h"
 
 #include <vekt/audio_analysis/Measurements.h>
 
+#include <algorithm>
 #include <cmath>
+#include <complex>
+#include <cstdlib>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -14,7 +18,7 @@ constexpr double rate = 48'000.0;
 constexpr int settle = 48'000;
 constexpr int measure = 48'000;
 constexpr float bias = 0.1f;
-constexpr float probe = 0.001f;
+constexpr float defaultProbe = 0.001f;
 
 // DC-biased numerical characterization only: this is not an AC-pumped musical
 // drive measurement. At resonance=1, a probe can pull the autonomous oscillator;
@@ -27,7 +31,29 @@ struct Result
 	vekt::mono::NonlinearTptLadderDiagnostics baseline, perturbed;
 };
 
-Result measureGain(float resonance, float drive, bool qComp, double frequency)
+// Linearize the four implicit trapezoidal stages at their DC fixed point.
+// At equilibrium all stage outputs equal excitation / (1 + k), because
+// tanh(stage input) == tanh(stage output). The pole is derived from
+// (1 + g*m)y[n] - (1 - g*m)y[n-1] = g*m*(u[n] + u[n-1]).
+double dcLinearizedGain(float resonance, float drive, bool qComp, double frequency)
+{
+	const auto k = vekt::mono::ladderFeedbackGain(static_cast<double>(resonance));
+	const auto g = std::tan(std::numbers::pi * 1'000.0 / rate)
+		* vekt::mono::ladderResonanceTuning(static_cast<double>(resonance));
+	const auto driveGain = static_cast<double>(std::pow(10.0f, drive / 20.0f));
+	const auto c = qComp ? static_cast<double>(0.20f * resonance) : 0.0;
+	const auto equilibrium = (bias * driveGain * (1.0 + k * c)) / (1.0 + k);
+	const auto tangent = std::tanh(equilibrium);
+	const auto gm = g * (1.0 - tangent * tangent);
+	const auto zInverse = std::exp(std::complex<double> {
+		0.0, -2.0 * std::numbers::pi * frequency / rate });
+	const auto stage = gm * (1.0 + zInverse)
+		/ ((1.0 + gm) + (gm - 1.0) * zInverse);
+	const auto cascade = stage * stage * stage * stage;
+	return std::abs(driveGain * (1.0 + k * c) * cascade / (1.0 + k * cascade));
+}
+
+Result measureGain(float resonance, float drive, bool qComp, double frequency, float probe)
 {
 	vekt::mono::NonlinearTptLadder baseline, perturbed;
 	baseline.prepare(rate);
@@ -57,14 +83,19 @@ Result measureGain(float resonance, float drive, bool qComp, double frequency)
 
 int main(int argc, char** argv)
 {
-	if (argc != 2)
+	if (argc != 2 && argc != 3)
 	{
-		std::cerr << "Usage: VektMonoIncrementalResonance output.csv\n";
+		std::cerr << "Usage: VektMonoIncrementalResonance output.csv [probe-amplitude]\n";
 		return 64;
 	}
+	char* end {};
+	const auto probe = argc == 3 ? std::strtof(argv[2], &end) : defaultProbe;
+	if ((argc == 3 && (end == argv[2] || *end != '\0'))
+		|| !(probe > 0.0f && probe <= defaultProbe) || !std::isfinite(probe)) return 64;
 	std::ofstream output(argv[1]);
 	if (!output) return 1;
 	output << "resonance,drive_db,q_comp,bias,probe,frequency_hz,incremental_gain_db,difference_rms,"
+		"linearized_gain_db,probe_minus_linearized_db,"
 		"baseline_unconverged,probe_unconverged,baseline_nonfinite,probe_nonfinite\n";
 	output << std::setprecision(10);
 	for (const auto resonance : { 0.5f, 0.8f, 0.95f, 1.0f })
@@ -73,12 +104,16 @@ int main(int argc, char** argv)
 				for (const auto frequency : { 250.0, 500.0, 750.0, 900.0, 1'000.0,
 					1'100.0, 1'250.0, 1'500.0, 2'000.0 })
 				{
-					const auto result = measureGain(resonance, drive, qComp, frequency);
+					const auto result = measureGain(resonance, drive, qComp, frequency, probe);
+					const auto predicted = dcLinearizedGain(resonance, drive, qComp, frequency);
 					if (!std::isfinite(result.gain) || !std::isfinite(result.differenceRms)
+						|| !std::isfinite(predicted)
 						|| result.baseline.nonFiniteSamples || result.perturbed.nonFiniteSamples) return 1;
+					const auto db = [](double gain) { return 20.0 * std::log10(std::max(gain, 1.0e-12)); };
 					output << resonance << ',' << drive << ',' << qComp << ',' << bias << ',' << probe << ',' << frequency
-						<< ',' << 20.0 * std::log10(std::max(result.gain, 1.0e-12))
-						<< ',' << result.differenceRms << ',' << result.baseline.unconvergedSamples
+						<< ',' << db(result.gain)
+						<< ',' << result.differenceRms << ',' << db(predicted)
+						<< ',' << db(result.gain) - db(predicted) << ',' << result.baseline.unconvergedSamples
 						<< ',' << result.perturbed.unconvergedSamples << ','
 						<< result.baseline.nonFiniteSamples << ',' << result.perturbed.nonFiniteSamples << '\n';
 				}

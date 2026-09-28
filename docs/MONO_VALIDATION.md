@@ -274,6 +274,23 @@ high-Drive effect. At 100% resonance, a perturbation can shift the phase or
 frequency of a free-running tone (the difference RMS can greatly exceed the
 probe); do not interpret those projected differences as an LTI transfer.
 
+**DC probe cross-check (28 September 2026):** The Audio Lab tool now computes
+an independent fixed-point linearization of the four `tanh` stages at the
+same DC bias, including the actual trapezoidal pole, feedback gain, Drive and
+Q Comp input factor. Its CSV includes `linearized_gain_db` and
+`probe_minus_linearized_db`. At the original 0.001 probe amplitude, the
+maximum absolute error over all nine frequencies, five Drive settings and
+both Q Comp settings is 0.006 dB at 50% resonance, 0.116 dB at 80%, and
+2.540 dB at 95% (near the high-Drive shifted peak). Repeating the full grid
+with a ten-times-smaller 0.0001 probe reduces those maxima to 0.003, 0.002,
+and 0.050 dB respectively. Both 360-row runs have zero solver nonfinite and
+unconverged samples. The smaller-amplitude CSV is
+`/tmp/vekt-mono-incremental-resonance-small.csv`; these absolute paths are
+local temporary artifacts, not committed validation fixtures. This supports
+the *DC probe machinery below self-oscillation*; the larger-probe discrepancies
+are amplitude-dependent, not evidence of a different local pole. The 100%
+rows remain oscillator diagnostics and are excluded from this comparison.
+
 **Candidate 2 interpretation and acceptance:** At extreme Drive, the measured
 input-in-feedback compensation becomes almost ineffective. Strong Drive also
 materially changes resonance, but this DC experiment does not establish a
@@ -287,8 +304,7 @@ If listening exposes a conspicuous problem, investigate output/feedforward
 alternatives rather than tuning the coefficient to fit this DC experiment.
 
 **Next measurement (not yet performed):** Below self-oscillation (50/80/95%
-resonance), first validate the DC probe against a numerical local linearization
-of the stage derivatives at steady state. Then use the same periodic AC pump
+resonance), use the same periodic AC pump
 at every probe frequency for each Drive setting, a much denser frequency grid
 around the moving peak, and coherent complex probe-frequency correlation over
 integer pump/probe periods. Report peak frequency, peak relative to a *local*
