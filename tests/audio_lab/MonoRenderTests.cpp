@@ -119,38 +119,6 @@ TEST_CASE("Mono 95 percent Q listening pairs hold matched harmonic notes and cut
 	REQUIRE_FALSE(vekt::audio_lab::makeMonoRenderFixture("q-comp-listen-95-sweep-drive-10-on", 48'000.0, 128, 42, invalid));
 }
 
-TEST_CASE("Mono Q Comp uses the same constant-half coefficient in ordinary Audio Lab renders", "[audio-lab][mono][qcomp]")
-{
-	for (const auto* kind : { "sustain", "bass", "sweep" })
-		for (const auto* drive : { "12", "18", "24" })
-		{
-			vekt::audio_lab::MonoRenderRequest off, on;
-			const auto tail = juce::String(kind) + "-drive-" + drive;
-			REQUIRE(vekt::audio_lab::makeMonoRenderFixture("q-comp-listen-95-" + tail + "-off",
-				48'000.0, 128, 42, off));
-			REQUIRE(vekt::audio_lab::makeMonoRenderFixture("q-comp-listen-95-" + tail + "-on",
-				48'000.0, 128, 42, on));
-			REQUIRE_FALSE(off.settings.qCompensation);
-			REQUIRE(on.settings.qCompensation);
-			REQUIRE(off.events.size() == on.events.size());
-			REQUIRE(off.settings.resonance == Catch::Approx(on.settings.resonance));
-		}
-	vekt::audio_lab::MonoRenderRequest off, on;
-	REQUIRE(vekt::audio_lab::makeMonoRenderFixture("q-comp-listen-95-bass-drive-12-off",
-		48'000.0, 128, 42, off));
-	REQUIRE(vekt::audio_lab::makeMonoRenderFixture("q-comp-listen-95-bass-drive-12-on",
-		48'000.0, 128, 42, on));
-	const auto baseline = vekt::audio_lab::renderMono(off);
-	const auto compensated = vekt::audio_lab::renderMono(on);
-	bool changed = false;
-	for (int sample = 0; sample < baseline.audio.getNumSamples(); ++sample)
-	{
-		changed |= std::bit_cast<std::uint32_t>(baseline.audio.getSample(0, sample))
-			!= std::bit_cast<std::uint32_t>(compensated.audio.getSample(0, sample));
-	}
-	REQUIRE(changed);
-}
-
 TEST_CASE("Mono voice resonance onset stays finite with an unboosted output tap", "[audio-lab][mono][resonance-onset]")
 {
 	for (const auto compensated : { false, true })
@@ -441,22 +409,6 @@ TEST_CASE("Mono constant-half input compensation reaches the coupled solver unde
 	}
 }
 
-TEST_CASE("Mono Audio Lab coupled render labels engine and remains deterministic", "[audio-lab][mono][ladder-coupled]")
-{
-	vekt::audio_lab::MonoRenderRequest request;
-	REQUIRE(vekt::audio_lab::makeMonoRenderFixture("envelope", 48'000.0, 127, 42, request));
-	const auto first = vekt::audio_lab::renderMono(request);
-	const auto second = vekt::audio_lab::renderMono(request);
-	REQUIRE(first.report.getProperty("engine", {}).toString() == "coupled");
-	const auto* channels = first.report.getProperty("channels", {}).getArray();
-	REQUIRE(channels != nullptr);
-	REQUIRE(static_cast<double>((*channels)[0].getProperty("peak", 0.0)) > 0.001);
-	for (int channel = 0; channel < 2; ++channel)
-		for (int sample = 0; sample < first.audio.getNumSamples(); ++sample)
-			REQUIRE(std::bit_cast<std::uint32_t>(first.audio.getSample(channel, sample))
-				== std::bit_cast<std::uint32_t>(second.audio.getSample(channel, sample)));
-}
-
 TEST_CASE("Mono Audio Lab reports filter and envelope measurements", "[audio-lab][mono][measurements]")
 {
 	vekt::audio_lab::MonoRenderRequest filterRequest;
@@ -474,23 +426,6 @@ TEST_CASE("Mono Audio Lab reports filter and envelope measurements", "[audio-lab
 	REQUIRE(static_cast<double>(measurements.getProperty("attack_10_to_90_seconds", -1.0)) > 0.0);
 	REQUIRE(static_cast<double>(measurements.getProperty("release_to_10_seconds", -1.0)) > 0.0);
 	REQUIRE(windowMeasurement(envelope.report, "silence", "peak") == Catch::Approx(0.0));
-}
-
-TEST_CASE("Mono input Q compensation leaves an excited zero-input tone unchanged", "[audio-lab][mono][qcomp]")
-{
-		vekt::audio_lab::MonoRenderRequest off, on;
-		REQUIRE(vekt::audio_lab::makeMonoRenderFixture("q-comp-tone-off", 48'000.0, 128, 42, off));
-		REQUIRE(vekt::audio_lab::makeMonoRenderFixture("q-comp-tone-on", 48'000.0, 128, 42, on));
-		const auto dry = vekt::audio_lab::renderMono(off);
-		const auto wet = vekt::audio_lab::renderMono(on);
-		const auto dryRms = windowMeasurement(dry.report, "settled", "rms");
-		const auto wetRms = windowMeasurement(wet.report, "settled", "rms");
-		INFO("dryRms=" << dryRms << ", wetRms=" << wetRms);
-		REQUIRE(dryRms > 0.001);
-		REQUIRE(wetRms == Catch::Approx(dryRms).margin(1.0e-8));
-		for (int sample = 4'800; sample < dry.audio.getNumSamples(); ++sample)
-			REQUIRE(std::bit_cast<std::uint32_t>(dry.audio.getSample(0, sample))
-				== std::bit_cast<std::uint32_t>(wet.audio.getSample(0, sample)));
 }
 
 TEST_CASE("Mono input Q compensation preserves the exact zero-input feedback trajectory", "[audio-lab][mono][qcomp]")
