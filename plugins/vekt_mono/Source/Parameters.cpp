@@ -34,7 +34,7 @@ void addOscillator(juce::AudioProcessorValueTreeState::ParameterLayout& layout, 
 juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 {
 	juce::AudioProcessorValueTreeState::ParameterLayout layout;
-	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { voiceCount, version }, "Voice Count", juce::StringArray { "8", "12", "16" }, 0, nonAutomatable()));
+	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { voiceCount, version }, "Voice Count", juce::StringArray { "2", "4", "8", "12", "16" }, 2, nonAutomatable()));
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { performanceMode, version }, "Performance Mode", juce::StringArray { "Poly", "Mono", "Mono Legato" }, 0));
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { quality, version }, "Quality", juce::StringArray { "1x", "2x", "4x", "8x" }, 0, nonAutomatable()));
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { unison, version }, "Unison", juce::StringArray { "1x", "2x", "4x" }, 0));

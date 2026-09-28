@@ -8,6 +8,7 @@
 #include <vekt/presets/PresetSchema.h>
 
 #include <algorithm>
+#include <array>
 
 namespace vekt::mono
 {
@@ -28,7 +29,11 @@ juce::Result migrateContourPreset(presets::Preset& preset)
 	preset.soundSchemaVersion = 6;
 	return juce::Result::ok();
 }
-int choiceToVoiceCount(float value) noexcept { return value < 0.5f ? 8 : value < 1.5f ? 12 : 16; }
+int choiceToVoiceCount(float value) noexcept
+{
+	constexpr std::array counts { 2, 4, 8, 12, 16 };
+	return counts[static_cast<std::size_t>(juce::jlimit(0, static_cast<int>(counts.size()) - 1, juce::roundToInt(value)))];
+}
 int choiceToUnison(float value) noexcept { return value < 0.5f ? 1 : value < 1.5f ? 2 : 4; }
 
 dsp::OversamplingQuality oversamplingQualityFor(int quality) noexcept

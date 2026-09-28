@@ -82,7 +82,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	outputFader.setDoubleClickReturnValue(true, 0.0);
 	outputAttachment = std::make_unique<SliderAttachment>(pluginProcessor.getParameters(), parameters::masterOutput, outputFader);
 	addChoice(performancePanel, noiseBox, { "Off", "White", "Pink" }, parameters::noiseType, noiseAttachment);
-	addChoice(performancePanel, voiceCountBox, { "8", "12", "16" }, parameters::voiceCount, voiceCountAttachment);
+	addChoice(performancePanel, voiceCountBox, { "2", "4", "8", "12", "16" }, parameters::voiceCount, voiceCountAttachment);
 	addChoice(performancePanel, performanceModeBox, { "Poly", "Mono", "Mono Legato" }, parameters::performanceMode, performanceModeAttachment);
 	addChoice(voicePanel, priorityBox, { "Last priority", "Low priority" }, parameters::notePriority, priorityAttachment);
 	priorityBox.setTooltip("Mono note priority; low priority keeps the lowest held key sounding.");

@@ -1662,7 +1662,7 @@ TEST_CASE("Mono defers voice count while a note is active", "[mono][processor]")
 	juce::MidiBuffer on;
 	on.addEvent(juce::MidiMessage::noteOn(1, 60, 0.8f), 0);
 	processor.processBlock(buffer, on);
-	setParameter(processor, vekt::mono::parameters::voiceCount, 2.0f);
+	setParameter(processor, vekt::mono::parameters::voiceCount, 4.0f);
 	juce::MidiBuffer empty;
 	processor.processBlock(buffer, empty);
 	REQUIRE(processor.hasPendingVoiceCountChange());
@@ -1903,7 +1903,7 @@ TEST_CASE("Mono voice stealing avoids an exceptional sample-boundary jump", "[mo
 {
 	vekt::mono::PluginProcessor processor;
 	setParameter(processor, vekt::mono::parameters::performanceMode, 0.0f);
-	setParameter(processor, vekt::mono::parameters::voiceCount, 0.0f);
+	setParameter(processor, vekt::mono::parameters::voiceCount, 2.0f);
 	setParameter(processor, vekt::mono::parameters::voiceWidth, 100.0f);
 	setParameter(processor, vekt::mono::parameters::osc1Morph, 2.0f);
 	setParameter(processor, vekt::mono::parameters::osc2Level, 0.0f);
