@@ -62,15 +62,13 @@ TEST_CASE("Mono Audio Lab renders are deterministic and block-size invariant", "
 	REQUIRE(seedChangedOutput);
 }
 
-#if defined(VEKT_MONO_LADDER_DEVELOPMENT)
-TEST_CASE("Mono Audio Lab candidate render labels engine and remains deterministic", "[audio-lab][mono][ladder-development]")
+TEST_CASE("Mono Audio Lab coupled render labels engine and remains deterministic", "[audio-lab][mono][ladder-coupled]")
 {
 	vekt::audio_lab::MonoRenderRequest request;
 	REQUIRE(vekt::audio_lab::makeMonoRenderFixture("envelope", 48'000.0, 127, 42, request));
-	request.developmentLadder = true;
 	const auto first = vekt::audio_lab::renderMono(request);
 	const auto second = vekt::audio_lab::renderMono(request);
-	REQUIRE(first.report.getProperty("engine", {}).toString() == "candidate-development-1x");
+	REQUIRE(first.report.getProperty("engine", {}).toString() == "coupled");
 	const auto* channels = first.report.getProperty("channels", {}).getArray();
 	REQUIRE(channels != nullptr);
 	REQUIRE(static_cast<double>((*channels)[0].getProperty("peak", 0.0)) > 0.001);
@@ -79,7 +77,6 @@ TEST_CASE("Mono Audio Lab candidate render labels engine and remains determinist
 			REQUIRE(std::bit_cast<std::uint32_t>(first.audio.getSample(channel, sample))
 				== std::bit_cast<std::uint32_t>(second.audio.getSample(channel, sample)));
 }
-#endif
 
 TEST_CASE("Mono Audio Lab reports filter and envelope measurements", "[audio-lab][mono][measurements]")
 {
@@ -118,6 +115,6 @@ TEST_CASE("Mono Audio Lab writes readable WAV and JSON outputs", "[audio-lab][mo
 	const auto parsed = juce::JSON::parse(json.getFile());
 	REQUIRE(parsed.isObject());
 	REQUIRE(parsed.getProperty("product", {}).toString() == "mono");
-	REQUIRE(parsed.getProperty("engine", {}).toString() == "legacy");
+	REQUIRE(parsed.getProperty("engine", {}).toString() == "coupled");
 	REQUIRE(parsed.getProperty("fixture", {}).toString() == "envelope");
 }

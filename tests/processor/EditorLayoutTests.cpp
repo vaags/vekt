@@ -311,8 +311,7 @@ TEST_CASE("Mono quality menu exposes four selectable factors", "[mono][processor
 	REQUIRE(parameter->getIndex() == 3);
 }
 
-#if defined(VEKT_MONO_LADDER_DEVELOPMENT)
-TEST_CASE("Mono preview editor identifies the active development engine", "[mono][processor][ui][ladder-development]")
+TEST_CASE("Mono editor reports the active quality without a preview engine", "[mono][processor][ui][quality]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
 	const auto hasLabel = [](juce::Component& root, const juce::String& expected)
@@ -322,37 +321,19 @@ TEST_CASE("Mono preview editor identifies the active development engine", "[mono
 				label != nullptr && label->getText().contains(expected)) return true;
 		return false;
 	};
-	vekt::mono::PluginProcessor candidate(true);
-	candidate.prepareToPlay(48'000.0, 128);
-	vekt::mono::PluginEditor candidateEditor(candidate);
-	REQUIRE(hasLabel(candidateEditor.getContent(), "MONO  PREVIEW"));
-	REQUIRE(hasLabel(candidateEditor.getContent(), "DEV NESTED 1x"));
-	vekt::mono::PluginProcessor coupled(true, true);
-	coupled.prepareToPlay(48'000.0, 128);
-	vekt::mono::PluginEditor coupledEditor(coupled);
-	REQUIRE(coupled.isCoupledLadderActive());
-	REQUIRE(hasLabel(coupledEditor.getContent(), "DEV COUPLED 1x"));
-	vekt::mono::PluginProcessor coupledHigh(true, true);
-	auto* highQuality = coupledHigh.getParameters().getParameter(vekt::mono::parameters::quality);
-	REQUIRE(highQuality != nullptr);
-	highQuality->setValueNotifyingHost(highQuality->convertTo0to1(3.0f));
-	coupledHigh.prepareToPlay(48'000.0, 128);
-	vekt::mono::PluginEditor coupledHighEditor(coupledHigh);
-	REQUIRE(hasLabel(coupledHighEditor.getContent(), "DEV COUPLED 8x"));
-	vekt::mono::PluginProcessor higher(true);
-	auto* quality = higher.getParameters().getParameter(vekt::mono::parameters::quality);
-	REQUIRE(quality != nullptr);
-	quality->setValueNotifyingHost(quality->convertTo0to1(3.0f));
-	higher.prepareToPlay(48'000.0, 128);
-	vekt::mono::PluginEditor higherEditor(higher);
-	REQUIRE(hasLabel(higherEditor.getContent(), "DEV PREVIEW: LEGACY"));
 	vekt::mono::PluginProcessor ordinary;
 	ordinary.prepareToPlay(48'000.0, 128);
 	vekt::mono::PluginEditor ordinaryEditor(ordinary);
 	REQUIRE(hasLabel(ordinaryEditor.getContent(), "VEKT  MONO"));
-	REQUIRE_FALSE(hasLabel(ordinaryEditor.getContent(), "DEV CANDIDATE"));
+	REQUIRE(hasLabel(ordinaryEditor.getContent(), "Quality: 1x"));
+	vekt::mono::PluginProcessor high;
+	auto* highQuality = high.getParameters().getParameter(vekt::mono::parameters::quality);
+	REQUIRE(highQuality != nullptr);
+	highQuality->setValueNotifyingHost(highQuality->convertTo0to1(3.0f));
+	high.prepareToPlay(48'000.0, 128);
+	vekt::mono::PluginEditor highEditor(high);
+	REQUIRE(hasLabel(highEditor.getContent(), "Quality: 8x FIR"));
 }
-#endif
 
 TEST_CASE("Mono Q compensation checkbox binds the default-off sound parameter", "[mono][processor][ui][qcomp]")
 {

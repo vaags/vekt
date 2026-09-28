@@ -51,7 +51,6 @@ struct MonoRenderRequest
 	double sampleRate { 48'000.0 };
 	int blockSize { 128 };
 	std::uint32_t seed { 0x4d6f6e6fu };
-	bool developmentLadder {};
 	std::int64_t totalSamples {};
 	mono::MonoVoiceSettings settings;
 	std::vector<MonoRenderEvent> events;

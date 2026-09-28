@@ -59,15 +59,6 @@
       }
     },
     {
-      "name": "audio-lab-coupled",
-      "displayName": "Audio Lab (Coupled Mono Preview)",
-      "inherits": "audio-lab",
-      "cacheVariables": {
-        "VEKT_MONO_LADDER_DEVELOPMENT": "ON",
-        "VEKT_MONO_AUDIO_LAB_COUPLED_PREVIEW": "ON"
-      }
-    },
-    {
       "name": "xcode",
       "displayName": "Xcode (AUv3)",
       "inherits": "base",

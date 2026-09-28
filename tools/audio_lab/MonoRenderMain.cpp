@@ -15,7 +15,6 @@ struct Options
 	std::uint32_t seed { 0x4d6f6e6fu };
 	juce::String wavPath;
 	juce::String reportPath;
-	bool candidate {};
 };
 
 bool parse(int argc, char** argv, Options& options)
@@ -33,8 +32,6 @@ bool parse(int argc, char** argv, Options& options)
 			else if (name == "--seed") options.seed = static_cast<std::uint32_t>(std::stoul(value.toStdString()));
 			else if (name == "--wav") options.wavPath = value;
 			else if (name == "--report") options.reportPath = value;
-			else if (name == "--engine" && (value == "candidate" || value == "legacy"))
-				options.candidate = value == "candidate";
 			else return false;
 		}
 	}
@@ -42,9 +39,6 @@ bool parse(int argc, char** argv, Options& options)
 	{
 		return false;
 	}
-#if !defined(VEKT_MONO_LADDER_DEVELOPMENT)
-	if (options.candidate) return false;
-#endif
 	return options.sampleRate > 0.0 && options.blockSize > 0
 		&& options.wavPath.isNotEmpty() && options.reportPath.isNotEmpty();
 }
@@ -57,7 +51,7 @@ int main(int argc, char** argv)
 	if (!parse(argc, argv, options))
 	{
 		std::cerr << "Usage: VektMonoRender --fixture filter-sweep|envelope "
-			"--wav path --report path [--sample-rate Hz] [--block-size samples] [--seed value] [--engine legacy|candidate (development build only)]\n";
+			"--wav path --report path [--sample-rate Hz] [--block-size samples] [--seed value]\n";
 		return 64;
 	}
 	vekt::audio_lab::MonoRenderRequest request;
@@ -67,7 +61,6 @@ int main(int argc, char** argv)
 		std::cerr << "Unknown Mono fixture\n";
 		return 64;
 	}
-	request.developmentLadder = options.candidate;
 	const auto result = vekt::audio_lab::renderMono(request);
 	if (!vekt::audio_lab::writeMonoRenderWav(juce::File(options.wavPath), result, options.sampleRate)
 		|| !vekt::audio_lab::writeMonoRenderReport(juce::File(options.reportPath), result))

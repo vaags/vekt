@@ -5,14 +5,6 @@ add_executable(VektRavAudioLab
 	LiveLab.cpp)
 set_target_properties(VektRavAudioLab PROPERTIES MACOSX_BUNDLE TRUE)
 
-option(VEKT_MONO_AUDIO_LAB_COUPLED_PREVIEW "Use the development-only coupled 1x Mono ladder in Audio Lab" OFF)
-if(VEKT_MONO_AUDIO_LAB_COUPLED_PREVIEW)
-	if(NOT VEKT_MONO_LADDER_DEVELOPMENT)
-		message(FATAL_ERROR "VEKT_MONO_AUDIO_LAB_COUPLED_PREVIEW requires VEKT_MONO_LADDER_DEVELOPMENT")
-	endif()
-	target_compile_definitions(VektRavAudioLab PRIVATE VEKT_MONO_AUDIO_LAB_COUPLED_PREVIEW=1)
-endif()
-
 add_executable(VektMonoRender
 	MonoRender.cpp
 	MonoRenderMain.cpp)

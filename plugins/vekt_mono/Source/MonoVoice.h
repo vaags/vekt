@@ -1,6 +1,5 @@
 #pragma once
 
-#include "DelayedFeedbackLadder.h"
 #include "NonlinearTptLadder.h"
 
 #include <juce_audio_basics/juce_audio_basics.h>
@@ -35,19 +34,10 @@ struct MonoVoiceSettings
 class MonoVoice
 {
 public:
-	void prepare(double newSampleRate, std::uint32_t seed, bool enableCandidate = false,
-		bool useCoupledSolver = false)
+	void prepare(double newSampleRate, std::uint32_t seed)
 	{
 		sampleRate = static_cast<float>(newSampleRate);
-#if defined(VEKT_MONO_LADDER_DEVELOPMENT)
-		candidateEnabled = enableCandidate;
-		coupledSolverEnabled = enableCandidate && useCoupledSolver;
-#else
-		juce::ignoreUnused(enableCandidate, useCoupledSolver);
-		candidateEnabled = false;
-		coupledSolverEnabled = false;
-#endif
-		for (auto& ladder : candidateLadders) ladder.prepare(newSampleRate);
+		for (auto& ladder : filterLadders) ladder.prepare(newSampleRate);
 		random.setSeed(seed);
 		amp.setSampleRate(newSampleRate);
 		filterEnvelope.setSampleRate(newSampleRate);
@@ -68,7 +58,6 @@ public:
 				oscillatorPhase = random.nextFloat();
 		driftCents = random.nextFloat() * 2.0f - 1.0f;
 		for (auto& ladder : filterLadders) ladder.reset();
-		for (auto& ladder : candidateLadders) ladder.reset();
 		filterControlsInitialized = false;
 		qCompensationGain.setCurrentAndTargetValue(1.0f);
 		fadeInSamples = 0;
@@ -119,7 +108,6 @@ public:
 		hasPitch = gliding = false;
 		amp.reset(); filterEnvelope.reset();
 		for (auto& ladder : filterLadders) ladder.reset();
-		for (auto& ladder : candidateLadders) ladder.reset();
 		fadeInSamples = 0;
 		continuitySamples = 0;
 		continuityPending = false;
@@ -197,11 +185,10 @@ public:
 	}
 
 	[[nodiscard]] bool isActive() const noexcept { return active; }
-#if defined(VEKT_MONO_LADDER_DEVELOPMENT)
 	[[nodiscard]] NonlinearTptLadderDiagnostics coupledDiagnostics() const noexcept
 	{
 		NonlinearTptLadderDiagnostics total;
-		for (const auto& ladder : candidateLadders)
+		for (const auto& ladder : filterLadders)
 		{
 			const auto& value = ladder.diagnostics();
 			total.samples += value.samples;
@@ -213,7 +200,6 @@ public:
 		}
 		return total;
 	}
-#endif
 	[[nodiscard]] bool isHeld() const noexcept { return held; }
 	[[nodiscard]] bool isSustained() const noexcept { return sustained; }
 	[[nodiscard]] bool matches(int expectedChannel, int expectedNote) const noexcept { return active && channel == expectedChannel && note == expectedNote; }
@@ -290,15 +276,8 @@ private:
 		const auto maximumCutoff = std::min(32'000.0f, sampleRate * 0.45f);
 		const auto cutoff = juce::jlimit(10.0f, maximumCutoff,
 			baseCutoff * std::exp2(keyOctaves + contourOctaves + velocityOctaves));
-		if (candidateEnabled)
-		{
-			auto& ladder = candidateLadders[static_cast<std::size_t>(stack)];
-			const NonlinearTptLadderSettings ladderSettings { cutoff, resonanceAmount, driveDb };
-			return coupledSolverEnabled ? ladder.processCoupled(input, ladderSettings)
-				: ladder.process(input, ladderSettings);
-		}
-		return filterLadders[static_cast<std::size_t>(stack)].process(input, cutoff,
-			sampleRate, resonanceAmount, dbToGain(driveDb));
+		const NonlinearTptLadderSettings ladderSettings { cutoff, resonanceAmount, driveDb };
+		return filterLadders[static_cast<std::size_t>(stack)].processCoupled(input, ladderSettings);
 	}
 
 	float sampleRate { 48'000.0f };
@@ -307,15 +286,12 @@ private:
 	juce::ADSR amp, filterEnvelope;
 	juce::SmoothedValue<float> cutoffOctaves, resonance, driveDecibels, qCompensationGain;
 	std::array<std::array<float, 3>, 4> phase {};
-	std::array<DelayedFeedbackLadder, 4> filterLadders;
-	std::array<NonlinearTptLadder, 4> candidateLadders;
+	std::array<NonlinearTptLadder, 4> filterLadders;
 	std::array<float, 2> continuityOffset {}, lastOutput {};
 	float pink {}, currentNote {}, targetNote {}, velocity {}, panPosition {}, driftCents {};
 	int channel {}, note {};
 	std::uint64_t age {};
 	bool active {}, held {}, sustained {}, filterControlsInitialized {}, continuityPending {};
 	bool hasPitch {}, gliding {};
-	bool candidateEnabled {};
-	bool coupledSolverEnabled {};
 };
 }

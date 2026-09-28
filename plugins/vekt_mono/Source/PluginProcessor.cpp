@@ -78,11 +78,7 @@ MonoVoiceSettings PluginProcessor::snapshotSettings() const
 	return settings;
 }
 
-#if defined(VEKT_MONO_LADDER_DEVELOPMENT)
-PluginProcessor::PluginProcessor(bool enableDevelopmentLadder, bool useCoupledSolver)
-#else
 PluginProcessor::PluginProcessor()
-#endif
 	: AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
 	  parameterState(*this, &undoManager, parameters::stateType, parameters::createLayout()),
 	  stateManager(parameterState, parameters::projectStateType, 3),
@@ -98,10 +94,6 @@ PluginProcessor::PluginProcessor()
 		[this](const presets::Preset& preset) { return applyPreset(preset); },
 		[this](const presets::Preset& preset) { return matchesPresetSound(preset); } })
 {
-#if defined(VEKT_MONO_LADDER_DEVELOPMENT)
-	developmentLadder = enableDevelopmentLadder;
-	coupledLadder = enableDevelopmentLadder && useCoupledSolver;
-#endif
 	for (std::size_t index = 0; index < voices.size(); ++index)
 		voices[index] = std::make_unique<MonoVoice>();
 	for (auto& heldNotes : heldNotesByChannel)
@@ -111,11 +103,7 @@ PluginProcessor::PluginProcessor()
 	const auto factoryResult = addFactoryPresets(presetCatalog);
 	jassert(factoryResult.wasOk());
 	juce::ignoreUnused(factoryResult);
-	juce::String presetDirectory { "Vekt Mono" };
-#if defined(VEKT_MONO_LADDER_DEVELOPMENT)
-	if (developmentLadder) presetDirectory = "Vekt Mono Ladder Preview";
-#endif
-	userPresetRepository = std::make_unique<presets::FilePresetRepository>(presets::PresetPaths::desktop(presetDirectory));
+	userPresetRepository = std::make_unique<presets::FilePresetRepository>(presets::PresetPaths::desktop("Vekt Mono"));
 	presetCatalog.setUserRepository(userPresetRepository.get());
 	presets::Preset initialPreset;
 	if (presetCatalog.loadFactoryPreset(0, initialPreset).wasOk()
@@ -130,11 +118,9 @@ PluginProcessor::~PluginProcessor()
 	parameterState.removeParameterListener(parameters::quality, this);
 }
 
-#if defined(VEKT_MONO_LADDER_DEVELOPMENT)
 PluginProcessor::CoupledWorkSnapshot PluginProcessor::coupledWorkSnapshot() const noexcept
 {
 	CoupledWorkSnapshot total;
-	if (!isCoupledLadderActive()) return total;
 	for (const auto& voice : voices)
 	{
 		const auto value = voice->coupledDiagnostics();
@@ -146,7 +132,6 @@ PluginProcessor::CoupledWorkSnapshot PluginProcessor::coupledWorkSnapshot() cons
 	}
 	return total;
 }
-#endif
 
 void PluginProcessor::prepareToPlay(double newSampleRate, int maximumBlockSize)
 {
@@ -194,18 +179,8 @@ void PluginProcessor::configureQuality(int quality)
 	const auto effectiveSampleRate = sampleRateHz * static_cast<double>(oversampling.getActiveFactor());
 	for (std::size_t index = 0; index < voices.size(); ++index)
 	{
-		bool useCandidate = false;
-#if defined(VEKT_MONO_LADDER_DEVELOPMENT)
-		useCandidate = isDevelopmentLadderActive();
-#endif
 		voices[index]->prepare(effectiveSampleRate,
-			0x4d6f6e6fu + static_cast<std::uint32_t>(index * 977), useCandidate,
-#if defined(VEKT_MONO_LADDER_DEVELOPMENT)
-			coupledLadder
-#else
-			false
-#endif
-		);
+			0x4d6f6e6fu + static_cast<std::uint32_t>(index * 977));
 	}
 	setLatencySamples(oversampling.getActiveLatencySamples());
 }

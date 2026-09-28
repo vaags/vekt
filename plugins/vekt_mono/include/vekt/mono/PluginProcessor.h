@@ -24,11 +24,7 @@ class PluginProcessor final : public juce::AudioProcessor,
 	private juce::AudioProcessorValueTreeState::Listener
 {
 public:
-#if defined(VEKT_MONO_LADDER_DEVELOPMENT)
-	explicit PluginProcessor(bool enableDevelopmentLadder = false, bool useCoupledSolver = false);
-#else
 	PluginProcessor();
-#endif
 	~PluginProcessor() override;
 
 	void prepareToPlay(double sampleRate, int maximumBlockSize) override;
@@ -39,13 +35,7 @@ public:
 
 	[[nodiscard]] juce::AudioProcessorEditor* createEditor() override;
 	[[nodiscard]] bool hasEditor() const override { return true; }
-	[[nodiscard]] const juce::String getName() const override
-	{
-#if defined(VEKT_MONO_LADDER_DEVELOPMENT)
-		if (developmentLadder) return "Vekt Mono Ladder Preview";
-#endif
-		return "Vekt Mono";
-	}
+	[[nodiscard]] const juce::String getName() const override { return "Vekt Mono"; }
 	[[nodiscard]] bool acceptsMidi() const override { return true; }
 	[[nodiscard]] bool producesMidi() const override { return false; }
 	[[nodiscard]] bool isMidiEffect() const override { return false; }
@@ -66,19 +56,11 @@ public:
 	[[nodiscard]] bool hasPendingVoiceCountChange() const noexcept { return pendingVoiceCount.load(); }
 	[[nodiscard]] bool hasPendingQualityChange() const noexcept { return pendingQuality.load(); }
 	[[nodiscard]] int getActiveQuality() const noexcept { return activeQuality; }
-#if defined(VEKT_MONO_LADDER_DEVELOPMENT)
-	[[nodiscard]] bool isDevelopmentLadderActive() const noexcept
-	{
-		return developmentLadder && (activeQuality == 0 || coupledLadder);
-	}
-	[[nodiscard]] bool isCoupledLadderActive() const noexcept { return isDevelopmentLadderActive() && coupledLadder; }
-	[[nodiscard]] bool isDevelopmentPreview() const noexcept { return developmentLadder; }
 	struct CoupledWorkSnapshot
 	{
 		std::uint64_t samples {}, iterations {}, lineSearchTrials {}, unconverged {}, nonFinite {};
 	};
 	[[nodiscard]] CoupledWorkSnapshot coupledWorkSnapshot() const noexcept;
-#endif
 	[[nodiscard]] std::array<float, 2> consumeOutputPeaks() noexcept { return outputMeter.consumePeaks(); }
 
 private:
@@ -130,10 +112,6 @@ private:
 	int requestedQuality {};
 	std::uint64_t noteAge {};
 	double sampleRateHz { 48'000.0 };
-#if defined(VEKT_MONO_LADDER_DEVELOPMENT)
-	bool developmentLadder {};
-	bool coupledLadder {};
-#endif
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginProcessor)
 };
 }

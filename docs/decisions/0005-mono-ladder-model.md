@@ -4,6 +4,16 @@
 
 Proposed
 
+**Implementation decision (28 September 2026):** Coupled is now Mono's sole
+render-path ladder at 1x/2x/4x/8x, including the ordinary host entry point.
+This pre-alpha breaking sound change is intentional: there are no users or
+sound-compatibility commitments. This is an implementation decision, **not**
+acceptance of the model for release. The numerical, listening, CPU, allocation,
+latency and host gates below remain open; a failed gate blocks release or
+requires a reviewed model/scope change, not an automatic legacy fallback.
+Earlier dated development results and cutover proposals below are historical
+evidence, not instructions to maintain a second engine.
+
 ## Context
 
 **Scope revision (27 September 2026):** Mono no longer offers or plans 16x.
@@ -23,12 +33,13 @@ for the delay-free feedback loop. Huovilainen's DAFx-04 paper and Zavalishin's
 *The Art of VA Filter Design* inform the structure and numerical method, but neither
 source specifies this exact combined model.
 
-This record specifies the candidate that is implemented today. Proposed status means
+This record specifies the ladder now implemented in Mono. Proposed status means
 the equations are precise enough for absolute-reference testing and the product has
 approved the ladder/gain boundary below, but the complete validation matrix, final
 acceptance tolerances and production fallback have not yet been approved.
 
-**Provisional pre-alpha integration decision (27 September 2026):** With no
+**Historical provisional pre-alpha integration decision (27 September 2026;
+superseded 28 September 2026):** With no
 external users or compatibility obligation, the candidate may be exercised
 inside Mono's actual voice and processor *before* this ADR is Accepted. This
 does not authorize a released candidate engine or waive finite output,
@@ -40,7 +51,8 @@ parameter/state contract is unchanged. This is an intentionally limited
 development experiment, not the final separate playback/offline controls.
 Record results and regressions in `docs/MONO_LADDER_ACCEPTANCE_PLAN.md`.
 
-**Replacement direction (27 September 2026):** Thomas chose the coupled
+**Historical replacement direction (27 September 2026; superseded by the
+implementation decision above):** Thomas chose the coupled
 Newton solver of the same four implicit stage equations as the preferred
 candidate for replacing the legacy Mono render engine, with legacy removal as
 soon as appropriate after acceptance and verified production integration.
@@ -64,10 +76,21 @@ CPU/safety and host paths. On 27 September 2026 Thomas superseded the
 representative patches and settings are required, but randomization,
 level-matched three-repeat comparisons and blinding are not release gates.
 Use a blinded comparison optionally if a sound decision becomes uncertain.
-The normal plugin still uses legacy; development-only coupled 2x/4x/8x paths
-now exist but are not qualified. Keep this ADR Proposed
-and defer production cutover and legacy deletion
-until the replacement and its retained paths pass the gates below.
+At the time of this audition the normal plugin still used legacy and
+development-only coupled 2x/4x/8x paths existed. This report does not qualify
+the replacement. Keep this ADR Proposed until retained paths pass the gates below.
+
+**Preset/project policy (28 September 2026):** Accept existing supported Mono
+filter parameters and stored quality indices 0–3, but interpret them through
+the coupled model. Their values are recalled, **not** their former sound.
+Stored quality index 4 (16x) project states remain rejected as a whole; host-
+managed normalized parameter snapshots may not be interceptable and must be
+checked in real hosts. Factory and user presets require listening/headroom
+review on the new engine. Retain the pre-change Git revision and any comparison
+renders as historical references, not a runtime selector or production SKU.
+The separate Playback/Offline Quality controls planned by ADR 0001 remain a
+release-contract decision; this implementation keeps the existing single
+1x/2x/4x/8x control and does not claim that split is implemented.
 
 ## Product boundary
 
@@ -282,6 +305,7 @@ without a defined error budget across the supported matrix.
 
 ## Acceptance status
 
+The pre-alpha engine replacement is implemented, not validated for release.
 The ladder boundary and required cutoff/resonance/drive modulation scope are frozen.
 The ADR remains Proposed until the documented host-rate, cutoff, resonance, level,
 drive, block-size, quality and stimulus matrices pass; self-oscillation and alias/IMD
@@ -406,7 +430,26 @@ gain differences and preference. Keep original renders for gain/headroom review;
 level and latency matching may help diagnose uncertain differences but are not
 mandatory listening gates. No higher-mode listening result has been recorded.
 
-### Decision sequence to leave Proposed
+### Current validation sequence to leave Proposed (supersedes the historical cutover sequence below)
+
+1. Exercise the ordinary coupled Mono processor at each retained quality in
+   Debug and normal Release VST3/Standalone builds. Verify finite output,
+   deterministic recall, preset-tail isolation, reset/silence, quality deferral
+   and reported latency; do not infer measured audio delay from that latency.
+2. Document control-specific listening (including factory presets, gain and
+   headroom), reference/spectral/IMD and modulation results, resonance/startup,
+   bounded work and fallback incidence. Freeze exceptions and limits with Thomas.
+3. Measure the complete normal Release processor under controlled scheduling,
+   and test actual host/device callbacks, allocation and timing for every claimed
+   rate/block/voice/quality envelope. Distinguish simulated overruns from
+   device glitches. Test preset/project recall, older normalized snapshots,
+   quality/latency negotiation and audible transitions in real hosts.
+4. Record source/build IDs, evidence and remaining limitations in
+   `docs/MONO_VALIDATION.md`. Only accept this ADR and claim release readiness
+   after all retained paths and the final quality-control contract pass, or
+   explicitly revise ADR 0001/0005. Do not reinstate legacy by default.
+
+### Historical staged cutover proposal (27 September 2026; superseded 28 September 2026)
 
 Track the current step statuses, evidence and next action in
 `docs/MONO_LADDER_ACCEPTANCE_PLAN.md`. Update that live plan when evidence
@@ -480,14 +523,15 @@ legacy revision if rollback is needed after cleanup. Detailed staged checkpoints
 and the per-quality evidence audit live in
 `docs/MONO_LADDER_ACCEPTANCE_PLAN.md`.
 
-Measurement-only integration for step 3 may precede acceptance; switching
-Mono's shipped render path may not. The legacy engine remains active and
-`production_integration_allowed` stays false until sign-off.
-The 27 September provisional C++ selector is an instance of this
-pre-acceptance development integration, not a completion of step 3 or a
-claim of sound quality, candidate CPU feasibility or host eligibility.
+**Historical 27 September gate (superseded by the 28 September pre-alpha
+implementation decision):** Measurement-only integration for step 3 could
+precede acceptance; switching Mono's ordinary render path could not. Legacy
+remained active and `production_integration_allowed` stayed false. The former
+C++ selector was pre-acceptance development integration, not a sound, CPU or
+host qualification. The current ordinary render path is coupled; **release
+validation remains open**.
 
-### Development evidence and remaining limitations
+### Development evidence and remaining limitations (dated results are historical)
 
 Two-second development impulse tests at the 10 Hz floor show that the proposed
 1 kHz tail-amplitude targets do not transfer to the floor: resonance 0.98 can

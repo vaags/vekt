@@ -265,9 +265,6 @@ bool makeMonoRenderFixture(const juce::String& name, double sampleRate, int bloc
 MonoRenderResult renderMono(const MonoRenderRequest& request)
 {
 	MonoRenderResult result;
-#if !defined(VEKT_MONO_LADDER_DEVELOPMENT)
-	if (request.developmentLadder) return result;
-#endif
 	if (request.sampleRate <= 0.0 || request.blockSize <= 0 || request.totalSamples <= 0
 		|| request.totalSamples > std::numeric_limits<int>::max())
 		return result;
@@ -277,7 +274,7 @@ MonoRenderResult renderMono(const MonoRenderRequest& request)
 	std::stable_sort(events.begin(), events.end(), [](const auto& left, const auto& right) { return left.sample < right.sample; });
 	mono::MonoVoiceSettings settings = request.settings;
 	mono::MonoVoice voice;
-	voice.prepare(request.sampleRate, request.seed, request.developmentLadder);
+	voice.prepare(request.sampleRate, request.seed);
 	voice.setPanPosition(0.0f);
 	std::size_t eventIndex {};
 	std::uint64_t age {};
@@ -307,7 +304,7 @@ MonoRenderResult renderMono(const MonoRenderRequest& request)
 	auto* report = new juce::DynamicObject;
 	result.report = juce::var(report);
 	report->setProperty("product", "mono");
-	report->setProperty("engine", request.developmentLadder ? "candidate-development-1x" : "legacy");
+	report->setProperty("engine", "coupled");
 	report->setProperty("fixture", request.fixture);
 	report->setProperty("sample_rate", request.sampleRate);
 	report->setProperty("block_size", request.blockSize);

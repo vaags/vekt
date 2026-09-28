@@ -25,7 +25,7 @@ struct NonlinearTptLadderDiagnostics
 	std::uint64_t coupledLineSearchTrials {};
 };
 
-// Provisional four-stage nonlinear ladder candidate. Each stage applies a
+// Four-stage nonlinear ladder. Each stage applies a
 // trapezoidal integrator to tanh(input) - tanh(output), while the instantaneous
 // global feedback loop is solved with bounded Newton iterations.
 class NonlinearTptLadder
@@ -34,7 +34,7 @@ public:
 	void prepare(double newSampleRate) noexcept;
 	void reset() noexcept;
 	[[nodiscard]] float process(float input, const NonlinearTptLadderSettings& settings) noexcept;
-	// Experimental coupled solve of the same four implicit stage equations.
+	// Production solve of the four implicit stage equations.
 	[[nodiscard]] float processCoupled(float input, const NonlinearTptLadderSettings& settings) noexcept;
 	// Development-only bounded integration variant. Prepare at the rate of the
 	// incoming samples; interpolate endpoints and preserve that rate's prewarp.

@@ -36,16 +36,10 @@ void setParameter(vekt::mono::PluginProcessor& processor, const char* identifier
 	parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
 }
 
-int run(double rate, int blockSize, int voices, int factor, double seconds, bool candidate, bool coupled, bool work, bool transitions, bool cpu)
+int run(double rate, int blockSize, int voices, int factor, double seconds, bool work, bool transitions, bool cpu)
 {
 	if (!vekt::audio_lab::callback_allocation_probe::verify()) return 1;
-#if defined(VEKT_MONO_LADDER_DEVELOPMENT)
-	vekt::mono::PluginProcessor processor(candidate, coupled);
-#else
 	vekt::mono::PluginProcessor processor;
-	(void)work;
-	if (candidate || coupled) return 64;
-#endif
 	const auto qualityIndex = factor == 1 ? 0 : factor == 2 ? 1 : factor == 4 ? 2 : 3;
 	setParameter(processor, vekt::mono::parameters::quality, static_cast<float>(qualityIndex));
 	setParameter(processor, vekt::mono::parameters::voiceCount, static_cast<float>(voices == 8 ? 0 : voices == 12 ? 1 : 2));
@@ -57,13 +51,6 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 	setParameter(processor, vekt::mono::parameters::filterDrive, 12.0f);
 	processor.prepareToPlay(rate, blockSize);
 	if (processor.getActiveQuality() != qualityIndex) return 1;
-#if defined(VEKT_MONO_LADDER_DEVELOPMENT)
-	if (processor.isDevelopmentLadderActive() != candidate || processor.isCoupledLadderActive() != coupled)
-	{
-		std::cerr << "Requested development engine is unavailable at this quality factor\n";
-		return 64;
-	}
-#endif
 	juce::AudioBuffer<float> buffer(2, blockSize);
 	juce::MidiBuffer midi;
 	std::array<int, 16> activeNotes {};
@@ -90,14 +77,12 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 	int transitionCallbacks {};
 	std::size_t wallOverrunsWithCpuBelowDeadline {};
 	double maximumOverrunCpuUs {}, maximumOverrunOffCpuUs {};
-#if defined(VEKT_MONO_LADDER_DEVELOPMENT)
 	auto previousWork = processor.coupledWorkSnapshot();
 	vekt::mono::PluginProcessor::CoupledWorkSnapshot slowestWork {};
 	std::uint64_t maximumCallbackIterations {}, maximumCallbackTrials {};
 	std::uint64_t overDeadlineIterations {}, overDeadlineTrials {};
 	double slowestCallbackUs {};
 	int slowestCallbackIndex {};
-#endif
 	for (int callback = 0; callback < callbacks; ++callback)
 	{
 		const bool hasTransition = transitions && callback % 8 == 0;
@@ -120,7 +105,6 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 		midi.clear();
 		callbackNewCalls += newCalls;
 		if (newCalls > 0) ++callbacksWithNew;
-#if defined(VEKT_MONO_LADDER_DEVELOPMENT)
 		if (work)
 		{
 			// Snapshot after the timer; the traversal itself is not charged to
@@ -147,7 +131,6 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 			}
 			previousWork = current;
 		}
-#endif
 		times.push_back(elapsed);
 		if (hasTransition) maximumTransitionUs = std::max(maximumTransitionUs, elapsed);
 		else maximumOtherUs = std::max(maximumOtherUs, elapsed);
@@ -172,9 +155,7 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 				sumSquares += value * value;
 			}
 	}
-#if defined(VEKT_MONO_LADDER_DEVELOPMENT)
-	if (coupled && !work) previousWork = processor.coupledWorkSnapshot();
-#endif
+	if (!work) previousWork = processor.coupledWorkSnapshot();
 	std::sort(times.begin(), times.end());
 	const auto percentile = [&times](double fraction)
 	{
@@ -184,7 +165,7 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 	const auto deadlineUs = blockSize * 1'000'000.0 / rate;
 	const auto p99_9Us = percentile(0.999);
 	std::cout << std::fixed << std::setprecision(3)
-		<< "engine=" << (coupled ? "candidate-coupled" : candidate ? "candidate-development" : "legacy")
+		<< "engine=coupled"
 		<< " workload=" << (transitions ? "transitions" : "sustained")
 		<< " transition_callbacks=" << transitionCallbacks
 		<< " rate=" << rate << " block=" << blockSize << " voices=" << voices
@@ -209,9 +190,7 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 			<< " wall_overruns_cpu_below_deadline=" << wallOverrunsWithCpuBelowDeadline
 			<< " maximum_overrun_thread_cpu_us=" << maximumOverrunCpuUs
 			<< " maximum_overrun_off_cpu_us=" << maximumOverrunOffCpuUs;
-#if defined(VEKT_MONO_LADDER_DEVELOPMENT)
-	if (coupled)
-		std::cout << " work_snapshots=" << (work ? "per-callback" : "final-only")
+	std::cout << " work_snapshots=" << (work ? "per-callback" : "final-only")
 			<< " coupled_samples=" << previousWork.samples
 			<< " coupled_iterations=" << previousWork.iterations
 			<< " coupled_line_search_trials=" << previousWork.lineSearchTrials
@@ -227,7 +206,6 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 			<< " slowest_callback_iterations=" << slowestWork.iterations
 			<< " slowest_callback_line_search_trials=" << slowestWork.lineSearchTrials
 			<< " slowest_callback_unconverged=" << slowestWork.unconverged;
-#endif
 	std::cout << '\n';
 	processor.releaseResources();
 	return std::isfinite(sumSquares) && sumSquares > 0.0 && callbackNewCalls == 0 ? 0 : 1;
@@ -236,9 +214,9 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 
 int main(int argc, char** argv)
 {
-	if (argc != 6 && argc != 7 && argc != 8)
+	if (argc != 6 && argc != 7)
 	{
-		std::cerr << "Usage: VektMonoProcessorCost rate block_size voices(8|12|16) factor(1|2|4|8) seconds [legacy|candidate [transitions]|candidate-coupled [work|transitions|cpu]]\n";
+		std::cerr << "Usage: VektMonoProcessorCost rate block_size voices(8|12|16) factor(1|2|4|8) seconds [work|transitions|cpu]\n";
 		return 64;
 	}
 	try
@@ -248,22 +226,16 @@ int main(int argc, char** argv)
 		const auto voices = std::stoi(argv[3]);
 		const auto factor = std::stoi(argv[4]);
 		const auto seconds = std::stod(argv[5]);
-		const auto engine = argc >= 7 ? std::string_view(argv[6]) : std::string_view("legacy");
-		const auto work = argc == 8 && std::string_view(argv[7]) == "work";
-		const auto transitions = argc == 8 && std::string_view(argv[7]) == "transitions";
-		const auto cpu = argc == 8 && std::string_view(argv[7]) == "cpu";
+		const auto work = argc == 7 && std::string_view(argv[6]) == "work";
+		const auto transitions = argc == 7 && std::string_view(argv[6]) == "transitions";
+		const auto cpu = argc == 7 && std::string_view(argv[6]) == "cpu";
 		if (!std::isfinite(rate) || rate < 44'100.0 || rate > 192'000.0
 			|| block < 1 || block > 257 || (voices != 8 && voices != 12 && voices != 16)
 			|| (factor != 1 && factor != 2 && factor != 4 && factor != 8)
 			|| !std::isfinite(seconds) || seconds <= 0.0 || seconds > 30.0
-			|| (engine != "legacy" && engine != "candidate" && engine != "candidate-coupled")
-			|| (engine == "candidate" && factor != 1)
-			|| (argc == 8 && !work && !transitions && !cpu)
-			|| (work && engine != "candidate-coupled")
-			|| (cpu && engine != "candidate-coupled")
-			|| (transitions && engine == "legacy")) return 64;
+			|| (argc == 7 && !work && !transitions && !cpu)) return 64;
 		juce::ScopedJuceInitialiser_GUI juceInitialiser;
-		return run(rate, block, voices, factor, seconds, engine != "legacy", engine == "candidate-coupled", work, transitions, cpu);
+		return run(rate, block, voices, factor, seconds, work, transitions, cpu);
 	}
 	catch (const std::exception&) { return 64; }
 }

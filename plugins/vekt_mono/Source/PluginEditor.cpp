@@ -7,8 +7,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	  presetBrowser(newProcessor.getPresetSession())
 {
 	setLookAndFeel(&lookAndFeel);
-	title.setText(pluginProcessor.getName() == "Vekt Mono Ladder Preview"
-		? "MONO  PREVIEW" : "VEKT  MONO", juce::dontSendNotification);
+	title.setText("VEKT  MONO", juce::dontSendNotification);
 	title.setFont(juce::FontOptions(24.0f).withStyle("Bold"));
 	status.setJustificationType(juce::Justification::centredRight);
 	historyControls.beforeAction = [this] { juce::ignoreUnused(pluginProcessor.getParameters().copyState()); };
@@ -130,12 +129,6 @@ void PluginEditor::timerCallback()
 		+ " • " + juce::String(pluginProcessor.getLatencySamples()) + " smp";
 	if (pluginProcessor.hasPendingVoiceCountChange()) message = "Voice count pending—release notes";
 	if (pluginProcessor.hasPendingQualityChange()) message += " • Quality pending—stop and release notes";
-#if defined(VEKT_MONO_LADDER_DEVELOPMENT)
-	if (pluginProcessor.isDevelopmentPreview())
-		message = juce::String(pluginProcessor.isCoupledLadderActive()
-			? "DEV COUPLED " + juce::String(1 << activeQuality) + "x | " : pluginProcessor.isDevelopmentLadderActive()
-				? "DEV NESTED 1x | " : "DEV PREVIEW: LEGACY | ") + message;
-#endif
 	status.setText(message, juce::dontSendNotification);
 	outputMeter.setStereoLevels(pluginProcessor.consumeOutputPeaks());
 }

@@ -258,7 +258,7 @@ juce::var validationContractReport()
 	contract->setProperty("nominal_self_oscillation_resonance", 1.0);
 	contract->setProperty("fallback_policy", "zero-incidence-required-or-continuous-replacement");
 	contract->setProperty("coverage_status", "representative-points-only");
-	contract->setProperty("production_integration_allowed", false);
+	contract->setProperty("release_validation_status", "open");
 	contract->setProperty("required_control_modulation",
 		juce::Array<juce::var> { "cutoff", "resonance", "drive" });
 	contract->setProperty("quality_candidates",

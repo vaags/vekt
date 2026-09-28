@@ -1,5 +1,57 @@
 # Mono Sound Engine Development
 
+## Coupled-only implementation and validation status — 28 September 2026
+
+The pre-alpha breaking change replaces Mono's legacy filter with the coupled
+four-stage ladder in the **ordinary** processor for 1x/2x/4x/8x. There is no
+engine selector or separate preview SKU. ADR 0005 remains Proposed: replacing
+the implementation does **not** qualify it for release. A supported old Mono
+preset/project recalls its filter control values under the new model, so its
+sound can differ; index-4 (16x) project state remains rejected. Older host-
+managed normalized quality snapshots need explicit host checks. The planned
+separate Playback/Offline Quality controls are not implemented.
+
+**28 September regression checkpoint (working tree based on `9817c19`):**
+`cmake --build --preset dev --target vekt_dsp_tests` and the Audio Lab Release
+targets `VektMonoProcessorCost`, `VektMonoRender`, `VektLadderPrototype` built.
+The ordinary `release` VST3 and Standalone targets also built (local arm64
+Mach-O SHA-256 `e5bf478fb5ba93bbab3bcc8515a7f9f46fc172ffebbf79ee54eb0cfe55fbaa98`
+and `9d8788370f4b0371f266f75317779f3b0561b274b717c45217490c0777160fd3`,
+respectively). These identify local uncommitted binaries, not host-tested
+release artifacts.
+`vekt_dsp_tests '[mono][processor]'` passed 57/61 cases; four resonance tests
+failed. At 44.1 kHz/1x/250 Hz the seeded ringdown measured RMS 0.004995
+against the existing 0.1 minimum; the preset-style path measured 0.000703
+against 0.025; seeded real-time emphasis measured 0.003228 against 0.1;
+raising emphasis over an active oscillator produced a 1 kHz tone of 0.002153
+versus 0.009751 at low emphasis, instead of the asserted tenfold increase.
+The exact-zero equilibrium without input passed before explicit noise excitation.
+These failures are **open sound-contract questions**, not waived regressions:
+investigate filter gain/onset/frequency and preset audibility with Thomas and
+approve revised thresholds or adjust the model before release. The broad
+`ctest --preset dev --output-on-failure` run finished in 231.70 seconds:
+266/270 passed; the same four named resonance cases failed (tests 108, 125,
+129 and 144). An offline 48 kHz/128/eight-voice/1x 0.02-second work probe
+returned finite output, zero covered C++ `new` calls and zero simulated
+deadline exceedances in eight callbacks; its short duration cannot establish
+an operating envelope or device safety. Release build success is not host evidence.
+
+Debug tests of the ordinary processor and a normal Release build are useful
+regression evidence only. **No normal Release VST3/Standalone host session,
+live audio device, audible click assessment, measured audio-delay test, or
+controlled callback-allocation/timing qualification has been completed by this
+change.** Before release, document host and OS, hardware/audio interface,
+rate/block/voice/quality settings, exact source and artifact IDs; test factory
+and user presets, project recall and older normalized snapshots, quality
+deferral and latency negotiation, measured audio delay versus *reported*
+latency, gain/headroom, audible transitions, processing-thread allocation
+(including beyond C++ `new`), callback timing and actual device glitches at
+each claimed operating boundary. Record failures and exclusions here and
+resolve the ADR 0001 playback/offline quality contract. Offline simulated
+deadline counts are not device callback misses.
+
+## Historical development results (27 September 2026 and earlier)
+
 **Mono quality scope revision (27 September 2026):** The selectable legacy
 quality and both planned candidate playback/offline ranges end at 8x
 (1x/2x/4x/8x). Previously proposed offline 16x, host export blocking and

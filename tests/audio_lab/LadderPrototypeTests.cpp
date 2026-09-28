@@ -459,7 +459,7 @@ TEST_CASE("Ladder prototype report is deterministic and block-size invariant", "
 	REQUIRE(contract.getProperty("product_direction", {}).toString()
 		== "hybrid-classic-ladder-modern-features");
 	REQUIRE(contract.getProperty("ladder_output", {}).toString() == "raw-fourth-stage");
-	REQUIRE_FALSE(static_cast<bool>(contract.getProperty("production_integration_allowed", true)));
+	REQUIRE(contract.getProperty("release_validation_status", {}).toString() == "open");
 	REQUIRE(first.report.getProperty("planned_validation_matrix", {})
 		.getProperty("completion", {}).toString() == "not-complete");
 	REQUIRE(first.report.getProperty("provisional_acceptance_limits", {})

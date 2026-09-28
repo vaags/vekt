@@ -1,18 +1,28 @@
 # Mono Ladder Acceptance Plan
 
-**Updated:** 27 September 2026
+**Updated:** 28 September 2026
 
-**Decision:** ADR 0005 is Proposed; the legacy engine remains in production.
-**Replacement direction (approved 27 September 2026):** Qualify the coupled
-solver as the preferred candidate and retire the legacy render engine as soon
-as the complete replacement is accepted and integrated safely. This is not
-permission to switch the host entry point or remove legacy today.
-**Cutover objective (27 September 2026):** Deliver one coupled production engine
-for every retained quality, validate the production host path, then remove
-legacy in a separately verified change. Prepare production-equivalent tests
-before cutover, but keep `production_integration_allowed=false` until Thomas
-signs the acceptance decision. A 1x-first *qualification order* is not approval
-to ship a 1x-only or mixed-engine plugin.
+**Decision:** ADR 0005 is Proposed. In pre-alpha with no users, Mono directly
+replaces legacy with coupled for the ordinary host-created plugin at every
+retained 1x/2x/4x/8x quality. This is a breaking sound change, not release
+validation. No parallel preview SKU, development constructor selector,
+production-integration permission flag, mandatory legacy rollback, or second
+deletion sign-off remains. Preserve dated comparisons as historical evidence.
+No 1x-only or mixed-engine release is approved. Supported presets and project
+filter values are accepted and reinterpreted by coupled, without any promise
+of identical sound; stored 16x (index 4) project state is still rejected.
+
+**Release gate (open):** Test actual normal Release VST3/Standalone artifacts
+in a host for preset and project loading, older normalized quality snapshots,
+quality changes, reported and measured latency, audible clicks, callback
+allocations/timing and device glitches. Record hardware, host, rates, blocks,
+voices, qualities, source/build IDs and results in `docs/MONO_VALIDATION.md`.
+Failed gates block a release claim or require an explicit scope/model decision;
+they do not automatically restore legacy. The planned separate Playback and
+Offline Render Quality controls in ADR 0001 are not yet implemented and need
+an explicit release-contract decision.
+
+## Historical evidence ledger (27 September 2026 and earlier; not current instructions)
 
 **Current gate:** Provisional 1x candidate integration into Mono's development
 processor passes focused silence, reset, finite/bounded, determinism and
@@ -423,7 +433,7 @@ test is not a pass; a focused pass does not imply full-matrix completion. Reconc
 the status in `docs/MONO_VALIDATION.md` and ADR 0005 whenever it changes. Do not
 rewrite earlier measurements as if they tested a newer model or binary.
 
-## Product boundary and decision rules
+## Product boundary and decision rules (current policy overrides historical text below)
 
 - Goal: a convincing classic-style dry Mono bass/lead ladder with deliberate
   modern options, not an asserted match to a particular Moog or a Mother-32.
@@ -434,23 +444,18 @@ rewrite earlier measurements as if they tested a newer model or binary.
   cutoff/resonance/drive modulation unless an explicit ADR change approves
   a different mapping. The current candidate is the *specified* `tanh`-stage
   TPT/ZDF model, not a published circuit's exact equations.
-- ADR 0001 plans separate candidate **Playback Quality** (1x/2x/4x/8x,
+- ADR 0001 plans separate **Playback Quality** (1x/2x/4x/8x,
   default 1x) and **Offline Render Quality** (follows Playback Quality
-  until explicitly overridden with 1x/2x/4x/8x). The legacy GUI has one
+  until explicitly overridden with 1x/2x/4x/8x). The current GUI has one
   four-choice setting; the separate controls are not implemented.
   A credible 1x default is **not** permission to ship unreviewed higher modes.
   Support conditions may be limited explicitly; a 1x-only or mixed-engine
   release requires an approved ADR 0001/0005 revision and quality-switch
   validation.
-- Keep `production_integration_allowed=false`. Measurement-only integration
-  can precede acceptance; shipped engine replacement cannot. If the approved
-  contract proves infeasible, record rejection/supersession rather than
-  changing thresholds after observing failures without review.
-- Prefer a **single coupled production engine**, not a permanent legacy/coupled
-  quality split. Treat nested and legacy as comparison baselines while coupled
-  is qualified. If coupled cannot pass sound, stability, timing or host gates,
-  keep legacy in production and revisit the model or explicitly revise the
-  product contract; do not silently ship a mixed-engine fallback.
+- Implement coupled as the sole engine now, without claiming the unverified
+  release contract. If the approved contract proves infeasible, record a
+  scope/model revision rather than silently changing thresholds after failure.
+  Nested and legacy are historical/offline comparators, not production fallbacks.
 
 ## Evidence ledger (not acceptance)
 
@@ -820,18 +825,17 @@ or product target; do not default to another 2x CPU optimization.
 **Remaining:** reference, alternatives, control-specific listening and decision;
 Thomas's positive coupled 1x preference is already recorded.
 
-### 5. Complete candidate-processor 1x cost and safety — in progress
+### 5. Complete coupled-processor 1x cost and safety — in progress
 
 **Owner:** DSP engineering; reviewer approves remaining operating limits.
-An explicit, development-only 1x selection now exercises the Mono voice and
-processor without enabling the candidate in the host entry point. Smoke tests
-and a 10-callback complete-processor Release diagnostic pass their limited
-checks (see the provisional integration track). This precedes sound approval
-and does **not** qualify a release engine. Verify gain/control mapping,
+The ordinary processor now exercises coupled at every retained quality.
+Earlier smoke tests and a 10-callback development Release diagnostic passed
+limited checks (see the historical integration track); they do **not** qualify
+the new Release engine. Verify gain/control mapping,
 processing-thread allocation, bounded work and longer note/control cases.
 Use coupled as the primary qualification subject and nested as an equation-
 agreement/cost comparator; do not substitute nested's results for coupled's.
-On the M1 Pro compare candidate and legacy Release processor runs first at
+On the M1 Pro measure the normal coupled Release processor first at
 the 48 kHz/257-sample/eight-voice pilot, then at all four approved 1x
 combinations (44.1/48 kHz × 128/257 samples × eight voices).
 Investigate the inconsistent callback tails using a documented controlled
@@ -840,8 +844,7 @@ the complete-processor bottleneck before changing solver or sound decisions.
 Probe other exposed rates, blocks and voice counts to support explicit
 limitations; include modulation/overload and long runs. Record build,
 timings, simulated deadlines and any device tests separately. The default
-`VektMonoProcessorCost` measures legacy; its explicit development-only
-`candidate` mode measures the complete 1x processor in a separate build.
+`VektMonoProcessorCost` now measures the ordinary coupled processor.
 `VektLadderCost` is filter-only. Short diagnostics cannot establish feasibility.
 **Done when:** reviewer-approved 1x complete-path cost/safety go/no-go is
 recorded. **Remaining:** sound review, allocation checks, long-duration
@@ -852,10 +855,8 @@ candidate results and all four approved configurations.
 **Owners:** DSP engineering and product reviewer. For each retained
 2x/4x/8x mode establish approved operating conditions, reference,
 spectral, stability, latency and complete-processor Release evidence.
-Development-only coupled selection now reaches 2x/4x/8x in the preview and
-cost harness, with an explicit effective-engine label and focused finite-output,
-latency and solver-work smoke coverage. Nested preview above 1x and the normal
-plugin remain legacy. These smoke checks do not satisfy the
+The ordinary plugin now runs coupled at 2x/4x/8x. Earlier development smoke
+checks covered finite output, latency and solver work but do not satisfy the
 per-path matrix, Release CPU/safety budget or listening requirements.
 Short 48 kHz/128-sample/eight-voice Release harness diagnostics (0.01–0.02 s)
 reported zero covered callback `new` calls and finite energy: 2x had zero
@@ -881,27 +882,19 @@ filter-only or single-bin win as a path pass.
 **Done when:** signed matrix and every retained path meet their frozen gates,
 or the product explicitly revises ADR 0001/0005. **Remaining:** full gate.
 
-### 7. ADR decision and production handoff — blocked
+### 7. ADR acceptance and release validation — blocked
 
 **Owner:** named product reviewer. Record numerical/CPU approval, documented
 unblinded listening checks, exceptions, scope and build identifiers in ADR 0005.
 Accept only after all retained paths and model gates pass; otherwise reject,
-supersede or explicitly revise the product scope. Exercise coupled across the
-retained playback and offline quality paths in development before acceptance;
-only after acceptance replace the host-created legacy engine when the approved
-envelopes, zero-allocation/finite-output safety and host lifecycle gates hold.
-Validate plugin formats, effective quality/latency and export restrictions,
-project/preset recall, gain/headroom, render comparisons, and production builds
-without development flags. Keep legacy available as a test comparator until
-the new production path passes full regression checks; then remove legacy DSP,
-obsolete selectors and legacy-only fixtures in a separately validated cleanup
-rather than leaving a permanent mixed-engine release. Record build IDs and the cutover and
-deletion decisions. If any gate fails, retain legacy production and report
-the blocker; do not equate a development preview with replacement.
-**Remaining:** coupled sign-off, integration, host/regression validation and
-legacy removal.
+supersede or explicitly revise product scope. The ordinary host-created engine
+has already changed; verify normal Release formats, effective quality and
+latency, project/preset recall, gain/headroom, render comparisons, live-device
+behavior and full regression results. Record build IDs and limitations in
+`docs/MONO_VALIDATION.md`. A failed gate blocks release, not implementation.
+**Remaining:** coupled sign-off and Release host/regression validation.
 
-#### Staged coupled cutover and rollback contract (objective, not approval)
+#### Historical staged cutover and rollback proposal (27 September 2026; superseded)
 
 1. **Prepare without switching production — in progress.** Keep the normal
    entry point legacy. Exercise coupled in the development processor at 1x
@@ -926,11 +919,10 @@ legacy removal.
    and correct effective quality/latency, not a playback deadline.
 3. **Decide — blocked.** Thomas records an attributable go/no-go with build ID,
    per-mode evidence, supported/excluded combinations, remaining risks and
-   exceptions in ADR 0005. Keep `production_integration_allowed=false` until
-   every retained path and host/state contract is accepted. If 8x or another
-   mode cannot qualify, retain legacy production and explicitly revise ADR
-   0001/0005 and the quality contract before any narrower cutover; do not
-   silently route that mode to legacy.
+   exceptions in ADR 0005. Release validation remains open until every
+   retained path and host/state contract is accepted. If 8x or another
+   mode cannot qualify, explicitly revise ADR 0001/0005 and the quality
+   contract before release; do not silently route that mode to legacy.
 4. **Cut over and verify — blocked.** In a reviewable change, enable coupled
    for the ordinary host-created plugin *without development flags*. Validate
    Release Standalone/VST3 and AUv3 where built, host lifecycle and live
