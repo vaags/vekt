@@ -1,4 +1,5 @@
 #include "NonlinearTptLadder.h"
+#include "LadderResonance.h"
 
 #include <algorithm>
 #include <cmath>
@@ -135,7 +136,7 @@ float NonlinearTptLadder::processStep(float input,
 	const NonlinearTptLadderSettings& settings, double integrationGain) noexcept
 {
 	const auto resonance = std::clamp(settings.resonance, 0.0f, 1.0f);
-	const auto feedbackGain = 4.0 * resonance;
+	const auto feedbackGain = ladderFeedbackGain(static_cast<double>(resonance));
 	const auto driveGain = std::pow(10.0f, settings.driveDecibels / 20.0f);
 	const auto drivenInput = std::clamp(static_cast<double>(input) * driveGain,
 		-signalLimit, signalLimit);
@@ -207,7 +208,7 @@ float NonlinearTptLadder::processCoupled(float input, const NonlinearTptLadderSe
 	constexpr int maximumLineSearchSteps = 10;
 	const auto cutoff = std::clamp(settings.cutoffHz, 10.0f, sampleRate * 0.45f);
 	const auto g = std::tan(std::numbers::pi_v<double> * cutoff / sampleRate);
-	const auto k = 4.0 * std::clamp(settings.resonance, 0.0f, 1.0f);
+	const auto k = ladderFeedbackGain(static_cast<double>(settings.resonance));
 	const auto driveGain = std::pow(10.0f, settings.driveDecibels / 20.0f);
 	const auto driven = std::clamp(static_cast<double>(input) * driveGain, -signalLimit, signalLimit);
 	std::array<double, 4> output = previousOutput;

@@ -256,6 +256,7 @@ juce::var validationContractReport()
 	contract->setProperty("drive_compensation", "optional-bypassable-post-ladder");
 	contract->setProperty("q_compensation", "optional-default-off-post-ladder");
 	contract->setProperty("nominal_self_oscillation_resonance", 1.0);
+	contract->setProperty("maximum_resonance_feedback", 4.6);
 	contract->setProperty("fallback_policy", "zero-incidence-required-or-continuous-replacement");
 	contract->setProperty("coverage_status", "representative-points-only");
 	contract->setProperty("release_validation_status", "open");

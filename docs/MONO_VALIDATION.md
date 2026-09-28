@@ -36,7 +36,7 @@ returned finite output, zero covered C++ `new` calls and zero simulated
 deadline exceedances in eight callbacks; its short duration cannot establish
 an operating envelope or device safety. Release build success is not host evidence.
 
-**28 September resonance investigation (source `7b21006`):** Directly exercising
+**28 September resonance investigation (historical k=4 model, source `7b21006`):** Directly exercising
 `NonlinearTptLadder::processCoupled` at 48 kHz, 1 kHz cutoff, 0 dB drive with
 0.1 s of deterministic white-noise excitation (peak input 0.05), followed by
 silence, gave a 0.1–0.2 s raw output RMS of 0.00765 at resonance 1.0 and
@@ -44,7 +44,8 @@ silence, gave a 0.1–0.2 s raw output RMS of 0.00765 at resonance 1.0 and
 0.000001 over the same windows. Both runs reported zero unconverged and
 nonfinite samples. A working-tree diagnostic regression compares the coupled and
 nested solvers over this seeded tail: it passes (526 assertions), including
-maximum sample difference below 1e-4 and exact silence from the zero state.
+maximum sample difference below 1e-4 and exact silence from the zero state
+*before* the feedback mapping change.
 The five focused `[audio-lab][mono][ladder-coupled]` cases pass (261706
 assertions). After adding the diagnostic, `ctest --preset dev
 --output-on-failure` completed in 230.18 seconds: 267/271 passed; the same
@@ -52,13 +53,43 @@ four Mono resonance sound cases failed (tests 88, 96, 143 and 217 in this run).
 This evidence points to the **specified k=4 boundary and nonlinear damping**
 as the cause of weak finite-amplitude tails, rather than an obvious coupled
 solver divergence or voice-only bug; it does not prove the sound is acceptable.
-The unchanged processor filter tests still fail four of thirteen cases with
-the same sound discrepancies. The direct test's measured-shape bounds are
-diagnostic guards, not approved listening or release limits. Decide with Thomas
-whether finite-level free-running oscillation and a rising cutoff tone on the
-specified oscillator patch are required; if so, revise the model/control
-mapping and its independent reference together, then revalidate stability,
-headroom, sound and cost. Do not silently raise feedback or weaken these tests.
+The four processor failures and the k=4 tail figures are historical baselines;
+Thomas subsequently confirmed that a bounded, finite-level free-running tone
+after excitation is required at maximum resonance and ordinary audible cutoffs.
+
+**28 September revised resonance candidate (uncommitted working tree):** The
+feedback mapping remains `k=4r` through `r=0.98`, then uses the smoothstep
+extension recorded in ADR 0005, reaching `k=4.6` at maximum. At 48 kHz,
+1 kHz and 0 dB drive, the direct seeded tail at `r=0.98` still decays below
+1e-6 RMS at 2–2.1 s; at `r=1` it settles near 0.124 RMS after excitation,
+instead of decaying. The 44.1 kHz/1x/250 Hz processor output was 0.0879 RMS
+and the preset-style path measured 0.0163 RMS. The processor's existing level
+floors (0.1/0.025/0.1) remain unchanged and **still fail**; a higher top-end
+gain `k=4.9` met most levels but shifted pitch 3.5–4% downward across rates,
+breaching the existing 3% pitch constraint. The active-oscillator tenfold
+tone-increase assertion passes at `k=4.6`. This candidate does not yet meet
+the full processor sound contract; do not release or waive the remaining gates.
+At the 10 Hz floor, the existing 30-second pitch test measures about 9.725 Hz
+over 49 crossings (2.75% low against the 0.5% requirement). A separate
+half-second floor/ceiling boundary test reports 10.361 Hz from only five
+crossings (3.61% high against its 1% limit); this shorter estimate warrants
+careful remeasurement, but the longer-window failure is an independent pitch
+regression. Neither pitch assertion has been relaxed.
+The direct seeded diagnostic now compares steady RMS rather than samples:
+small phase divergence between free-running solvers does not imply differing
+amplitudes. A separate reference run at tighter tolerance checks that two
+different excitation levels settle to comparable finite amplitudes. These are
+automated regression limits, not a listening or release-level sign-off.
+The final consistent Debug run, after rebuilding with the original processor
+level assertions restored, used `ctest --preset dev --output-on-failure` and
+finished **267/272 passed in 1187.52 seconds**. Five failures remain: the
+maximum-emphasis level test (test 177; 0.087865 versus required >0.1), the
+preset-style voice level (test 101; 0.016328 versus required >0.025), the
+real-time emphasis level (test 194; 0.087300 versus required >0.1), the
+30-second 10 Hz pitch test (test 187), and the short cutoff-boundary pitch
+test (test 265). CTest test numbers depend on discovery order. Both new
+seeded-tail/reference tests pass. No production solver tolerances or existing
+sound/pitch assertions were weakened for this result.
 
 Debug tests of the ordinary processor and a normal Release build are useful
 regression evidence only. **No normal Release VST3/Standalone host session,

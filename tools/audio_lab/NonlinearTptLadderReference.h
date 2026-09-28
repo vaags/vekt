@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../../plugins/vekt_mono/Source/LadderResonance.h"
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -79,7 +81,7 @@ public:
 			// wc = 2 * sampleRate * hostIntegrationGain; at N times the rate,
 			// trapezoidal integration uses wc / (2 * N * sampleRate).
 			const auto integrationGain = hostIntegrationGain / static_cast<double>(substeps);
-			const auto feedbackGain = 4.0 * resonance;
+			const auto feedbackGain = mono::ladderFeedbackGain(resonance);
 			const auto driveGain = std::pow(10.0, driveDecibels / 20.0);
 			output = processInternal(interpolatedInput * driveGain, integrationGain, feedbackGain);
 			if (static_cast<std::size_t>(substep) < internalOutput.size())
@@ -244,7 +246,7 @@ private:
 	const std::complex<double> s { 0.0, 2.0 * std::numbers::pi * frequencyHz };
 	const auto stage = warpedCutoffRadians / (s + warpedCutoffRadians);
 	const auto cascade = stage * stage * stage * stage;
-	const auto feedbackGain = 4.0 * std::clamp(settings.resonance, 0.0, 1.0);
+	const auto feedbackGain = mono::ladderFeedbackGain(settings.resonance);
 	const auto driveGain = std::pow(10.0, settings.driveDecibels / 20.0);
 	const auto wrapperGain = settings.driveCompensation ? std::sqrt(driveGain) : driveGain;
 	return wrapperGain * cascade / (1.0 + feedbackGain * cascade);
@@ -261,7 +263,7 @@ private:
 	const std::complex<double> s { 0.0, warpedProbeRadians };
 	const auto stage = warpedCutoffRadians / (s + warpedCutoffRadians);
 	const auto cascade = stage * stage * stage * stage;
-	const auto feedbackGain = 4.0 * std::clamp(settings.resonance, 0.0, 1.0);
+	const auto feedbackGain = mono::ladderFeedbackGain(settings.resonance);
 	const auto driveGain = std::pow(10.0, settings.driveDecibels / 20.0);
 	const auto wrapperGain = settings.driveCompensation ? std::sqrt(driveGain) : driveGain;
 	return wrapperGain * cascade / (1.0 + feedbackGain * cascade);
@@ -277,7 +279,7 @@ private:
 	const auto stage = integrationGain * (1.0 + zInverse)
 		/ ((1.0 + integrationGain) + (integrationGain - 1.0) * zInverse);
 	const auto cascade = stage * stage * stage * stage;
-	const auto feedbackGain = 4.0 * std::clamp(settings.resonance, 0.0, 1.0);
+	const auto feedbackGain = mono::ladderFeedbackGain(settings.resonance);
 	const auto driveGain = std::pow(10.0, settings.driveDecibels / 20.0);
 	const auto wrapperGain = settings.driveCompensation ? std::sqrt(driveGain) : driveGain;
 	return wrapperGain * cascade / (1.0 + feedbackGain * cascade);

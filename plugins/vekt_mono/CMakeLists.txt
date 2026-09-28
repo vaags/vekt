@@ -9,6 +9,7 @@ vekt_add_factory_presets(
 	MANIFEST_NAMESPACE vekt::mono::factory_presets)
 
 add_library(VektMonoCore STATIC
+	Source/LadderResonance.h
 	Source/NonlinearTptLadder.cpp
 	Source/NonlinearTptLadder.h
 	Source/FactoryPresets.cpp

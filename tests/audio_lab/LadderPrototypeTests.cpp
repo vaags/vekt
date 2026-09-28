@@ -1,6 +1,7 @@
 #include "../../tools/audio_lab/LadderPrototype.h"
 #include "../../tools/audio_lab/MonoCostTimingRule.h"
 #include "../../tools/audio_lab/NonlinearTptLadderReference.h"
+#include "../../plugins/vekt_mono/Source/LadderResonance.h"
 
 #include <vekt/audio_analysis/Measurements.h>
 #include <vekt/dsp/OversamplingBank.h>
@@ -210,8 +211,8 @@ TEST_CASE("Coupled ladder remains deterministic through abrupt controls and seed
 
 TEST_CASE("Coupled ladder seeded resonance tail agrees with the nested solver", "[audio-lab][mono][ladder-coupled][ladder-self-oscillation]")
 {
-	// Diagnostic regression for the specified k=4 model, not an approved
-	// audible-level acceptance threshold. Keep processor sound failures open.
+	// Diagnostic regression across the sub-onset and above-onset regions;
+	// the processor and listening gates remain separate.
 	constexpr int sampleRate = 48'000;
 	constexpr int excitationSamples = sampleRate / 10;
 	constexpr int windowSamples = sampleRate / 10;
@@ -228,7 +229,7 @@ TEST_CASE("Coupled ladder seeded resonance tail agrees with the nested solver", 
 			REQUIRE(std::abs(nested.process(0.0f, settings)) <= 0.0f);
 		}
 		std::uint32_t random = 0x12345678u;
-		double earlySquares {}, lateSquares {}, maximumDifference {};
+		double earlySquares {}, lateSquares {}, referenceLateSquares {};
 		for (int sample = 0; sample < 2 * sampleRate + windowSamples; ++sample)
 		{
 			random = random * 1664525u + 1013904223u;
@@ -236,25 +237,105 @@ TEST_CASE("Coupled ladder seeded resonance tail agrees with the nested solver", 
 			const auto input = sample < excitationSamples ? noise : 0.0f;
 			const auto actual = coupled.processCoupled(input, settings);
 			const auto reference = nested.process(input, settings);
-			maximumDifference = std::max(maximumDifference, std::abs(static_cast<double>(actual) - reference));
 			if (sample >= excitationSamples && sample < excitationSamples + windowSamples)
 				earlySquares += static_cast<double>(actual) * actual;
 			if (sample >= 2 * sampleRate && sample < 2 * sampleRate + windowSamples)
+			{
 				lateSquares += static_cast<double>(actual) * actual;
+				referenceLateSquares += static_cast<double>(reference) * reference;
+			}
 		}
 		const auto earlyRms = std::sqrt(earlySquares / windowSamples);
 		const auto lateRms = std::sqrt(lateSquares / windowSamples);
+		const auto referenceLateRms = std::sqrt(referenceLateSquares / windowSamples);
 		INFO("resonance=" << resonance << ", early RMS=" << earlyRms
-			<< ", late RMS=" << lateRms << ", solver difference=" << maximumDifference);
-		REQUIRE(maximumDifference < 1.0e-4);
+			<< ", late RMS=" << lateRms << ", nested late RMS=" << referenceLateRms);
+		REQUIRE(std::abs(lateRms - referenceLateRms) < 0.002);
 		REQUIRE(earlyRms > 0.001);
-		REQUIRE(lateRms < earlyRms * 0.9);
-		if (resonance == 1.0f) REQUIRE(lateRms > 0.002);
-		else REQUIRE(lateRms < 1.0e-4);
+		if (resonance == 1.0f)
+		{
+			REQUIRE(lateRms > 0.05);
+			REQUIRE(lateRms < 0.5);
+		}
+		else
+		{
+			REQUIRE(lateRms < earlyRms * 0.9);
+			REQUIRE(lateRms < 1.0e-4);
+		}
 		REQUIRE(coupled.diagnostics().unconvergedSamples == 0);
 		REQUIRE(coupled.diagnostics().nonFiniteSamples == 0);
 		REQUIRE(nested.diagnostics().unconvergedSamples == 0);
 	}
+}
+
+TEST_CASE("Coupled ladder grows into a stable tone above onset with a tighter reference", "[audio-lab][mono][ladder-coupled][ladder-self-oscillation]")
+{
+	REQUIRE(vekt::mono::ladderFeedbackGain(0.98) == Catch::Approx(3.92));
+	REQUIRE(vekt::mono::ladderFeedbackGain(1.0) == Catch::Approx(4.6));
+	constexpr int rate = 48'000;
+	constexpr int burst = rate / 10;
+	constexpr int window = rate / 10;
+	std::array<double, 2> settled {};
+	for (const auto amplitude : { 0.005f, 0.5f })
+	{
+		vekt::audio_lab::NonlinearTptLadder coupled;
+		vekt::audio_lab::NonlinearTptLadderOfflineReference reference;
+		coupled.prepare(rate);
+		reference.prepare(rate, 1);
+		constexpr vekt::audio_lab::NonlinearTptLadderSettings settings { 1'000.0f, 1.0f, 0.0f };
+		constexpr vekt::audio_lab::NonlinearTptLadderReferenceSettings referenceSettings { 1'000.0, 1.0, 0.0 };
+		// Above onset, zero is still an exact equilibrium until excited.
+		for (int sample = 0; sample < 128; ++sample)
+		{
+			REQUIRE(std::abs(coupled.processCoupled(0.0f, settings)) <= 0.0f);
+			REQUIRE(std::abs(reference.process(0.0, referenceSettings)) <= 0.0);
+		}
+		std::uint32_t random = 0x12345678u;
+		double earlySquares {}, lateSquares {}, referenceSquares {}, latePeak {};
+		int crossings {}, firstCrossing = -1, lastCrossing = -1;
+		float previous {};
+		for (int sample = 0; sample < 2 * rate + window; ++sample)
+		{
+			random = random * 1664525u + 1013904223u;
+			const auto noise = (static_cast<float>(random >> 8) / 16777216.0f * 2.0f - 1.0f) * amplitude;
+			const auto input = sample < burst ? noise : 0.0f;
+			const auto actual = coupled.processCoupled(input, settings);
+			const auto expected = reference.process(input, referenceSettings);
+			if (sample >= burst && sample < burst + window)
+				earlySquares += static_cast<double>(actual) * actual;
+			if (sample >= 2 * rate)
+			{
+				lateSquares += static_cast<double>(actual) * actual;
+				referenceSquares += expected * expected;
+				latePeak = std::max(latePeak, std::abs(static_cast<double>(actual)));
+				if (previous <= 0.0f && actual > 0.0f)
+				{
+					if (firstCrossing < 0) firstCrossing = sample;
+					lastCrossing = sample;
+					++crossings;
+				}
+			}
+			previous = actual;
+		}
+		const auto earlyRms = std::sqrt(earlySquares / window);
+		const auto lateRms = std::sqrt(lateSquares / window);
+		const auto referenceRms = std::sqrt(referenceSquares / window);
+		const auto frequency = crossings > 1
+			? static_cast<double>(crossings - 1) * rate / (lastCrossing - firstCrossing) : 0.0;
+		INFO("burst=" << amplitude << ", early=" << earlyRms << ", late=" << lateRms
+			<< ", reference=" << referenceRms << ", pitch=" << frequency << ", peak=" << latePeak);
+		REQUIRE(lateRms > 0.08);
+		REQUIRE(lateRms < 0.25);
+		REQUIRE(latePeak < 0.5);
+		REQUIRE(frequency == Catch::Approx(1'000.0).margin(30.0));
+		REQUIRE(std::abs(referenceRms - lateRms) < 0.005);
+		REQUIRE(coupled.diagnostics().unconvergedSamples == 0);
+		REQUIRE(coupled.diagnostics().nonFiniteSamples == 0);
+		REQUIRE(reference.diagnostics().unconvergedSteps == 0);
+		REQUIRE(reference.diagnostics().nonFiniteSteps == 0);
+		settled[amplitude < 0.01f ? 0 : 1] = lateRms;
+	}
+	REQUIRE(std::abs(settled[0] - settled[1]) < 0.005);
 }
 
 TEST_CASE("Nonlinear TPT ladder drive compensation is an external output wrapper", "[audio-lab][mono][ladder-candidate]")
@@ -508,6 +589,7 @@ TEST_CASE("Ladder prototype report is deterministic and block-size invariant", "
 	REQUIRE(contract.getProperty("product_direction", {}).toString()
 		== "hybrid-classic-ladder-modern-features");
 	REQUIRE(contract.getProperty("ladder_output", {}).toString() == "raw-fourth-stage");
+	REQUIRE(static_cast<double>(contract.getProperty("maximum_resonance_feedback", 0.0)) == Catch::Approx(4.6));
 	REQUIRE(contract.getProperty("release_validation_status", {}).toString() == "open");
 	REQUIRE(first.report.getProperty("planned_validation_matrix", {})
 		.getProperty("completion", {}).toString() == "not-complete");

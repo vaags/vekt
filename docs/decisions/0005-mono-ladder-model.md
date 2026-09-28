@@ -108,7 +108,7 @@ their later product phases and do not block validation of the ladder itself.
 
 All internal signals are normalized and dimensionless. Let `x` be the external input,
 `D = 10^(driveDb / 20)` the drive gain, `r` the normalized resonance control, and
-`k = 4 clamp(r, 0, 1)` the feedback gain. The instantaneous first-stage input is:
+`k` the feedback gain specified below. The instantaneous first-stage input is:
 
 ```text
 u1 = clamp(D x, -24, 24) - k y4
@@ -158,9 +158,22 @@ Hcomp(s) = sqrt(D) L(s) / [1 + k L(s)]
 
 At zero drive gain offset and `k = 0`, the control identifies the prewarped one-stage
 pole, not the aggregate ladder's -3 dB point. In the ideal small-signal continuous
-model, `k = 4` reaches the oscillation boundary at `wc`; therefore normalized
-resonance `r = 1` is the intended nominal self-oscillation threshold. Nonlinear
-amplitude limiting and numerical bounds alter the finite-amplitude behavior.
+model, `k = 4` is the oscillation boundary at `wc`, not a useful finite-amplitude
+guarantee. The product requirement (28 September 2026) is bounded, sustained,
+approximately sinusoidal self-oscillation after excitation at maximum resonance
+and ordinary audible cutoffs with an open output path. A long decay is insufficient.
+The control preserves the earlier mapping through `r = 0.98`, then smoothly extends
+feedback above the boundary:
+
+```text
+t = clamp((clamp(r, 0, 1) - 0.98) / 0.02, 0, 1)
+k = 4 clamp(r, 0, 1) + 0.6 t² (3 - 2t)
+```
+
+Thus `k(0.98) = 3.92`, `k(1) = 4.6`, and the top of the control crosses the
+small-signal onset. This is a provisional sound/gain calibration, not a hardware
+emulation claim or release acceptance. Exact zero remains an equilibrium until
+excitation; the voice envelope and gate can still silence the output.
 
 ## Discretization
 
