@@ -337,6 +337,40 @@ Q Comp effectiveness. Local-passband peak/bandwidth extraction, pump-only
 leakage checks and level-matched listening remain open; no coefficient or
 production topology was changed.
 
+**AC harmonic-transfer reduction (28 September 2026):** Run
+`python3 tools/audio_lab/mono_ac_pump_analysis.py /tmp/vekt-mono-ac-response.csv /tmp/vekt-mono-ac-analysis`
+to regenerate 615 paired frequency rows in `points.csv`, 15 drive summaries in
+`summary.csv`, and 12 dependency-free SVGs (direct On/Off, direct On-minus-Off,
+resolved conversion On/Off and conversion/direct ratio On/Off, per resonance).
+The script checks the complete 41-point/three-Q/five-Drive/five-component
+matrix, On/Off pairing, stimulus and solver diagnostics before emitting data.
+For each probe it defines `Pconv=|H-2|²+|H+2|²`, exports
+`10log10(Pconv)` as `conversion_*_db`, and exports
+`10log10(Pconv/|H0|²)` as `ratio_*_db`. These quantities **exclude higher
+sidebands** and are not total output energy or an audible body measurement.
+At the fixed *diagnostic* probe frequency 900 Hz, the On-minus-Off deltas
+(direct / resolved-conversion / conversion-to-direct ratio, dB) are:
+
+| Q | Drive 0 | +6 | +12 | +18 | +24 |
+| --- | --- | --- | --- | --- | --- |
+| 80% | 3.62 / 10.79 / 7.18 | 3.69 / 10.86 / 7.16 | 3.97 / 11.07 / 7.09 | 4.19 / 11.20 / 7.01 | −5.27 / 3.30 / 8.57 |
+| 95% | 4.76 / 14.19 / 9.43 | 4.88 / 14.28 / 9.40 | 5.40 / 14.66 / 9.26 | 8.37 / 17.36 / 8.99 | −5.75 / 3.85 / 9.59 |
+
+In this 173 Hz sine-pumped **incremental** experiment, +18 dB is not a
+simple fade-out at 900 Hz: On raises both the direct and resolved conversion
+components. At +24 dB, On *reduces* the direct response at 900 Hz while the
+measured even sideband power still rises; the conversion/direct ratio rises
+by ~8.6–9.6 dB at Q 80–95%. The moving direct peak matters: at Q 95% the
+Off/On peak locations move from 975/950 Hz at +18 to 925/825 Hz at +24;
+their absolute peak gains at +24 differ by only ~0.44 dB. Thus the 900 Hz
+delta is **not** a change in peak height or a universal restoration metric.
+Sidebands do not establish that "lost" direct energy was transferred to
+conversion: On and Off have different pumped trajectories, and these are
+input-normalized incremental gains, not an energy-conserving partition.
+The AC pump is one sine amplitude/frequency, not a validated musical or
+perceptual acceptance condition. These summaries are explanatory; preserve
+`c(Q)=0.20Q` and prioritize level-matched listening before a product decision.
+
 **Candidate 2 interpretation and acceptance:** At extreme Drive, the measured
 input-in-feedback compensation becomes almost ineffective. Strong Drive also
 materially changes resonance, but this DC experiment does not establish a
