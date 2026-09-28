@@ -631,6 +631,49 @@ tracking, harmonics, aliasing, excitation independence and SPICE/hardware
 agreement remain open. Do not redefine the three failing voice-output
 thresholds solely from the raw-ladder RMS or this one onset scan.
 
+**28 September 2026 cutoff/rate matrix (raw ladder, Q Comp Off):** Run
+`VektMonoResonanceMatrix /tmp/vekt-resonance-matrix.csv` from the Audio Lab
+Release build. The 28 rows cover 44.1/48/96/192 kHz and 100/250/500/1000/
+2000/5000/10000 Hz. Each cell separately excites a fresh coupled ladder at
+100% resonance for 0.5 s, then measures the final zero-input windows of a
+3 s tail. The frequency window is at least 200 ms and at least 100 nominal
+cycles (1 s at 100 Hz); `frequency_error_cents` is relative to the requested
+cutoff, not a hardware reference. The weak-signal onset scan uses independent
+states and accepts only adjacent valid negative/positive growth-rate fits;
+up to five bisections refine such a bracket. Empty onset columns mean **not
+measured reliably**, not absent oscillation. The weak probe/window used here
+does not establish a bracket for 13 of 28 cells, notably at 2–10 kHz and
+192 kHz/100 Hz; a cutoff-adaptive onset method remains needed before claiming
+onset invariance across the entire matrix.
+
+The other metrics are available for all 28 cells: zero nonfinite/unconverged
+samples, 100% raw-ladder RMS from ~0.12414 to ~0.12600 (0.13 dB span), and
+late RMS drift within about ±0.0042 dB/s. The 15 onset brackets obtained at
+100–1000 Hz lie near 98.4% (approximately 98.400–98.413% across endpoints).
+Measured cutoff-relative frequency error ranges about -2.75 to +4.20 cents;
+the 100 Hz frequency measurement uses a full second to avoid a short-window
+cycle-count bias. These observations strongly support *maximum-resonance*
+amplitude/sustain consistency for this raw ladder and stimulus, but do not
+yet validate onset at every cutoff or the voice/processor gain structure.
+No feedback mapping, Q compensation, output ramp or level threshold was
+changed. The three legacy minimum-level gates are in
+`tests/processor/MonoProcessorTests.cpp`: the maximum-emphasis test checks
+processor-buffer RMS (and pitch/harmonics) with unity-sustain settings across
+quality/rate/cutoff; the preset-style stereo-output gate includes 64% amp
+sustain, unison and -7 dB master; the real-time stereo-output gate excites a
+held voice after a zero-state check. None is a raw-ladder RMS requirement.
+They remain a product calibration decision, not grounds to change feedback
+merely to meet historical processor-output levels.
+The three unchanged gates were rerun after this matrix: real-time stereo
+post-excitation RMS 0.087636 vs >0.1; 44.1 kHz/250 Hz maximum-emphasis
+processor-buffer RMS 0.087534 vs >0.1; preset-style stereo RMS 0.021181
+vs >0.025. All three still fail at their old level assertions. Four focused
+raw-ladder/onset/held-voice regressions pass. Do not confuse the raw-ladder
+~0.124 RMS with the processor's post-voice stereo output (~0.088 under
+unity-sustain settings), or infer a reason for that gain difference from this
+matrix alone. The quoted cutoff-relative cents are zero-crossing estimates,
+not SPICE/hardware tracking measurements.
+
 **Remaining measurements:** Below self-oscillation (50/80/95% resonance),
 resolve local passband and bandwidth around the moving AC-pump peak; check
 pump-only leakage and whether more probe frequencies or other musical pumps

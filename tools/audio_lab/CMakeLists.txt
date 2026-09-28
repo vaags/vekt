@@ -47,6 +47,13 @@ target_link_libraries(VektMonoResonanceOnset PRIVATE
 	vekt::juce_runtime
 	vekt_project_options)
 
+add_executable(VektMonoResonanceMatrix MonoResonanceMatrixMain.cpp)
+target_link_libraries(VektMonoResonanceMatrix PRIVATE
+	VektMonoCore
+	vekt::juce_headers
+	vekt::juce_runtime
+	vekt_project_options)
+
 add_executable(VektMonoResonanceVoice MonoRender.cpp MonoResonanceVoiceMain.cpp)
 target_link_libraries(VektMonoResonanceVoice PRIVATE
 	VektMonoCore

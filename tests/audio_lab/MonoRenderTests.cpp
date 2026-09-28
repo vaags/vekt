@@ -236,6 +236,34 @@ TEST_CASE("Mono weak-signal onset changes growth sign near 98.4 percent", "[audi
 	}
 }
 
+TEST_CASE("Mono raw ladder maximum resonance level stays consistent at cutoff extremes", "[audio-lab][mono][resonance-matrix]")
+{
+	for (const auto cutoff : { 100.0f, 10'000.0f })
+	{
+		constexpr double rate = 48'000.0;
+		vekt::mono::NonlinearTptLadder ladder;
+		ladder.prepare(rate);
+		const vekt::mono::NonlinearTptLadderSettings settings { cutoff, 1.0f, 0.0f };
+		double squares {};
+		const auto excitationHz = std::min(317.0, cutoff * 0.73);
+		for (int sample = 0; sample < 168'000; ++sample)
+		{
+			const auto input = sample < 24'000 ? 0.5f * static_cast<float>(
+				std::sin(2.0 * std::numbers::pi * excitationHz * sample / rate)) : 0.0f;
+			const auto value = ladder.processCoupled(input, settings);
+			REQUIRE(std::isfinite(value));
+			if (sample >= 158'400)
+				squares += static_cast<double>(value) * value;
+		}
+		const auto rms = std::sqrt(squares / 9'600);
+		CAPTURE(cutoff, rms);
+		REQUIRE(rms > 0.12);
+		REQUIRE(rms < 0.13);
+		REQUIRE(ladder.diagnostics().unconvergedSamples == 0);
+		REQUIRE(ladder.diagnostics().nonFiniteSamples == 0);
+	}
+}
+
 TEST_CASE("Mono held open self-oscillation survives removal of all excitation", "[audio-lab][mono][resonance-onset]")
 {
 	vekt::audio_lab::MonoRenderRequest off, on;
