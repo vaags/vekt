@@ -4,6 +4,7 @@
 #include <PluginProcessor.h>
 #include <vekt/glimmer/Parameters.h>
 #include <vekt/glimmer/PluginProcessor.h>
+#include <vekt/mono/PluginProcessor.h>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -51,4 +52,23 @@ TEST_CASE("Audio Lab rack routes send source audio through the selected effects"
 		else if (route == 1 || route == 2) REQUIRE(rms < 0.025);
 		else REQUIRE(rms < 0.01);
 	}
+}
+
+TEST_CASE("Audio Lab measures Mono processing with the effects rack bypassed", "[audio-lab][rack][mono][cpu]")
+{
+	vekt::mono::PluginProcessor mono;
+	vekt::rav::PluginProcessor rav;
+	vekt::glimmer::PluginProcessor glimmer;
+	constexpr int blockSize = 4096;
+	mono.prepareToPlay(48'000.0, blockSize);
+	juce::AudioBuffer<float> block(2, blockSize);
+	juce::MidiBuffer midi;
+	midi.addEvent(juce::MidiMessage::noteOn(1, 60, 1.0f), 0);
+	const auto monoTicks = vekt::audio_lab::processMonoSource(block, midi, mono);
+	REQUIRE(monoTicks > 0);
+	REQUIRE(block.getMagnitude(0, 0, blockSize) > 0.0f);
+	const auto rackStart = juce::Time::getHighResolutionTicks();
+	vekt::audio_lab::processRackRoute(0, block, midi, rav, glimmer);
+	const auto totalTicks = monoTicks + juce::Time::getHighResolutionTicks() - rackStart;
+	REQUIRE(totalTicks >= monoTicks);
 }

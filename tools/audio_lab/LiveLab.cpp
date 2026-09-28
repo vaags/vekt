@@ -263,6 +263,7 @@ public:
 			return;
 		}
 		const auto monoMode = requestedSource.load() == 9;
+		juce::int64 monoTicks {};
 		juce::MidiBuffer midi;
 		midiCollector.removeNextBlockOfMessages(midi, info.numSamples);
 		if (monoMode)
@@ -270,7 +271,7 @@ public:
 			info.clearActiveBufferRegion();
 			juce::AudioBuffer<float> monoBlock(info.buffer->getArrayOfWritePointers(),
 				info.buffer->getNumChannels(), info.startSample, info.numSamples);
-			monoProcessor.processBlock(monoBlock, midi);
+			monoTicks = vekt::audio_lab::processMonoSource(monoBlock, midi, monoProcessor);
 		}
 		else if (requestedSource.load() == 8)
 			fileSource.render(info);
@@ -300,7 +301,7 @@ public:
 			info.buffer->getNumChannels(), info.startSample, info.numSamples);
 		const auto startTicks = juce::Time::getHighResolutionTicks();
 		vekt::audio_lab::processRackRoute(rackRoute.load(), block, midi, ravProcessor, glimmerProcessor);
-		const auto elapsedTicks = juce::Time::getHighResolutionTicks() - startTicks;
+		const auto elapsedTicks = monoTicks + juce::Time::getHighResolutionTicks() - startTicks;
 		const auto blockDurationTicks = static_cast<double>(info.numSamples)
 			* static_cast<double>(juce::Time::getHighResolutionTicksPerSecond()) / sampleRateHz;
 		const auto instantaneousLoad = static_cast<float>(100.0 * static_cast<double>(elapsedTicks)

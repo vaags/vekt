@@ -4,6 +4,15 @@
 
 namespace vekt::audio_lab
 {
+// Measure only plugin work; source generation and peak metering are excluded.
+inline juce::int64 processMonoSource(juce::AudioBuffer<float>& block, juce::MidiBuffer& midi,
+	juce::AudioProcessor& mono)
+{
+	const auto start = juce::Time::getHighResolutionTicks();
+	mono.processBlock(block, midi);
+	return juce::Time::getHighResolutionTicks() - start;
+}
+
 inline void processRackRoute(int route, juce::AudioBuffer<float>& block, juce::MidiBuffer& midi,
 	juce::AudioProcessor& rav, juce::AudioProcessor& glimmer)
 {
