@@ -2,7 +2,6 @@
 
 #include <vekt/audio_analysis/Measurements.h>
 
-#include <array>
 #include <cmath>
 #include <fstream>
 #include <iomanip>
@@ -16,6 +15,10 @@ constexpr int settle = 48'000;
 constexpr int measure = 48'000;
 constexpr float bias = 0.1f;
 constexpr float probe = 0.001f;
+
+// DC-biased numerical characterization only: this is not an AC-pumped musical
+// drive measurement. At resonance=1, a probe can pull the autonomous oscillator;
+// the paired-run difference is not an LTI small-signal transfer response.
 
 struct Result
 {

@@ -252,7 +252,7 @@ self-oscillation**; it does not yet quantify the resonant peak *under* drive.
 After rebuilding the Debug test target, the focused `[drive]` tests passed
 3/3 and the full `ctest --preset dev --output-on-failure` suite passed
 **281/281** in 271.87 seconds. No production DSP parameters were changed.
-**Driven incremental-response follow-up (28 September 2026):**
+**DC-biased incremental-response follow-up (28 September 2026):**
 `VektMonoIncrementalResonance` (Audio Lab Release) measures the production
 `processCoupled` ladder with 0.1 DC input and a 0.001-amplitude sine in a
 paired run, subtracting an otherwise identical DC-only run before projecting
@@ -264,15 +264,38 @@ one second and measures for one second at 48 kHz. The CSV at
 With Q Comp Off, peak-minus-250-Hz contrasts (dB) over the five Drive values
 were 6.6/6.6/6.7/7.0/4.2 at 50%, 15.2/15.3/15.8/17.0/12.3 at 80%,
 and 26.9/26.4/24.6/19.3/23.9 at 95%. Peaks also shift downward at high Drive.
-This **does not establish monotonic peak collapse** or prove that Q Comp's
-high-Drive effect disappears at the same rate as resonance; changing operating
-signal amplitude or using a more representative driven waveform may change
-the result. At 100% resonance, the difference RMS can exceed the probe by
-orders of magnitude because a perturbation can shift the phase of a free-running
-tone; do not interpret those projected differences as small-signal transfer.
-The +24 dB Q-compensation collapse is treated as an **expected nonlinear
-interaction pending listening validation**, not a reason to change
-`c(Q)=0.20Q` or introduce Drive dependence. Level-matched listening remains open.
+This is a **DC-biased numerical characterization**, not a representative
+AC-driven musical response: a DC offset holds the symmetric nonlinear stages
+off-centre, whereas an oscillator drives them through both polarities. Nine
+sampled frequencies and a fixed 250 Hz reference cannot reliably characterize
+a moving peak or its bandwidth. These data **do not establish monotonic peak
+collapse** or a causal link between resonance changes and Q Comp's vanishing
+high-Drive effect. At 100% resonance, a perturbation can shift the phase or
+frequency of a free-running tone (the difference RMS can greatly exceed the
+probe); do not interpret those projected differences as an LTI transfer.
+
+**Candidate 2 interpretation and acceptance:** At extreme Drive, the measured
+input-in-feedback compensation becomes almost ineffective. Strong Drive also
+materially changes resonance, but this DC experiment does not establish a
+simple causal relationship. The input term `u=(1+k*c)*x_driven-k*y4` restores
+body at moderate levels and may naturally lose incremental influence under
+saturation; **matching the rate of resonance-peak suppression is not an
+acceptance criterion**. Keep `c(Q)=0.20Q` and the topology frozen. The +24 dB
+behaviour is an expected *possible* nonlinear characteristic pending
+level-matched listening, not evidence by itself for a Drive-dependent `c`.
+If listening exposes a conspicuous problem, investigate output/feedforward
+alternatives rather than tuning the coefficient to fit this DC experiment.
+
+**Next measurement (not yet performed):** Below self-oscillation (50/80/95%
+resonance), first validate the DC probe against a numerical local linearization
+of the stage derivatives at steady state. Then use the same periodic AC pump
+at every probe frequency for each Drive setting, a much denser frequency grid
+around the moving peak, and coherent complex probe-frequency correlation over
+integer pump/probe periods. Report peak frequency, peak relative to a *local*
+passband, and bandwidth independently; check probe-amplitude sensitivity and
+pump-only leakage. At 100% resonance, instead measure autonomous frequency,
+amplitude, weak-tone pulling, driven perturbation and zero-input recovery.
+The existing level-matched listening renders remain the product decision.
 The raw-filter tail test intentionally bypasses `MonoVoice` articulation: keep
 a note/envelope active when checking this behavior by ear, since note-off or
 voice reset can mute/reset the audible path even when the autonomous ladder
