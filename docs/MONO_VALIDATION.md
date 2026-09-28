@@ -405,7 +405,12 @@ is **not generally ineffective** at extreme Drive: for this 173 Hz periodic
 pump it materially reshapes the direct peak location, body-to-peak contrast
 and resolved even-order conversion. Its input term
 `u=(1+k*c)*x_driven-k*y4` preserves zero-input invariance while changing
-the driven operating trajectory. Whether the peak shift and texture are
+the driven operating trajectory. At high resonance and Drive, the 400 Hz
+component grows more than the sampled peak: for Q=95%/+24 dB, the On-minus-Off
+400 Hz gain is +5.37 dB versus +0.44 dB at each curve's own peak, giving
+the −4.93 dB peak-minus-400 Hz contrast change. That is useful evidence of
+body restoration *in this incremental experiment*, alongside a −100 Hz
+sampled peak shift. Whether the peak shift and texture are
 musically desirable is a listening question; neither matching a resonance
 suppression rate nor preserving a fixed conversion ratio is an acceptance
 criterion. Keep `c(Q)=0.20Q` and the production topology frozen pending
@@ -413,13 +418,36 @@ level-matched listening. A Drive-dependent coefficient would need an
 audibly justified goal (for example limiting objectionable peak movement),
 not a fit to the earlier DC or fixed-frequency measurements.
 
-**Listening preparation:** Existing Off/On saw-wave WAVs and settled-RMS-
-matched On WAVs in `/tmp/vekt-q-input-candidate/drive-listening/` cover
-Q=80% and Drive 0/6/12/18/24 dB; compare Off with the level-matched On
-at +12/+18/+24 dB for body, resonant emphasis and texture. These files
-are not a completed listening assessment. They do **not** supply matched
-Q=95% sustained notes, slow cutoff sweeps or bass-note examples: prepare
-those separately before judging whether the AC peak shift is objectionable.
+**Listening preparation (28 September 2026):** Existing Off/On saw-wave WAVs
+and settled-RMS-matched On WAVs in
+`/tmp/vekt-q-input-candidate/drive-listening/` cover Q=80% and Drive
+0/6/12/18/24 dB. The new `VektMonoQCompListening` Audio Lab Release tool
+renders nine additional Q=95% pairs at Drive +12/+18/+24 dB in
+`/tmp/vekt-q-input-candidate/listening-95/`: held saw MIDI 48 at fixed
+1 kHz cutoff (`sustain`), held saw MIDI 36 at fixed 500 Hz cutoff (`bass`),
+and held saw MIDI 48 with a log-spaced 200 → 2400 Hz cutoff sweep (`sweep`,
+0.3–3.3 s, 10 ms parameter steps and normal voice smoothing). All use the
+production coupled voice, 48 kHz, 128-sample blocks, seed 42, Q Comp Off/On,
+95% resonance, and no note release during the render. For every pair the
+folder contains raw Off/On JSON reports, post-render-attenuated Off/On
+32-bit float stereo WAVs, and an On WAV matched to Off's *stereo RMS* in
+the 0.5–1.8 s held-note or 0.3–3.3 s sweep window. See `level-match.csv` for
+each pair's pre-attenuation window RMS, On matching factor and window bounds.
+The identical **0.7 playback gain** is applied to all WAVs *after rendering*
+(not to ladder excitation); JSON reports describe the unattenuated render.
+The gain also preserves the On-to-Off matching ratio. All nine WAV triplets
+were checked as finite float32 stereo, with listening-window Off versus
+matched-On RMS error below 1e-6 relative and every file's peak below 1.0
+(largest observed peak 0.9393). The matched copy has no JSON report because
+it is a post-render gain-scaled On file, not a distinct synthesis run.
+
+Compare Off against `*-on-level-matched.wav` at equal playback volume, with
+attention to **body**, **resonance position/cutoff tracking**, and **texture**.
+In particular compare +12/+18/+24 dB at 95% on held and bass notes; listen
+to +18/+24 dB sweeps for a perceived position change. The static and sweep
+RMS windows differ and sweep-wide matching does not ensure moment-by-moment
+loudness equality. These fixtures do **not** constitute a listening result or
+prove that the 173 Hz incremental pump peak shift is audible in a voice patch.
 
 **Remaining measurements:** Below self-oscillation (50/80/95% resonance),
 resolve local passband and bandwidth around the moving AC-pump peak; check

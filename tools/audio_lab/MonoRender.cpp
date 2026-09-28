@@ -210,6 +210,41 @@ bool makeMonoRenderFixture(const juce::String& name, double sampleRate, int bloc
 	destination.blockSize = blockSize;
 	destination.seed = seed;
 	destination.settings = defaultMonoRenderSettings();
+	if (name.startsWith("q-comp-listen-95-") && (name.endsWith("-off") || name.endsWith("-on")))
+	{
+		const auto rest = name.fromFirstOccurrenceOf("q-comp-listen-95-", false, false);
+		const auto kind = rest.upToFirstOccurrenceOf("-drive-", false, false);
+		const auto driveText = rest.fromFirstOccurrenceOf("-drive-", false, false)
+			.upToFirstOccurrenceOf("-", false, false);
+		if ((kind != "sustain" && kind != "bass" && kind != "sweep")
+			|| (driveText != "12" && driveText != "18" && driveText != "24")
+			|| name != "q-comp-listen-95-" + kind + "-drive-" + driveText
+				+ (name.endsWith("-on") ? "-on" : "-off")) return false;
+		const bool sweep = kind == "sweep";
+		destination.totalSamples = at(sweep ? 3.6 : 2.0, sampleRate);
+		destination.settings.level = { 0.7f, 0.0f, 0.0f };
+		destination.settings.morph[0] = 2.0f; // Harmonic-rich held saw.
+		destination.settings.cutoff = sweep ? 200.0f : kind == "bass" ? 500.0f : 1'000.0f;
+		destination.settings.resonance = 0.95f;
+		destination.settings.drive = static_cast<float>(driveText.getIntValue());
+		destination.settings.ampAttack = 0.0005f;
+		destination.settings.ampSustain = 1.0f;
+		destination.settings.qCompensation = name.endsWith("-on");
+		destination.events = { { 0, MonoEventType::noteOn, MonoParameter::cutoff, 1.0f,
+			kind == "bass" ? 36 : 48 } };
+		if (sweep)
+		{
+			// Logarithmic 200 -> 2400 Hz sweep in 10 ms parameter steps,
+			// with equal control and event timing in both Q Comp states.
+			for (int step = 1; step <= 300; ++step)
+				destination.events.push_back({ at(0.3 + step * 0.01, sampleRate),
+					MonoEventType::parameter, MonoParameter::cutoff,
+					static_cast<float>(200.0 * std::pow(12.0, step / 300.0)) });
+		}
+		destination.windows = { { "listening", at(sweep ? 0.3 : 0.5, sampleRate),
+			at(sweep ? 3.3 : 1.8, sampleRate) } };
+		return true;
+	}
 	if (name.startsWith("q-comp-drive-") && (name.endsWith("-off") || name.endsWith("-on")))
 	{
 		const auto driveText = name.fromFirstOccurrenceOf("q-comp-drive-", false, false)

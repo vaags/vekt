@@ -85,6 +85,37 @@ TEST_CASE("Mono Q Comp Drive listening fixtures cover five matched pairs", "[aud
 	REQUIRE_FALSE(vekt::audio_lab::makeMonoRenderFixture("q-comp-drive-10-on", 48'000.0, 128, 42, invalid));
 }
 
+TEST_CASE("Mono 95 percent Q listening pairs hold matched harmonic notes and cutoff sweeps", "[audio-lab][mono][qcomp]")
+{
+	for (const auto* kind : { "sustain", "bass", "sweep" })
+		for (const auto* drive : { "12", "18", "24" })
+		{
+			vekt::audio_lab::MonoRenderRequest off, on;
+			const auto prefix = juce::String("q-comp-listen-95-") + kind + "-drive-" + drive;
+			REQUIRE(vekt::audio_lab::makeMonoRenderFixture(prefix + "-off", 48'000.0, 128, 42, off));
+			REQUIRE(vekt::audio_lab::makeMonoRenderFixture(prefix + "-on", 48'000.0, 128, 42, on));
+			REQUIRE(off.settings.resonance == Catch::Approx(0.95f));
+			REQUIRE(on.settings.resonance == Catch::Approx(off.settings.resonance));
+			REQUIRE(on.settings.drive == Catch::Approx(off.settings.drive));
+			REQUIRE_FALSE(off.settings.qCompensation);
+			REQUIRE(on.settings.qCompensation);
+			REQUIRE(off.events.size() == on.events.size());
+			REQUIRE(off.windows.size() == 1);
+			REQUIRE(off.windows[0].startSample == on.windows[0].startSample);
+			REQUIRE(off.windows[0].endSample == on.windows[0].endSample);
+			REQUIRE(off.events[0].note == (juce::String(kind) == "bass" ? 36 : 48));
+			REQUIRE(off.events.size() == (juce::String(kind) == "sweep" ? 301u : 1u));
+			for (std::size_t index = 0; index < off.events.size(); ++index)
+			{
+				REQUIRE(off.events[index].sample == on.events[index].sample);
+				REQUIRE(off.events[index].value == Catch::Approx(on.events[index].value));
+				REQUIRE(off.events[index].note == on.events[index].note);
+			}
+		}
+	vekt::audio_lab::MonoRenderRequest invalid;
+	REQUIRE_FALSE(vekt::audio_lab::makeMonoRenderFixture("q-comp-listen-95-sweep-drive-10-on", 48'000.0, 128, 42, invalid));
+}
+
 TEST_CASE("Mono Audio Lab coupled render labels engine and remains deterministic", "[audio-lab][mono][ladder-coupled]")
 {
 	vekt::audio_lab::MonoRenderRequest request;

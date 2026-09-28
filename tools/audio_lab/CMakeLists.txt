@@ -13,6 +13,17 @@ add_executable(VektMonoQCompMatrix
 	MonoRender.cpp
 	MonoQCompMatrixMain.cpp)
 
+add_executable(VektMonoQCompListening
+	MonoRender.cpp
+	MonoQCompListeningMain.cpp)
+
+target_link_libraries(VektMonoQCompListening PRIVATE
+	VektMonoCore
+	vekt::audio_analysis
+	vekt::juce_headers
+	vekt::juce_runtime
+	vekt_project_options)
+
 add_executable(VektMonoIncrementalResonance MonoIncrementalResonanceMain.cpp)
 target_link_libraries(VektMonoIncrementalResonance PRIVATE
 	VektMonoCore
