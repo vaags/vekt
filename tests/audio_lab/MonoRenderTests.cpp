@@ -342,6 +342,48 @@ TEST_CASE("Mono held open self-oscillation survives removal of all excitation", 
 				== std::bit_cast<std::uint32_t>(wet.audio.getSample(channel, sample)));
 }
 
+TEST_CASE("Mono held self-oscillation loses three dB per channel to centered equal-power pan", "[audio-lab][mono][gain-calibration]")
+{
+	constexpr double rate = 48'000.0;
+	vekt::audio_lab::MonoRenderRequest request;
+	REQUIRE(vekt::audio_lab::makeMonoRenderFixture("self-osc-held-off", rate, 128, 42, request));
+	REQUIRE(request.settings.ampSustain == Catch::Approx(1.0f));
+	REQUIRE(request.settings.ampVelocity == Catch::Approx(0.0f));
+	REQUIRE(request.settings.unison == 1);
+	REQUIRE(request.settings.voiceWidth == Catch::Approx(0.0f));
+	const auto voice = vekt::audio_lab::renderMono(request);
+	const auto* windows = voice.report.getProperty("windows", {}).getArray();
+	REQUIRE(windows != nullptr);
+	const auto* channels = (*windows)[1].getProperty("channels", {}).getArray();
+	REQUIRE(channels != nullptr);
+	const auto left = static_cast<double>((*channels)[0].getProperty("rms", 0.0));
+	const auto right = static_cast<double>((*channels)[1].getProperty("rms", 0.0));
+	REQUIRE(left == Catch::Approx(right).margin(1.0e-8));
+	// Compare separately excited, settled runs at the same cutoff, rate,
+	// resonance and drive; the excitation waveforms need not be identical.
+	vekt::mono::NonlinearTptLadder ladder;
+	ladder.prepare(rate);
+	const vekt::mono::NonlinearTptLadderSettings settings { 1'000.0f, 1.0f, 0.0f };
+	double squares {};
+	for (int sample = 0; sample < 168'000; ++sample)
+	{
+		const auto input = sample < 24'000 ? 0.5f * static_cast<float>(
+			std::sin(2.0 * std::numbers::pi * 317.0 * sample / rate)) : 0.0f;
+		const auto value = ladder.processCoupled(input, settings);
+		REQUIRE(std::isfinite(value));
+		if (sample >= 158'400) squares += static_cast<double>(value) * value;
+	}
+	const auto rawRms = std::sqrt(squares / 9'600);
+	const auto reconstructed = std::sqrt(left * left + right * right);
+	INFO("raw ladder RMS=" << rawRms << ", left=" << left << ", right=" << right
+		<< ", pre-pan reconstruction=" << reconstructed);
+	REQUIRE(rawRms > 0.12);
+	REQUIRE(reconstructed == Catch::Approx(rawRms).margin(0.0005));
+	REQUIRE(left / rawRms == Catch::Approx(std::sqrt(0.5)).margin(0.005));
+	REQUIRE(ladder.diagnostics().unconvergedSamples == 0);
+	REQUIRE(ladder.diagnostics().nonFiniteSamples == 0);
+}
+
 TEST_CASE("Mono half input compensation preserves the zero-input trajectory and reference solve", "[audio-lab][mono][qcomp][ladder-reference]")
 {
 	vekt::mono::NonlinearTptLadder off, on;

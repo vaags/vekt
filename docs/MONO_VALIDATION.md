@@ -712,6 +712,33 @@ hardware-fidelity specification. The three processor-output gates remain
 thresholds unchanged; the listening report and zero-input voice fixture
 are separate evidence for the instrument-level decision.
 
+**28 September 2026 raw-ladder → stereo voice calibration trace:** The
+approximately -3 dB difference is the **intentional centered equal-power pan
+law**, not an unexplained post-filter attenuation. `MonoVoice::render` takes
+each stack's `filter(...)` output through the amp/velocity/allocation gain,
+then at pan=0 sends `sqrt(0.5)` of it to *each* output channel. The held 1×
+Audio Lab fixture has amp sustain 1, velocity gain 1, no master fader or
+rack, and pan=0. Its late left and right RMS are each ~0.087799, compared
+with ~0.124164 for an independently excited, settled raw ladder at the
+same 48 kHz/1 kHz/100% settings. The power-preserving stereo reconstruction
+`sqrt(left_rms² + right_rms²)` is ~0.12417, matching the raw oscillator;
+the per-channel ratio is approximately -3.01 dB. A focused regression
+checks both channel equality and reconstructed RMS against the raw ladder.
+The processor's `rms(buffer)` reads the left channel; `stereoRms(buffer)`
+averages the **two channels' squared samples**, so equal left/right channel
+levels still read about -3 dB relative to a mono raw ladder. A sum-of-stereo
+power metric would recover the raw level, but is a different loudness
+contract: **do not silently replace those tests' measurement convention**.
+The slightly different ~0.08753/0.08764 processor measurements use different
+excitation and observation windows from the fixture; their agreement with
+the centered-channel scale does not establish sample-for-sample identity.
+The preset-style test also applies 64% amp sustain, -7 dB master and a
+different unison/pan setting, so its ~0.02118 RMS must be assessed under
+its own specified path. No gain or product-level threshold changed.
+For a future relative loudness requirement, first measure a normal
+full-level oscillator through the *same* voice, pan, amp and master path;
+the desired self-oscillator-to-reference ratio remains a product decision.
+
 **Remaining measurements:** Below self-oscillation (50/80/95% resonance),
 resolve local passband and bandwidth around the moving AC-pump peak; check
 pump-only leakage and whether more probe frequencies or other musical pumps
