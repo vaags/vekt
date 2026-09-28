@@ -13,5 +13,8 @@ public:
 	void drawCornerResizer(juce::Graphics&, int, int, bool, bool) override;
 	void drawRotarySlider(juce::Graphics&, int, int, int, int, float, float, float,
 		juce::Slider&) override;
+	// Sliders with the "bipolar" property fill from their centre (zero) towards the value.
+	void drawLinearSlider(juce::Graphics&, int, int, int, int, float, float, float,
+		juce::Slider::SliderStyle, juce::Slider&) override;
 };
 }

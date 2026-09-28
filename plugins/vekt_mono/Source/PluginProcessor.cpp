@@ -281,6 +281,11 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
 	}
 	render(buffer, position, buffer.getNumSamples() - position);
 	outputMeter.publish(buffer);
+	const MonoVoice* newest {};
+	for (const auto& voice : voices)
+		if (voice->isActive() && (newest == nullptr || voice->getAge() > newest->getAge())) newest = voice.get();
+	for (std::size_t index = 0; index < lfoDisplayValues.size(); ++index)
+		lfoDisplayValues[index].store(newest != nullptr ? newest->getLfoOutput(index) : 0.0f, std::memory_order_relaxed);
 }
 
 void PluginProcessor::handleMidi(const juce::MidiMessage& message)

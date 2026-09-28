@@ -15,9 +15,43 @@
 
 namespace vekt::mono
 {
+// Selects which LFO the LFO panel shows; its dot glows with that LFO's live output.
+class LfoTabButton final : public juce::Button
+{
+public:
+	LfoTabButton() : Button({}) { setClickingTogglesState(true); }
+	void setLevel(float newLevel)
+	{
+		if (juce::approximatelyEqual(level, newLevel)) return;
+		level = newLevel;
+		repaint();
+	}
+	void paintButton(juce::Graphics& graphics, bool hovered, bool pressed) override
+	{
+		const auto bounds = getLocalBounds().toFloat().reduced(0.5f);
+		const auto fill = getToggleState() ? juce::Colour::fromRGB(58, 66, 68) : juce::Colour::fromRGB(31, 36, 38);
+		graphics.setColour(pressed ? fill.brighter(0.12f) : hovered ? fill.brighter(0.06f) : fill);
+		graphics.fillRoundedRectangle(bounds, 4.0f);
+		graphics.setColour(getToggleState() ? juce::Colour::fromRGB(227, 156, 75) : juce::Colour::fromRGB(75, 84, 87));
+		graphics.drawRoundedRectangle(bounds, 4.0f, hasKeyboardFocus(true) ? 2.0f : 1.0f);
+		graphics.setColour(juce::Colour::fromRGB(224, 226, 220));
+		graphics.setFont(juce::FontOptions(14.0f).withStyle("Bold"));
+		graphics.drawText(getButtonText(), getLocalBounds().withTrimmedRight(16), juce::Justification::centred);
+		const auto dot = juce::Rectangle<float>(bounds.getRight() - 16.0f, bounds.getCentreY() - 4.0f, 8.0f, 8.0f);
+		graphics.setColour(juce::Colour::fromRGB(227, 156, 75).withAlpha(0.2f + 0.8f * std::min(1.0f, std::abs(level))));
+		graphics.fillEllipse(dot);
+	}
+
+private:
+	float level {};
+};
+
 class PluginEditor final : public ui::ScalableEditor, private juce::Timer
 {
 public:
+	// Mono is wider than the other products: the extra column holds the LFO (and later vibrato) panels.
+	static constexpr int editorWidth = 1484;
+
 	explicit PluginEditor(PluginProcessor& processor);
 	~PluginEditor() override;
 	void paint(juce::Graphics&) override;
@@ -33,6 +67,21 @@ private:
 		std::unique_ptr<SliderAttachment>& attachment);
 	void addChoice(ui::Panel& panel, juce::ComboBox& box, const juce::StringArray& choices, const char* identifier,
 		std::unique_ptr<ComboBoxAttachment>& attachment);
+	void selectLfo(std::size_t index);
+	void refreshLfoVisibility();
+
+	struct LfoControls
+	{
+		juce::ComboBox shape, polarity, mode;
+		juce::ToggleButton sync { "Sync" };
+		ui::RotaryControl rate, division, amount, phase, delay, fade;
+		// Same order as the destination depths in parameters::LfoParameterIds::all().
+		std::array<juce::Slider, 18> depths;
+		std::unique_ptr<ComboBoxAttachment> shapeAttachment, polarityAttachment, modeAttachment;
+		std::unique_ptr<ButtonAttachment> syncAttachment;
+		std::array<std::unique_ptr<SliderAttachment>, 6> knobAttachments;
+		std::array<std::unique_ptr<SliderAttachment>, 18> depthAttachments;
+	};
 
 	PluginProcessor& pluginProcessor;
 	ui::VektLookAndFeel lookAndFeel;
@@ -49,6 +98,12 @@ private:
 	ui::Panel ampPanel { "Amp ADSR" };
 	ui::Panel filterEnvelopePanel { "Filter ADSR" };
 	ui::Panel performancePanel { "Performance" };
+	ui::Panel lfoPanel { "LFO" };
+	std::array<LfoTabButton, 2> lfoTabs;
+	std::array<LfoControls, 2> lfoControls;
+	// Column headers (Pitch, Morph, Width, Level), oscillator rows, then the six single destinations.
+	std::array<juce::Label, 13> lfoDestinationLabels;
+	std::size_t selectedLfo {};
 	std::array<ui::RotaryControl, 15> oscillatorControls;
 	std::array<std::unique_ptr<SliderAttachment>, 15> oscillatorAttachments;
 	ui::RotaryControl noiseLevelControl;

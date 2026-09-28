@@ -32,12 +32,19 @@ void addOscillator(juce::AudioProcessorValueTreeState::ParameterLayout& layout, 
 		juce::NormalisableRange<float> { 5.0f, 95.0f, 0.01f }, 50.0f, juce::AudioParameterFloatAttributes {}.withLabel("%")));
 }
 
+// Continuous LFO ranges would otherwise print every float digit ("2.0000005").
+juce::AudioParameterFloatAttributes withDecimals(int decimals, const char* label)
+{
+	return juce::AudioParameterFloatAttributes {}.withLabel(label)
+		.withStringFromValueFunction([decimals](float value, int) { return juce::String(value, decimals); });
+}
+
 // Depths are bipolar; a symmetric skew keeps small vibrato and sweep amounts easy to set.
 void addDepth(juce::AudioProcessorValueTreeState::ParameterLayout& layout, const char* identifier, const juce::String& name,
 	float maximum, float skew, const char* label)
 {
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { identifier, version }, name,
-		juce::NormalisableRange<float> { -maximum, maximum, 0.0f, skew, true }, 0.0f, juce::AudioParameterFloatAttributes {}.withLabel(label)));
+		juce::NormalisableRange<float> { -maximum, maximum, 0.0f, skew, true }, 0.0f, withDecimals(2, label)));
 }
 
 void addLfo(juce::AudioProcessorValueTreeState::ParameterLayout& layout, int number, const LfoParameterIds& ids)
@@ -46,7 +53,7 @@ void addLfo(juce::AudioProcessorValueTreeState::ParameterLayout& layout, int num
 	juce::NormalisableRange<float> rateRange { minimumLfoRateHz, maximumLfoRateHz };
 	rateRange.setSkewForCentre(1.0f);
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids.rate, version }, prefix + "Rate", rateRange, 2.0f,
-		juce::AudioParameterFloatAttributes {}.withLabel("Hz")));
+		withDecimals(2, "Hz")));
 	layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID { ids.sync, version }, prefix + "Sync", false));
 	juce::StringArray divisions;
 	for (const auto& [division, beats] : lfoDivisions) { juce::ignoreUnused(beats); divisions.add(division); }
@@ -56,13 +63,13 @@ void addLfo(juce::AudioProcessorValueTreeState::ParameterLayout& layout, int num
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { ids.polarity, version }, prefix + "Polarity", juce::StringArray { "Bipolar", "Unipolar" }, 0));
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { ids.mode, version }, prefix + "Mode", juce::StringArray { "Free", "Retrigger", "One Shot" }, 0));
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids.phase, version }, prefix + "Phase",
-		juce::NormalisableRange<float> { 0.0f, 360.0f, 0.1f }, 0.0f, juce::AudioParameterFloatAttributes {}.withLabel("deg")));
+		juce::NormalisableRange<float> { 0.0f, 360.0f, 0.1f }, 0.0f, withDecimals(1, "deg")));
 	for (const auto [identifier, name] : { std::pair { ids.delay, "Delay" }, std::pair { ids.fade, "Fade" } })
 		layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { identifier, version }, prefix + name,
-			juce::NormalisableRange<float> { 0.0f, 10.0f, 0.0001f, 0.35f }, 0.0f, juce::AudioParameterFloatAttributes {}.withLabel("s")));
+			juce::NormalisableRange<float> { 0.0f, 10.0f, 0.0001f, 0.35f }, 0.0f, withDecimals(3, "s")));
 	// Amount defaults to full so turning up any one destination is immediately audible; all depths default to zero.
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids.amount, version }, prefix + "Amount",
-		juce::NormalisableRange<float> { 0.0f, 100.0f, 0.01f }, 100.0f, juce::AudioParameterFloatAttributes {}.withLabel("%")));
+		juce::NormalisableRange<float> { 0.0f, 100.0f, 0.01f }, 100.0f, withDecimals(1, "%")));
 	for (std::size_t oscillator = 0; oscillator < 3; ++oscillator)
 	{
 		const auto target = prefix + "Osc " + juce::String(static_cast<int>(oscillator) + 1) + " ";

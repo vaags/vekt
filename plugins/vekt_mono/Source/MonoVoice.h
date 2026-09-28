@@ -257,6 +257,7 @@ public:
 	[[nodiscard]] std::uint64_t getAge() const noexcept { return age; }
 	[[nodiscard]] int getChannel() const noexcept { return channel; }
 	void setPanPosition(float value) noexcept { panPosition = value; }
+	[[nodiscard]] float getLfoOutput(std::size_t index) const noexcept { return lfoOutputs[index]; }
 
 private:
 	[[nodiscard]] int transitionLength() const noexcept

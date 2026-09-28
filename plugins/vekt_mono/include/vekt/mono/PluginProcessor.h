@@ -62,6 +62,8 @@ public:
 	};
 	[[nodiscard]] CoupledWorkSnapshot coupledWorkSnapshot() const noexcept;
 	[[nodiscard]] std::array<float, 2> consumeOutputPeaks() noexcept { return outputMeter.consumePeaks(); }
+	// Latest output of each LFO on the most recently started sounding voice; 0 while silent. For display only.
+	[[nodiscard]] float getLfoDisplayValue(std::size_t index) const noexcept { return lfoDisplayValues[index].load(std::memory_order_relaxed); }
 
 private:
 	[[nodiscard]] float value(const char* identifier) const noexcept;
@@ -102,6 +104,7 @@ private:
 	std::array<std::vector<HeldNote>, 16> heldNotesByChannel;
 	dsp::OversamplingBank<float> oversampling { 2 };
 	std::array<std::unique_ptr<LfoClock>, 2> lfoClocks;
+	std::array<std::atomic<float>, 2> lfoDisplayValues {};
 	double transportBpm { 120.0 };
 	std::optional<double> transportPpq;
 	dsp::StereoPeakMeter outputMeter;

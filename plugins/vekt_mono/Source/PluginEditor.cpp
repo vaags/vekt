@@ -3,7 +3,7 @@
 namespace vekt::mono
 {
 PluginEditor::PluginEditor(PluginProcessor& newProcessor)
-	: ScalableEditor(newProcessor), pluginProcessor(newProcessor), historyControls(newProcessor.getUndoManager()),
+	: ScalableEditor(newProcessor, editorWidth, ui::ScalableEditor::logicalHeight), pluginProcessor(newProcessor), historyControls(newProcessor.getUndoManager()),
 	  presetBrowser(newProcessor.getPresetSession())
 {
 	setLookAndFeel(&lookAndFeel);
@@ -120,16 +120,110 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	heldKeyReturnButton.setTooltip("When enabled, releasing the active mono note returns to the selected still-held key (last or lowest priority).");
 	glideBox.setTooltip("Always glides every note change; Legato glides only while another note is held.");
 	voiceControls[2].getSlider().setTooltip("Mixes polyphonic voices from centered at 0% to full round-robin stereo panning at 100%.");
+	getContent().addAndMakeVisible(lfoPanel);
+	const std::array destinationNames { "Osc 1 Pitch", "Osc 2 Pitch", "Osc 3 Pitch", "Osc 1 Morph", "Osc 2 Morph", "Osc 3 Morph",
+		"Osc 1 Width", "Osc 2 Width", "Osc 3 Width", "Osc 1 Level", "Osc 2 Level", "Osc 3 Level",
+		"Filter", "Amp", "Drive", "Noise", "Detune", "Spread" };
+	for (std::size_t index = 0; index < lfoControls.size(); ++index)
+	{
+		const auto& ids = parameters::lfos[index];
+		auto& controls = lfoControls[index];
+		const auto prefix = "LFO " + juce::String(static_cast<int>(index) + 1) + " ";
+		addChoice(lfoPanel, controls.shape, { "Sine", "Triangle", "Saw Up", "Saw Down", "Square", "Smooth Random" }, ids.shape, controls.shapeAttachment);
+		addChoice(lfoPanel, controls.polarity, { "Bipolar", "Unipolar" }, ids.polarity, controls.polarityAttachment);
+		addChoice(lfoPanel, controls.mode, { "Free", "Retrigger", "One Shot" }, ids.mode, controls.modeAttachment);
+		controls.shape.setName(prefix + "Shape");
+		controls.polarity.setName(prefix + "Polarity");
+		controls.mode.setName(prefix + "Mode");
+		controls.polarity.setTooltip("Bipolar swings -1 to +1 (vibrato); Unipolar swings 0 to 1 (only raises or only lowers a destination).");
+		controls.mode.setTooltip("Free runs continuously; Retrigger restarts with each note; One Shot runs one cycle per note and holds, like an envelope.");
+		lfoPanel.addAndMakeVisible(controls.sync);
+		controls.sync.setName(prefix + "Sync");
+		controls.sync.setTooltip("Sets the rate in note divisions of the host tempo.");
+		controls.syncAttachment = std::make_unique<ButtonAttachment>(pluginProcessor.getParameters(), ids.sync, controls.sync);
+		controls.sync.onClick = [this] { refreshLfoVisibility(); };
+		const std::array knobs { &controls.rate, &controls.division, &controls.amount, &controls.phase, &controls.delay, &controls.fade };
+		const std::array knobNames { "Rate", "Division", "Amount", "Phase", "Delay", "Fade" };
+		const std::array knobIds { ids.rate, ids.division, ids.amount, ids.phase, ids.delay, ids.fade };
+		for (std::size_t knob = 0; knob < knobs.size(); ++knob)
+		{
+			addRotary(lfoPanel, *knobs[knob], knobNames[knob], knobIds[knob], controls.knobAttachments[knob]);
+			knobs[knob]->setLayout(ui::RotaryControl::Size::compact, 62);
+			knobs[knob]->setName(prefix + knobNames[knob]);
+			knobs[knob]->getSlider().setName(prefix + knobNames[knob]);
+		}
+		controls.amount.getSlider().setTooltip("Master depth: scales every destination of this LFO.");
+		controls.delay.getSlider().setTooltip("Silent time after each note starts.");
+		controls.fade.getSlider().setTooltip("Fade-in time after the delay.");
+		const auto depthIds = ids.all();
+		for (std::size_t depth = 0; depth < controls.depths.size(); ++depth)
+		{
+			auto& slider = controls.depths[depth];
+			slider.setSliderStyle(juce::Slider::LinearHorizontal);
+			slider.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
+			slider.getProperties().set("bipolar", true);
+			slider.setPopupDisplayEnabled(true, false, &getContent());
+			slider.setName(prefix + destinationNames[depth]);
+			slider.setTooltip(prefix + destinationNames[depth] + " depth. Double-click to reset.");
+			lfoPanel.addAndMakeVisible(slider);
+			controls.depthAttachments[depth] = std::make_unique<SliderAttachment>(pluginProcessor.getParameters(), depthIds[10 + depth], slider);
+			slider.setDoubleClickReturnValue(true, 0.0);
+		}
+		auto& tab = lfoTabs[index];
+		tab.setButtonText(juce::String(static_cast<int>(index) + 1));
+		tab.setName(prefix + "Tab");
+		tab.setRadioGroupId(0x4c464f);
+		tab.onClick = [this, index] { selectLfo(index); };
+		lfoPanel.addAndMakeVisible(tab);
+	}
+	const std::array destinationLabels { "Pitch", "Morph", "Width", "Level", "Osc 1", "Osc 2", "Osc 3", "Filter", "Amp", "Drive", "Noise", "Detune", "Spread" };
+	for (std::size_t index = 0; index < lfoDestinationLabels.size(); ++index)
+	{
+		auto& label = lfoDestinationLabels[index];
+		label.setText(destinationLabels[index], juce::dontSendNotification);
+		label.setFont(juce::FontOptions(13.0f));
+		label.setColour(juce::Label::textColourId, juce::Colour::fromRGB(170, 178, 176));
+		label.setJustificationType(index >= 4 && index < 7 ? juce::Justification::centredLeft : juce::Justification::centred);
+		lfoPanel.addAndMakeVisible(label);
+	}
+	selectLfo(0);
 	refreshPresetLabel();
 	resized();
 	timerCallback();
-	startTimerHz(10);
+	// Fast enough for the LFO activity lights to move smoothly.
+	startTimerHz(30);
 }
 
 PluginEditor::~PluginEditor() { setLookAndFeel(nullptr); }
+void PluginEditor::selectLfo(std::size_t index)
+{
+	selectedLfo = index;
+	for (std::size_t tab = 0; tab < lfoTabs.size(); ++tab) lfoTabs[tab].setToggleState(tab == index, juce::dontSendNotification);
+	refreshLfoVisibility();
+}
+void PluginEditor::refreshLfoVisibility()
+{
+	for (std::size_t index = 0; index < lfoControls.size(); ++index)
+	{
+		auto& controls = lfoControls[index];
+		const auto shown = index == selectedLfo;
+		for (auto* component : { static_cast<juce::Component*>(&controls.shape), static_cast<juce::Component*>(&controls.polarity),
+				static_cast<juce::Component*>(&controls.mode), static_cast<juce::Component*>(&controls.sync),
+				static_cast<juce::Component*>(&controls.amount), static_cast<juce::Component*>(&controls.phase),
+				static_cast<juce::Component*>(&controls.delay), static_cast<juce::Component*>(&controls.fade) })
+			component->setVisible(shown);
+		for (auto& depth : controls.depths) depth.setVisible(shown);
+		// One knob position: Hz when free, a note division when synced.
+		const auto synced = controls.sync.getToggleState();
+		controls.rate.setVisible(shown && !synced);
+		controls.division.setVisible(shown && synced);
+	}
+}
 void PluginEditor::addRotary(ui::Panel& panel, ui::RotaryControl& control, const char* name, const char* identifier, std::unique_ptr<SliderAttachment>& attachment)
 {
 	control.setLabel(name); panel.addAndMakeVisible(control); attachment = std::make_unique<SliderAttachment>(pluginProcessor.getParameters(), identifier, control.getSlider());
+	// The attachment installs the parameter's text formatting; refresh the readout, which was set before it.
+	control.refreshValueText();
 }
 void PluginEditor::addChoice(ui::Panel& panel, juce::ComboBox& box, const juce::StringArray& choices, const char* identifier, std::unique_ptr<ComboBoxAttachment>& attachment)
 {
@@ -145,6 +239,8 @@ void PluginEditor::timerCallback()
 	juce::String message = "Quality: " + juce::String(qualityName)
 		+ " • " + juce::String(pluginProcessor.getLatencySamples()) + " smp";
 	status.setText(message, juce::dontSendNotification);
+	for (std::size_t index = 0; index < lfoTabs.size(); ++index) lfoTabs[index].setLevel(pluginProcessor.getLfoDisplayValue(index));
+	refreshLfoVisibility();
 	outputMeter.setStereoLevels(pluginProcessor.consumeOutputPeaks());
 }
 void PluginEditor::refreshPresetLabel()
@@ -156,7 +252,7 @@ void PluginEditor::refreshPresetLabel()
 void PluginEditor::paint(juce::Graphics& graphics) { graphics.fillAll(juce::Colour::fromRGB(20, 24, 28)); }
 void PluginEditor::resized()
 {
-	ScalableEditor::resized(); auto& content = getContent(); title.setBounds(20, 16, 220, 40); presetNavigation.setBounds(260, 16, 320, 40); historyControls.setBounds(600, 16, 120, 40); status.setBounds(740, 16, 360, 40); presetBrowser.setBounds(content.getLocalBounds().reduced(20));
+	ScalableEditor::resized(); auto& content = getContent(); title.setBounds(20, 16, 220, 40); presetNavigation.setBounds(260, 16, 320, 40); historyControls.setBounds(600, 16, 120, 40); status.setBounds(740, 16, editorWidth - 760, 40); presetBrowser.setBounds(content.getLocalBounds().reduced(20));
 	// Columns match the ADSR/Performance row below: 348 px panels with 16 px gaps.
 	for (std::size_t index = 0; index < oscillatorPanels.size(); ++index) oscillatorPanels[index].setBounds(20 + static_cast<int>(index) * 364, 68, 348, 184);
 	filterPanel.setBounds(20, 268, 348, 180); voicePanel.setBounds(384, 268, 280, 180); noisePanel.setBounds(680, 268, 216, 180); ioPanel.setBounds(912, 268, 188, 180); ampPanel.setBounds(20, 464, 348, 216); filterEnvelopePanel.setBounds(384, 464, 348, 216); performancePanel.setBounds(748, 464, 352, 216);
@@ -174,6 +270,27 @@ void PluginEditor::resized()
 	outputFader.setBounds(18, 34, 88, 132);
 	outputMeter.setBounds(124, 38, 36, 104);
 	voiceCountBox.setBounds(12, 58, 154, 28); performanceModeBox.setBounds(184, 58, 154, 28); qualityBox.setBounds(12, 116, 154, 28); unisonBox.setBounds(184, 116, 154, 28); glideBox.setBounds(12, 174, 154, 28);
+	lfoPanel.setBounds(1116, 68, 348, 380);
+	for (std::size_t index = 0; index < lfoTabs.size(); ++index) lfoTabs[index].setBounds(64 + static_cast<int>(index) * 60, 5, 54, 24);
+	for (auto& controls : lfoControls)
+	{
+		controls.sync.setBounds(262, 5, 80, 24);
+		controls.shape.setBounds(12, 40, 124, 26); controls.polarity.setBounds(142, 40, 94, 26); controls.mode.setBounds(242, 40, 94, 26);
+		const std::array knobs { &controls.amount, &controls.phase, &controls.delay, &controls.fade };
+		for (auto* rate : { &controls.rate, &controls.division }) rate->setBounds(6, 72, 65, ui::RotaryControl::heightFor(ui::RotaryControl::Size::compact));
+		for (std::size_t knob = 0; knob < knobs.size(); ++knob)
+			knobs[knob]->setBounds(73 + static_cast<int>(knob) * 67, 72, 65, ui::RotaryControl::heightFor(ui::RotaryControl::Size::compact));
+		// Oscillator grid: rows Osc 1-3, columns Pitch/Morph/Width/Level; then two rows of three single destinations.
+		for (std::size_t column = 0; column < 4; ++column)
+			for (std::size_t row = 0; row < 3; ++row)
+				controls.depths[column * 3 + row].setBounds(56 + static_cast<int>(column) * 72, 214 + static_cast<int>(row) * 24, 68, 22);
+		for (std::size_t single = 0; single < 6; ++single)
+			controls.depths[12 + single].setBounds(12 + static_cast<int>(single % 3) * 112, 306 + static_cast<int>(single / 3) * 42, 104, 22);
+	}
+	for (std::size_t column = 0; column < 4; ++column) lfoDestinationLabels[column].setBounds(56 + static_cast<int>(column) * 72, 198, 68, 14);
+	for (std::size_t row = 0; row < 3; ++row) lfoDestinationLabels[4 + row].setBounds(12, 214 + static_cast<int>(row) * 24, 44, 22);
+	for (std::size_t single = 0; single < 6; ++single)
+		lfoDestinationLabels[7 + single].setBounds(12 + static_cast<int>(single % 3) * 112, 290 + static_cast<int>(single / 3) * 42, 104, 14);
 	performanceLabels[0].setBounds(12, 38, 154, 18); performanceLabels[1].setBounds(184, 38, 50, 18); performanceLabels[2].setBounds(12, 96, 154, 18); performanceLabels[3].setBounds(184, 96, 154, 18); performanceLabels[4].setBounds(12, 154, 154, 18); heldKeyReturnButton.setBounds(238, 34, 100, 22); priorityBox.setBounds(127, 5, 145, 26); juce::ignoreUnused(content);
 }
 }

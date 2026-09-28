@@ -2,17 +2,17 @@
 
 namespace vekt::ui
 {
-ScalableEditor::ScalableEditor(juce::AudioProcessor& audioProcessor)
-	: AudioProcessorEditor(audioProcessor)
+ScalableEditor::ScalableEditor(juce::AudioProcessor& audioProcessor, int width, int height)
+	: AudioProcessorEditor(audioProcessor), contentWidth(width), contentHeight(height)
 {
-	constrainer.setMinimumSize(logicalWidth, logicalHeight);
-	constrainer.setMaximumSize(logicalWidth * 2, logicalHeight * 2);
-	constrainer.setFixedAspectRatio(static_cast<double>(logicalWidth) / logicalHeight);
+	constrainer.setMinimumSize(contentWidth, contentHeight);
+	constrainer.setMaximumSize(contentWidth * 2, contentHeight * 2);
+	constrainer.setFixedAspectRatio(static_cast<double>(contentWidth) / contentHeight);
 	setResizable(true, true);
     setConstrainer(&constrainer);
     addAndMakeVisible(content);
 	addAndMakeVisible(resizeHandle);
-    setSize(logicalWidth, logicalHeight);
+    setSize(contentWidth, contentHeight);
     resized();
 }
 
@@ -25,8 +25,8 @@ void ScalableEditor::setResizeHandleVisible(bool shouldBeVisible) noexcept
 
 void ScalableEditor::resized()
 {
-	const auto scale = static_cast<float>(getWidth()) / logicalWidth;
-	content.setBounds(0, 0, logicalWidth, logicalHeight);
+	const auto scale = static_cast<float>(getWidth()) / static_cast<float>(contentWidth);
+	content.setBounds(0, 0, contentWidth, contentHeight);
 	content.setTransform(juce::AffineTransform::scale(scale));
 	resizeHandle.setBounds(getLocalBounds().removeFromRight(44).removeFromBottom(44));
 }

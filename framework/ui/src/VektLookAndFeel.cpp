@@ -136,4 +136,32 @@ void VektLookAndFeel::drawRotarySlider(juce::Graphics& graphics, int x, int y, i
 		centre.y + std::sin(angle - juce::MathConstants<float>::halfPi) * dialRadius * 0.88f,
 		needleThickness);
 }
+
+void VektLookAndFeel::drawLinearSlider(juce::Graphics& graphics, int x, int y, int width, int height,
+	float sliderPosition, float minimumPosition, float maximumPosition, juce::Slider::SliderStyle style, juce::Slider& slider)
+{
+	if (!static_cast<bool>(slider.getProperties()["bipolar"]) || style != juce::Slider::LinearHorizontal)
+	{
+		juce::LookAndFeel_V4::drawLinearSlider(graphics, x, y, width, height, sliderPosition, minimumPosition, maximumPosition, style, slider);
+		return;
+	}
+	const auto bounds = juce::Rectangle<float>(static_cast<float>(x), static_cast<float>(y), static_cast<float>(width), static_cast<float>(height));
+	const auto track = bounds.withSizeKeepingCentre(bounds.getWidth(), 6.0f);
+	const auto centre = static_cast<float>(slider.getPositionOfValue(0.0));
+	const auto active = !juce::approximatelyEqual(slider.getValue(), 0.0);
+	graphics.setColour(juce::Colour::fromRGB(19, 24, 27));
+	graphics.fillRoundedRectangle(track, 3.0f);
+	graphics.setColour(juce::Colour::fromRGB(70, 82, 86));
+	graphics.drawRoundedRectangle(track, 3.0f, 1.0f);
+	graphics.setColour(juce::Colour::fromRGB(116, 128, 132));
+	graphics.fillRect(juce::Rectangle<float>(centre - 0.5f, track.getY() - 3.0f, 1.0f, track.getHeight() + 6.0f));
+	if (active)
+	{
+		graphics.setColour(findColour(juce::Slider::rotarySliderFillColourId).withMultipliedAlpha(slider.isEnabled() ? 1.0f : 0.5f));
+		graphics.fillRect(juce::Rectangle<float>::leftTopRightBottom(std::min(centre, sliderPosition), track.getY() + 1.0f,
+			std::max(centre, sliderPosition), track.getBottom() - 1.0f));
+	}
+	graphics.setColour(active ? findColour(juce::Slider::thumbColourId) : juce::Colour::fromRGB(150, 162, 162));
+	graphics.fillRoundedRectangle(juce::Rectangle<float>(sliderPosition - 2.5f, bounds.getCentreY() - 7.0f, 5.0f, 14.0f), 2.0f);
+}
 }

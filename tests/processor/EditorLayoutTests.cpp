@@ -230,9 +230,10 @@ TEST_CASE("Mono editor presents symmetric oscillator controls without overlap", 
 		if (auto* box = dynamic_cast<juce::ComboBox*>(child); box != nullptr && box->getNumItems() == 3 && box->getItemText(1) == "White")
 			foundNoiseType = true;
 	REQUIRE(foundNoiseType);
-	for (const auto width : { 1120, 1680, 2240 })
+	REQUIRE(editor.getLogicalWidth() == vekt::mono::PluginEditor::editorWidth);
+	for (const auto scale : { 1.0, 1.5, 2.0 })
 	{
-		editor.setSize(width, width * 10 / 16);
+		editor.setSize(juce::roundToInt(editor.getLogicalWidth() * scale), juce::roundToInt(editor.getLogicalHeight() * scale));
 		checkVisibleBounds(editor.getContent());
 	}
 	auto& ioPanel = find("I/O");
@@ -384,6 +385,102 @@ TEST_CASE("Mono Resonance knob writes its full range to the processor", "[mono][
 	REQUIRE(slider.getValue() == Catch::Approx(100.0));
 	REQUIRE(processor.getParameters().getRawParameterValue(vekt::mono::parameters::filterResonance)->load()
 		== Catch::Approx(100.0f));
+}
+
+TEST_CASE("Mono LFO panel shows one LFO at a time with every destination", "[mono][processor][ui][lfo]")
+{
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	vekt::mono::PluginProcessor processor;
+	vekt::mono::PluginEditor editor(processor);
+	juce::Component* lfoPanel {};
+	for (auto* child : editor.getContent().getChildren())
+		if (child->getName() == "LFO") lfoPanel = child;
+	REQUIRE(lfoPanel != nullptr);
+	REQUIRE(editor.getContent().getLocalBounds().contains(lfoPanel->getBounds()));
+	const auto find = [&](const juce::String& name) -> juce::Component*
+	{
+		for (auto* child : lfoPanel->getChildren())
+			if (child->getName() == name) return child;
+		return nullptr;
+	};
+	const auto checkShown = [&](int shown)
+	{
+		for (int number = 1; number <= 2; ++number)
+			for (const auto* control : { "Shape", "Mode", "Amount", "Rate", "Osc 2 Width", "Spread" })
+			{
+				const auto name = "LFO " + juce::String(number) + " " + control;
+				INFO(name.toStdString());
+				auto* component = find(name);
+				REQUIRE(component != nullptr);
+				REQUIRE(component->isVisible() == (number == shown));
+			}
+		// Visible controls never overlap.
+		std::vector<juce::Component*> visible;
+		for (auto* child : lfoPanel->getChildren())
+			if (child->isVisible()) visible.push_back(child);
+		for (std::size_t first = 0; first < visible.size(); ++first)
+			for (std::size_t second = first + 1; second < visible.size(); ++second)
+			{
+				INFO(visible[first]->getName().toStdString() << " / " << visible[second]->getName().toStdString());
+				REQUIRE_FALSE(visible[first]->getBounds().intersects(visible[second]->getBounds()));
+			}
+		for (const auto scale : { 1.0, 2.0 })
+		{
+			editor.setSize(juce::roundToInt(editor.getLogicalWidth() * scale), juce::roundToInt(editor.getLogicalHeight() * scale));
+			checkVisibleBounds(editor.getContent());
+		}
+	};
+	checkShown(1);
+	dynamic_cast<juce::Button*>(find("LFO 2 Tab"))->setToggleState(true, juce::sendNotificationSync);
+	checkShown(2);
+	REQUIRE_FALSE(dynamic_cast<juce::Button*>(find("LFO 1 Tab"))->getToggleState());
+	REQUIRE(dynamic_cast<juce::Button*>(find("LFO 2 Tab"))->getToggleState());
+
+	// Every destination has a bipolar slider bound to its depth parameter, reset by double-click to zero.
+	const std::array destinations { "Osc 1 Pitch", "Osc 2 Pitch", "Osc 3 Pitch", "Osc 1 Morph", "Osc 2 Morph", "Osc 3 Morph",
+		"Osc 1 Width", "Osc 2 Width", "Osc 3 Width", "Osc 1 Level", "Osc 2 Level", "Osc 3 Level",
+		"Filter", "Amp", "Drive", "Noise", "Detune", "Spread" };
+	for (std::size_t lfo = 0; lfo < vekt::mono::parameters::lfos.size(); ++lfo)
+	{
+		const auto ids = vekt::mono::parameters::lfos[lfo].all();
+		for (std::size_t depth = 0; depth < destinations.size(); ++depth)
+		{
+			const auto name = "LFO " + juce::String(static_cast<int>(lfo) + 1) + " " + destinations[depth];
+			INFO(name.toStdString());
+			auto* slider = dynamic_cast<juce::Slider*>(find(name));
+			REQUIRE(slider != nullptr);
+			REQUIRE(static_cast<bool>(slider->getProperties()["bipolar"]));
+			REQUIRE(slider->getDoubleClickReturnValue() == Catch::Approx(0.0));
+			slider->setValue(slider->getMaximum(), juce::sendNotificationSync);
+			auto* parameter = dynamic_cast<juce::RangedAudioParameter*>(processor.getParameters().getParameter(ids[10 + depth]));
+			REQUIRE(processor.getParameters().getRawParameterValue(ids[10 + depth])->load()
+				== Catch::Approx(parameter->getNormalisableRange().end));
+		}
+	}
+
+	// Sync swaps the Hz rate knob for a note-division knob in the same place.
+	auto* sync = dynamic_cast<juce::Button*>(find("LFO 2 Sync"));
+	REQUIRE(sync != nullptr);
+	REQUIRE(find("LFO 2 Rate")->isVisible());
+	REQUIRE_FALSE(find("LFO 2 Division")->isVisible());
+	sync->setToggleState(true, juce::sendNotificationSync);
+	REQUIRE(processor.getParameters().getRawParameterValue(vekt::mono::parameters::lfos[1].sync)->load() == 1.0f);
+	REQUIRE_FALSE(find("LFO 2 Rate")->isVisible());
+	REQUIRE(find("LFO 2 Division")->isVisible());
+	REQUIRE(find("LFO 2 Division")->getBounds() == find("LFO 2 Rate")->getBounds());
+	// Readouts show the parameter's own text from the start, not the slider's raw default formatting.
+	REQUIRE(dynamic_cast<vekt::ui::RotaryControl*>(find("LFO 2 Phase"))->getSlider().getTextFromValue(0.0) == "0.0");
+	for (auto* child : find("LFO 2 Phase")->getChildren())
+		if (auto* label = dynamic_cast<juce::Label*>(child); label != nullptr && label->getName().endsWith("value"))
+			REQUIRE(label->getText() == "0.0");
+	if (const auto* path = std::getenv("VEKT_MONO_LFO_SNAPSHOT"))
+	{
+		editor.setSize(editor.getLogicalWidth(), editor.getLogicalHeight());
+		const auto image = editor.createComponentSnapshot(editor.getLocalBounds(), true, 2.0f);
+		juce::FileOutputStream stream { juce::File(juce::String(path)) };
+		REQUIRE(stream.openedOk());
+		REQUIRE(juce::PNGImageFormat().writeImageToStream(image, stream));
+	}
 }
 
 TEST_CASE("Glimmer editor keeps stereo meters within its canvas", "[processor][ui]")

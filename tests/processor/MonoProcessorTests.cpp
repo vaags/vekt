@@ -1143,7 +1143,7 @@ TEST_CASE("Mono Ladder emphasis builds a resonant peak and remains stable", "[mo
 TEST_CASE("Mono uncompensated Ladder loses passband level with emphasis", "[mono][processor][filter][qcomp][slow]")
 {
 	juce::ScopedJuceInitialiser_GUI juceInitializer;
-	auto levelFor = [](float oscillatorLevel, float cutoff, float emphasis)
+	auto leveor = [](float oscillatorLevel, float cutoff, float emphasis)
 	{
 		vekt::mono::PluginProcessor processor;
 		initializeDryVoice(processor);

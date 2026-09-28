@@ -367,11 +367,14 @@ public:
 		for (auto* editor : { monoEditor.get(), ravEditor.get(), glimmerEditor.get() })
 		{
 			const auto editorArea = getLocalBounds().withTop(256).withTrimmedBottom(16).reduced(16, 0);
-			const auto scale = std::min(
-				static_cast<float>(editorArea.getWidth()) / vekt::ui::ScalableEditor::logicalWidth,
-				static_cast<float>(editorArea.getHeight()) / vekt::ui::ScalableEditor::logicalHeight);
-			const auto editorWidth = static_cast<int>(vekt::ui::ScalableEditor::logicalWidth * scale);
-			const auto editorHeight = static_cast<int>(vekt::ui::ScalableEditor::logicalHeight * scale);
+			// Each product may use its own logical size (Mono is wider), so fit each editor by its own aspect.
+			const auto* scalable = dynamic_cast<vekt::ui::ScalableEditor*>(editor);
+			const auto logicalWidth = static_cast<float>(scalable != nullptr ? scalable->getLogicalWidth() : vekt::ui::ScalableEditor::logicalWidth);
+			const auto logicalHeight = static_cast<float>(scalable != nullptr ? scalable->getLogicalHeight() : vekt::ui::ScalableEditor::logicalHeight);
+			const auto scale = std::min(static_cast<float>(editorArea.getWidth()) / logicalWidth,
+				static_cast<float>(editorArea.getHeight()) / logicalHeight);
+			const auto editorWidth = static_cast<int>(logicalWidth * scale);
+			const auto editorHeight = static_cast<int>(logicalHeight * scale);
 			editor->setBounds(editorArea.withSizeKeepingCentre(editorWidth, editorHeight));
 		}
 	}
