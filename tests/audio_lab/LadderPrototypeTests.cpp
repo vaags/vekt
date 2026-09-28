@@ -272,6 +272,8 @@ TEST_CASE("Coupled ladder grows into a stable tone above onset with a tighter re
 {
 	REQUIRE(vekt::mono::ladderFeedbackGain(0.98) == Catch::Approx(3.92));
 	REQUIRE(vekt::mono::ladderFeedbackGain(1.0) == Catch::Approx(4.6));
+	REQUIRE(vekt::mono::ladderResonanceTuning(0.98) == Catch::Approx(1.0));
+	REQUIRE(vekt::mono::ladderResonanceTuning(1.0) == Catch::Approx(1.0287));
 	constexpr int rate = 48'000;
 	constexpr int burst = rate / 10;
 	constexpr int window = rate / 10;
@@ -907,8 +909,11 @@ TEST_CASE("Nonlinear TPT ladder cutoff-boundary ringdown is finite and measured"
 			{
 				vekt::audio_lab::NonlinearTptLadder ladder;
 				ladder.prepare(rate);
-				const auto length = static_cast<int>(rate * 2.0);
-				const auto tailLength = static_cast<int>(rate * 0.5);
+				// At 10 Hz, a half-second startup-adjacent window has only five
+				// cycles and is biased by the impulse transient. Measure five
+				// seconds after settling; retain the 1% pitch requirement.
+				const auto length = static_cast<int>(rate * (cutoff == 10.0f ? 10.0 : 2.0));
+				const auto tailLength = static_cast<int>(rate * (cutoff == 10.0f ? 5.0 : 0.5));
 				double peak {}, squares {};
 				int crossings {}, firstCrossing = -1, lastCrossing = -1;
 				float previous {};

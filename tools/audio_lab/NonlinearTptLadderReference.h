@@ -80,7 +80,8 @@ public:
 			const auto hostIntegrationGain = std::tan(std::numbers::pi * cutoff / sampleRate);
 			// wc = 2 * sampleRate * hostIntegrationGain; at N times the rate,
 			// trapezoidal integration uses wc / (2 * N * sampleRate).
-			const auto integrationGain = hostIntegrationGain / static_cast<double>(substeps);
+			const auto integrationGain = hostIntegrationGain * mono::ladderResonanceTuning(resonance)
+				/ static_cast<double>(substeps);
 			const auto feedbackGain = mono::ladderFeedbackGain(resonance);
 			const auto driveGain = std::pow(10.0, driveDecibels / 20.0);
 			output = processInternal(interpolatedInput * driveGain, integrationGain, feedbackGain);
@@ -242,7 +243,7 @@ private:
 {
 	const auto cutoff = std::clamp(settings.cutoffHz, 10.0, sampleRate * 0.45);
 	const auto warpedCutoffRadians = 2.0 * sampleRate
-		* std::tan(std::numbers::pi * cutoff / sampleRate);
+		* std::tan(std::numbers::pi * cutoff / sampleRate) * mono::ladderResonanceTuning(settings.resonance);
 	const std::complex<double> s { 0.0, 2.0 * std::numbers::pi * frequencyHz };
 	const auto stage = warpedCutoffRadians / (s + warpedCutoffRadians);
 	const auto cascade = stage * stage * stage * stage;
@@ -257,7 +258,7 @@ private:
 {
 	const auto cutoff = std::clamp(settings.cutoffHz, 10.0, sampleRate * 0.45);
 	const auto warpedCutoffRadians = 2.0 * sampleRate
-		* std::tan(std::numbers::pi * cutoff / sampleRate);
+		* std::tan(std::numbers::pi * cutoff / sampleRate) * mono::ladderResonanceTuning(settings.resonance);
 	const auto warpedProbeRadians = 2.0 * sampleRate
 		* std::tan(std::numbers::pi * frequencyHz / sampleRate);
 	const std::complex<double> s { 0.0, warpedProbeRadians };
@@ -273,7 +274,8 @@ private:
 	double sampleRate, double frequencyHz, const NonlinearTptLadderReferenceSettings& settings) noexcept
 {
 	const auto cutoff = std::clamp(settings.cutoffHz, 10.0, sampleRate * 0.45);
-	const auto integrationGain = std::tan(std::numbers::pi * cutoff / sampleRate);
+	const auto integrationGain = std::tan(std::numbers::pi * cutoff / sampleRate)
+		* mono::ladderResonanceTuning(settings.resonance);
 	const auto zInverse = std::exp(std::complex<double> {
 		0.0, -2.0 * std::numbers::pi * frequencyHz / sampleRate });
 	const auto stage = integrationGain * (1.0 + zInverse)

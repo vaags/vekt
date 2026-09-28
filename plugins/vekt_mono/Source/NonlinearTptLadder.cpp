@@ -91,7 +91,8 @@ float NonlinearTptLadder::process(float input, const NonlinearTptLadderSettings&
 {
 	const auto maximumCutoff = sampleRate * 0.45f;
 	const auto cutoff = std::clamp(settings.cutoffHz, 10.0f, maximumCutoff);
-	const auto integrationGain = std::tan(std::numbers::pi_v<double> * cutoff / sampleRate);
+	const auto integrationGain = std::tan(std::numbers::pi_v<double> * cutoff / sampleRate)
+		* ladderResonanceTuning(static_cast<double>(settings.resonance));
 	return processStep(input, settings, integrationGain);
 }
 
@@ -118,7 +119,7 @@ float NonlinearTptLadder::processSubstepped(float input,
 		const auto cutoff = std::clamp(interpolate(previousSettings.cutoffHz, settings.cutoffHz),
 			10.0f, sampleRate * 0.45f);
 		const auto integrationGain = std::tan(std::numbers::pi_v<double> * cutoff / sampleRate)
-			/ count;
+			* ladderResonanceTuning(static_cast<double>(interpolate(previousSettings.resonance, settings.resonance))) / count;
 		const NonlinearTptLadderSettings stepSettings {
 			cutoff,
 			interpolate(previousSettings.resonance, settings.resonance),
@@ -207,7 +208,8 @@ float NonlinearTptLadder::processCoupled(float input, const NonlinearTptLadderSe
 	constexpr int maximumCoupledIterations = 16;
 	constexpr int maximumLineSearchSteps = 10;
 	const auto cutoff = std::clamp(settings.cutoffHz, 10.0f, sampleRate * 0.45f);
-	const auto g = std::tan(std::numbers::pi_v<double> * cutoff / sampleRate);
+	const auto g = std::tan(std::numbers::pi_v<double> * cutoff / sampleRate)
+		* ladderResonanceTuning(static_cast<double>(settings.resonance));
 	const auto k = ladderFeedbackGain(static_cast<double>(settings.resonance));
 	const auto driveGain = std::pow(10.0f, settings.driveDecibels / 20.0f);
 	const auto driven = std::clamp(static_cast<double>(input) * driveGain, -signalLimit, signalLimit);

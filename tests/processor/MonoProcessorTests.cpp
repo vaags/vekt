@@ -1370,6 +1370,47 @@ TEST_CASE("Mono Ladder drive adds harmonics without acting as output gain", "[mo
 	REQUIRE(drivenRms < cleanRms * 4.0f);
 }
 
+TEST_CASE("Mono maximum resonance driven voice exposes output headroom", "[mono][processor][filter][headroom]")
+{
+	for (const auto quality : { 0.0f, 1.0f })
+		for (const auto drive : { 0.0f, 24.0f })
+			for (const auto compensated : { false, true })
+			{
+				vekt::mono::PluginProcessor processor;
+				initializeDryVoice(processor);
+				setParameter(processor, vekt::mono::parameters::quality, quality);
+				setParameter(processor, vekt::mono::parameters::osc1Level, 100.0f);
+				setParameter(processor, vekt::mono::parameters::filterCutoff, 1'000.0f);
+				setParameter(processor, vekt::mono::parameters::filterResonance, 100.0f);
+				setParameter(processor, vekt::mono::parameters::filterDrive, drive);
+				setParameter(processor, vekt::mono::parameters::filterQCompensation, compensated ? 1.0f : 0.0f);
+				setParameter(processor, vekt::mono::parameters::masterOutput, 0.0f);
+				processor.prepareToPlay(48'000.0, 1024);
+				juce::AudioBuffer<float> buffer(2, 1024);
+				juce::MidiBuffer note;
+				note.addEvent(juce::MidiMessage::noteOn(1, 48, 1.0f), 0);
+				float peak {};
+				for (int block = 0; block < 48; ++block)
+				{
+					renderBlock(processor, buffer, note);
+					note.clear();
+					for (int channel = 0; channel < 2; ++channel)
+						for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+						{
+							const auto value = buffer.getSample(channel, sample);
+							REQUIRE(std::isfinite(value));
+							peak = std::max(peak, std::abs(value));
+						}
+				}
+				INFO("quality=" << quality << ", drive=" << drive << ", qCompensation=" << compensated << ", peak=" << peak);
+				REQUIRE(peak > 0.01f);
+				CHECK(peak < 1.0f);
+				const auto work = processor.coupledWorkSnapshot();
+				REQUIRE(work.unconverged == 0);
+				REQUIRE(work.nonFinite == 0);
+			}
+}
+
 TEST_CASE("Mono preserves APVTS project state", "[mono][processor]")
 {
 	vekt::mono::PluginProcessor source;

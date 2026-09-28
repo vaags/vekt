@@ -139,16 +139,18 @@ validation; compensated output is a separate sound-design candidate.
 ## Cutoff and resonance definitions
 
 The cutoff control is clamped to `10 Hz .. 0.45 sampleRate`. For a processing rate
-`fs`, the trapezoidal integration gain and equivalent prewarped continuous-time pole
-frequency are:
+`fs`, the base trapezoidal integration gain and equivalent prewarped continuous-time
+pole frequency are:
 
 ```text
-g  = tan(pi cutoffHz / fs)
+gBase = tan(pi cutoffHz / fs)
+g = gBase * [1 + 0.0287 t² (3 - 2t)]
 wc = 2 fs g
 ```
 
-In the small-signal limit, one stage is `wc / (s + wc)`. Four stages under feedback
-have the transfer function:
+Here `t` is the resonance-dependent value defined below; it is zero through
+`r = 0.98`. In the small-signal limit, one stage is `wc / (s + wc)`. Four stages
+under feedback have the transfer function:
 
 ```text
 L(s)    = [wc / (s + wc)]^4
@@ -175,6 +177,23 @@ small-signal onset. This is a provisional sound/gain calibration, not a hardware
 emulation claim or release acceptance. Exact zero remains an equilibrium until
 excitation; the voice envelope and gate can still silence the output.
 
+**Further candidate tuning (28 September 2026):** At maximum feedback the
+finite-amplitude oscillation measured approximately `0.972 cutoffHz` across
+10 Hz–4 kHz. In all three ladder solvers and in the offline reference, multiply
+the prewarped integration gain by `1 + 0.0287 t² (3 - 2t)` (using `t` above).
+Thus the sub-onset coefficient is unchanged; at maximum the raw filter's
+finite-amplitude pitch, not its small-signal pole frequency, tracks the cutoff.
+The corresponding analytical references use the same revised coefficient.
+This is a fitted calibration requiring full sound and reference review.
+
+The **processor voice path**, not the raw fourth-stage ladder output, also
+multiplies its post-envelope, post-pan signal by `1 + 0.6 t² (3 - 2t)` alongside
+the optional Q compensation (before master output). This restores a musically useful
+tone through normal voice scaling, including the tested preset-style patch,
+without increasing the nonlinear feedback or altering the raw-ladder model.
+It increases all voice output in this narrow top-resonance range, including
+driven input; headroom and level interactions remain release validation gates.
+
 ## Discretization
 
 Each stage uses a topology-preserving trapezoidal integrator. Given integrator state
@@ -185,7 +204,7 @@ y(i) - s(i) - g [tanh(u(i)) - tanh(y(i))] = 0
 s(i)' = 2 y(i) - s(i)
 ```
 
-The exact linearized digital one-stage response is:
+The exact linearized digital one-stage response uses the calibrated `g` above:
 
 ```text
 H1(z) = g (1 + z^-1) / [(1 + g) + (g - 1) z^-1]

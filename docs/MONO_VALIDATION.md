@@ -91,6 +91,55 @@ test (test 265). CTest test numbers depend on discovery order. Both new
 seeded-tail/reference tests pass. No production solver tolerances or existing
 sound/pitch assertions were weakened for this result.
 
+**28 September follow-up candidate (subsequent working-tree changes):** A
+resonance-only integration-gain calibration of 1.0287 at maximum corrects the
+measured raw-ladder pitch from about 9.725 to 10.004 Hz at the 10 Hz floor,
+and from about 972 to 1000 Hz at 1 kHz (44.1/48 kHz direct probes); the raw
+oscillation level stays near 0.124 RMS. A separate smooth 1.6x maximum
+post-envelope voice gain recovers the tested output levels without increasing
+feedback or altering the raw fourth-stage output. The former is represented
+in the nested and tighter offline references; the latter only in MonoVoice.
+The original processor-level minimums and pitch limits remain unchanged:
+focused `[mono][processor][filter]` passes 13/13 (48528 assertions), all
+61 `[mono][processor]` cases pass (316257 assertions), and seven focused
+`[ladder-reference]` cases pass (27884 assertions). The 30-second 10 Hz test
+passes unchanged. The 10 Hz cutoff-boundary test now measures pitch from a
+settled five-second window, instead of five startup-adjacent cycles in 0.5 s;
+its original 1% pitch limit is unchanged, and it passes. This measurement
+change must not be confused with relaxing the underlying pitch requirement.
+An earlier full Debug run reported **272/272 passed in 264.61 seconds**, but
+overlapped a later rebuild; it is diagnostic rather than final evidence. After
+the Debug test target reported no build work, a settled-binary
+`ctest --preset dev --output-on-failure` rerun completed **272/272 passed in
+260.39 seconds**. No sound-level or pitch thresholds were lowered. This run
+preceded the new headroom regression below; it is not a passing run of the
+subsequently enlarged suite.
+The normal Release VST3 and Standalone targets and Release Audio Lab cost tool
+rebuilt successfully. A short Release cost probe (48 kHz, 128 samples, eight
+voices, 1x, 0.02 s, resonance 85%, 12 dB drive) reported zero simulated
+deadline exceedances, zero counted C++ `new` calls, and zero nonfinite or
+unconverged coupled samples. This fixture does not exercise maximum resonance,
+and neither the probe nor a build is host/device qualification.
+
+**Open headroom failure (not waived):** A new focused processor test in
+`tests/processor/MonoProcessorTests.cpp` drives one voice (oscillator 1 at
+100%, cutoff 1 kHz, maximum resonance, master 0 dB, 48 kHz, 1024-sample
+blocks, 48 blocks) at 1x and 2x, with drive at 0 or 24 dB and Q compensation
+off or on. Its explicit `peak < 1.0` check fails in six of eight configurations:
+1x peaks are 1.54348 (0 dB drive, compensation on), 1.76071 (24 dB drive,
+compensation off), and 7.00950 (24 dB drive, compensation on); 2x peaks are
+1.54350, 1.76011, and 7.00713 respectively. All measured samples were finite
+and the solver reported zero unconverged and nonfinite samples, but floating-
+point output above 0 dBFS risks downstream clipping. The focused test exits
+with failure; **the current 273-test tree is not green**. Do not suppress this
+test, reduce the existing self-oscillation level minimums, or treat this result
+as release acceptance. These measurements do not isolate how much excess level
+comes from the new voice gain versus pre-existing drive/Q-compensation behavior.
+The gain/Q-compensation policy and acceptable headroom
+need a sound-design decision and a tested fix. Modulated boundaries,
+representative processing cost at maximum resonance, host listening, and live
+audio validation also remain open.
+
 Debug tests of the ordinary processor and a normal Release build are useful
 regression evidence only. **No normal Release VST3/Standalone host session,
 live audio device, audible click assessment, measured audio-delay test, or
