@@ -29,6 +29,7 @@ add_executable(vekt_dsp_tests
 	processor/ValueFormatTests.cpp
 	audio_lab/FileSourceTests.cpp
     audio_lab/LabSettingsTests.cpp
+	audio_lab/RackRoutingTests.cpp
 	audio_lab/MeasurementsTests.cpp
 	audio_lab/MonoRenderTests.cpp
 	../tools/audio_lab/MonoRender.cpp

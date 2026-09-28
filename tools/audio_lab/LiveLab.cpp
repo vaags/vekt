@@ -1,6 +1,7 @@
 #include "SignalSources.h"
 #include "FileSource.h"
 #include "LabSettings.h"
+#include "RackRouting.h"
 
 #include <PluginProcessor.h>
 #include <PluginEditor.h>
@@ -298,14 +299,7 @@ public:
 		juce::AudioBuffer<float> block(info.buffer->getArrayOfWritePointers(),
 			info.buffer->getNumChannels(), info.startSample, info.numSamples);
 		const auto startTicks = juce::Time::getHighResolutionTicks();
-		switch (rackRoute.load())
-		{
-		case 1: ravProcessor.processBlock(block, midi); break;
-		case 2: glimmerProcessor.processBlock(block, midi); break;
-		case 3: ravProcessor.processBlock(block, midi); glimmerProcessor.processBlock(block, midi); break;
-		case 4: glimmerProcessor.processBlock(block, midi); ravProcessor.processBlock(block, midi); break;
-		default: break;
-		}
+		vekt::audio_lab::processRackRoute(rackRoute.load(), block, midi, ravProcessor, glimmerProcessor);
 		const auto elapsedTicks = juce::Time::getHighResolutionTicks() - startTicks;
 		const auto blockDurationTicks = static_cast<double>(info.numSamples)
 			* static_cast<double>(juce::Time::getHighResolutionTicksPerSecond()) / sampleRateHz;
