@@ -1,3 +1,27 @@
+# Mono oscillator morph policy (28 September 2026)
+
+Morph interpolates linearly between two adjacent anchors read from one shared
+phase: 0 sine, 1 triangle, 2 saw, 3 pulse (square at 50% width). Every anchor's
+fundamental is `+sin(2*pi*phase)`: the triangle peaks at a quarter cycle and the
+saw is a falling ramp (it sounds the same as a rising one). The earlier anchors
+were out of phase, so morphing cancelled the fundamental: RMS fell about 2 dB
+between sine and triangle, 3 dB between triangle and saw, and to 0.29 between saw
+and square (-6 dB below saw, -11 dB below square).
+
+All anchors now share the saw's RMS, `1/sqrt(3)`. Triangle and saw are unchanged;
+**the sine anchor is 1.76 dB and the pulse anchor 4.77 dB below their earlier
+amplitudes**, so Morph no longer acts as a hidden ladder drive. A +/-1 pulse has
+the same RMS at every width, so one gain covers the Width range. Level across
+Morph 0-3 stays within 1 dB (the largest residual, about 0.6 dB between triangle
+and saw, is the triangle's alternating odd-harmonic signs partly cancelling the
+saw's). Sine-based level measurements taken before this change, including the
+raw-ladder to stereo calibration traces below, used the louder sine; the drive
+headroom test is re-baselined by the known sine gain. Presets set between
+anchors, or on the pulse, change and need a listening pass.
+
+Unchanged in this step: triangle anti-aliasing (still naive) and per-block
+Morph knob updates. Both follow separately so their effect can be measured alone.
+
 # Mono contour policy (28 September 2026)
 
 Mono amp and filter use the same analog exponential contour implementation,

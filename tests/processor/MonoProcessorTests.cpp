@@ -1497,7 +1497,9 @@ TEST_CASE("Mono Ladder drive adds harmonics without acting as output gain", "[mo
 	const auto [cleanHarmonics, cleanRms] = render(0.0f);
 	const auto [drivenHarmonics, drivenRms] = render(24.0f);
 	REQUIRE(drivenHarmonics > cleanHarmonics * 2.0f);
-	REQUIRE(drivenRms < cleanRms * 4.0f);
+	// Calibrated before the sine anchor was set to the saw's RMS (-1.76 dB); the saturated output barely
+	// moves with input level, so compare against the clean level at the original sine amplitude.
+	REQUIRE(drivenRms < cleanRms / vekt::mono::MonoVoice::sineAnchorGain * 4.0f);
 }
 
 TEST_CASE("Mono maximum resonance keeps floating-point peaks and obeys master trim", "[mono][processor][filter][headroom][slow]")
