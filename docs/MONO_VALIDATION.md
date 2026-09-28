@@ -591,15 +591,52 @@ for the no-ramp candidate. No minimum-level threshold was changed. Both
 --check` passes. The **complete Debug suite after the stereo fixture test**
 passed **284/287** (265.80 s): only those same three pre-existing
 maximum-resonance audible-level gates failed. No musical sufficiency decision
-has been made for the held, zero-input tone; keep the gates pending that
-listening judgment rather than lowering them to clear the suite.
+had been made for the held, zero-input tone at that point; the listening
+judgment and subsequent objective scan are recorded below. Do not lower
+the gates merely to clear the suite.
+
+**28 September 2026 objective onset scorecard (Q Comp Off, raw coupled ladder):**
+Keep the no-ramp, constant-`c=0.5` voice candidate; Thomas reports the
+unboosted sustained tone sounds good, but that subjective result alone does
+not resolve the remaining old output-level gates. Run `VektMonoResonanceOnset
+/tmp/vekt-onset-final.csv` (Audio Lab Release). At 48 kHz/1 kHz cutoff and
+0 dB Drive it covers 94–100% resonance in 0.1% steps and adds 0.01% steps
+from 98.31–98.49% (79 distinct rows). Each row uses an independent ladder
+state. A 0.5-amplitude, 317 Hz, 500 ms driven run is followed by 3 s of
+**exactly zero** input; late RMS/frequency use the last 200 ms. A separate
+weak 1e-4-amplitude 317 Hz, 100 ms excitation provides fifteen 20 ms RMS
+bins during the first 300 ms of its zero-input tail. Linear regression of
+`ln(bin RMS)` against bin midpoint estimates `weak_fit_lambda_per_second`
+only over a contiguous 1e-7–0.01 amplitude region, with >=6 bins and
+R² >=0.9. Invalid slopes and R² are blank, **not zero**. The `late_rms_drift_db_per_second`
+field compares the final two 200 ms RMS windows; it is blank at the solver
+floor. This is a stimulus/window-specific estimate, not an eigenvalue proof.
+
+All 79 rows are finite with zero solver failures. There are 22 valid early
+fits: at 98.39% lambda is approximately -1.91/s, at 98.40% -0.633/s, at
+98.41% +0.662/s, and at 98.42% +1.98/s. Thus the **measured small-signal
+sign crossing is bracketed by 98.40–98.41%**, rather than by the coarse
+finite-time tail level. Most other fits are invalid because the probe is
+either at the numerical floor or quickly leaves the small-amplitude region;
+do not extrapolate their empty slopes. The late RMS at 98.40% is ~0.00113
+but is still falling at -5.60 dB/s, so it is *not* a settled limit-cycle
+amplitude. At 98.41% late RMS is ~0.00769 with -0.124 dB/s drift; at
+98.42% ~0.01312 with -0.00935 dB/s drift. By 98.5% it is ~0.03327 with
+~+0.00054 dB/s drift. Late RMS rises to ~0.08772 at 99% and ~0.12416 at
+100% (+3.02 dB from 99 to 100); no distinct step appears at the final
+control point on this grid. Close to onset, longer settling or another
+excitation amplitude is required before calling `A_infinity(Q)` measured.
+This is a *single cutoff and sample rate*: cutoff/rate dependence, frequency
+tracking, harmonics, aliasing, excitation independence and SPICE/hardware
+agreement remain open. Do not redefine the three failing voice-output
+thresholds solely from the raw-ladder RMS or this one onset scan.
 
 **Remaining measurements:** Below self-oscillation (50/80/95% resonance),
 resolve local passband and bandwidth around the moving AC-pump peak; check
 pump-only leakage and whether more probe frequencies or other musical pumps
 change the result. At 100% resonance, instead measure autonomous frequency,
 amplitude, weak-tone pulling, driven perturbation and zero-input recovery.
-The next product decision is direct listening in the rebuilt Audio Lab; use
+Direct listening of the held tone has now been reported as good; use
 matched playback volume when judging the stronger Q Comp against Off. The
 older 0.20Q renders are historical evidence, not the live candidate.
 The raw-filter tail test intentionally bypasses `MonoVoice` articulation: keep

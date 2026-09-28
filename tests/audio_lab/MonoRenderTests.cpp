@@ -2,6 +2,7 @@
 
 #include "NonlinearTptLadder.h"
 #include "../../tools/audio_lab/NonlinearTptLadderReference.h"
+#include "../../tools/audio_lab/MonoOnsetAnalysis.h"
 #include <vekt/audio_analysis/Measurements.h>
 
 #include <catch2/catch_approx.hpp>
@@ -12,6 +13,7 @@
 #include <bit>
 #include <cmath>
 #include <numbers>
+#include <utility>
 
 namespace
 {
@@ -172,6 +174,65 @@ TEST_CASE("Mono voice resonance onset stays finite with an unboosted output tap"
 				REQUIRE(level / at97 < 1.1); // The former 1.6x post-ladder boost would fail.
 			previousRms = level;
 		}
+	}
+}
+
+TEST_CASE("Mono onset log-envelope fit rejects floors and nonlinear saturation", "[audio-lab][mono][resonance-onset]")
+{
+	for (const auto slope : { -3.0, 2.0 })
+	{
+		std::vector<double> bins;
+		for (int i = 0; i < 15; ++i)
+			bins.push_back(0.001 * std::exp(slope * (i + 0.5) * 0.02));
+		const auto fit = vekt::audio_lab::fitOnset(bins, 0.02);
+		REQUIRE(fit.valid);
+		REQUIRE(fit.usableBins == 15);
+		REQUIRE(fit.slopePerSecond == Catch::Approx(slope).margin(1.0e-10));
+		REQUIRE(fit.rSquared == Catch::Approx(1.0).margin(1.0e-10));
+	}
+	REQUIRE_FALSE(vekt::audio_lab::fitOnset(std::vector<double>(15, 1.0e-8), 0.02).valid);
+	REQUIRE_FALSE(vekt::audio_lab::fitOnset(std::vector<double>(15, 0.05), 0.02).valid);
+	std::vector<double> nonlinear;
+	for (int i = 0; i < 15; ++i)
+		nonlinear.push_back(0.001 * std::exp((i % 2 == 0 ? 1.0 : -1.0) * 0.3));
+	REQUIRE_FALSE(vekt::audio_lab::fitOnset(nonlinear, 0.02).valid);
+	std::vector<double> separated { 0.001, 0.0011, 0.0012, 0.0013, 0.0014, 0.02 };
+	for (int i = 0; i < 10; ++i)
+		separated.push_back(0.001 * std::exp(i * 0.02));
+	REQUIRE_FALSE(vekt::audio_lab::fitOnset(separated, 0.02).valid);
+}
+
+TEST_CASE("Mono weak-signal onset changes growth sign near 98.4 percent", "[audio-lab][mono][resonance-onset]")
+{
+	constexpr double rate = 48'000.0;
+	for (const auto [resonance, growing] : { std::pair { 0.9840f, false }, { 0.9841f, true } })
+	{
+		vekt::mono::NonlinearTptLadder ladder;
+		ladder.prepare(rate);
+		const vekt::mono::NonlinearTptLadderSettings settings { 1'000.0f, resonance, 0.0f };
+		std::vector<double> bins;
+		double squares {};
+		for (int sample = 0; sample < 4'800 + 15 * 960; ++sample)
+		{
+			const auto input = sample < 4'800 ? 1.0e-4f * static_cast<float>(
+				std::sin(2.0 * std::numbers::pi * 317.0 * sample / rate)) : 0.0f;
+			const auto value = ladder.processCoupled(input, settings);
+			REQUIRE(std::isfinite(value));
+			if (sample < 4'800) continue;
+			squares += static_cast<double>(value) * value;
+			if ((sample - 4'800 + 1) % 960 == 0)
+			{
+				bins.push_back(std::sqrt(squares / 960));
+				squares = 0.0;
+			}
+		}
+		const auto fit = vekt::audio_lab::fitOnset(bins, 0.02);
+		CAPTURE(resonance, fit.slopePerSecond, fit.rSquared, fit.usableBins);
+		REQUIRE(fit.valid);
+		REQUIRE(fit.usableBins == 15);
+		REQUIRE((fit.slopePerSecond > 0.0) == growing);
+		REQUIRE(ladder.diagnostics().unconvergedSamples == 0);
+		REQUIRE(ladder.diagnostics().nonFiniteSamples == 0);
 	}
 }
 
