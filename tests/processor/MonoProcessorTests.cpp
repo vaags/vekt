@@ -120,7 +120,7 @@ TEST_CASE("Mono oscillator ranges follow footage labels", "[mono][processor][osc
 		}
 }
 
-TEST_CASE("Mono Q compensation is bounded output gain outside saturation", "[mono][processor][filter][qcomp]")
+TEST_CASE("Mono input Q compensation is inert at zero resonance and changes driven sound", "[mono][processor][filter][qcomp]")
 {
 	juce::ScopedJuceInitialiser_GUI juceInitializer;
 	for (const auto sampleRate : { 44'100.0, 48'000.0, 96'000.0 })
@@ -151,18 +151,22 @@ TEST_CASE("Mono Q compensation is bounded output gain outside saturation", "[mon
 						renderBlock(dry, dryBuffer);
 						renderBlock(compensated, wetBuffer);
 					}
-					const auto expectedGain = 1.0f + (std::numbers::sqrt2_v<float> - 1.0f)
-						* std::pow(emphasis * 0.01f, 0.72f);
 					INFO("rate=" << sampleRate << ", quality=" << quality << ", emphasis=" << emphasis << ", drive=" << drive);
 					REQUIRE(rms(dryBuffer) > 0.0001f);
-					REQUIRE(rms(wetBuffer) / rms(dryBuffer) == Catch::Approx(expectedGain).margin(0.0001f));
+					REQUIRE(std::isfinite(rms(wetBuffer)));
 					REQUIRE(dry.getLatencySamples() == compensated.getLatencySamples());
-					for (int sample = 0; sample < dryBuffer.getNumSamples(); ++sample)
-						REQUIRE(wetBuffer.getSample(0, sample) == Catch::Approx(dryBuffer.getSample(0, sample) * expectedGain).margin(2.0e-5f));
+					if (emphasis == 0.0f)
+						for (int sample = 0; sample < dryBuffer.getNumSamples(); ++sample)
+							REQUIRE(std::bit_cast<std::uint32_t>(wetBuffer.getSample(0, sample))
+								== std::bit_cast<std::uint32_t>(dryBuffer.getSample(0, sample)));
+					else if (drive == 0.0f)
+						REQUIRE(std::abs(rms(wetBuffer) - rms(dryBuffer)) > 0.0001f);
+					REQUIRE(compensated.coupledWorkSnapshot().unconverged == 0);
+					REQUIRE(compensated.coupledWorkSnapshot().nonFinite == 0);
 				}
 }
 
-TEST_CASE("Mono Q compensation ramps without changing the held voice", "[mono][processor][filter][qcomp]")
+TEST_CASE("Mono input Q compensation switches smoothly on a held voice", "[mono][processor][filter][qcomp]")
 {
 	juce::ScopedJuceInitialiser_GUI juceInitializer;
 	vekt::mono::PluginProcessor dry, switched;
@@ -179,19 +183,16 @@ TEST_CASE("Mono Q compensation ramps without changing the held voice", "[mono][p
 	midi.addEvent(juce::MidiMessage::noteOn(1, 48, 1.0f), 0);
 	renderBlock(dry, dryBuffer, midi);
 	renderBlock(switched, switchedBuffer, midi);
-	const auto maximumGain = 1.0f + (std::numbers::sqrt2_v<float> - 1.0f) * std::pow(0.5f, 0.72f);
 	for (const auto enabled : { true, false })
 	{
 		setParameter(switched, vekt::mono::parameters::filterQCompensation, enabled ? 1.0f : 0.0f);
 		renderBlock(dry, dryBuffer);
 		renderBlock(switched, switchedBuffer);
+		REQUIRE(switched.coupledWorkSnapshot().unconverged == 0);
+		REQUIRE(switched.coupledWorkSnapshot().nonFinite == 0);
 		for (int sample = 0; sample < 2400; ++sample)
-		{
-			const auto progress = std::min(1.0f, static_cast<float>(sample + 1) / 960.0f);
-			const auto gain = enabled ? 1.0f + (maximumGain - 1.0f) * progress
-				: maximumGain + (1.0f - maximumGain) * progress;
-			REQUIRE(switchedBuffer.getSample(0, sample) == Catch::Approx(dryBuffer.getSample(0, sample) * gain).margin(5.0e-5f));
-		}
+			REQUIRE(std::isfinite(switchedBuffer.getSample(0, sample)));
+		REQUIRE(std::abs(switchedBuffer.getSample(0, 0) - dryBuffer.getSample(0, 0)) < 0.5f);
 	}
 }
 

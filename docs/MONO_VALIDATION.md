@@ -138,12 +138,12 @@ are permitted and require downstream trim. The old blanket assertion was
 replaced by a paired 0/-12 dB Master Output test checking finite samples,
 exact gain scaling, the absence of hidden clipping, and converged work.
 
-**28 September partial Q-compensation candidate (working tree):** Q Comp On
-retains the 20 ms-smoothed post-filter gain but uses
+**28 September rejected partial post-gain Q-compensation experiment (historical, not current):** Q Comp On
+used 20 ms-smoothed post-filter gain
 `1 + (sqrt(2) - 1) r^0.72`, capped at about +3 dB at maximum resonance;
-Q Comp Off remains unity. The feedback, drive, raw ladder and self-oscillation
-voice calibration are unchanged. Existing Q-Comp-On presets may sound different.
-The focused `[qcomp]` checks pass (6 cases, 44972 assertions); the revised
+Q Comp Off remained unity. Feedback, drive, raw ladder and self-oscillation
+voice calibration were unchanged. Existing Q-Comp-On presets can sound different.
+At that checkpoint the focused `[qcomp]` checks passed (6 cases, 44972 assertions); the revised
 master/headroom test passes (1 case, 2359612 assertions). The old self-oscillation
 level and pitch requirements remain unchanged. Four paired one-second Audio Lab
 WAVs and JSON reports are under `/tmp/vekt-q-comp-candidate/`: `q-comp-body-*`
@@ -159,12 +159,12 @@ control, not a selective bass-restoration mechanism. These fixtures
 are narrow examples, **not** the broader cutoff/drive/input listening matrix;
 no one has listened to or approved them yet. With the Debug test target built
 before testing, `ctest --preset dev --output-on-failure` completed **274/274
-passed in 1292.40 seconds** on this candidate. The normal Release VST3 and
+passed in 1292.40 seconds** on that candidate. The previous Release VST3 and
 Standalone targets also rebuilt (local arm64 Mach-O SHA-256
 `1cc7b260f7f54b61ba56dd616da228ac1cf4d9cfbd813cd7396fa0f1d74f9c00`
 and `9e8d3aadff41c486abc3fa558392c4e6300b57ce8f127ce2af1c7a482e26c5aa`,
-respectively); these are not host-tested release artifacts. The subsequently
-added Release Audio Lab `VektMonoQCompMatrix` tool completed **640 finite rows**
+respectively); these are not host-tested release artifacts. The historical
+Release Audio Lab `VektMonoQCompMatrix` tool completed **640 finite rows**
 (`320` On/Off pairs) in `/tmp/vekt-q-comp-candidate/matrix.csv`: 48 kHz,
 128-sample blocks, cutoffs 100/500/2000/8000 Hz, resonance
 0/50/80/98/100%, drive 0/6/12/18/24 dB, sine below cutoff, saw, white noise,
@@ -184,12 +184,35 @@ measurements, **not** a normalized input-to-output passband transfer measurement
 or a substitute for level-matched listening. Its tool was built and run after
 the 274-test suite; the full suite has not been rerun after the measurement-tool
 addition. The Debug test target rebuilt and all six relevant focused CTest
-cases passed after that addition. Drive-dependent compensation is not
-implemented; dependence on the drive
-parameter alone would still be post-gain and would not selectively restore
-body. A feedforward/input-path approach would be a different model requiring
-its own sound decision and validation. The existing two-pair listening renders
-cannot establish tonal benefit after level matching.
+cases passed after that addition. This level-only implementation was replaced
+by the candidate below. Files under `/tmp/vekt-q-comp-candidate/` are
+historical post-gain evidence, not candidate-2 renders.
+
+**28 September input-feedback candidate 2 (current working tree, not approved):**
+Q Comp On applies a 20 ms-smoothed `c(r)=0.20 clamp(r,0,1)` to the driven,
+bounded input in `u1 = (1+k c) clamp(D x,-24,24) - k y4`. Q Comp Off retains
+the reference solver; the raw fourth-stage output and voice calibration remain
+unchanged. With zero input the new term vanishes exactly. After identical
+excitation, the zero-input trajectory regression passes bit-for-bit; the
+`q-comp-tone-*` WAVs in `/tmp/vekt-q-input-candidate/` have identical settled
+RMS. A direct body-vs-resonance component test passes at 0/12/24 dB Drive;
+this shows a measurable level-match-invariant difference, **not** a listening
+approval. A new finite 640-row, 320-pair, 48 kHz matrix at
+`/tmp/vekt-q-input-candidate/matrix.csv` reports a below-cutoff sine
+fundamental change of +3.597/+3.800/+0.007 dB at 500 Hz cutoff, 80% resonance,
+and 0/12/24 dB Drive; the effect nearly vanishes at maximum Drive. A paired
+body example gains 3.592 dB RMS, versus 0 dB for the zero-input tone. Fresh
+On/Off 32-bit float WAVs and a settled-RMS-matched On copy are in
+`/tmp/vekt-q-input-candidate/`. The new Debug suite completed **276/276**
+tests (`ctest --preset dev --output-on-failure`); the focused Q-compensation
+tests passed 8/8 and the revised headroom test passed. The simple sine body's level-matched settled
+difference RMS is about 0.00018; the paired tone difference is zero. This
+single-frequency example alone is not a compelling listening comparison.
+The independent offline ladder reference has **not** been extended to Q Comp
+On: reference-agreement results apply only to the Off path. The 0.20
+coefficient is provisional; high-drive compression and complex-input behavior
+require sound-design review. These files are not host listening, a normalized
+transfer study or device evidence.
 Modulated boundaries, representative maximum-resonance cost, host listening,
 and live audio validation also remain open.
 
@@ -461,8 +484,9 @@ validation even though ADR 0005 remains Proposed:
   actual input to the nonlinear ladder without implicit output normalization.
 - Optional drive compensation is a separate, bypassable post-ladder sound-design
   feature. It is not part of the ladder equations or feedback loop.
-- Q compensation remains separate, optional, default-off and post-ladder. Any future
-  output-feedback tap precedes both compensation stages.
+- Q compensation remains optional and default-off. The historical post-ladder
+  candidate was rejected as level-only; the experimental input-feedback
+  candidate changes the driven input but leaves zero-input feedback unchanged.
 - Normalized resonance `1.0` is the nominal self-oscillation boundary. Threshold,
   startup, frequency, amplitude and ringdown are measured rather than inferred solely
   from the linearized equations.

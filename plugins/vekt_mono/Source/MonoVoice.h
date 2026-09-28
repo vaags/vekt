@@ -44,7 +44,7 @@ public:
 		cutoffOctaves.reset(newSampleRate, 0.015);
 		resonance.reset(newSampleRate, 0.02);
 		driveDecibels.reset(newSampleRate, 0.02);
-		qCompensationGain.reset(newSampleRate, 0.02);
+		qInputCompensation.reset(newSampleRate, 0.02);
 		reset();
 	}
 
@@ -59,7 +59,7 @@ public:
 		driftCents = random.nextFloat() * 2.0f - 1.0f;
 		for (auto& ladder : filterLadders) ladder.reset();
 		filterControlsInitialized = false;
-		qCompensationGain.setCurrentAndTargetValue(1.0f);
+		qInputCompensation.setCurrentAndTargetValue(0.0f);
 		fadeInSamples = 0;
 		continuitySamples = 0;
 		continuityPending = false;
@@ -130,9 +130,9 @@ public:
 		const auto filterCutoff = std::exp2(cutoffOctaves.getNextValue());
 		const auto filterResonance = resonance.getNextValue();
 		const auto filterDriveDb = driveDecibels.getNextValue();
-		const auto outputCompensation = qCompensationGain.getNextValue();
-		// Post-ladder calibration for audible free-running tone. Keep the raw
-		// filter and the optional Q compensation independent of this voice gain.
+		const auto inputCompensation = qInputCompensation.getNextValue();
+		// Post-ladder calibration for audible free-running tone. Q compensation
+		// acts only on the driven input inside the ladder's feedback equation.
 		const auto onset = juce::jlimit(0.0f, 1.0f, (filterResonance - 0.98f) / 0.02f);
 		const auto selfOscillationGain = 1.0f + 0.6f * onset * onset * (3.0f - 2.0f * onset);
 		const auto velocityGain = (1.0f - settings.ampVelocity) + settings.ampVelocity * std::pow(velocity, 0.65f);
@@ -164,7 +164,7 @@ public:
 				mixer += noise * settings.noiseLevel;
 			}
 			const auto stackOutput = filter(mixer, settings, filterEnvelopeValue, filterCutoff,
-				filterResonance, filterDriveDb, stack, playedNote) * amplitude;
+				filterResonance, filterDriveDb, inputCompensation, stack, playedNote) * amplitude;
 			const auto pan = juce::jlimit(-1.0f, 1.0f, settings.voiceWidth * panPosition
 				+ normalizedStack * settings.unisonSpread);
 			voiceLeft += stackOutput * std::sqrt(0.5f * (1.0f - pan)) / static_cast<float>(unisonCount);
@@ -183,8 +183,8 @@ public:
 			voiceRight += continuityOffset[1] * continuityGain;
 		}
 		lastOutput = { voiceLeft, voiceRight };
-		left += voiceLeft * outputCompensation * selfOscillationGain;
-		right += voiceRight * outputCompensation * selfOscillationGain;
+		left += voiceLeft * selfOscillationGain;
+		right += voiceRight * selfOscillationGain;
 		if (!amp.isActive()) active = false;
 	}
 
@@ -250,29 +250,26 @@ private:
 	void updateFilterControlTargets(const MonoVoiceSettings& settings)
 	{
 		const auto cutoffTarget = std::log2(juce::jlimit(10.0f, 32'000.0f, settings.cutoff));
-		// Partial post-filter makeup: at maximum resonance limit the gain on
-		// both input-derived sound and free-running tone to approximately +3 dB.
+		// Candidate input tap: zero at Q=0, bounded at maximum resonance.
 		const auto compensationTarget = settings.qCompensation
-			? 1.0f + (std::numbers::sqrt2_v<float> - 1.0f)
-				* std::pow(juce::jlimit(0.0f, 1.0f, settings.resonance), 0.72f)
-			: 1.0f;
+			? 0.20f * juce::jlimit(0.0f, 1.0f, settings.resonance) : 0.0f;
 		if (!filterControlsInitialized)
 		{
 			cutoffOctaves.setCurrentAndTargetValue(cutoffTarget);
 			resonance.setCurrentAndTargetValue(settings.resonance);
 			driveDecibels.setCurrentAndTargetValue(settings.drive);
-			qCompensationGain.setCurrentAndTargetValue(compensationTarget);
+			qInputCompensation.setCurrentAndTargetValue(compensationTarget);
 			filterControlsInitialized = true;
 			return;
 		}
 		if (!juce::approximatelyEqual(cutoffOctaves.getTargetValue(), cutoffTarget)) cutoffOctaves.setTargetValue(cutoffTarget);
 		if (!juce::approximatelyEqual(resonance.getTargetValue(), settings.resonance)) resonance.setTargetValue(settings.resonance);
 		if (!juce::approximatelyEqual(driveDecibels.getTargetValue(), settings.drive)) driveDecibels.setTargetValue(settings.drive);
-		if (!juce::approximatelyEqual(qCompensationGain.getTargetValue(), compensationTarget)) qCompensationGain.setTargetValue(compensationTarget);
+		if (!juce::approximatelyEqual(qInputCompensation.getTargetValue(), compensationTarget)) qInputCompensation.setTargetValue(compensationTarget);
 	}
 
 	float filter(float input, const MonoVoiceSettings& settings, float envelopeValue, float baseCutoff,
-		float resonanceAmount, float driveDb, int stack, float playedNote)
+		float resonanceAmount, float driveDb, float inputCompensation, int stack, float playedNote)
 	{
 		// A ladder is controlled exponentially: keyboard, contour and velocity all
 		// offset cutoff in octave/control-voltage space rather than linear Hertz.
@@ -283,7 +280,7 @@ private:
 		const auto maximumCutoff = std::min(32'000.0f, sampleRate * 0.45f);
 		const auto cutoff = juce::jlimit(10.0f, maximumCutoff,
 			baseCutoff * std::exp2(keyOctaves + contourOctaves + velocityOctaves));
-		const NonlinearTptLadderSettings ladderSettings { cutoff, resonanceAmount, driveDb };
+		const NonlinearTptLadderSettings ladderSettings { cutoff, resonanceAmount, driveDb, false, inputCompensation };
 		return filterLadders[static_cast<std::size_t>(stack)].processCoupled(input, ladderSettings);
 	}
 
@@ -291,7 +288,7 @@ private:
 	int fadeInSamples {}, continuitySamples {};
 	juce::Random random;
 	juce::ADSR amp, filterEnvelope;
-	juce::SmoothedValue<float> cutoffOctaves, resonance, driveDecibels, qCompensationGain;
+	juce::SmoothedValue<float> cutoffOctaves, resonance, driveDecibels, qInputCompensation;
 	std::array<std::array<float, 3>, 4> phase {};
 	std::array<NonlinearTptLadder, 4> filterLadders;
 	std::array<float, 2> continuityOffset {}, lastOutput {};

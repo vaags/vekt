@@ -213,11 +213,14 @@ float NonlinearTptLadder::processCoupled(float input, const NonlinearTptLadderSe
 	const auto k = ladderFeedbackGain(static_cast<double>(settings.resonance));
 	const auto driveGain = std::pow(10.0f, settings.driveDecibels / 20.0f);
 	const auto driven = std::clamp(static_cast<double>(input) * driveGain, -signalLimit, signalLimit);
+	// Feed a bounded fraction of the driven input around the global feedback.
+	// With zero input this is exactly the uncompensated feedback system.
+	const auto excitation = driven + k * std::clamp(static_cast<double>(settings.inputFeedbackCompensation), 0.0, 0.20) * driven;
 	std::array<double, 4> output = previousOutput;
 	const auto residuals = [&](const std::array<double, 4>& values)
 	{
 		std::array<double, 4> residual {};
-		auto stageInput = driven - k * values[3];
+		auto stageInput = excitation - k * values[3];
 		for (std::size_t stage = 0; stage < values.size(); ++stage)
 		{
 			residual[stage] = values[stage] - integratorState[stage]
@@ -245,7 +248,7 @@ float NonlinearTptLadder::processCoupled(float input, const NonlinearTptLadderSe
 		// Forward substitution with an affine dependence on delta[3] solves
 		// the cyclic 4x4 Jacobian without a generic matrix factorization.
 		std::array<double, 4> independent {}, dependent {};
-		const auto u = driven - k * output[3];
+		const auto u = excitation - k * output[3];
 		const auto diagonal = 1.0 + g * sechSquared(output[0]);
 		independent[0] = -residual[0] / diagonal;
 		dependent[0] = -g * k * sechSquared(u) / diagonal;
@@ -302,7 +305,7 @@ float NonlinearTptLadder::processCoupled(float input, const NonlinearTptLadderSe
 			-signalLimit, signalLimit);
 		previousOutput[stage] = output[stage];
 	}
-	previousFeedbackInput = driven - k * output[3];
+	previousFeedbackInput = excitation - k * output[3];
 	return static_cast<float>(settings.driveCompensation ? output[3] / std::sqrt(driveGain) : output[3]);
 }
 }

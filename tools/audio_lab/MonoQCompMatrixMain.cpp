@@ -72,9 +72,14 @@ struct Measurement
 	if (input == "tone")
 	{
 		result.settings.resonance = 1.0f;
+		result.settings.qCompensation = false;
 		result.events.push_back({ static_cast<std::int64_t>(rate * 0.1),
 			vekt::audio_lab::MonoEventType::parameter,
 			vekt::audio_lab::MonoParameter::noiseLevel, 0.0f });
+		if (compensated)
+			result.events.push_back({ static_cast<std::int64_t>(rate * 0.1),
+				vekt::audio_lab::MonoEventType::parameter,
+				vekt::audio_lab::MonoParameter::qCompensation, 1.0f });
 	}
 	return result;
 }

@@ -1,5 +1,8 @@
 #include "../../tools/audio_lab/MonoRender.h"
 
+#include "NonlinearTptLadder.h"
+#include <vekt/audio_analysis/Measurements.h>
+
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
@@ -8,7 +11,6 @@
 #include <bit>
 #include <cmath>
 #include <numbers>
-#include <string_view>
 
 namespace
 {
@@ -100,29 +102,79 @@ TEST_CASE("Mono Audio Lab reports filter and envelope measurements", "[audio-lab
 	REQUIRE(windowMeasurement(envelope.report, "silence", "peak") == Catch::Approx(0.0));
 }
 
-TEST_CASE("Mono partial Q compensation applies bounded makeup to body and tone", "[audio-lab][mono][qcomp]")
+TEST_CASE("Mono input Q compensation leaves an excited zero-input tone unchanged", "[audio-lab][mono][qcomp]")
 {
-	for (const auto* kind : { "body", "tone" })
-	{
 		vekt::audio_lab::MonoRenderRequest off, on;
-		REQUIRE(vekt::audio_lab::makeMonoRenderFixture(juce::String("q-comp-") + kind + "-off", 48'000.0, 128, 42, off));
-		REQUIRE(vekt::audio_lab::makeMonoRenderFixture(juce::String("q-comp-") + kind + "-on", 48'000.0, 128, 42, on));
+		REQUIRE(vekt::audio_lab::makeMonoRenderFixture("q-comp-tone-off", 48'000.0, 128, 42, off));
+		REQUIRE(vekt::audio_lab::makeMonoRenderFixture("q-comp-tone-on", 48'000.0, 128, 42, on));
 		const auto dry = vekt::audio_lab::renderMono(off);
 		const auto wet = vekt::audio_lab::renderMono(on);
 		const auto dryRms = windowMeasurement(dry.report, "settled", "rms");
 		const auto wetRms = windowMeasurement(wet.report, "settled", "rms");
-		INFO("fixture=" << kind << ", dryRms=" << dryRms << ", wetRms=" << wetRms);
+		INFO("dryRms=" << dryRms << ", wetRms=" << wetRms);
 		REQUIRE(dryRms > 0.001);
-		REQUIRE(wetRms > dryRms);
-		REQUIRE(wetRms / dryRms == Catch::Approx(kind == std::string_view("tone")
-			? std::numbers::sqrt2_v<double>
-			: 1.0 + (std::numbers::sqrt2_v<double> - 1.0) * std::pow(0.8, 0.72)).margin(0.002));
-		double maximumMatchedDifference {};
-		for (int sample = 24'000; sample < 43'200; ++sample)
-			maximumMatchedDifference = std::max(maximumMatchedDifference,
-				std::abs(static_cast<double>(dry.audio.getSample(0, sample))
-					- static_cast<double>(wet.audio.getSample(0, sample)) * dryRms / wetRms));
-		REQUIRE(maximumMatchedDifference < 1.0e-6);
+		REQUIRE(wetRms == Catch::Approx(dryRms).margin(1.0e-8));
+		for (int sample = 4'800; sample < dry.audio.getNumSamples(); ++sample)
+			REQUIRE(std::bit_cast<std::uint32_t>(dry.audio.getSample(0, sample))
+				== std::bit_cast<std::uint32_t>(wet.audio.getSample(0, sample)));
+}
+
+TEST_CASE("Mono input Q compensation preserves the exact zero-input feedback trajectory", "[audio-lab][mono][qcomp]")
+{
+	for (const auto drive : { 0.0f, 12.0f, 24.0f })
+	{
+		vekt::mono::NonlinearTptLadder off, on;
+		off.prepare(48'000.0); on.prepare(48'000.0);
+		const vekt::mono::NonlinearTptLadderSettings dry { 1'000.0f, 1.0f, drive };
+		auto compensated = dry;
+		compensated.inputFeedbackCompensation = 0.20f;
+		for (int sample = 0; sample < 48'000; ++sample)
+		{
+			const auto input = sample < 4'800 ? 0.05f * std::sin(2.0f * std::numbers::pi_v<float>
+				* static_cast<float>(sample) * 317.0f / 48'000.0f) : 0.0f;
+			const auto left = off.processCoupled(input, dry);
+			const auto right = on.processCoupled(input, sample < 4'800 ? dry : compensated);
+			if (sample >= 4'800)
+				REQUIRE(std::bit_cast<std::uint32_t>(left) == std::bit_cast<std::uint32_t>(right));
+		}
+		REQUIRE(off.diagnostics().nonFiniteSamples == 0);
+		REQUIRE(on.diagnostics().unconvergedSamples == 0);
+	}
+}
+
+TEST_CASE("Mono input Q compensation changes body relative to the resonant component", "[audio-lab][mono][qcomp]")
+{
+	for (const auto drive : { 0.0f, 12.0f, 24.0f })
+	{
+		vekt::mono::NonlinearTptLadder off, on;
+		off.prepare(48'000.0); on.prepare(48'000.0);
+		const vekt::mono::NonlinearTptLadderSettings dry { 1'000.0f, 1.0f, drive };
+		auto compensated = dry;
+		compensated.inputFeedbackCompensation = 0.20f;
+		vekt::audio_analysis::SinusoidalProjector dryBody(48'000.0, 100.0, 24'000), wetBody(48'000.0, 100.0, 24'000);
+		vekt::audio_analysis::SinusoidalProjector dryTone(48'000.0, 1'000.0, 24'000), wetTone(48'000.0, 1'000.0, 24'000);
+		for (int sample = 0; sample < 48'000; ++sample)
+		{
+			const auto excitation = sample < 4'800 ? 0.05f * std::sin(2.0f * std::numbers::pi_v<float>
+				* static_cast<float>(sample) * 317.0f / 48'000.0f) : 0.1f * std::sin(2.0f
+				* std::numbers::pi_v<float> * static_cast<float>(sample) * 100.0f / 48'000.0f);
+			const auto left = off.processCoupled(excitation, dry);
+			const auto right = on.processCoupled(excitation, compensated);
+			if (sample >= 24'000)
+			{
+				dryBody.add(left); wetBody.add(right);
+				dryTone.add(left); wetTone.add(right);
+			}
+		}
+		const auto bodyRatio = wetBody.peakAmplitude() / dryBody.peakAmplitude();
+		const auto toneRatio = wetTone.peakAmplitude() / dryTone.peakAmplitude();
+		INFO("drive=" << drive << ", body ratio=" << bodyRatio << ", resonant ratio=" << toneRatio);
+		REQUIRE(std::isfinite(bodyRatio));
+		REQUIRE(std::isfinite(toneRatio));
+		REQUIRE(bodyRatio > toneRatio); // Invariant under any level-match gain.
+		REQUIRE(off.diagnostics().nonFiniteSamples == 0);
+		REQUIRE(on.diagnostics().nonFiniteSamples == 0);
+		REQUIRE(on.diagnostics().unconvergedSamples == 0);
 	}
 }
 

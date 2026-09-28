@@ -228,8 +228,14 @@ bool makeMonoRenderFixture(const juce::String& name, double sampleRate, int bloc
 		destination.events = { { 0, MonoEventType::noteOn, MonoParameter::cutoff, 1.0f, 48 } };
 		// Silence the excitation, not the sustained envelope or feedback state.
 		if (tone)
+		{
+			destination.settings.qCompensation = false;
 			destination.events.push_back({ at(0.1, sampleRate), MonoEventType::parameter,
 				MonoParameter::noiseLevel, 0.0f });
+			if (name.endsWith("on"))
+				destination.events.push_back({ at(0.1, sampleRate), MonoEventType::parameter,
+					MonoParameter::qCompensation, 1.0f });
+		}
 		destination.windows = { { "settled", at(0.5, sampleRate), at(0.9, sampleRate) } };
 		return true;
 	}

@@ -11,6 +11,7 @@ struct NonlinearTptLadderSettings
 	float resonance {};
 	float driveDecibels {};
 	bool driveCompensation {};
+	float inputFeedbackCompensation {};
 };
 
 struct NonlinearTptLadderDiagnostics

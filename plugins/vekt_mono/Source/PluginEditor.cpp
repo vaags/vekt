@@ -63,7 +63,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	filterPanel.addAndMakeVisible(qCompensationButton);
 	qCompensationButton.setName("Q Compensation");
 	qCompensationButton.setComponentID(parameters::filterQCompensation);
-	qCompensationButton.setTooltip("Restores some level lost to resonance after saturation. May raise peaks.");
+	qCompensationButton.setTooltip("Experimental input-path Q compensation. May change drive, harmonics and peaks; does not boost a free-running tone.");
 	qCompensationAttachment = std::make_unique<ButtonAttachment>(pluginProcessor.getParameters(), parameters::filterQCompensation, qCompensationButton);
 	const std::array ampNames { "Attack", "Decay", "Sustain", "Release", "Velocity" };
 	const std::array ampIds { parameters::ampAttack, parameters::ampDecay, parameters::ampSustain, parameters::ampRelease, parameters::ampVelocity };

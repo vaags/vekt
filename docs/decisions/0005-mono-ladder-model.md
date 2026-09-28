@@ -98,22 +98,27 @@ Mono uses a hybrid product direction: a classic ladder/resonance identity with m
 explicitly separated sound-design features. The raw ladder output is `y4`. Drive raises
 the actual input to the nonlinear ladder and is not implicitly normalized away.
 
-Optional drive compensation is a separate, bypassable post-ladder wrapper. Optional Q
-compensation is also post-ladder and defaults off. Neither compensation participates in
-the state equations or feedback loop. Any future output-feedback tap precedes both.
-The first partial-Q-compensation candidate keeps the post-ladder topology and
-20 ms gain smoothing but sets `Gq(r) = 1 + (sqrt(2) - 1) clamp(r, 0, 1)^0.72`
-when enabled, and unity when disabled. This limits its maximum makeup to about
-+3 dB, including on a free-running zero-input tone; it does not flatten the
-passband or depend on instantaneous audio/drive. Existing Q-Comp-On presets
-can therefore change level. Because it multiplies the entire voice, the On
-and Off outputs are indistinguishable after level matching at fixed settings;
+Optional drive compensation is a separate, bypassable post-ladder wrapper. Q
+compensation defaults off. The rejected first Q-compensation candidate was a
+post-ladder wrapper; the experimental second candidate changes the driven
+input to the stage-one feedback equation, not the feedback gain. Any future
+output-feedback tap needs separate review. The historical post-gain candidate
+used 20 ms gain smoothing and `Gq(r) = 1 + (sqrt(2) - 1) clamp(r, 0, 1)^0.72`
+when enabled, and unity when disabled. This limited its maximum makeup to about
++3 dB, including on a free-running zero-input tone; it did not flatten the
+passband or depend on instantaneous audio/drive. Because it multiplied the entire
+voice, On and Off were indistinguishable after level matching at fixed settings;
 it does not restore input body relative to the generated resonance tone. A
-selective compensation topology would require a separate design decision.
+selective compensation topology required a separate experiment. Candidate 2
+uses `c(r) = 0.20 clamp(r, 0, 1)` when enabled, zero otherwise, and
+`u1 = (1 + k c) clamp(D x, -24, 24) - k y4`. The coefficient is smoothed over
+20 ms. The term vanishes exactly for zero input, but changes driven saturation.
+The 0.20 maximum is provisional, not an approved setting. Old Q-Comp-On presets
+change sound; the parameter ID and default-off project recall are preserved.
 Master Output 0 dB means unity, not peak protection: floating-point outputs
-above ±1 at extreme settings are permitted,
-and downstream headroom is the user's responsibility. This sound candidate
-still requires level-matched listening before approval.
+above ±1 at extreme settings are permitted, and downstream headroom is the
+user's responsibility. Candidate 2 requires
+level-matched listening and further solver/drive validation before approval.
 Classic oscillator-3/noise modulation and final monophonic articulation are deferred to
 their later product phases and do not block validation of the ladder itself.
 
@@ -126,6 +131,9 @@ All internal signals are normalized and dimensionless. Let `x` be the external i
 ```text
 u1 = clamp(D x, -24, 24) - k y4
 ```
+
+This raw Q-Comp-Off equation remains the reference. The optional experimental
+input-feedback candidate replaces only the first-stage excitation as above.
 
 For stages `i = 1..4`, with `u(i) = y(i-1)` after the first stage, the selected
 continuous-time candidate is:
@@ -200,8 +208,8 @@ The corresponding analytical references use the same revised coefficient.
 This is a fitted calibration requiring full sound and reference review.
 
 The **processor voice path**, not the raw fourth-stage ladder output, also
-multiplies its post-envelope, post-pan signal by `1 + 0.6 t² (3 - 2t)` alongside
-the optional Q compensation (before master output). This restores a musically useful
+multiplies its post-envelope, post-pan signal by `1 + 0.6 t² (3 - 2t)` (before
+master output), independently of input-feedback Q compensation. This restores a musically useful
 tone through normal voice scaling, including the tested preset-style patch,
 without increasing the nonlinear feedback or altering the raw-ladder model.
 It increases all voice output in this narrow top-resonance range, including
@@ -300,8 +308,9 @@ The candidate does not currently model:
 
 Classic oscillator-3/noise modulation, final articulation, output feedback and
 mixer/VCA nonlinearity remain later product-contract decisions rather than properties
-of these ladder equations. Drive and Q compensation are approved only as separate,
-optional post-ladder features.
+of these ladder equations. Drive compensation is a separate optional post-ladder
+wrapper. The input-feedback Q-compensation experiment is neither post-ladder nor
+approved for release.
 
 ## Evaluation gates
 
