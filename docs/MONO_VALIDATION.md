@@ -19,6 +19,17 @@ raw-ladder to stereo calibration traces below, used the louder sine; the drive
 headroom test is re-baselined by the known sine gain. Presets set between
 anchors, or on the pulse, change and need a listening pass.
 
+Next to the saw, linear mixing let the saw's 1/n odd-and-even harmonics dominate
+early: halfway from saw to square the saw's even harmonics were only 6 dB down,
+and 10% from triangle its upper harmonics were already present. Both saw-adjacent
+segments therefore warp the saw's share to `w(t) = 2t^2 - t^3` (t = 1 at the
+saw; the `p = 2` member of `t^p (p - (p - 1) t)`): 10.9% / 37.5% / 70.3% at a
+quarter / half / three quarters. It meets the saw with slope 1, so LFO sweeps do
+not accelerate into the saw anchor (plain `t^2` would double the rate there). It
+was chosen by ear in Audio Lab over linear, `p = 1.5` and `t^2`; that audition
+selector has been removed. Sine to triangle stays linear; anchors, equal-RMS
+gains and the 1 dB level bound are unchanged.
+
 A separate follow-up adds two-point polyBLAMP to the triangle's corners (the
 slope-change counterpart of the saw and pulse polyBLEP). At a 3,517.3 Hz
 fundamental at 48 kHz, energy away from true harmonics falls from -31.3 dB to

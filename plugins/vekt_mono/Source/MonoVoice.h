@@ -19,6 +19,12 @@ constexpr float maximumContourOctaves = 8.0f;
 constexpr float maximumVelocityOctaves = 4.0f;
 constexpr float voiceTransitionSeconds = 0.003f;
 
+// Saw share for segment position t in [0, 1] (t = 1 at the saw anchor), in the two Morph segments next to the
+// saw (1-2 and 2-3). Linear mixing lets the saw's 1/n odd-and-even harmonics dominate long before the saw
+// anchor; 2t^2 - t^3 delays them (37.5% saw halfway) and, unlike plain t^2, meets the saw with slope 1, so
+// LFO sweeps do not accelerate into the saw anchor. Chosen by ear over linear, p = 1.5 and t^2.
+[[nodiscard]] inline float sawMorphWeight(float t) noexcept { return t * t * (2.0f - t); }
+
 inline float dbToGain(float decibels) noexcept { return std::pow(10.0f, decibels / 20.0f); }
 inline float midiToHz(float note) noexcept { return 440.0f * std::exp2((note - 69.0f) / 12.0f); }
 // One LFO's source settings plus its per-destination depths, already scaled by Amount.
@@ -353,14 +359,26 @@ public:
 		}
 	}
 
-	// Linear interpolation between the two adjacent anchors, from one shared phase.
+	// Share of the next anchor at a position within a segment: linear from sine to triangle, and warped by
+	// sawMorphWeight on both sides of the saw so its harmonics arrive late and leave early.
+	static float segmentMix(int segment, float fraction) noexcept
+	{
+		switch (segment)
+		{
+		case 0: return fraction;
+		case 1: return sawMorphWeight(fraction);
+		default: return 1.0f - sawMorphWeight(1.0f - fraction);
+		}
+	}
+
+	// Mixes the two adjacent anchors, read from one shared phase.
 	static float waveform(float position, float phaseIncrement, float morph, float width) noexcept
 	{
 		const auto segment = juce::jlimit(0, 2, static_cast<int>(morph));
 		const auto fraction = morph - static_cast<float>(segment);
 		const auto from = anchorWave(segment, position, phaseIncrement, width);
 		if (fraction <= 0.0f) return from;
-		return from + fraction * (anchorWave(segment + 1, position, phaseIncrement, width) - from);
+		return from + segmentMix(segment, fraction) * (anchorWave(segment + 1, position, phaseIncrement, width) - from);
 	}
 
 private:

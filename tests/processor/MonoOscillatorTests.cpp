@@ -110,9 +110,14 @@ TEST_CASE("Mono oscillator anchors are the canonical shapes", "[mono][oscillator
 		const auto phase = static_cast<float>(sample) / 64.0f;
 		for (int anchor = 0; anchor <= 3; ++anchor)
 			REQUIRE(wave(static_cast<float>(anchor), phase) == MonoVoice::anchorWave(anchor, phase, phaseIncrement, 50.0f));
-		const auto from = MonoVoice::anchorWave(1, phase, phaseIncrement, 50.0f);
-		const auto to = MonoVoice::anchorWave(2, phase, phaseIncrement, 50.0f);
-		REQUIRE(wave(1.3f, phase) == Catch::Approx(from + 0.3f * (to - from)).margin(1.0e-6));
+		const auto sine = MonoVoice::anchorWave(0, phase, phaseIncrement, 50.0f);
+		const auto triangle = MonoVoice::anchorWave(1, phase, phaseIncrement, 50.0f);
+		const auto saw = MonoVoice::anchorWave(2, phase, phaseIncrement, 50.0f);
+		const auto square = MonoVoice::anchorWave(3, phase, phaseIncrement, 50.0f);
+		// Sine to triangle mixes linearly; next to the saw the saw's share is 2t^2 - t^3 (37.5% halfway).
+		REQUIRE(wave(0.3f, phase) == Catch::Approx(sine + 0.3f * (triangle - sine)).margin(1.0e-6));
+		REQUIRE(wave(1.5f, phase) == Catch::Approx(triangle + 0.375f * (saw - triangle)).margin(1.0e-6));
+		REQUIRE(wave(2.5f, phase) == Catch::Approx(0.375f * saw + 0.625f * square).margin(1.0e-6));
 	}
 }
 
@@ -167,6 +172,26 @@ TEST_CASE("Mono voice output level stays within 1 dB across Morph through the op
 		const auto morph = static_cast<float>(step) * 0.25f;
 		CAPTURE(morph);
 		REQUIRE(std::abs(decibels(outputRms(morph) / saw)) < 1.0f);
+	}
+}
+
+TEST_CASE("Mono saw morph curve delays the saw but meets it at the linear rate", "[mono][oscillator]")
+{
+	using vekt::mono::sawMorphWeight;
+	REQUIRE(sawMorphWeight(0.0f) == 0.0f);
+	REQUIRE(sawMorphWeight(0.25f) == Catch::Approx(0.109375f));
+	REQUIRE(sawMorphWeight(0.5f) == Catch::Approx(0.375f));
+	REQUIRE(sawMorphWeight(0.75f) == Catch::Approx(0.703125f));
+	REQUIRE(sawMorphWeight(1.0f) == 1.0f);
+	// Arrives at the saw anchor with slope 1, like linear morphing, so LFO sweeps do not speed up there.
+	constexpr float step = 1.0e-3f;
+	REQUIRE((sawMorphWeight(1.0f) - sawMorphWeight(1.0f - step)) / step == Catch::Approx(1.0f).margin(0.01f));
+	float previous {};
+	for (int index = 1; index <= 100; ++index)
+	{
+		const auto weight = sawMorphWeight(static_cast<float>(index) / 100.0f);
+		REQUIRE(weight > previous);
+		previous = weight;
 	}
 }
 

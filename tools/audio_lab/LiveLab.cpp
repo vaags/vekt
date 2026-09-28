@@ -366,13 +366,14 @@ public:
 		muteButton.setBounds(464, 56, 100, 44);
 		restartButton.setBounds(572, 56, 132, 44);
 		statusLabel.setBounds(720, 56, getWidth() - 736, 44);
-		productTabs.setBounds(712, 112, 150, 40);
-		orderButton.setBounds(872, 112, 152, 40);
 		midiInputBox.setBounds(16, 168, 260, 32);
         openFileButton.setBounds(16, 112, 120, 40);
 		restartFileButton.setBounds(144, 112, 120, 40);
-		fileLabel.setBounds(280, 112, getWidth() - 500, 40);
+		// Right-anchored: position, route, product; the file label takes the space left between them and the file buttons.
 		positionLabel.setBounds(getWidth() - 212, 112, 196, 40);
+		orderButton.setBounds(positionLabel.getX() - 160, 112, 152, 40);
+		productTabs.setBounds(orderButton.getX() - 158, 112, 150, 40);
+		fileLabel.setBounds(280, 112, productTabs.getX() - 8 - 280, 40);
 		keyboard.setBounds(284, 168, getWidth() - 300, 72);
 		for (auto* editor : { monoEditor.get(), ravEditor.get(), glimmerEditor.get() })
 		{
