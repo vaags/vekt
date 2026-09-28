@@ -19,8 +19,14 @@ raw-ladder to stereo calibration traces below, used the louder sine; the drive
 headroom test is re-baselined by the known sine gain. Presets set between
 anchors, or on the pulse, change and need a listening pass.
 
-Unchanged in this step: triangle anti-aliasing (still naive) and per-block
-Morph knob updates. Both follow separately so their effect can be measured alone.
+A separate follow-up adds two-point polyBLAMP to the triangle's corners (the
+slope-change counterpart of the saw and pulse polyBLEP). At a 3,517.3 Hz
+fundamental at 48 kHz, energy away from true harmonics falls from -31.3 dB to
+-40.3 dB of the total; the corners are rounded by `4 * increment / 3`, and the
+anchor is otherwise the exact triangle. The Morph knob's base value (host
+automation and UI) now ramps linearly over 10 ms per voice, starting at the
+knob's value on a silent voice; LFO morph modulation is added after that ramp
+and stays per sample, with only the LFO's own ~1 ms de-click.
 
 # Mono contour policy (28 September 2026)
 

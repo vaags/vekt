@@ -5,8 +5,11 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include <juce_dsp/juce_dsp.h>
+
 #include <cmath>
 #include <numbers>
+#include <vector>
 
 namespace
 {
@@ -92,8 +95,9 @@ TEST_CASE("Mono oscillator anchors are the canonical shapes", "[mono][oscillator
 	const auto wave = [](float morph, float phase) { return MonoVoice::waveform(phase, phaseIncrement, morph, 50.0f); };
 	// Sine and triangle peak at a quarter cycle; the saw falls through zero at half a cycle; the square is high first.
 	REQUIRE(wave(0.0f, 0.25f) == Catch::Approx(MonoVoice::sineAnchorGain));
-	REQUIRE(wave(1.0f, 0.25f) == Catch::Approx(1.0f));
-	REQUIRE(wave(1.0f, 0.75f) == Catch::Approx(-1.0f));
+	// The triangle's corners are rounded by polyBLAMP by exactly 4 * increment / 3.
+	REQUIRE(wave(1.0f, 0.25f) == Catch::Approx(1.0f - 4.0f * phaseIncrement / 3.0f));
+	REQUIRE(wave(1.0f, 0.75f) == Catch::Approx(-1.0f + 4.0f * phaseIncrement / 3.0f));
 	REQUIRE(wave(1.0f, 0.0f) == Catch::Approx(0.0f).margin(1.0e-6));
 	REQUIRE(wave(2.0f, 0.25f) == Catch::Approx(0.5f));
 	REQUIRE(wave(2.0f, 0.5f) == Catch::Approx(0.0f).margin(1.0e-6));
@@ -164,4 +168,99 @@ TEST_CASE("Mono voice output level stays within 1 dB across Morph through the op
 		CAPTURE(morph);
 		REQUIRE(std::abs(decibels(outputRms(morph) / saw)) < 1.0f);
 	}
+}
+
+TEST_CASE("Mono triangle polyBLAMP reduces aliasing without changing the anchor", "[mono][oscillator]")
+{
+	// A high triangle whose harmonics fold back below Nyquist; measure energy away from true harmonics.
+	constexpr int order = 14;
+	constexpr int size = 1 << order;
+	constexpr double sampleRate = 48'000.0;
+	constexpr double frequency = 3'517.3;
+	const auto increment = static_cast<float>(frequency / sampleRate);
+	const auto aliasRatioDb = [&](auto wave)
+	{
+		std::vector<float> data(2 * size);
+		double phase {};
+		for (int sample = 0; sample < size; ++sample)
+		{
+			const auto window = 0.5 - 0.5 * std::cos(2.0 * std::numbers::pi * sample / size);
+			data[static_cast<std::size_t>(sample)] = static_cast<float>(wave(static_cast<float>(phase)) * window);
+			phase += frequency / sampleRate;
+			phase -= std::floor(phase);
+		}
+		juce::dsp::FFT(order).performFrequencyOnlyForwardTransform(data.data());
+		double alias {}, total {};
+		for (int bin = 1; bin < size / 2; ++bin)
+		{
+			const auto binFrequency = bin * sampleRate / size;
+			const auto harmonic = std::round(binFrequency / frequency);
+			const auto nearHarmonic = harmonic >= 1.0 && std::abs(binFrequency - harmonic * frequency) < 4.0 * sampleRate / size;
+			const auto power = static_cast<double>(data[static_cast<std::size_t>(bin)]) * data[static_cast<std::size_t>(bin)];
+			total += power;
+			if (!nearHarmonic) alias += power;
+		}
+		return 10.0 * std::log10(alias / total);
+	};
+	const auto naive = aliasRatioDb([](float phase)
+	{
+		auto shifted = phase + 0.25f;
+		shifted -= std::floor(shifted);
+		return 1.0f - 4.0f * std::abs(shifted - 0.5f);
+	});
+	const auto blamp = aliasRatioDb([increment](float phase) { return MonoVoice::anchorWave(1, phase, increment, 50.0f); });
+	CAPTURE(naive, blamp);
+	REQUIRE(blamp < naive - 6.0);
+	// Away from its corners the anchor is still the exact triangle.
+	REQUIRE(MonoVoice::anchorWave(1, 0.1f, increment, 50.0f) == Catch::Approx(0.4f));
+	REQUIRE(MonoVoice::anchorWave(1, 0.6f, increment, 50.0f) == Catch::Approx(-0.4f));
+}
+
+TEST_CASE("Mono Morph knob changes are smoothed but LFO morph modulation is not", "[mono][oscillator][lfo]")
+{
+	constexpr double sampleRate = 48'000.0;
+	vekt::mono::MonoVoiceSettings settings;
+	settings.range.fill(1.0f);
+	settings.level = { 1.0f, 0.0f, 0.0f };
+	settings.morph.fill(0.0f);
+	settings.pulseWidth.fill(50.0f);
+	settings.cutoff = 20'000.0f;
+	settings.ampSustain = 1.0f;
+	settings.ampRelease = 0.3f;
+	settings.filterRelease = 0.3f;
+	settings.unison = 1;
+	vekt::mono::MonoVoice voice;
+	voice.prepare(sampleRate, 7);
+	voice.start(1, 57, 0.8f, settings, true, false, 1);
+	float left {}, right {};
+	for (int sample = 0; sample < 480; ++sample) voice.render(left, right, settings, 0.0f);
+	REQUIRE(voice.getMorph(0) == 0.0f);
+
+	// A knob jump from sine to square ramps linearly over 10 ms (480 samples).
+	settings.morph[0] = 3.0f;
+	voice.render(left, right, settings, 0.0f);
+	REQUIRE(voice.getMorph(0) < 0.05f);
+	for (int sample = 1; sample < 240; ++sample) voice.render(left, right, settings, 0.0f);
+	REQUIRE(voice.getMorph(0) == Catch::Approx(1.5f).margin(0.02f));
+	for (int sample = 240; sample < 480; ++sample) voice.render(left, right, settings, 0.0f);
+	REQUIRE(voice.getMorph(0) == Catch::Approx(3.0f));
+
+	// A new note on a silent voice starts at the knob's value, not partway through a ramp.
+	vekt::mono::MonoVoice fresh;
+	fresh.prepare(sampleRate, 7);
+	fresh.start(1, 57, 0.8f, settings, true, false, 1);
+	fresh.render(left, right, settings, 0.0f);
+	REQUIRE(fresh.getMorph(0) == 3.0f);
+
+	// LFO modulation reaches the oscillator without the 10 ms ramp: only the LFO's own ~1 ms de-click.
+	settings.morph[0] = 0.0f;
+	settings.lfo[0].source = { .rateHz = 0.01f, .shape = vekt::mono::LfoShape::square,
+		.polarity = vekt::mono::LfoPolarity::unipolar, .mode = vekt::mono::LfoMode::retrigger };
+	settings.lfo[0].morph[0] = 3.0f;
+	vekt::mono::MonoVoice modulated;
+	modulated.prepare(sampleRate, 7);
+	modulated.start(1, 57, 0.8f, settings, true, false, 1);
+	for (int sample = 0; sample < 240; ++sample) modulated.render(left, right, settings, 0.0f);
+	// After 5 ms the LFO offset is essentially complete; a smoothed knob would still be at half its travel.
+	REQUIRE(modulated.getMorph(0) > 2.95f);
 }

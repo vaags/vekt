@@ -68,6 +68,8 @@ public:
 		amp.setSampleRate(newSampleRate);
 		filterEnvelope.setSampleRate(newSampleRate);
 		cutoffOctaves.reset(newSampleRate, 0.015);
+		// Host automation and knob moves of Morph ramp over 10 ms; LFO modulation is added afterwards, per sample.
+		for (auto& morph : baseMorphs) morph.reset(newSampleRate, 0.01);
 		resonance.reset(newSampleRate, 0.02);
 		driveDecibels.reset(newSampleRate, 0.02);
 		qInputCompensation.reset(newSampleRate, 0.02);
@@ -87,6 +89,7 @@ public:
 			lfos[index].reset(lfoSeed * 2'654'435'761u + static_cast<std::uint32_t>(index), lfoSharedSeeds[index]);
 		lfoOutputs = {};
 		vibratoControl = polyPressure = 0.0f;
+		morphsInitialized = false;
 		for (auto& ladder : filterLadders) ladder.reset();
 		filterControlsInitialized = false;
 		qInputCompensation.setCurrentAndTargetValue(0.0f);
@@ -109,6 +112,7 @@ public:
 		polyPressure = 0.0f;
 		active = held = true; sustained = false;
 		fadeInSamples = wasActive ? 0 : transitionLength();
+		if (!wasActive) morphsInitialized = false;
 		continuitySamples = 0;
 		continuityPending = wasActive;
 		continuityOffset = {};
@@ -187,13 +191,18 @@ public:
 		const auto detune = juce::jlimit(0.0f, 50.0f, settings.detune + modulation.detune);
 		const auto unisonSpread = juce::jlimit(0.0f, 1.0f, settings.unisonSpread + modulation.spread);
 		const auto noiseLevel = juce::jlimit(0.0f, 1.0f, settings.noiseLevel + modulation.noise);
-		std::array<float, 3> levels {}, morphs {}, widths {};
+		std::array<float, 3> levels {}, widths {};
+		auto& morphs = lastMorphs;
 		for (std::size_t oscillator = 0; oscillator < 3; ++oscillator)
 		{
 			levels[oscillator] = juce::jlimit(0.0f, 1.0f, settings.level[oscillator] + modulation.level[oscillator]);
-			morphs[oscillator] = juce::jlimit(0.0f, 3.0f, settings.morph[oscillator] + modulation.morph[oscillator]);
+			auto& baseMorph = baseMorphs[oscillator];
+			if (!morphsInitialized) baseMorph.setCurrentAndTargetValue(settings.morph[oscillator]);
+			else if (!juce::approximatelyEqual(baseMorph.getTargetValue(), settings.morph[oscillator])) baseMorph.setTargetValue(settings.morph[oscillator]);
+			morphs[oscillator] = juce::jlimit(0.0f, 3.0f, baseMorph.getNextValue() + modulation.morph[oscillator]);
 			widths[oscillator] = juce::jlimit(5.0f, 95.0f, settings.pulseWidth[oscillator] + modulation.width[oscillator]);
 		}
+		morphsInitialized = true;
 		for (int stack = 0; stack < unisonCount; ++stack)
 		{
 			const auto normalizedStack = unisonCount == 1 ? 0.0f : (2.0f * static_cast<float>(stack) / static_cast<float>(unisonCount - 1) - 1.0f);
@@ -265,6 +274,8 @@ public:
 	[[nodiscard]] int getChannel() const noexcept { return channel; }
 	void setPanPosition(float value) noexcept { panPosition = value; }
 	[[nodiscard]] float getLfoOutput(std::size_t index) const noexcept { return lfoOutputs[index]; }
+	// Morph each oscillator used for the most recent sample: the smoothed knob value plus LFO modulation.
+	[[nodiscard]] float getMorph(std::size_t oscillator) const noexcept { return lastMorphs[oscillator]; }
 	void setPolyPressure(float pressure) noexcept { polyPressure = pressure; }
 	[[nodiscard]] float getPolyPressure() const noexcept { return polyPressure; }
 
@@ -272,6 +283,25 @@ private:
 	[[nodiscard]] int transitionLength() const noexcept
 	{
 		return std::max(1, static_cast<int>(std::round(voiceTransitionSeconds * sampleRate)));
+	}
+
+	static float wrapPhase(float phase) noexcept { return phase - std::floor(phase); }
+
+	// Integrated polyBLEP: the correction for a unit change of slope (per cycle) at phase 0, divided by
+	// (increment / 2). A symmetric cubic bump spanning one sample either side of the corner.
+	static float polyBlamp(float position, float increment) noexcept
+	{
+		if (position < increment)
+		{
+			const auto t = 1.0f - position / increment;
+			return t * t * t / 3.0f;
+		}
+		if (position > 1.0f - increment)
+		{
+			const auto t = 1.0f + (position - 1.0f) / increment;
+			return t * t * t / 3.0f;
+		}
+		return 0.0f;
 	}
 
 	static float polyBlep(float position, float phaseIncrement) noexcept
@@ -304,10 +334,14 @@ public:
 		case 0: return sineAnchorGain * std::sin(twoPi * position);
 		case 1:
 		{
-			// Peaks at a quarter cycle, in phase with the sine.
+			// Peaks at a quarter cycle, in phase with the sine. polyBLAMP rounds the corners, where the
+			// slope jumps by -8 (peak) and +8 (trough) per cycle, to reduce aliasing like polyBLEP on the saw.
 			auto shifted = position + 0.25f;
 			shifted -= std::floor(shifted);
-			return 1.0f - 4.0f * std::abs(shifted - 0.5f);
+			const auto increment = juce::jlimit(1.0e-6f, 0.5f, phaseIncrement);
+			return 1.0f - 4.0f * std::abs(shifted - 0.5f)
+				- 4.0f * increment * polyBlamp(wrapPhase(position - 0.25f), increment)
+				+ 4.0f * increment * polyBlamp(wrapPhase(position - 0.75f), increment);
 		}
 		case 2: return 1.0f - 2.0f * position + polyBlep(position, phaseIncrement); // falling ramp: fundamental +sin
 		default:
@@ -404,6 +438,9 @@ private:
 	juce::Random random;
 	ContourEnvelope amp, filterEnvelope;
 	juce::SmoothedValue<float> cutoffOctaves, resonance, driveDecibels, qInputCompensation;
+	std::array<juce::SmoothedValue<float>, 3> baseMorphs;
+	std::array<float, 3> lastMorphs {};
+	bool morphsInitialized {};
 	std::array<std::array<float, 3>, 4> phase {};
 	std::array<NonlinearTptLadder, 4> filterLadders;
 	std::array<float, 2> continuityOffset {}, lastOutput {};
