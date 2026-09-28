@@ -50,7 +50,7 @@ int main(int argc, char** argv)
 	Options options;
 	if (!parse(argc, argv, options))
 	{
-		std::cerr << "Usage: VektMonoRender --fixture filter-sweep|envelope "
+		std::cerr << "Usage: VektMonoRender --fixture filter-sweep|envelope|q-comp-body-off|q-comp-body-on|q-comp-tone-off|q-comp-tone-on "
 			"--wav path --report path [--sample-rate Hz] [--block-size samples] [--seed value]\n";
 		return 64;
 	}

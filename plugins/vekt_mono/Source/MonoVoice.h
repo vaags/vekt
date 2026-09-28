@@ -250,8 +250,11 @@ private:
 	void updateFilterControlTargets(const MonoVoiceSettings& settings)
 	{
 		const auto cutoffTarget = std::log2(juce::jlimit(10.0f, 32'000.0f, settings.cutoff));
+		// Partial post-filter makeup: at maximum resonance limit the gain on
+		// both input-derived sound and free-running tone to approximately +3 dB.
 		const auto compensationTarget = settings.qCompensation
-			? std::min(3.9810717f, 1.0f + 4.0f * std::pow(juce::jlimit(0.0f, 1.0f, settings.resonance), 0.72f))
+			? 1.0f + (std::numbers::sqrt2_v<float> - 1.0f)
+				* std::pow(juce::jlimit(0.0f, 1.0f, settings.resonance), 0.72f)
 			: 1.0f;
 		if (!filterControlsInitialized)
 		{

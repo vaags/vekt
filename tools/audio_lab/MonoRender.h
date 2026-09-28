@@ -26,7 +26,8 @@ enum class MonoParameter
 	filterDecay,
 	filterSustain,
 	filterRelease,
-	qCompensation
+	qCompensation,
+	noiseLevel
 };
 
 struct MonoRenderEvent

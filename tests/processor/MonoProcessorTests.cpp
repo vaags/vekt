@@ -151,7 +151,8 @@ TEST_CASE("Mono Q compensation is bounded output gain outside saturation", "[mon
 						renderBlock(dry, dryBuffer);
 						renderBlock(compensated, wetBuffer);
 					}
-					const auto expectedGain = std::min(3.9810717f, 1.0f + 4.0f * std::pow(emphasis * 0.01f, 0.72f));
+					const auto expectedGain = 1.0f + (std::numbers::sqrt2_v<float> - 1.0f)
+						* std::pow(emphasis * 0.01f, 0.72f);
 					INFO("rate=" << sampleRate << ", quality=" << quality << ", emphasis=" << emphasis << ", drive=" << drive);
 					REQUIRE(rms(dryBuffer) > 0.0001f);
 					REQUIRE(rms(wetBuffer) / rms(dryBuffer) == Catch::Approx(expectedGain).margin(0.0001f));
@@ -178,7 +179,7 @@ TEST_CASE("Mono Q compensation ramps without changing the held voice", "[mono][p
 	midi.addEvent(juce::MidiMessage::noteOn(1, 48, 1.0f), 0);
 	renderBlock(dry, dryBuffer, midi);
 	renderBlock(switched, switchedBuffer, midi);
-	const auto maximumGain = 1.0f + 4.0f * std::pow(0.5f, 0.72f);
+	const auto maximumGain = 1.0f + (std::numbers::sqrt2_v<float> - 1.0f) * std::pow(0.5f, 0.72f);
 	for (const auto enabled : { true, false })
 	{
 		setParameter(switched, vekt::mono::parameters::filterQCompensation, enabled ? 1.0f : 0.0f);
@@ -1370,42 +1371,51 @@ TEST_CASE("Mono Ladder drive adds harmonics without acting as output gain", "[mo
 	REQUIRE(drivenRms < cleanRms * 4.0f);
 }
 
-TEST_CASE("Mono maximum resonance driven voice exposes output headroom", "[mono][processor][filter][headroom]")
+TEST_CASE("Mono maximum resonance keeps floating-point peaks and obeys master trim", "[mono][processor][filter][headroom]")
 {
 	for (const auto quality : { 0.0f, 1.0f })
 		for (const auto drive : { 0.0f, 24.0f })
 			for (const auto compensated : { false, true })
 			{
-				vekt::mono::PluginProcessor processor;
-				initializeDryVoice(processor);
-				setParameter(processor, vekt::mono::parameters::quality, quality);
-				setParameter(processor, vekt::mono::parameters::osc1Level, 100.0f);
-				setParameter(processor, vekt::mono::parameters::filterCutoff, 1'000.0f);
-				setParameter(processor, vekt::mono::parameters::filterResonance, 100.0f);
-				setParameter(processor, vekt::mono::parameters::filterDrive, drive);
-				setParameter(processor, vekt::mono::parameters::filterQCompensation, compensated ? 1.0f : 0.0f);
-				setParameter(processor, vekt::mono::parameters::masterOutput, 0.0f);
-				processor.prepareToPlay(48'000.0, 1024);
-				juce::AudioBuffer<float> buffer(2, 1024);
+				vekt::mono::PluginProcessor unity, trimmed;
+				for (auto* processor : { &unity, &trimmed })
+				{
+					initializeDryVoice(*processor);
+					setParameter(*processor, vekt::mono::parameters::quality, quality);
+					setParameter(*processor, vekt::mono::parameters::osc1Level, 100.0f);
+					setParameter(*processor, vekt::mono::parameters::filterCutoff, 1'000.0f);
+					setParameter(*processor, vekt::mono::parameters::filterResonance, 100.0f);
+					setParameter(*processor, vekt::mono::parameters::filterDrive, drive);
+					setParameter(*processor, vekt::mono::parameters::filterQCompensation, compensated ? 1.0f : 0.0f);
+				}
+				setParameter(unity, vekt::mono::parameters::masterOutput, 0.0f);
+				setParameter(trimmed, vekt::mono::parameters::masterOutput, -12.0f);
+				unity.prepareToPlay(48'000.0, 1024);
+				trimmed.prepareToPlay(48'000.0, 1024);
+				juce::AudioBuffer<float> buffer(2, 1024), trimmedBuffer(2, 1024);
 				juce::MidiBuffer note;
 				note.addEvent(juce::MidiMessage::noteOn(1, 48, 1.0f), 0);
 				float peak {};
 				for (int block = 0; block < 48; ++block)
 				{
-					renderBlock(processor, buffer, note);
+					renderBlock(unity, buffer, note);
+					renderBlock(trimmed, trimmedBuffer, note);
 					note.clear();
 					for (int channel = 0; channel < 2; ++channel)
 						for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
 						{
 							const auto value = buffer.getSample(channel, sample);
+							const auto trimmedValue = trimmedBuffer.getSample(channel, sample);
 							REQUIRE(std::isfinite(value));
+							REQUIRE(std::isfinite(trimmedValue));
+							REQUIRE(trimmedValue == Catch::Approx(value * vekt::mono::dbToGain(-12.0f)).margin(2.0e-5f));
 							peak = std::max(peak, std::abs(value));
 						}
 				}
 				INFO("quality=" << quality << ", drive=" << drive << ", qCompensation=" << compensated << ", peak=" << peak);
 				REQUIRE(peak > 0.01f);
-				CHECK(peak < 1.0f);
-				const auto work = processor.coupledWorkSnapshot();
+				if (drive == 24.0f) REQUIRE(peak > 1.0f); // No hidden limiter at unity master.
+				const auto work = unity.coupledWorkSnapshot();
 				REQUIRE(work.unconverged == 0);
 				REQUIRE(work.nonFinite == 0);
 			}

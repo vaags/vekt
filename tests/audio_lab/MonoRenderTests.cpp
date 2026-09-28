@@ -6,6 +6,9 @@
 #include <juce_audio_formats/juce_audio_formats.h>
 
 #include <bit>
+#include <cmath>
+#include <numbers>
+#include <string_view>
 
 namespace
 {
@@ -95,6 +98,32 @@ TEST_CASE("Mono Audio Lab reports filter and envelope measurements", "[audio-lab
 	REQUIRE(static_cast<double>(measurements.getProperty("attack_10_to_90_seconds", -1.0)) > 0.0);
 	REQUIRE(static_cast<double>(measurements.getProperty("release_to_10_seconds", -1.0)) > 0.0);
 	REQUIRE(windowMeasurement(envelope.report, "silence", "peak") == Catch::Approx(0.0));
+}
+
+TEST_CASE("Mono partial Q compensation applies bounded makeup to body and tone", "[audio-lab][mono][qcomp]")
+{
+	for (const auto* kind : { "body", "tone" })
+	{
+		vekt::audio_lab::MonoRenderRequest off, on;
+		REQUIRE(vekt::audio_lab::makeMonoRenderFixture(juce::String("q-comp-") + kind + "-off", 48'000.0, 128, 42, off));
+		REQUIRE(vekt::audio_lab::makeMonoRenderFixture(juce::String("q-comp-") + kind + "-on", 48'000.0, 128, 42, on));
+		const auto dry = vekt::audio_lab::renderMono(off);
+		const auto wet = vekt::audio_lab::renderMono(on);
+		const auto dryRms = windowMeasurement(dry.report, "settled", "rms");
+		const auto wetRms = windowMeasurement(wet.report, "settled", "rms");
+		INFO("fixture=" << kind << ", dryRms=" << dryRms << ", wetRms=" << wetRms);
+		REQUIRE(dryRms > 0.001);
+		REQUIRE(wetRms > dryRms);
+		REQUIRE(wetRms / dryRms == Catch::Approx(kind == std::string_view("tone")
+			? std::numbers::sqrt2_v<double>
+			: 1.0 + (std::numbers::sqrt2_v<double> - 1.0) * std::pow(0.8, 0.72)).margin(0.002));
+		double maximumMatchedDifference {};
+		for (int sample = 24'000; sample < 43'200; ++sample)
+			maximumMatchedDifference = std::max(maximumMatchedDifference,
+				std::abs(static_cast<double>(dry.audio.getSample(0, sample))
+					- static_cast<double>(wet.audio.getSample(0, sample)) * dryRms / wetRms));
+		REQUIRE(maximumMatchedDifference < 1.0e-6);
+	}
 }
 
 TEST_CASE("Mono Audio Lab writes readable WAV and JSON outputs", "[audio-lab][mono][output]")

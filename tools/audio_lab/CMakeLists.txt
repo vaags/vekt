@@ -9,6 +9,10 @@ add_executable(VektMonoRender
 	MonoRender.cpp
 	MonoRenderMain.cpp)
 
+add_executable(VektMonoQCompMatrix
+	MonoRender.cpp
+	MonoQCompMatrixMain.cpp)
+
 add_executable(VektLadderPrototype
 	LadderPrototype.cpp
 	LadderPrototypeMain.cpp)
@@ -34,6 +38,13 @@ target_link_libraries(VektRavAudioLab PRIVATE
 	vekt_project_options)
 
 target_link_libraries(VektMonoRender PRIVATE
+	VektMonoCore
+	vekt::audio_analysis
+	vekt::juce_headers
+	vekt::juce_runtime
+	vekt_project_options)
+
+target_link_libraries(VektMonoQCompMatrix PRIVATE
 	VektMonoCore
 	vekt::audio_analysis
 	vekt::juce_headers

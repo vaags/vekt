@@ -101,6 +101,19 @@ the actual input to the nonlinear ladder and is not implicitly normalized away.
 Optional drive compensation is a separate, bypassable post-ladder wrapper. Optional Q
 compensation is also post-ladder and defaults off. Neither compensation participates in
 the state equations or feedback loop. Any future output-feedback tap precedes both.
+The first partial-Q-compensation candidate keeps the post-ladder topology and
+20 ms gain smoothing but sets `Gq(r) = 1 + (sqrt(2) - 1) clamp(r, 0, 1)^0.72`
+when enabled, and unity when disabled. This limits its maximum makeup to about
++3 dB, including on a free-running zero-input tone; it does not flatten the
+passband or depend on instantaneous audio/drive. Existing Q-Comp-On presets
+can therefore change level. Because it multiplies the entire voice, the On
+and Off outputs are indistinguishable after level matching at fixed settings;
+it does not restore input body relative to the generated resonance tone. A
+selective compensation topology would require a separate design decision.
+Master Output 0 dB means unity, not peak protection: floating-point outputs
+above ±1 at extreme settings are permitted,
+and downstream headroom is the user's responsibility. This sound candidate
+still requires level-matched listening before approval.
 Classic oscillator-3/noise modulation and final monophonic articulation are deferred to
 their later product phases and do not block validation of the ladder itself.
 

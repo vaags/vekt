@@ -121,7 +121,7 @@ deadline exceedances, zero counted C++ `new` calls, and zero nonfinite or
 unconverged coupled samples. This fixture does not exercise maximum resonance,
 and neither the probe nor a build is host/device qualification.
 
-**Open headroom failure (not waived):** A new focused processor test in
+**Historical headroom probe and revised sound contract:** An earlier focused processor test in
 `tests/processor/MonoProcessorTests.cpp` drives one voice (oscillator 1 at
 100%, cutoff 1 kHz, maximum resonance, master 0 dB, 48 kHz, 1024-sample
 blocks, 48 blocks) at 1x and 2x, with drive at 0 or 24 dB and Q compensation
@@ -130,15 +130,68 @@ off or on. Its explicit `peak < 1.0` check fails in six of eight configurations:
 compensation off), and 7.00950 (24 dB drive, compensation on); 2x peaks are
 1.54350, 1.76011, and 7.00713 respectively. All measured samples were finite
 and the solver reported zero unconverged and nonfinite samples, but floating-
-point output above 0 dBFS risks downstream clipping. The focused test exits
-with failure; **the current 273-test tree is not green**. Do not suppress this
-test, reduce the existing self-oscillation level minimums, or treat this result
-as release acceptance. These measurements do not isolate how much excess level
-comes from the new voice gain versus pre-existing drive/Q-compensation behavior.
-The gain/Q-compensation policy and acceptable headroom
-need a sound-design decision and a tested fix. Modulated boundaries,
-representative processing cost at maximum resonance, host listening, and live
-audio validation also remain open.
+point output above 0 dBFS risks downstream clipping. That earlier 273-test
+tree failed the `peak < 1.0` check; it was not an indication of nonfinite DSP.
+The sound decision now specifies **0 dB Master Output as unity**, not a limiter
+or automatic normalization. Over-unity floating-point peaks in extreme patches
+are permitted and require downstream trim. The old blanket assertion was
+replaced by a paired 0/-12 dB Master Output test checking finite samples,
+exact gain scaling, the absence of hidden clipping, and converged work.
+
+**28 September partial Q-compensation candidate (working tree):** Q Comp On
+retains the 20 ms-smoothed post-filter gain but uses
+`1 + (sqrt(2) - 1) r^0.72`, capped at about +3 dB at maximum resonance;
+Q Comp Off remains unity. The feedback, drive, raw ladder and self-oscillation
+voice calibration are unchanged. Existing Q-Comp-On presets may sound different.
+The focused `[qcomp]` checks pass (6 cases, 44972 assertions); the revised
+master/headroom test passes (1 case, 2359612 assertions). The old self-oscillation
+level and pitch requirements remain unchanged. Four paired one-second Audio Lab
+WAVs and JSON reports are under `/tmp/vekt-q-comp-candidate/`: `q-comp-body-*`
+is an 80%-resonance input-body example and `q-comp-tone-*` is a 100%-resonance
+noise-excited zero-input tail. The 0.5–0.9 s settled left-channel RMS rises
+by 2.624 dB (body) and 3.010 dB (tone); corresponding On WAVs attenuated by
+these amounts (`*-on-level-matched.wav`) are also available. In the settled
+window those level-matched On WAVs differ from Off only at float-rounding scale
+(left-channel difference RMS below 8e-9). Post-gain therefore **cannot restore
+body relative to the resonant component**: it changes overall loudness, not
+the level-matched timbre. The first candidate demonstrates a bounded gain
+control, not a selective bass-restoration mechanism. These fixtures
+are narrow examples, **not** the broader cutoff/drive/input listening matrix;
+no one has listened to or approved them yet. With the Debug test target built
+before testing, `ctest --preset dev --output-on-failure` completed **274/274
+passed in 1292.40 seconds** on this candidate. The normal Release VST3 and
+Standalone targets also rebuilt (local arm64 Mach-O SHA-256
+`1cc7b260f7f54b61ba56dd616da228ac1cf4d9cfbd813cd7396fa0f1d74f9c00`
+and `9e8d3aadff41c486abc3fa558392c4e6300b57ce8f127ce2af1c7a482e26c5aa`,
+respectively); these are not host-tested release artifacts. The subsequently
+added Release Audio Lab `VektMonoQCompMatrix` tool completed **640 finite rows**
+(`320` On/Off pairs) in `/tmp/vekt-q-comp-candidate/matrix.csv`: 48 kHz,
+128-sample blocks, cutoffs 100/500/2000/8000 Hz, resonance
+0/50/80/98/100%, drive 0/6/12/18/24 dB, sine below cutoff, saw, white noise,
+and noise-excited zero-input tone (tone only at 100%). It measures left-channel
+RMS, peak, crest factor, and projected sine/saw fundamental or requested-cutoff
+tone in the 0.45–0.65 s settled window. Paired RMS and projected component
+changes stay between 0 and +3.011 dB; crest factor is effectively unchanged.
+The maximum observed compensated peak is 2.984 for the saw case; exceeding
+unity is allowed by the agreed floating-point output contract. The matrix
+was rerun with byte-identical CSV output. As a *relative* passband-oriented
+comparison, at 500 Hz cutoff the below-cutoff sine's projected component at
+80% resonance is -10.34 dB (Off) versus -7.72 dB (On) relative to resonance
+zero with the same cutoff and 0 dB drive; at +24 dB drive those figures are
+-0.02 and +2.61 dB. This suggests the fixed makeup can boost already driven
+signals rather than restoring a lost passband. The matrix contains output
+measurements, **not** a normalized input-to-output passband transfer measurement
+or a substitute for level-matched listening. Its tool was built and run after
+the 274-test suite; the full suite has not been rerun after the measurement-tool
+addition. The Debug test target rebuilt and all six relevant focused CTest
+cases passed after that addition. Drive-dependent compensation is not
+implemented; dependence on the drive
+parameter alone would still be post-gain and would not selectively restore
+body. A feedforward/input-path approach would be a different model requiring
+its own sound decision and validation. The existing two-pair listening renders
+cannot establish tonal benefit after level matching.
+Modulated boundaries, representative maximum-resonance cost, host listening,
+and live audio validation also remain open.
 
 Debug tests of the ordinary processor and a normal Release build are useful
 regression evidence only. **No normal Release VST3/Standalone host session,

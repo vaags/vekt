@@ -51,6 +51,7 @@ namespace
 	case MonoParameter::filterSustain: return "filter_sustain";
 	case MonoParameter::filterRelease: return "filter_release";
 	case MonoParameter::qCompensation: return "q_compensation";
+	case MonoParameter::noiseLevel: return "noise_level";
 	}
 	return {};
 }
@@ -72,6 +73,7 @@ void applyParameter(mono::MonoVoiceSettings& settings, MonoParameter parameter, 
 	case MonoParameter::filterSustain: settings.filterSustain = value; break;
 	case MonoParameter::filterRelease: settings.filterRelease = value; break;
 	case MonoParameter::qCompensation: settings.qCompensation = value >= 0.5f; break;
+	case MonoParameter::noiseLevel: settings.noiseLevel = value; break;
 	}
 }
 
@@ -208,6 +210,29 @@ bool makeMonoRenderFixture(const juce::String& name, double sampleRate, int bloc
 	destination.blockSize = blockSize;
 	destination.seed = seed;
 	destination.settings = defaultMonoRenderSettings();
+	if (name == "q-comp-body-off" || name == "q-comp-body-on"
+		|| name == "q-comp-tone-off" || name == "q-comp-tone-on")
+	{
+		const auto tone = name.contains("tone");
+		destination.totalSamples = at(1.0, sampleRate);
+		destination.settings.level = { tone ? 0.0f : 0.7f, 0.0f, 0.0f };
+		destination.settings.morph[0] = 0.0f;
+		destination.settings.cutoff = 1'000.0f;
+		destination.settings.resonance = tone ? 1.0f : 0.8f;
+		destination.settings.drive = 0.0f;
+		destination.settings.ampAttack = 0.0005f;
+		destination.settings.ampSustain = 1.0f;
+		destination.settings.noiseType = tone ? 1 : 0;
+		destination.settings.noiseLevel = tone ? 0.05f : 0.0f;
+		destination.settings.qCompensation = name.endsWith("on");
+		destination.events = { { 0, MonoEventType::noteOn, MonoParameter::cutoff, 1.0f, 48 } };
+		// Silence the excitation, not the sustained envelope or feedback state.
+		if (tone)
+			destination.events.push_back({ at(0.1, sampleRate), MonoEventType::parameter,
+				MonoParameter::noiseLevel, 0.0f });
+		destination.windows = { { "settled", at(0.5, sampleRate), at(0.9, sampleRate) } };
+		return true;
+	}
 	if (name == "filter-sweep")
 	{
 		destination.totalSamples = at(2.0, sampleRate);
