@@ -21,6 +21,14 @@ target_link_libraries(VektMonoIncrementalResonance PRIVATE
 	vekt::juce_runtime
 	vekt_project_options)
 
+add_executable(VektMonoAcPumpResponse MonoAcPumpResponseMain.cpp)
+target_link_libraries(VektMonoAcPumpResponse PRIVATE
+	VektMonoCore
+	vekt::audio_analysis
+	vekt::juce_headers
+	vekt::juce_runtime
+	vekt_project_options)
+
 add_executable(VektLadderPrototype
 	LadderPrototype.cpp
 	LadderPrototypeMain.cpp)

@@ -291,6 +291,52 @@ the *DC probe machinery below self-oscillation*; the larger-probe discrepancies
 are amplitude-dependent, not evidence of a different local pole. The 100%
 rows remain oscillator diagnostics and are excluded from this comparison.
 
+**DC amplitude and complex-response follow-up (28 September 2026):**
+`VektMonoIncrementalResonance` now defaults to a `0.0001` probe and records
+the measured and fixed-point-linearized *phase* as well as magnitude. The
+maximum absolute phase error across the full below-oscillation grid is
+0.00486 rad (0.279 degrees); magnitude error remains at most 0.050 dB.
+A targeted `worst` run at 95% resonance, +18/+24 dB Drive, Q Comp Off/On,
+and 750/900/1000 Hz uses a `0.00003` probe (12 points). Its worst difference
+from the `0.0001` measurement is 0.0455 dB and 0.00443 rad; the maximum
+absolute error from the DC linearization falls to 0.0046 dB and 0.00044 rad.
+Thus the default is a useful approximation but not a strict *few-hundredths*
+plateau at every sensitive +24 dB point. All three local CSVs (the 0.001
+and 0.0001 full grids and `/tmp/vekt-mono-incremental-worst-30u.csv`)
+are numerical characterizations, not musical AC-drive evidence.
+
+**Initial AC-pump incremental measurement (28 September 2026):**
+`VektMonoAcPumpResponse` uses the production coupled ladder at 48 kHz, a
+fixed 173 Hz, 0.1-amplitude sine pump, 1 s settling and a coherent 1 s
+window. For each frequency it subtracts a pump-only run with identical
+initial state/phase before complex lock-in at the probe and at probe ±173
+and ±346 Hz. Probe frequencies are 400–1400 Hz at 25 Hz steps (41 points,
+none coinciding with a pump harmonic); Q=50/80/95%, Drive=0/6/12/18/24 dB,
+and Q Comp Off/On produce **6150 component rows** in
+`/tmp/vekt-mono-ac-response.csv`, all with zero nonfinite and unconverged
+samples. At 95% resonance the largest *same-frequency* gain on the grid
+(Q Comp Off/On) moves from 975/975 Hz at 0 dB to 925/825 Hz at +24 dB;
+the corresponding peak gains are 14.36/19.24 and 39.31/39.76 dB. These
+are incremental *absolute gains*, not peak-over-local-passband contrasts or
+an assessment that Q Comp remains audible at +24 dB. In particular a moving
+peak prevents comparing fixed-frequency On/Off numbers as a single control
+"efficiency" measure.
+
+The `check` run (`/tmp/vekt-mono-ac-check.csv`) repeats twelve sensitive
+95%, +18/+24 dB frequency/settings combinations at `0.0001` and `0.00003`
+probe amplitudes, with five components per run (120 rows). Direct-bin gains
+differ by at most 0.0038 dB, and the ±346 Hz sidebands by at most 0.012 dB;
+these even-order sidebands can become substantial at high Drive. The ±173 Hz
+odd-order bins, near −70 to −129 dB in this check, differ by up to ~30 dB
+between probe amplitudes: **do not interpret them as resolved incremental
+conversion**. Symmetry of the sine pump can suppress odd-order terms, but
+this test does not establish their precise floor. This is a linear
+*time-periodic* operating condition: the direct bin is not the full
+incremental response, and sideband gain is not interchangeable with audible
+Q Comp effectiveness. Local-passband peak/bandwidth extraction, pump-only
+leakage checks and level-matched listening remain open; no coefficient or
+production topology was changed.
+
 **Candidate 2 interpretation and acceptance:** At extreme Drive, the measured
 input-in-feedback compensation becomes almost ineffective. Strong Drive also
 materially changes resonance, but this DC experiment does not establish a
@@ -303,13 +349,10 @@ level-matched listening, not evidence by itself for a Drive-dependent `c`.
 If listening exposes a conspicuous problem, investigate output/feedforward
 alternatives rather than tuning the coefficient to fit this DC experiment.
 
-**Next measurement (not yet performed):** Below self-oscillation (50/80/95%
-resonance), use the same periodic AC pump
-at every probe frequency for each Drive setting, a much denser frequency grid
-around the moving peak, and coherent complex probe-frequency correlation over
-integer pump/probe periods. Report peak frequency, peak relative to a *local*
-passband, and bandwidth independently; check probe-amplitude sensitivity and
-pump-only leakage. At 100% resonance, instead measure autonomous frequency,
+**Remaining measurements:** Below self-oscillation (50/80/95% resonance),
+resolve local passband and bandwidth around the moving AC-pump peak; check
+pump-only leakage and whether more probe frequencies or other musical pumps
+change the result. At 100% resonance, instead measure autonomous frequency,
 amplitude, weak-tone pulling, driven perturbation and zero-input recovery.
 The existing level-matched listening renders remain the product decision.
 The raw-filter tail test intentionally bypasses `MonoVoice` articulation: keep
