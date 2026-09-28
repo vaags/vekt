@@ -14,6 +14,7 @@
 #include <cmath>
 #include <cstdint>
 #include <numbers>
+#include <memory>
 #include <set>
 
 namespace
@@ -1847,6 +1848,92 @@ TEST_CASE("Mono active-note release preserves the sample boundary", "[mono][proc
 			nearbyMaximumDelta = std::max(nearbyMaximumDelta,
 				std::abs(buffer.getSample(channel, sample) - buffer.getSample(channel, sample - 1)));
 		const auto boundaryDelta = std::abs(buffer.getSample(channel, 768) - buffer.getSample(channel, 767));
+		REQUIRE(boundaryDelta <= nearbyMaximumDelta * 1.1f + 1.0e-5f);
+	}
+}
+
+TEST_CASE("Mono poly repeated keys retrigger their own voice instead of stacking", "[mono][processor][midi]")
+{
+	const auto prepared = []
+	{
+		auto processor = std::make_unique<vekt::mono::PluginProcessor>();
+		setParameter(*processor, vekt::mono::parameters::performanceMode, 0.0f);
+		setParameter(*processor, vekt::mono::parameters::ampRelease, 5.0f);
+		processor->prepareToPlay(48'000.0, 256);
+		return processor;
+	};
+	juce::AudioBuffer<float> buffer(2, 256);
+	const auto play = [&buffer](vekt::mono::PluginProcessor& processor, std::initializer_list<juce::MidiMessage> messages)
+	{
+		juce::MidiBuffer midi;
+		for (const auto& message : messages) midi.addEvent(message, 0);
+		renderBlock(processor, buffer, midi);
+	};
+
+	SECTION("a key pressed again during its release tail")
+	{
+		auto processor = prepared();
+		play(*processor, { juce::MidiMessage::noteOn(1, 60, 0.8f) });
+		play(*processor, { juce::MidiMessage::noteOff(1, 60) });
+		play(*processor, { juce::MidiMessage::noteOn(1, 60, 0.8f) });
+		REQUIRE(processor->getSoundingVoiceCount() == 1);
+		// The retriggered voice is held again: one note-off starts its release rather than leaving a stuck copy.
+		play(*processor, { juce::MidiMessage::noteOff(1, 60) });
+		REQUIRE(processor->getSoundingVoiceCount() == 1);
+	}
+	SECTION("a key pressed twice without a note-off")
+	{
+		auto processor = prepared();
+		play(*processor, { juce::MidiMessage::noteOn(1, 60, 0.8f) });
+		play(*processor, { juce::MidiMessage::noteOn(1, 60, 0.5f) });
+		REQUIRE(processor->getSoundingVoiceCount() == 1);
+	}
+	SECTION("a key held by the sustain pedal")
+	{
+		auto processor = prepared();
+		play(*processor, { juce::MidiMessage::controllerEvent(1, 64, 127), juce::MidiMessage::noteOn(1, 60, 0.8f) });
+		play(*processor, { juce::MidiMessage::noteOff(1, 60) });
+		play(*processor, { juce::MidiMessage::noteOn(1, 60, 0.8f) });
+		REQUIRE(processor->getSoundingVoiceCount() == 1);
+	}
+	SECTION("the same key on another channel, and other keys, still get their own voices")
+	{
+		auto processor = prepared();
+		play(*processor, { juce::MidiMessage::noteOn(1, 60, 0.8f) });
+		play(*processor, { juce::MidiMessage::noteOn(2, 60, 0.8f) });
+		play(*processor, { juce::MidiMessage::noteOn(1, 64, 0.8f) });
+		REQUIRE(processor->getSoundingVoiceCount() == 3);
+	}
+}
+
+TEST_CASE("Mono poly repeated-key retrigger avoids an exceptional sample-boundary jump", "[mono][processor][midi][declick]")
+{
+	vekt::mono::PluginProcessor processor;
+	setParameter(processor, vekt::mono::parameters::performanceMode, 0.0f);
+	setParameter(processor, vekt::mono::parameters::voiceWidth, 100.0f);
+	setParameter(processor, vekt::mono::parameters::osc1Morph, 2.0f);
+	setParameter(processor, vekt::mono::parameters::osc2Level, 0.0f);
+	setParameter(processor, vekt::mono::parameters::osc3Level, 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterCutoff, 12'000.0f);
+	setParameter(processor, vekt::mono::parameters::filterEnvelopeAmount, 0.0f);
+	setParameter(processor, vekt::mono::parameters::ampAttack, 0.0005f);
+	setParameter(processor, vekt::mono::parameters::ampRelease, 2.0f);
+	processor.prepareToPlay(48'000.0, 1'024);
+	juce::AudioBuffer<float> buffer(2, 1'024);
+	juce::MidiBuffer midi;
+	midi.addEvent(juce::MidiMessage::noteOn(1, 48, 1.0f), 0);
+	midi.addEvent(juce::MidiMessage::noteOff(1, 48), 384);
+	constexpr auto retriggerSample = 768;
+	midi.addEvent(juce::MidiMessage::noteOn(1, 48, 0.25f), retriggerSample);
+	processor.processBlock(buffer, midi);
+	REQUIRE(processor.getSoundingVoiceCount() == 1);
+	for (int channel = 0; channel < 2; ++channel)
+	{
+		float nearbyMaximumDelta {};
+		for (int sample = retriggerSample - 64; sample < retriggerSample; ++sample)
+			nearbyMaximumDelta = std::max(nearbyMaximumDelta,
+				std::abs(buffer.getSample(channel, sample) - buffer.getSample(channel, sample - 1)));
+		const auto boundaryDelta = std::abs(buffer.getSample(channel, retriggerSample) - buffer.getSample(channel, retriggerSample - 1));
 		REQUIRE(boundaryDelta <= nearbyMaximumDelta * 1.1f + 1.0e-5f);
 	}
 }

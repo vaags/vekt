@@ -14,6 +14,7 @@
  #include <CoreAudio/CoreAudio.h>
 #endif
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cmath>
@@ -21,8 +22,9 @@
 
 namespace
 {
-constexpr int labWidth = vekt::ui::ScalableEditor::logicalWidth + 32;
-constexpr int labHeight = vekt::ui::ScalableEditor::logicalHeight + 272;
+// Space around the hosted editor: side margins, and the transport, source and keyboard controls above it.
+constexpr int labHorizontalChrome = 32;
+constexpr int labVerticalChrome = 272;
 
 juce::String getSystemDefaultOutputName()
 {
@@ -214,7 +216,15 @@ public:
 		}
 		showProductEditor(productTabs.getSelectedId());
 		keyboard.setVisible(false);
-		setSize(labWidth, labHeight);
+		// Fit the largest product editor at its native size (Mono is wider than Rav and Glimmer).
+		int editorWidth = vekt::ui::ScalableEditor::logicalWidth, editorHeight = vekt::ui::ScalableEditor::logicalHeight;
+		for (auto* editor : { monoEditor.get(), ravEditor.get(), glimmerEditor.get() })
+			if (const auto* scalable = dynamic_cast<vekt::ui::ScalableEditor*>(editor))
+			{
+				editorWidth = std::max(editorWidth, scalable->getLogicalWidth());
+				editorHeight = std::max(editorHeight, scalable->getLogicalHeight());
+			}
+		setSize(editorWidth + labHorizontalChrome, editorHeight + labVerticalChrome);
 		openInitialOutput();
 		setAudioChannels(0, 2);
 		refreshMidiInputs();
@@ -707,11 +717,13 @@ public:
 		: DocumentWindow("Vekt Audio Lab", juce::Colours::black, closeButton)
 	{
 		setUsingNativeTitleBar(true);
-		constrainer.setMinimumSize(labWidth, labHeight);
-		constrainer.setMaximumSize(labWidth * 2, labHeight * 2);
+		setContentOwned(new LiveLab(), true);
+		// The lab sizes itself to its widest editor; never let the window shrink below that.
+		const auto* lab = getContentComponent();
+		constrainer.setMinimumSize(lab->getWidth(), lab->getHeight());
+		constrainer.setMaximumSize(lab->getWidth() * 2, lab->getHeight() * 2);
 		setResizable(true, true);
 		setConstrainer(&constrainer);
-		setContentOwned(new LiveLab(), true);
 		centreWithSize(getWidth(), getHeight());
 		setVisible(true);
 	}

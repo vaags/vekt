@@ -214,6 +214,10 @@ bool PluginProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const {
 float PluginProcessor::value(const char* identifier) const noexcept { return parameterState.getRawParameterValue(identifier)->load(); }
 
 int PluginProcessor::activeVoiceLimit() const noexcept { return activeVoiceCount; }
+int PluginProcessor::getSoundingVoiceCount() const noexcept
+{
+	return static_cast<int>(std::count_if(voices.begin(), voices.end(), [](const auto& voice) { return voice->isActive(); }));
+}
 
 void PluginProcessor::applyConfigurationChanges()
 {
@@ -368,6 +372,14 @@ void PluginProcessor::noteOn(int channel, int note, float velocity)
 		voice.start(channel, note, velocity, settings, retrigger, legato, ++noteAge);
 		return;
 	}
+	// A key that is still sounding (held, sustained or releasing) retriggers its own voice, as on analog
+	// polysynths: its envelopes restart from their current level instead of stacking a second copy.
+	for (auto& sounding : voices)
+		if (sounding->matches(channel, note))
+		{
+			sounding->start(channel, note, velocity, settings, true, false, ++noteAge);
+			return;
+		}
 	auto& voice = findVoiceForNote(channel, note);
 	voice.setPanPosition(activeVoiceLimit() <= 1 ? 0.0f : 2.0f * static_cast<float>(noteAge % static_cast<std::uint64_t>(activeVoiceLimit())) / static_cast<float>(activeVoiceLimit() - 1) - 1.0f);
 	voice.start(channel, note, velocity, settings, true, false, ++noteAge);

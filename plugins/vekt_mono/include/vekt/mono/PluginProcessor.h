@@ -56,6 +56,8 @@ public:
 	[[nodiscard]] juce::Result loadNextPreset();
 	[[nodiscard]] juce::Result loadPreviousPreset();
 	[[nodiscard]] int getActiveQuality() const noexcept { return activeQuality; }
+	// Voices currently producing sound, including release tails. Call from the audio thread or while stopped.
+	[[nodiscard]] int getSoundingVoiceCount() const noexcept;
 	struct CoupledWorkSnapshot
 	{
 		std::uint64_t samples {}, iterations {}, lineSearchTrials {}, unconverged {}, nonFinite {};
