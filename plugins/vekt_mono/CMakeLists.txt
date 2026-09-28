@@ -10,6 +10,7 @@ vekt_add_factory_presets(
 
 add_library(VektMonoCore STATIC
 	Source/LadderResonance.h
+	Source/Lfo.h
 	Source/NonlinearTptLadder.cpp
 	Source/NonlinearTptLadder.h
 	Source/FactoryPresets.cpp

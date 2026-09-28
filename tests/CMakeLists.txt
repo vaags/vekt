@@ -25,6 +25,7 @@ add_executable(vekt_dsp_tests
     processor/GlimmerProcessorTests.cpp
 	processor/MonoParametersTests.cpp
 	processor/MonoProcessorTests.cpp
+	processor/MonoLfoTests.cpp
 	processor/EditorLayoutTests.cpp
 	processor/ValueFormatTests.cpp
 	audio_lab/FileSourceTests.cpp
