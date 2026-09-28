@@ -50,3 +50,26 @@ TEST_CASE("StereoMeterBallistics sanitises invalid values and clears silent lane
 	const auto cleared = meter.update({ 0.0f, 0.0f }, at(std::chrono::seconds { 3 }));
 	REQUIRE(cleared == Ballistics::Levels { 0.0f, 0.0f });
 }
+
+TEST_CASE("StereoMeterBallistics holds each channel's 0 dB peak independently", "[ui][meter]")
+{
+	Ballistics meter;
+	meter.update({ 0.99f, 1.0f }, at(std::chrono::milliseconds { 0 }));
+	REQUIRE_FALSE(meter.isPeaking(0));
+	REQUIRE(meter.isPeaking(1));
+
+	meter.update({ 1.2f, 0.0f }, at(std::chrono::milliseconds { 100 }));
+	REQUIRE(meter.isPeaking(0));
+	REQUIRE(meter.isPeaking(1));
+
+	meter.update({ 0.0f, 0.0f }, at(std::chrono::milliseconds { 500 }));
+	REQUIRE(meter.isPeaking(0));
+	REQUIRE_FALSE(meter.isPeaking(1));
+
+	meter.update({ 0.0f, 0.0f }, at(std::chrono::milliseconds { 600 }));
+	REQUIRE_FALSE(meter.isPeaking(0));
+
+	meter.update({ std::numeric_limits<float>::infinity(), -1.0f }, at(std::chrono::milliseconds { 601 }));
+	REQUIRE_FALSE(meter.isPeaking(0));
+	REQUIRE_FALSE(meter.isPeaking(1));
+}

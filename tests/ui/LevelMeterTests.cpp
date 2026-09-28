@@ -34,3 +34,26 @@ TEST_CASE("LevelMeter renders stereo lanes independently", "[ui][meter]")
 	REQUIRE(pixelFor(dualMonoMeter, 7, 20).getGreen() > leftEmpty.getGreen());
 	REQUIRE(pixelFor(dualMonoMeter, 20, 20).getGreen() > leftEmpty.getGreen());
 }
+
+TEST_CASE("LevelMeter turns only peaking input and output bars red", "[ui][meter]")
+{
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	for (const auto& name : { "IN", "OUT" })
+	{
+		const auto colour = juce::Colour::fromRGB(227, 156, 75);
+		vekt::ui::LevelMeter meter { name, colour, vekt::ui::LevelMeter::Orientation::vertical };
+		meter.setStereoLevels({ 1.1f, 0.99f });
+		const auto leftPeak = pixelFor(meter, 7, 60);
+		const auto rightNormal = pixelFor(meter, 20, 60);
+		REQUIRE(leftPeak.getRed() > leftPeak.getGreen() * 2);
+		REQUIRE(rightNormal.getGreen() > rightNormal.getBlue());
+		REQUIRE(rightNormal.getGreen() > leftPeak.getGreen());
+
+		vekt::ui::LevelMeter rightMeter { name, colour, vekt::ui::LevelMeter::Orientation::vertical };
+		rightMeter.setStereoLevels({ 0.99f, 1.0f });
+		const auto leftNormal = pixelFor(rightMeter, 7, 60);
+		const auto rightPeak = pixelFor(rightMeter, 20, 60);
+		REQUIRE(leftNormal.getGreen() > rightPeak.getGreen());
+		REQUIRE(rightPeak.getRed() > rightPeak.getGreen() * 2);
+	}
+}

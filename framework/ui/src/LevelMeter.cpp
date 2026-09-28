@@ -27,7 +27,7 @@ void LevelMeter::paint(juce::Graphics& graphics)
 	graphics.setColour(juce::Colour::fromRGB(16, 18, 20));
 	graphics.fillRoundedRectangle(bounds, 2.0f);
 
-	const auto drawLane = [&](juce::Rectangle<float> laneBounds, float level)
+	const auto drawLane = [&](juce::Rectangle<float> laneBounds, float level, bool peaking)
 	{
 		graphics.setColour(juce::Colour::fromRGB(27, 30, 33));
 		graphics.fillRoundedRectangle(laneBounds, 1.0f);
@@ -35,7 +35,7 @@ void LevelMeter::paint(juce::Graphics& graphics)
 			(juce::Decibels::gainToDecibels(level, -60.0f) + 60.0f) / 60.0f);
 		if (displayLevel <= 0.0f)
 			return;
-		graphics.setColour(meterColour);
+		graphics.setColour(peaking ? juce::Colour::fromRGB(230, 58, 49) : meterColour);
 		const auto fillBounds = orientation == Orientation::horizontal
 			? laneBounds.withWidth(laneBounds.getWidth() * displayLevel)
 			: laneBounds.withTop(laneBounds.getBottom() - laneBounds.getHeight() * displayLevel);
@@ -51,8 +51,8 @@ void LevelMeter::paint(juce::Graphics& graphics)
 		const auto laneWidth = std::max(0.0f, (meterBounds.getWidth() - gap) / 2.0f);
 		const auto leftLane = meterBounds.withWidth(laneWidth);
 		const auto rightLane = leftLane.translated(laneWidth + gap, 0.0f);
-		drawLane(leftLane, levels[0]);
-		drawLane(rightLane, levels[1]);
+		drawLane(leftLane, levels[0], ballistics.isPeaking(0));
+		drawLane(rightLane, levels[1], ballistics.isPeaking(1));
 
 		graphics.setColour(juce::Colour::fromRGB(218, 220, 214));
 		graphics.setFont(juce::FontOptions(8.0f).withStyle("Bold"));
@@ -64,8 +64,8 @@ void LevelMeter::paint(juce::Graphics& graphics)
 	{
 		const auto gap = 2.0f;
 		const auto laneHeight = std::max(0.0f, (bounds.getHeight() - gap) / 2.0f);
-		drawLane(bounds.withHeight(laneHeight), levels[0]);
-		drawLane(bounds.withTop(laneHeight + gap), levels[1]);
+		drawLane(bounds.withHeight(laneHeight), levels[0], ballistics.isPeaking(0));
+		drawLane(bounds.withTop(laneHeight + gap), levels[1], ballistics.isPeaking(1));
 		graphics.setColour(juce::Colour::fromRGB(218, 220, 214));
 		graphics.setFont(juce::FontOptions(14.0f).withStyle("Bold"));
 		graphics.drawText(name, getLocalBounds().reduced(4, 0), juce::Justification::centredLeft);
