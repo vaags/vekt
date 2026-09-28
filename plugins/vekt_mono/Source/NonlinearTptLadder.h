@@ -42,6 +42,10 @@ public:
 	[[nodiscard]] float processSubstepped(float input, const NonlinearTptLadderSettings& settings,
 		int substeps) noexcept;
 	[[nodiscard]] const NonlinearTptLadderDiagnostics& diagnostics() const noexcept { return solverDiagnostics; }
+	// Offline analysis only: inject/read the four integrator states to finite-
+	// difference the real coupled step. Call prepare first; no audio-thread use.
+	void setAnalysisIntegratorState(const std::array<double, 4>& state) noexcept;
+	[[nodiscard]] std::array<double, 4> analysisIntegratorState() const noexcept { return integratorState; }
 
 private:
 	struct Evaluation

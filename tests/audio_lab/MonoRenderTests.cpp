@@ -3,6 +3,7 @@
 #include "NonlinearTptLadder.h"
 #include "../../tools/audio_lab/NonlinearTptLadderReference.h"
 #include "../../tools/audio_lab/MonoOnsetAnalysis.h"
+#include "../../tools/audio_lab/MonoLadderStability.h"
 #include <vekt/audio_analysis/Measurements.h>
 
 #include <catch2/catch_approx.hpp>
@@ -207,6 +208,7 @@ TEST_CASE("Mono weak-signal onset changes growth sign near 98.4 percent", "[audi
 	constexpr double rate = 48'000.0;
 	for (const auto [resonance, growing] : { std::pair { 0.9840f, false }, { 0.9841f, true } })
 	{
+		const auto predicted = vekt::audio_lab::ladderStability(rate, 1'000.0f, resonance);
 		vekt::mono::NonlinearTptLadder ladder;
 		ladder.prepare(rate);
 		const vekt::mono::NonlinearTptLadderSettings settings { 1'000.0f, resonance, 0.0f };
@@ -227,10 +229,12 @@ TEST_CASE("Mono weak-signal onset changes growth sign near 98.4 percent", "[audi
 			}
 		}
 		const auto fit = vekt::audio_lab::fitOnset(bins, 0.02);
-		CAPTURE(resonance, fit.slopePerSecond, fit.rSquared, fit.usableBins);
+		CAPTURE(resonance, fit.slopePerSecond, predicted.dominantGrowthPerSecond,
+			fit.rSquared, fit.usableBins);
 		REQUIRE(fit.valid);
 		REQUIRE(fit.usableBins == 15);
 		REQUIRE((fit.slopePerSecond > 0.0) == growing);
+		REQUIRE(std::abs(fit.slopePerSecond - predicted.dominantGrowthPerSecond) < 0.1);
 		REQUIRE(ladder.diagnostics().unconvergedSamples == 0);
 		REQUIRE(ladder.diagnostics().nonFiniteSamples == 0);
 	}
@@ -262,6 +266,50 @@ TEST_CASE("Mono raw ladder maximum resonance level stays consistent at cutoff ex
 		REQUIRE(ladder.diagnostics().unconvergedSamples == 0);
 		REQUIRE(ladder.diagnostics().nonFiniteSamples == 0);
 	}
+}
+
+TEST_CASE("Mono production zero-state Jacobian predicts resonance onset across rate and cutoff", "[audio-lab][mono][resonance-matrix]")
+{
+	for (const auto rate : { 44'100.0, 48'000.0, 96'000.0, 192'000.0 })
+		for (const auto cutoff : { 100.0f, 1'000.0f, 10'000.0f })
+		{
+			const auto below = vekt::audio_lab::ladderStability(rate, cutoff, 0.98f);
+			const auto above = vekt::audio_lab::ladderStability(rate, cutoff, 0.99f);
+			CAPTURE(rate, cutoff, below.radius, above.radius);
+			REQUIRE(below.radius < 1.0);
+			REQUIRE(above.radius > 1.0);
+			const auto k = vekt::mono::ladderFeedbackGain(static_cast<double>(0.984f));
+			const auto root = std::polar(std::pow(k, 0.25), std::numbers::pi_v<double> / 4.0);
+			const auto prewarp = std::tan(std::numbers::pi_v<double> * cutoff / rate)
+				* vekt::mono::ladderResonanceTuning(static_cast<double>(0.984f));
+			const auto mode = 2.0 / (1.0 + prewarp - prewarp * root) - 1.0;
+			const auto analytic = vekt::audio_lab::ladderStability(rate, cutoff, 0.984f);
+			std::array<std::complex<double>, 4> eigenvector {};
+			for (std::size_t i = 0; i < eigenvector.size(); ++i)
+				eigenvector[i] = std::pow(root, -static_cast<int>(i));
+			for (std::size_t i = 0; i < eigenvector.size(); ++i)
+			{
+				std::complex<double> product {};
+				for (std::size_t j = 0; j < eigenvector.size(); ++j)
+					product += analytic.jacobian[i][j] * eigenvector[j];
+				REQUIRE(std::abs(product - mode * eigenvector[i]) < 1.0e-7);
+			}
+			bool converged = true;
+			double previousError = 1.0;
+			for (const auto step : { 0.01, 0.001, 0.0001 })
+			{
+				const auto measured = vekt::audio_lab::measuredLadderJacobian(rate, cutoff,
+					0.984f, step, converged);
+				const auto error = vekt::audio_lab::maximumJacobianError(measured, analytic.jacobian);
+				CAPTURE(step, error);
+				REQUIRE(std::isfinite(error));
+				REQUIRE(error < 0.001);
+				REQUIRE(error <= previousError + 1.0e-13);
+				if (step < 0.01) REQUIRE(error < 1.0e-7);
+				previousError = error;
+			}
+			REQUIRE(converged);
+		}
 }
 
 TEST_CASE("Mono held open self-oscillation survives removal of all excitation", "[audio-lab][mono][resonance-onset]")

@@ -39,6 +39,12 @@ void NonlinearTptLadder::reset() noexcept
 	hasPreviousSettings = false;
 }
 
+void NonlinearTptLadder::setAnalysisIntegratorState(const std::array<double, 4>& state) noexcept
+{
+	reset();
+	integratorState = state;
+}
+
 NonlinearTptLadder::Evaluation NonlinearTptLadder::evaluate(double input, double integrationGain) const noexcept
 {
 	Evaluation evaluation;

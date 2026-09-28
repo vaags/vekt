@@ -643,8 +643,8 @@ states and accepts only adjacent valid negative/positive growth-rate fits;
 up to five bisections refine such a bracket. Empty onset columns mean **not
 measured reliably**, not absent oscillation. The weak probe/window used here
 does not establish a bracket for 13 of 28 cells, notably at 2–10 kHz and
-192 kHz/100 Hz; a cutoff-adaptive onset method remains needed before claiming
-onset invariance across the entire matrix.
+192 kHz/100 Hz; the independent local-stability reference below resolves
+small-signal onset without requiring further time-domain fitting.
 
 The other metrics are available for all 28 cells: zero nonfinite/unconverged
 samples, 100% raw-ladder RMS from ~0.12414 to ~0.12600 (0.13 dB span), and
@@ -673,6 +673,44 @@ raw-ladder/onset/held-voice regressions pass. Do not confuse the raw-ladder
 unity-sustain settings), or infer a reason for that gain difference from this
 matrix alone. The quoted cutoff-relative cents are zero-crossing estimates,
 not SPICE/hardware tracking measurements.
+
+**28 September 2026 zero-equilibrium local stability reference:** The matrix
+now adds `linear_onset_lower_resonance`, `linear_onset_upper_resonance`,
+the two spectral radii and the dominant eigenvalue-angle frequency. The
+production coupled step at zero input solves
+`((1+g)I - g C)y = s`, where `s` is its four integrator states,
+`C y = (-k*y3, y0, y1, y2)`, `g = tan(pi*cutoff/rate) * ladderResonanceTuning(r)`
+and `k = ladderFeedbackGain(r)`. Its state transition is `s' = 2*y - s`;
+consequently the exact zero-state Jacobian is
+`J = 2*((1+g)I - g C)^(-1) - I`. The four modes of `C` satisfy `c^4=-k`;
+their corresponding discrete eigenvalues are `2/(1+g-g*c)-1`. This is an
+**analytic derivative of the production update's equations**, not a fit to
+an excited tail; the production solver is independently checked by central
+differences of its actual state transition at steps 0.01, 0.001 and 0.0001.
+The maximum Jacobian discrepancy over the 28 cells falls from ~4.07e-4
+at the coarsest step to below 7e-16 for both smaller steps. The diagnostic
+state injection/readback is offline-only and does not change the normal
+audio-processing path. Matrix generation fails if a solver or convergence
+check fails.
+
+For **all 28 cutoff/rate cells**, bisection gives a sub-unit-circle radius
+at 98.40479% and a super-unit-circle radius at 98.40488%. This narrow
+*computational* bracket is not a claim that a knob can be set with that
+precision. All 15 previously valid time-domain brackets overlap the new
+linear brackets, including 48 kHz/1 kHz (formerly measured 98.40–98.41%).
+At that cell the eigenvalue growth rates at 98.40/98.41% are approximately
+-0.628/+0.670 per second versus measured weak-tail slopes -0.633/+0.662
+per second; the comparison has its own focused regression.
+The 13 missing time-domain brackets remain missing confirmations, not missing
+linear predictions. The eigenvalue-angle frequency near onset ranges from
+~1.0021 to ~1.0031 times cutoff; it is a **small-signal** frequency and
+must not be conflated with the amplitude-shifted, settled 100% oscillator
+frequency. Local stability establishes where the zero equilibrium loses
+stability, not the audibility of the downstream processor output or a
+hardware-fidelity specification. The three processor-output gates remain
+**product-level self-oscillation loudness calibration tests**, with their
+thresholds unchanged; the listening report and zero-input voice fixture
+are separate evidence for the instrument-level decision.
 
 **Remaining measurements:** Below self-oscillation (50/80/95% resonance),
 resolve local passband and bandwidth around the moving AC-pump peak; check
