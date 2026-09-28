@@ -195,30 +195,41 @@ TEST_CASE("Mono editor presents symmetric oscillator controls without overlap", 
 		FAIL("Missing component " << name.toStdString());
 		return editor;
 	};
-	const std::array oscillatorControls { "O1 Level", "O1 Morph", "O1 Width", "O1 Octave", "O1 Fine",
-		"O2 Level", "O2 Morph", "O2 Width", "O2 Octave", "O2 Fine",
-		"O3 Level", "O3 Morph", "O3 Width", "O3 Octave", "O3 Fine", "Noise Level" };
 	juce::Rectangle<int> oscillatorSliderBounds;
-	std::vector<juce::Rectangle<int>> oscillatorControlBounds;
-	for (const auto* name : oscillatorControls)
+	const auto checkSourceControl = [&](const char* panelName, const juce::String& name, std::vector<juce::Rectangle<int>>& panelBounds)
 	{
 		bool found = false;
-		for (auto* child : find("Oscillators & Mixer").getChildren())
+		for (auto* child : find(panelName).getChildren())
 			if (auto* rotary = dynamic_cast<vekt::ui::RotaryControl*>(child); rotary != nullptr && rotary->getName() == name)
 			{
 				found = true;
 				if (oscillatorSliderBounds.isEmpty()) oscillatorSliderBounds = rotary->getSlider().getBounds();
 				REQUIRE(rotary->getSlider().getBounds() == oscillatorSliderBounds);
-				if (juce::String(name).endsWith("Morph")) REQUIRE(static_cast<bool>(rotary->getSlider().getProperties()["waveformGuide"]));
+				REQUIRE(rotary->getSlider().getName() == name);
+				if (name.endsWith("Morph")) REQUIRE(static_cast<bool>(rotary->getSlider().getProperties()["waveformGuide"]));
 				REQUIRE(rotary->getHeight() == vekt::ui::RotaryControl::heightFor(vekt::ui::RotaryControl::Size::compact));
-				for (const auto bounds : oscillatorControlBounds) REQUIRE_FALSE(bounds.intersects(rotary->getBounds()));
-				oscillatorControlBounds.push_back(rotary->getBounds());
-				if (juce::String(name).endsWith("Octave")) REQUIRE(rotary->getSlider().getTooltip().contains("two octaves"));
-				if (juce::String(name).endsWith("Fine")) REQUIRE(rotary->getSlider().getTooltip().contains("cents"));
-				if (juce::String(name) == "Noise Level") REQUIRE(rotary->getSlider().getTooltip().contains("Noise mixer level"));
+				for (const auto bounds : panelBounds) REQUIRE_FALSE(bounds.intersects(rotary->getBounds()));
+				panelBounds.push_back(rotary->getBounds());
+				if (name.endsWith("Octave")) REQUIRE(rotary->getSlider().getTooltip().contains("two octaves"));
+				if (name.endsWith("Fine")) REQUIRE(rotary->getSlider().getTooltip().contains("cents"));
 			}
+		INFO("Panel " << panelName << " control " << name.toStdString());
 		REQUIRE(found);
+	};
+	for (const auto* panelName : { "Osc 1", "Osc 2", "Osc 3" })
+	{
+		std::vector<juce::Rectangle<int>> panelBounds;
+		for (const auto* control : { "Octave", "Fine", "Morph", "Width", "Level" })
+			checkSourceControl(panelName, juce::String(panelName) + " " + control, panelBounds);
 	}
+	auto* noiseLevel = findRotary(find("Noise"), "Noise Level");
+	REQUIRE(noiseLevel != nullptr);
+	REQUIRE(noiseLevel->getSlider().getTooltip().contains("Noise mixer level"));
+	bool foundNoiseType = false;
+	for (auto* child : find("Noise").getChildren())
+		if (auto* box = dynamic_cast<juce::ComboBox*>(child); box != nullptr && box->getNumItems() == 3 && box->getItemText(1) == "White")
+			foundNoiseType = true;
+	REQUIRE(foundNoiseType);
 	for (const auto width : { 1120, 1680, 2240 })
 	{
 		editor.setSize(width, width * 10 / 16);
@@ -260,7 +271,7 @@ TEST_CASE("Mono editor presents symmetric oscillator controls without overlap", 
 			}
 		REQUIRE(found);
 	}
-	for (const auto* panelName : { "Oscillators & Mixer", "Ladder Filter", "Voice", "I/O", "Amp ADSR", "Filter ADSR", "Performance / Noise" })
+	for (const auto* panelName : { "Osc 1", "Osc 2", "Osc 3", "Noise", "Ladder Filter", "Voice", "I/O", "Amp ADSR", "Filter ADSR", "Performance" })
 	{
 		auto& panel = find(panelName);
 		for (int first = 0; first < panel.getNumChildComponents(); ++first)
@@ -290,8 +301,8 @@ TEST_CASE("Mono quality menu exposes four selectable factors", "[mono][processor
 	auto& performance = [&editor]() -> juce::Component&
 	{
 		for (auto* child : editor.getContent().getChildren())
-			if (child->getName() == "Performance / Noise") return *child;
-		FAIL("Missing Performance / Noise panel");
+			if (child->getName() == "Performance") return *child;
+		FAIL("Missing Performance panel");
 		return editor;
 	}();
 	juce::ComboBox* quality = nullptr;
