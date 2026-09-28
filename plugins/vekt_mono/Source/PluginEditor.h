@@ -159,6 +159,7 @@ private:
 	juce::ComboBox voiceCountBox, performanceModeBox, qualityBox, unisonBox, noiseBox, glideBox, priorityBox;
 	juce::ToggleButton heldKeyReturnButton { "Held return" };
 	std::array<juce::Label, 5> performanceLabels;
+	juce::Label activeVoicesLabel;
 	std::unique_ptr<ComboBoxAttachment> voiceCountAttachment, performanceModeAttachment, qualityAttachment, unisonAttachment, noiseAttachment, glideAttachment, priorityAttachment;
 	std::unique_ptr<ButtonAttachment> heldKeyReturnAttachment;
 };

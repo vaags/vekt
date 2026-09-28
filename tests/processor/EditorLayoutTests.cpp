@@ -516,6 +516,32 @@ TEST_CASE("Mono vibrato panel sits beside Performance with its controls and cont
 	checkVisibleBounds(editor.getContent());
 }
 
+TEST_CASE("Mono shows how many voices are sounding beside the voice count", "[mono][processor][ui]")
+{
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	vekt::mono::PluginProcessor processor;
+	auto* mode = processor.getParameters().getParameter(vekt::mono::parameters::performanceMode);
+	mode->setValueNotifyingHost(mode->convertTo0to1(0.0f));
+	processor.prepareToPlay(48'000.0, 256);
+	juce::AudioBuffer<float> buffer(2, 256);
+	juce::MidiBuffer chord;
+	for (const auto note : { 60, 64, 67 }) chord.addEvent(juce::MidiMessage::noteOn(1, note, 0.8f), 0);
+	processor.processBlock(buffer, chord);
+	REQUIRE(processor.getSoundingVoiceDisplay() == 3);
+
+	vekt::mono::PluginEditor editor(processor);
+	juce::Label* active {};
+	for (auto* child : editor.getContent().getChildren())
+		if (child->getName() == "Performance")
+			for (auto* control : child->getChildren())
+				if (control->getName() == "Active voices") active = dynamic_cast<juce::Label*>(control);
+	REQUIRE(active != nullptr);
+	REQUIRE(active->getText() == "3 active");
+
+	processor.releaseResources();
+	REQUIRE(processor.getSoundingVoiceDisplay() == 0);
+}
+
 TEST_CASE("Glimmer editor keeps stereo meters within its canvas", "[processor][ui]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;

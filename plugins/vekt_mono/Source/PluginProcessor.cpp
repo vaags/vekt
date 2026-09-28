@@ -208,6 +208,7 @@ void PluginProcessor::prepareToPlay(double newSampleRate, int maximumBlockSize)
 void PluginProcessor::releaseResources()
 {
 	resetPlayingState();
+	soundingVoiceDisplay.store(0, std::memory_order_relaxed);
 	outputMeter.reset();
 }
 bool PluginProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const { return layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo(); }
@@ -297,6 +298,7 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
 		*std::max_element(pressureByChannel.begin(), pressureByChannel.end()));
 	for (const auto& voice : voices) if (voice->isActive()) control = std::max(control, voice->getPolyPressure());
 	vibratoControlDisplay.store(control, std::memory_order_relaxed);
+	soundingVoiceDisplay.store(getSoundingVoiceCount(), std::memory_order_relaxed);
 }
 
 void PluginProcessor::handleMidi(const juce::MidiMessage& message)

@@ -114,6 +114,11 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 		performanceLabels[index].setJustificationType(juce::Justification::centredLeft);
 		performancePanel.addAndMakeVisible(performanceLabels[index]);
 	}
+	activeVoicesLabel.setName("Active voices");
+	activeVoicesLabel.setJustificationType(juce::Justification::centredRight);
+	activeVoicesLabel.setColour(juce::Label::textColourId, juce::Colour::fromRGB(170, 178, 176));
+	activeVoicesLabel.setTooltip("Voices sounding now, including release tails, out of the Voice count limit.");
+	performancePanel.addAndMakeVisible(activeVoicesLabel);
 	noiseBox.setTooltip("White or pink noise source.");
 	qualityBox.setTooltip("1x is the zero-oversampling default; 2x uses minimum-phase IIR, and 4x/8x use linear-phase FIR. Higher factors use more CPU and add latency. Changing it cuts any sounding notes.");
 	performanceModeBox.setTooltip("Mono retriggers each note; Mono Legato keeps the envelope active while notes overlap.");
@@ -263,6 +268,7 @@ void PluginEditor::timerCallback()
 	status.setText(message, juce::dontSendNotification);
 	for (std::size_t index = 0; index < lfoTabs.size(); ++index) lfoTabs[index].setLevel(pluginProcessor.getLfoDisplayValue(index));
 	vibratoMeter.setLevel(pluginProcessor.getVibratoControlDisplay());
+	activeVoicesLabel.setText(juce::String(pluginProcessor.getSoundingVoiceDisplay()) + " active", juce::dontSendNotification);
 	refreshLfoVisibility();
 	outputMeter.setStereoLevels(pluginProcessor.consumeOutputPeaks());
 }
@@ -319,6 +325,6 @@ void PluginEditor::resized()
 	for (std::size_t row = 0; row < 3; ++row) lfoDestinationLabels[4 + row].setBounds(12, 214 + static_cast<int>(row) * 24, 44, 22);
 	for (std::size_t single = 0; single < 6; ++single)
 		lfoDestinationLabels[7 + single].setBounds(12 + static_cast<int>(single % 3) * 112, 290 + static_cast<int>(single / 3) * 42, 104, 14);
-	performanceLabels[0].setBounds(12, 38, 154, 18); performanceLabels[1].setBounds(184, 38, 50, 18); performanceLabels[2].setBounds(12, 96, 154, 18); performanceLabels[3].setBounds(184, 96, 154, 18); performanceLabels[4].setBounds(12, 154, 154, 18); heldKeyReturnButton.setBounds(238, 34, 100, 22); priorityBox.setBounds(127, 5, 145, 26); juce::ignoreUnused(content);
+	performanceLabels[0].setBounds(12, 38, 90, 18); activeVoicesLabel.setBounds(102, 38, 64, 18); performanceLabels[1].setBounds(184, 38, 50, 18); performanceLabels[2].setBounds(12, 96, 154, 18); performanceLabels[3].setBounds(184, 96, 154, 18); performanceLabels[4].setBounds(12, 154, 154, 18); heldKeyReturnButton.setBounds(238, 34, 100, 22); priorityBox.setBounds(127, 5, 145, 26); juce::ignoreUnused(content);
 }
 }
