@@ -13,6 +13,7 @@ inline constexpr auto presetProductIdentifier = "com.vekt.mono";
 inline constexpr auto voiceCount = "voiceCount";
 inline constexpr auto performanceMode = "performanceMode";
 inline constexpr auto heldKeyReturn = "heldKeyReturn";
+inline constexpr auto notePriority = "notePriority";
 inline constexpr auto quality = "quality";
 inline constexpr auto unison = "unison";
 inline constexpr auto unisonDetune = "unisonDetune";
@@ -75,7 +76,8 @@ inline constexpr std::array soundParameterIds {
 	osc1Morph, osc2Morph, osc3Morph, osc1PulseWidth, osc2PulseWidth, osc3PulseWidth,
 	noiseType, noiseLevel, filterCutoff, filterResonance, filterKeyTracking,
 	filterEnvelopeAmount, filterDrive, ampAttack, ampDecay, ampSustain, ampRelease,
-	filterAttack, filterDecay, filterSustain, filterRelease, ampVelocity, filterVelocity, filterQCompensation };
+	filterAttack, filterDecay, filterSustain, filterRelease, ampVelocity, filterVelocity, filterQCompensation,
+	notePriority };
 
 [[nodiscard]] juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
 }

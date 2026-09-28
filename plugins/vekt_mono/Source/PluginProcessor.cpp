@@ -13,6 +13,21 @@ namespace vekt::mono
 {
 namespace
 {
+juce::Result migrateContourPreset(presets::Preset& preset)
+{
+	if (preset.soundSchemaVersion == 4)
+		preset.parameters.push_back({ parameters::notePriority, 0.0f });
+	else if (preset.soundSchemaVersion == 5)
+	{
+		preset.parameters.erase(std::remove_if(preset.parameters.begin(), preset.parameters.end(), [](const auto& parameter)
+		{
+			return parameter.identifier == "contourCurve" || parameter.identifier == "releasePolicy";
+		}), preset.parameters.end());
+	}
+	else return juce::Result::fail("Unsupported Mono preset sound schema");
+	preset.soundSchemaVersion = 6;
+	return juce::Result::ok();
+}
 int choiceToVoiceCount(float value) noexcept { return value < 0.5f ? 8 : value < 1.5f ? 12 : 16; }
 int choiceToUnison(float value) noexcept { return value < 0.5f ? 1 : value < 1.5f ? 2 : 4; }
 
@@ -82,14 +97,14 @@ PluginProcessor::PluginProcessor()
 	: AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
 	  parameterState(*this, &undoManager, parameters::stateType, parameters::createLayout()),
 	  stateManager(parameterState, parameters::projectStateType, 3),
-	  presetSession(presetCatalog, { parameters::presetProductIdentifier, "Vekt Mono", 4 }, {
+	  presetSession(presetCatalog, { parameters::presetProductIdentifier, "Vekt Mono", 6 }, {
 		[this](const juce::String& name)
 		{
 			auto preset = presets::PresetSchema::create(parameters::presetProductIdentifier, name, parameterState, parameters::soundParameterIds);
-			preset.soundSchemaVersion = 4;
+			preset.soundSchemaVersion = 6;
 			return preset;
 		},
-		{},
+		migrateContourPreset,
 		[this](const presets::Preset& preset) { return validatePresetSound(preset); },
 		[this](const presets::Preset& preset) { return applyPreset(preset); },
 		[this](const presets::Preset& preset) { return matchesPresetSound(preset); } })
@@ -270,6 +285,9 @@ void PluginProcessor::noteOn(int channel, int note, float velocity)
 		const auto legato = !heldNotes.empty();
 		heldNotes.erase(std::remove_if(heldNotes.begin(), heldNotes.end(), [note](const auto& heldNote) { return heldNote.note == note; }), heldNotes.end());
 		heldNotes.push_back({ note, velocity });
+		const auto lowPriority = value(parameters::notePriority) >= 0.5f;
+		const auto& selected = lowPriority ? *std::min_element(heldNotes.begin(), heldNotes.end(), [](const auto& a, const auto& b) { return a.note < b.note; }) : heldNotes.back();
+		if (lowPriority && selected.note != note) return;
 		auto& voice = monoVoiceForChannel(channel);
 		voice.setPanPosition(0.0f);
 		const auto retrigger = mode == 1 || !legato || !voice.isActive() || (!voice.isHeld() && !voice.isSustained());
@@ -320,7 +338,9 @@ void PluginProcessor::retargetMonophonicVoice(int channel, bool retrigger)
 	const auto& heldNotes = heldNotesByChannel[static_cast<std::size_t>(channel - 1)];
 	if (heldNotes.empty()) return;
 	const auto settings = snapshotSettings();
-	const auto& returned = heldNotes.back();
+	const auto& returned = value(parameters::notePriority) >= 0.5f
+		? *std::min_element(heldNotes.begin(), heldNotes.end(), [](const auto& a, const auto& b) { return a.note < b.note; })
+		: heldNotes.back();
 	monoVoiceForChannel(channel).start(channel, returned.note, returned.velocity, settings, retrigger, true, ++noteAge);
 }
 
@@ -405,21 +425,26 @@ juce::Result PluginProcessor::loadAdjacentPreset(bool next)
 }
 juce::Result PluginProcessor::validatePresetSound(const presets::Preset& preset) const
 {
-	return preset.soundSchemaVersion != 4 ? juce::Result::fail("Unsupported Mono preset sound schema")
+	return preset.soundSchemaVersion != 6 ? juce::Result::fail("Unsupported Mono preset sound schema")
 		: presets::PresetSchema::validate(preset, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds);
 }
 juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 {
-	if (const auto result = validatePresetSound(preset); result.failed()) return result;
+	auto prepared = preset;
+	if (prepared.soundSchemaVersion == 4 || prepared.soundSchemaVersion == 5)
+		if (const auto result = migrateContourPreset(prepared); result.failed()) return result;
+	if (const auto result = validatePresetSound(prepared); result.failed()) return result;
 	undoManager.beginNewTransaction("Load preset: " + preset.name);
-	const auto result = presets::PresetSchema::apply(preset, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds, &undoManager);
+	const auto result = presets::PresetSchema::apply(prepared, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds, &undoManager);
 	if (result.wasOk()) pendingPresetReset.store(true);
 	return result;
 }
 bool PluginProcessor::matchesPresetSound(const presets::Preset& preset) const
 {
-	return validatePresetSound(preset).wasOk()
-		&& presets::PresetSchema::matches(preset, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds);
+	auto prepared = preset;
+	if ((prepared.soundSchemaVersion == 4 || prepared.soundSchemaVersion == 5) && migrateContourPreset(prepared).failed()) return false;
+	return validatePresetSound(prepared).wasOk()
+		&& presets::PresetSchema::matches(prepared, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds);
 }
 void PluginProcessor::getStateInformation(juce::MemoryBlock& destination)
 {
@@ -438,6 +463,12 @@ void PluginProcessor::setStateInformation(const void* data, int size)
 	if (savedQuality.isValid() && static_cast<double>(savedQuality.getProperty("value")) >= 4.0) return;
 	if (state.isValid() && stateManager.restoreState(state))
 	{
+		for (const auto* identifier : { parameters::notePriority })
+			if (!parameterTree.getChildWithProperty("id", identifier).isValid())
+			{
+				auto* parameter = parameterState.getParameter(identifier);
+				parameter->setValueNotifyingHost(parameter->convertTo0to1(0.0f));
+			}
 		for (const auto* identifier : { parameters::heldKeyReturn, parameters::filterQCompensation })
 		{
 			auto* parameter = parameterState.getParameter(identifier);

@@ -1,3 +1,25 @@
+# Mono contour policy (28 September 2026)
+
+Mono amp and filter use the same analog exponential contour implementation,
+with separate attack, decay, sustain and release values. Displayed times reach
+99% of the target, then snap to the endpoint. Retriggers begin at the current
+value; Mono Legato does not retrigger overlapping notes. Live ADSR changes
+are read while notes sound. The existing 3 ms allocation fade remains separate
+from envelope attack.
+
+Each contour always releases according to its own Release knob. There is no
+curve selector, decay-linked release or fast-release mode. Mono Priority still
+selects Last or Low; Held return remains independent. Filter contour amount
+still scales a normalized envelope across the existing eight-octave range.
+
+Factory presets remain schema 4; schema-4 and schema-5 presets migrate to
+schema 6 at load, retaining their ADSR values and note priority but dropping
+retired curve/release options. Older project states also retain their ADSR
+values but no longer honor those options. **Formerly Linear or linked/fast
+release sounds will change**; no universal ADSR recalibration can preserve
+their original shape and timing. New presets capture schema 6. Listening
+review remains necessary before claiming hardware parity or preset equivalence.
+
 # Mono Sound Engine Development
 
 ## Coupled-only implementation and validation status — 28 September 2026

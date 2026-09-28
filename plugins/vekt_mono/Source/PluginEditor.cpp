@@ -84,6 +84,8 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	addChoice(performancePanel, noiseBox, { "Off", "White", "Pink" }, parameters::noiseType, noiseAttachment);
 	addChoice(performancePanel, voiceCountBox, { "8", "12", "16" }, parameters::voiceCount, voiceCountAttachment);
 	addChoice(performancePanel, performanceModeBox, { "Poly", "Mono", "Mono Legato" }, parameters::performanceMode, performanceModeAttachment);
+	addChoice(voicePanel, priorityBox, { "Last priority", "Low priority" }, parameters::notePriority, priorityAttachment);
+	priorityBox.setTooltip("Mono note priority; low priority keeps the lowest held key sounding.");
 	performancePanel.addAndMakeVisible(heldKeyReturnButton);
 	heldKeyReturnAttachment = std::make_unique<ButtonAttachment>(pluginProcessor.getParameters(), parameters::heldKeyReturn, heldKeyReturnButton);
 	addChoice(performancePanel, qualityBox, { "1x", "2x", "4x", "8x" }, parameters::quality, qualityAttachment);
@@ -100,7 +102,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	qualityBox.setTooltip("1x is the zero-oversampling default; 2x uses minimum-phase IIR, and 4x/8x use linear-phase FIR. Higher factors use more CPU and add latency. Changes apply only after transport stops and all notes and sustain are released.");
 	voiceCountBox.setTooltip("Voice-count changes apply after all active notes are released.");
 	performanceModeBox.setTooltip("Mono retriggers each note; Mono Legato keeps the envelope active while notes overlap.");
-	heldKeyReturnButton.setTooltip("When enabled, releasing the active mono note returns to the latest still-held key.");
+	heldKeyReturnButton.setTooltip("When enabled, releasing the active mono note returns to the selected still-held key (last or lowest priority).");
 	glideBox.setTooltip("Always glides every note change; Legato glides only while another note is held.");
 	voiceControls[2].getSlider().setTooltip("Mixes polyphonic voices from centered at 0% to full round-robin stereo panning at 100%.");
 	refreshPresetLabel();
@@ -156,6 +158,6 @@ void PluginEditor::resized()
 	outputFader.setBounds(18, 34, 88, 132);
 	outputMeter.setBounds(124, 38, 36, 104);
 	voiceCountBox.setBounds(12, 58, 154, 28); performanceModeBox.setBounds(184, 58, 154, 28); qualityBox.setBounds(12, 116, 154, 28); unisonBox.setBounds(184, 116, 154, 28); glideBox.setBounds(12, 174, 154, 28); noiseBox.setBounds(184, 174, 154, 28);
-	performanceLabels[0].setBounds(12, 38, 154, 18); performanceLabels[1].setBounds(184, 38, 50, 18); performanceLabels[2].setBounds(12, 96, 154, 18); performanceLabels[3].setBounds(184, 96, 154, 18); performanceLabels[4].setBounds(12, 154, 154, 18); performanceLabels[5].setBounds(184, 154, 154, 18); heldKeyReturnButton.setBounds(238, 34, 100, 22); juce::ignoreUnused(content);
+	performanceLabels[0].setBounds(12, 38, 154, 18); performanceLabels[1].setBounds(184, 38, 50, 18); performanceLabels[2].setBounds(12, 96, 154, 18); performanceLabels[3].setBounds(184, 96, 154, 18); performanceLabels[4].setBounds(12, 154, 154, 18); performanceLabels[5].setBounds(184, 154, 154, 18); heldKeyReturnButton.setBounds(238, 34, 100, 22); priorityBox.setBounds(207, 5, 145, 26); juce::ignoreUnused(content);
 }
 }

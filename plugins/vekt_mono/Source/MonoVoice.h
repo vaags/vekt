@@ -1,6 +1,7 @@
 #pragma once
 
 #include "NonlinearTptLadder.h"
+#include "ContourEnvelope.h"
 
 #include <juce_audio_basics/juce_audio_basics.h>
 
@@ -83,8 +84,8 @@ public:
 		continuityOffset = {};
 		if (retrigger)
 		{
-			juce::ADSR::Parameters ampParameters { settings.ampAttack, settings.ampDecay, settings.ampSustain, settings.ampRelease };
-			juce::ADSR::Parameters filterParameters { settings.filterAttack, settings.filterDecay, settings.filterSustain, settings.filterRelease };
+			ContourEnvelope::Parameters ampParameters { settings.ampAttack, settings.ampDecay, settings.ampSustain, settings.ampRelease };
+			ContourEnvelope::Parameters filterParameters { settings.filterAttack, settings.filterDecay, settings.filterSustain, settings.filterRelease };
 			amp.setParameters(ampParameters); filterEnvelope.setParameters(filterParameters);
 			amp.noteOn(); filterEnvelope.noteOn();
 		}
@@ -118,6 +119,10 @@ public:
 	void render(float& left, float& right, const MonoVoiceSettings& settings, float bend)
 	{
 		if (!active) return;
+		// Refresh the parameters at each rendered segment (the processor snapshots
+		// automation at MIDI/block boundaries), including while a key is held.
+		amp.setParameters({ settings.ampAttack, settings.ampDecay, settings.ampSustain, settings.ampRelease });
+		filterEnvelope.setParameters({ settings.filterAttack, settings.filterDecay, settings.filterSustain, settings.filterRelease });
 		float voiceLeft {}, voiceRight {};
 		const auto glideCoefficient = !gliding || settings.glideMode == 0 || settings.glideTime <= 0.0f
 			? 1.0f : 1.0f - std::exp(-1.0f / (settings.glideTime * sampleRate));
@@ -284,7 +289,7 @@ private:
 	float sampleRate { 48'000.0f };
 	int fadeInSamples {}, continuitySamples {};
 	juce::Random random;
-	juce::ADSR amp, filterEnvelope;
+	ContourEnvelope amp, filterEnvelope;
 	juce::SmoothedValue<float> cutoffOctaves, resonance, driveDecibels, qInputCompensation;
 	std::array<std::array<float, 3>, 4> phase {};
 	std::array<NonlinearTptLadder, 4> filterLadders;

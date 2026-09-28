@@ -67,6 +67,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 			juce::AudioParameterIntAttributes {}.withLabel("oct")));
 	layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID { heldKeyReturn, version }, "Held Key Return", true));
 	layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID { filterQCompensation, version }, "Q Compensation", false));
+	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { notePriority, version }, "Mono Priority", juce::StringArray { "Last", "Low" }, 0));
 	return layout;
 }
 }

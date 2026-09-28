@@ -1,8 +1,10 @@
 #include <vekt/mono/PluginProcessor.h>
 
 #include "MonoVoice.h"
+#include "ContourEnvelope.h"
 
 #include <vekt/audio_analysis/Measurements.h>
+#include <vekt/presets/PresetSchema.h>
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -265,6 +267,94 @@ TEST_CASE("Mono Q compensation defaults off and recalls sound state", "[mono][pr
 		REQUIRE(parameter->getValue() == Catch::Approx(0.0f));
 		setParameter(processor, vekt::mono::parameters::filterQCompensation, 1.0f);
 	}
+}
+
+TEST_CASE("Mono contour engine measures analog timing and retrigger continuity", "[mono][processor][contour]")
+{
+	vekt::mono::ContourEnvelope envelope;
+	envelope.setSampleRate(48'000.0);
+	envelope.setParameters({ 0.1f, 0.2f, 0.5f, 0.8f });
+	envelope.noteOn();
+	for (int i = 0; i < 4'800; ++i) envelope.getNextSample();
+	REQUIRE(envelope.isActive());
+	// At 100 ms the analog attack is at its defined 99% endpoint.
+	envelope.reset(); envelope.noteOn();
+	for (int i = 0; i < 4'799; ++i) envelope.getNextSample();
+	REQUIRE(envelope.getNextSample() == Catch::Approx(1.0f).margin(0.002f));
+	for (int i = 0; i < 9'600; ++i) envelope.getNextSample();
+	REQUIRE(envelope.getNextSample() == Catch::Approx(0.5f).margin(0.005f));
+	envelope.noteOff();
+	for (int i = 0; i < 38'402; ++i) envelope.getNextSample();
+	REQUIRE_FALSE(envelope.isActive());
+	envelope.noteOn();
+	for (int i = 0; i < 16'000; ++i) envelope.getNextSample();
+	envelope.noteOff();
+	for (int i = 0; i < 2'400; ++i) envelope.getNextSample();
+	const auto before = envelope.getNextSample();
+	envelope.noteOn();
+	const auto after = envelope.getNextSample();
+	REQUIRE(after >= before);
+	REQUIRE(after - before < 0.001f);
+}
+
+TEST_CASE("Mono amp and filter contours use their independent release times", "[mono][processor][contour]")
+{
+	vekt::mono::ContourEnvelope amp, filter;
+	for (auto* envelope : { &amp, &filter }) envelope->setSampleRate(1'000.0);
+	amp.setParameters({ 0.01f, 0.3f, 1.0f, 0.1f });
+	filter.setParameters({ 0.01f, 0.1f, 1.0f, 0.3f });
+	amp.noteOn(); filter.noteOn();
+	for (int i = 0; i < 20; ++i) { amp.getNextSample(); filter.getNextSample(); }
+	amp.noteOff(); filter.noteOff();
+	for (int i = 0; i < 105; ++i) { amp.getNextSample(); filter.getNextSample(); }
+	REQUIRE_FALSE(amp.isActive());
+	REQUIRE(filter.isActive());
+	for (int i = 0; i < 200; ++i) filter.getNextSample();
+	REQUIRE_FALSE(filter.isActive());
+}
+
+TEST_CASE("Mono contour updates held sustain and release without resetting the level", "[mono][processor][contour]")
+{
+	vekt::mono::ContourEnvelope envelope;
+	envelope.setSampleRate(1'000.0);
+	envelope.setParameters({ 0.01f, 0.05f, 0.5f, 1.0f });
+	envelope.noteOn();
+	for (int i = 0; i < 200; ++i) envelope.getNextSample();
+	REQUIRE(envelope.getNextSample() == Catch::Approx(0.5f));
+	envelope.setParameters({ 0.01f, 0.05f, 0.8f, 1.0f });
+	REQUIRE(envelope.getNextSample() == Catch::Approx(0.8f));
+	envelope.noteOff();
+	for (int i = 0; i < 100; ++i) envelope.getNextSample();
+	const auto before = envelope.getNextSample();
+	envelope.setParameters({ 0.01f, 0.05f, 0.8f, 0.012f });
+	REQUIRE(envelope.getNextSample() < before);
+	for (int i = 0; i < 20; ++i) envelope.getNextSample();
+	REQUIRE_FALSE(envelope.isActive());
+}
+
+TEST_CASE("Mono low-note priority ignores higher keys and returns to the lowest held key", "[mono][processor][midi][contour]")
+{
+	juce::ScopedJuceInitialiser_GUI juceInitializer;
+	vekt::mono::PluginProcessor processor;
+	initializeDryVoice(processor);
+	setParameter(processor, vekt::mono::parameters::performanceMode, 1.0f);
+	setParameter(processor, vekt::mono::parameters::notePriority, 1.0f);
+	processor.prepareToPlay(48'000.0, 4800);
+	juce::AudioBuffer<float> buffer(2, 4800);
+	juce::MidiBuffer midi;
+	midi.addEvent(juce::MidiMessage::noteOn(1, 69, 1.0f), 0);
+	renderBlock(processor, buffer, midi);
+	midi.clear(); midi.addEvent(juce::MidiMessage::noteOn(1, 81, 1.0f), 0);
+	renderBlock(processor, buffer, midi);
+	auto [frequency, magnitude] = dominantFrequency(buffer, 200.0f, 1'000.0f, 48'000.0f);
+	REQUIRE(magnitude > 0.01f);
+	REQUIRE(frequency == Catch::Approx(440.0f).margin(5.0f));
+	midi.clear(); midi.addEvent(juce::MidiMessage::noteOn(1, 57, 1.0f), 0);
+	renderBlock(processor, buffer, midi);
+	midi.clear(); midi.addEvent(juce::MidiMessage::noteOff(1, 57), 0);
+	renderBlock(processor, buffer, midi);
+	std::tie(frequency, magnitude) = dominantFrequency(buffer, 200.0f, 1'000.0f, 48'000.0f);
+	REQUIRE(frequency == Catch::Approx(440.0f).margin(5.0f));
 }
 
 TEST_CASE("Mono glide follows held keys independently of envelope retrigger", "[mono][processor][midi][glide]")
@@ -1479,6 +1569,31 @@ TEST_CASE("Mono preserves APVTS project state", "[mono][processor]")
 	REQUIRE(restored.getParameters().getRawParameterValue(vekt::mono::parameters::filterCutoff)->load() == Catch::Approx(2'345.0f));
 }
 
+TEST_CASE("Mono recalls project states without retired contour controls", "[mono][processor][contour][state]")
+{
+	vekt::mono::PluginProcessor source;
+	juce::MemoryBlock data;
+	source.getStateInformation(data);
+	auto state = juce::ValueTree::readFromData(data.getData(), data.getSize());
+	auto parameters = state.getChildWithName(source.getParameters().state.getType());
+	parameters.removeChild(parameters.getChildWithProperty("id", vekt::mono::parameters::notePriority), nullptr);
+	for (const auto* identifier : { "contourCurve", "releasePolicy" })
+	{
+		juce::ValueTree retired("PARAM");
+		retired.setProperty("id", identifier, nullptr);
+		retired.setProperty("value", 1, nullptr);
+		parameters.addChild(retired, -1, nullptr);
+	}
+	juce::MemoryBlock legacy;
+	juce::MemoryOutputStream stream(legacy, false);
+	state.writeToStream(stream);
+	vekt::mono::PluginProcessor restored;
+	restored.setStateInformation(legacy.getData(), static_cast<int>(legacy.getSize()));
+	REQUIRE(restored.getParameters().getRawParameterValue(vekt::mono::parameters::notePriority)->load() == Catch::Approx(0.0f));
+	REQUIRE(restored.getParameters().getParameter("contourCurve") == nullptr);
+	REQUIRE(restored.getParameters().getParameter("releasePolicy") == nullptr);
+}
+
 TEST_CASE("Mono rejects stored 16x quality instead of silently recalling 8x", "[mono][processor][state][quality]")
 {
 	vekt::mono::PluginProcessor source;
@@ -1659,6 +1774,37 @@ TEST_CASE("Mono rejects obsolete pre-alpha preset schemas without mutation", "[m
 		REQUIRE(processor.getParameters().getRawParameterValue(vekt::mono::parameters::filterCutoff)->load() == Catch::Approx(4'321.0f));
 	}
 	REQUIRE(processor.getPresetSession().prepare(current).wasOk());
+}
+
+TEST_CASE("Mono migrates schema 4 and 5 presets to analog independent ADSR", "[mono][processor][preset][contour]")
+{
+	vekt::mono::PluginProcessor processor;
+	vekt::presets::Preset factory;
+	REQUIRE(processor.getPresetSession().library().loadFactoryPreset(0, factory).wasOk());
+	for (const auto schema : { 4, 5 })
+	{
+		auto preset = factory;
+		if (schema == 5)
+		{
+			preset.soundSchemaVersion = 5;
+			preset.parameters.push_back({ vekt::mono::parameters::notePriority, 1.0f });
+			preset.parameters.push_back({ "contourCurve", 0.0f });
+			preset.parameters.push_back({ "releasePolicy", 2.0f });
+		}
+		const auto previousAmp = std::find_if(preset.parameters.begin(), preset.parameters.end(), [](const auto& p) { return p.identifier == vekt::mono::parameters::ampRelease; })->value;
+		const auto previousFilter = std::find_if(preset.parameters.begin(), preset.parameters.end(), [](const auto& p) { return p.identifier == vekt::mono::parameters::filterRelease; })->value;
+		REQUIRE(processor.getPresetSession().prepare(preset).wasOk());
+		REQUIRE(preset.soundSchemaVersion == 6);
+		REQUIRE(vekt::presets::PresetSchema::apply(preset, vekt::mono::parameters::presetProductIdentifier,
+			processor.getParameters(), vekt::mono::parameters::soundParameterIds).wasOk());
+		REQUIRE(processor.getParameters().getRawParameterValue(vekt::mono::parameters::ampRelease)->load() == Catch::Approx(previousAmp).margin(0.0001f));
+		REQUIRE(processor.getParameters().getRawParameterValue(vekt::mono::parameters::filterRelease)->load() == Catch::Approx(previousFilter).margin(0.0001f));
+		REQUIRE(processor.getParameters().getRawParameterValue(vekt::mono::parameters::notePriority)->load() == Catch::Approx(schema == 5 ? 1.0f : 0.0f));
+		REQUIRE(std::none_of(preset.parameters.begin(), preset.parameters.end(), [](const auto& p)
+		{
+			return p.identifier == "contourCurve" || p.identifier == "releasePolicy";
+		}));
+	}
 }
 
 TEST_CASE("Mono preset changes stop voices from the previous patch", "[mono][processor][preset]")
