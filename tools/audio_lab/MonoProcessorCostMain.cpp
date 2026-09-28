@@ -42,7 +42,8 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 	vekt::mono::PluginProcessor processor;
 	const auto qualityIndex = factor == 1 ? 0 : factor == 2 ? 1 : factor == 4 ? 2 : 3;
 	setParameter(processor, vekt::mono::parameters::quality, static_cast<float>(qualityIndex));
-	setParameter(processor, vekt::mono::parameters::voiceCount, static_cast<float>(voices == 8 ? 0 : voices == 12 ? 1 : 2));
+	// Voice Count choices are 2, 4, 8, 12, 16.
+	setParameter(processor, vekt::mono::parameters::voiceCount, static_cast<float>(voices == 8 ? 2 : voices == 12 ? 3 : 4));
 	setParameter(processor, vekt::mono::parameters::performanceMode, 0.0f);
 	setParameter(processor, vekt::mono::parameters::ampSustain, 100.0f);
 	setParameter(processor, vekt::mono::parameters::filterEnvelopeAmount, 0.0f);
