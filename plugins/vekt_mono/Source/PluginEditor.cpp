@@ -70,7 +70,14 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	noisePanel.addAndMakeVisible(noiseTypeLabel);
 	const std::array filterNames { "Cutoff", "Resonance", "Key Track", "Env Amount", "Drive" };
 	const std::array filterIds { parameters::filterCutoff, parameters::filterResonance, parameters::filterKeyTracking, parameters::filterEnvelopeAmount, parameters::filterDrive };
-	for (std::size_t index = 0; index < filterControls.size(); ++index) addRotary(filterPanel, filterControls[index], filterNames[index], filterIds[index], filterAttachments[index]);
+	// A secondary arc links the Ladder Filter and Filter ADSR; their titles and labels
+	// continue to identify the controls without relying on colour alone.
+	const auto filterAccent = juce::Colour::fromRGB(123, 191, 173);
+	for (std::size_t index = 0; index < filterControls.size(); ++index)
+	{
+		addRotary(filterPanel, filterControls[index], filterNames[index], filterIds[index], filterAttachments[index]);
+		filterControls[index].getSlider().setColour(juce::Slider::rotarySliderFillColourId, filterAccent);
+	}
 	filterControls[0].getSlider().setTooltip("Ladder cutoff frequency. Sweeps exponentially from dark to fully open.");
 	filterControls[1].getSlider().setTooltip("Ladder emphasis. Adds a resonant peak with natural bass loss and reaches self-oscillation near maximum.");
 	filterControls[2].getSlider().setTooltip("Keyboard tracking. At 100%, cutoff rises one octave per keyboard octave.");
@@ -85,7 +92,11 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	const std::array ampIds { parameters::ampAttack, parameters::ampDecay, parameters::ampSustain, parameters::ampRelease, parameters::ampVelocity };
 	for (std::size_t index = 0; index < ampControls.size(); ++index) addRotary(ampPanel, ampControls[index], ampNames[index], ampIds[index], ampAttachments[index]);
 	const std::array filterEnvelopeIds { parameters::filterAttack, parameters::filterDecay, parameters::filterSustain, parameters::filterRelease, parameters::filterVelocity };
-	for (std::size_t index = 0; index < filterEnvelopeControls.size(); ++index) addRotary(filterEnvelopePanel, filterEnvelopeControls[index], ampNames[index], filterEnvelopeIds[index], filterEnvelopeAttachments[index]);
+	for (std::size_t index = 0; index < filterEnvelopeControls.size(); ++index)
+	{
+		addRotary(filterEnvelopePanel, filterEnvelopeControls[index], ampNames[index], filterEnvelopeIds[index], filterEnvelopeAttachments[index]);
+		filterEnvelopeControls[index].getSlider().setColour(juce::Slider::rotarySliderFillColourId, filterAccent);
+	}
 	const std::array voiceNames { "Detune", "Uni Spread", "Voice Pan", "Glide Time" };
 	const std::array voiceIds { parameters::unisonDetune, parameters::unisonSpread, parameters::voiceWidth, parameters::glideTime };
 	for (std::size_t index = 0; index < voiceControls.size(); ++index) addRotary(voicePanel, voiceControls[index], voiceNames[index], voiceIds[index], voiceAttachments[index]);

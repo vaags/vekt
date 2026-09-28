@@ -124,7 +124,8 @@ void VektLookAndFeel::drawRotarySlider(juce::Graphics& graphics, int x, int y, i
 				centre.y + std::sin(angle) * glyphRadius }, glyphSize, waveform);
 		}
 	}
-	graphics.setColour(findColour(juce::Slider::rotarySliderFillColourId));
+	// A slider may override the active arc without changing its dial, needle or value readout.
+	graphics.setColour(slider.findColour(juce::Slider::rotarySliderFillColourId));
 	juce::Path arc;
 	arc.addCentredArc(centre.x, centre.y, radius, radius, 0.0f, startAngle,
 		startAngle + position * (endAngle - startAngle), true);

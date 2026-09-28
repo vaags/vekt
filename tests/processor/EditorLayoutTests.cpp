@@ -294,6 +294,27 @@ TEST_CASE("Mono editor presents symmetric oscillator controls without overlap", 
 	}
 }
 
+TEST_CASE("Mono uses a secondary arc only for filter controls", "[processor][ui]")
+{
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	vekt::mono::PluginProcessor processor;
+	vekt::mono::PluginEditor editor(processor);
+	const auto accent = juce::Colour::fromRGB(123, 191, 173);
+	for (auto* panel : editor.getContent().getChildren())
+	{
+		const auto filterGroup = panel->getName() == "Ladder Filter" || panel->getName() == "Filter ADSR";
+		for (auto* child : panel->getChildren())
+		{
+			auto* rotary = dynamic_cast<vekt::ui::RotaryControl*>(child);
+			if (rotary == nullptr) continue;
+			auto& slider = rotary->getSlider();
+			INFO("Panel " << panel->getName().toStdString() << " control " << rotary->getName().toStdString());
+			REQUIRE(slider.isColourSpecified(juce::Slider::rotarySliderFillColourId) == filterGroup);
+			if (filterGroup) REQUIRE(slider.findColour(juce::Slider::rotarySliderFillColourId) == accent);
+		}
+	}
+}
+
 TEST_CASE("Mono quality menu exposes four selectable factors", "[mono][processor][ui][quality]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
