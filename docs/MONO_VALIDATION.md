@@ -510,6 +510,50 @@ voice no longer relies on a fixture-only coefficient override. The newly
 built Audio Lab executable is at
 `build/audio-lab-release/tools/audio_lab/VektRavAudioLab.app`.
 
+**28 September 2026 no-output-ramp listening experiment (not approved):**
+After direct Audio Lab listening, Thomas judged the constant `c=0.5` Q Comp
+bass restoration adequate, but the 97–100% resonance loudness jump remained
+with Q Comp Off and On. The next isolated experiment removes only the voice's
+post-ladder 98–100% smoothstep gain (`1 → 1.6`); the ladder feedback gain,
+resonance/cutoff mapping, Drive and constant `c=0.5` Q Comp are unchanged.
+The rebuilt `VektRavAudioLab.app` uses this no-ramp voice: choose **Vekt Mono**
+as source, hold notes on its keyboard (or use MIDI), leave a steady amplifier
+envelope and compare 95–100% resonance with Q Comp both Off and On. Restart an
+already-running Audio Lab to load the new executable. Live playback is **not**
+automatically level-matched. This is an experiment to isolate an audible gain
+interaction, not an accepted final gain structure.
+
+`VektMonoResonanceVoice /tmp/vekt-no-ramp-voice.csv` measured 12 held-saw
+voice renders (48 kHz, 1 kHz cutoff, +12 dB Drive, 95–100% resonance in 1%
+steps, Q Comp Off/On), over each fixture's 0.5–1.8 s window. At 97→100%,
+the no-ramp driven RMS is **0.23677→0.20938 Off** and **0.53757→0.53532 On**;
+the counterfactual previous output gain would multiply the 100% levels by
+1.6 to approximately 0.33501 Off and 0.85651 On. That counterfactual is
+valid for these steady-state fixtures because the old ramp was strictly
+post-voice and constant at each settled resonance; it is not an exact
+reconstruction of a moving knob during smoothing. It does not prove the
+97→100% transition will sound smooth on other patches or drives.
+
+`VektMonoResonanceOnset /tmp/vekt-no-ramp-onset.csv` separately records the
+**Q Comp Off raw ladder** driven RMS and last-200-ms zero-input tail after
+0.5 s of 317 Hz excitation (48 kHz, 1 kHz cutoff, 0 dB Drive); all 101 rows
+have unity voice output gain and zero solver failures. Late tail RMS is
+~0.00113 at 98.4%, ~0.03327 at 98.5%, ~0.08772 at 99% and ~0.12416 at
+100%. The nonlinear oscillation onset is still near 98.4–98.5%; removing an
+output multiplier cannot change that raw-ladder threshold. This raw-ladder
+tail is not the audible voice output after its envelope, pan and master trim.
+
+**Existing product-level gates remain failed for this experiment:** the full
+Debug run passed **283/286** (265.24 s). All three failures are existing
+maximum-resonance audible self-oscillation minimum levels, not numerical
+solver failures: realtime post-excitation stereo RMS 0.08764 vs required
+>0.1; preset-style path 0.02118 vs required >0.025; the 44.1 kHz/250 Hz
+maximum-emphasis case yields 0.08753 vs required >0.1. Do not relax these requirements just
+to pass this listening experiment. A new driven-voice regression checks that
+97→100% does not recover the old 1.6x boost for its defined patch; it is not
+a universal musical or release-level acceptance test. The Audio Lab Release
+app and onset/voice tools build, and `git diff --check` passes.
+
 **Remaining measurements:** Below self-oscillation (50/80/95% resonance),
 resolve local passband and bandwidth around the moving AC-pump peak; check
 pump-only leakage and whether more probe frequencies or other musical pumps

@@ -131,10 +131,8 @@ public:
 		const auto filterResonance = resonance.getNextValue();
 		const auto filterDriveDb = driveDecibels.getNextValue();
 		const auto inputCompensation = qInputCompensation.getNextValue();
-		// Post-ladder calibration for audible free-running tone. Q compensation
-		// acts only on the driven input inside the ladder's feedback equation.
-		const auto onset = juce::jlimit(0.0f, 1.0f, (filterResonance - 0.98f) / 0.02f);
-		const auto selfOscillationGain = 1.0f + 0.6f * onset * onset * (3.0f - 2.0f * onset);
+		// No post-ladder resonance boost: isolate the ladder's own onset.
+		// Q compensation still acts only on driven input inside its feedback equation.
 		const auto velocityGain = (1.0f - settings.ampVelocity) + settings.ampVelocity * std::pow(velocity, 0.65f);
 		const auto allocationFade = fadeInSamples > 0
 			? 1.0f - static_cast<float>(fadeInSamples--) / static_cast<float>(transitionLength())
@@ -183,8 +181,8 @@ public:
 			voiceRight += continuityOffset[1] * continuityGain;
 		}
 		lastOutput = { voiceLeft, voiceRight };
-		left += voiceLeft * selfOscillationGain;
-		right += voiceRight * selfOscillationGain;
+		left += voiceLeft;
+		right += voiceRight;
 		if (!amp.isActive()) active = false;
 	}
 

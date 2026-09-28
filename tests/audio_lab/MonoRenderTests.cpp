@@ -148,6 +148,33 @@ TEST_CASE("Mono Q Comp uses the same constant-half coefficient in ordinary Audio
 	REQUIRE(changed);
 }
 
+TEST_CASE("Mono voice resonance onset stays finite with an unboosted output tap", "[audio-lab][mono][resonance-onset]")
+{
+	for (const auto compensated : { false, true })
+	{
+		double previousRms {}, at97 {};
+		for (const auto resonance : { 0.97f, 0.98f, 0.985f, 0.99f, 1.0f })
+		{
+			auto request = vekt::audio_lab::MonoRenderRequest {};
+			REQUIRE(vekt::audio_lab::makeMonoRenderFixture("q-comp-listen-95-sustain-drive-12-off",
+				48'000.0, 128, 42, request));
+			request.settings.resonance = resonance;
+			request.settings.qCompensation = compensated;
+			const auto result = vekt::audio_lab::renderMono(request);
+			const auto level = windowMeasurement(result.report, "listening", "rms");
+			INFO("Q Comp=" << compensated << ", resonance=" << resonance << ", driven RMS=" << level
+				<< ", previous RMS=" << previousRms);
+			REQUIRE(std::isfinite(level));
+			REQUIRE(level > 0.001);
+			if (previousRms > 0.0) REQUIRE(level / previousRms < 2.0);
+			if (resonance < 0.975f) at97 = level;
+			if (resonance > 0.995f)
+				REQUIRE(level / at97 < 1.1); // The former 1.6x post-ladder boost would fail.
+			previousRms = level;
+		}
+	}
+}
+
 TEST_CASE("Mono half input compensation preserves the zero-input trajectory and reference solve", "[audio-lab][mono][qcomp][ladder-reference]")
 {
 	vekt::mono::NonlinearTptLadder off, on;

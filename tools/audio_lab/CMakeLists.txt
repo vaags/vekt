@@ -47,6 +47,14 @@ target_link_libraries(VektMonoResonanceOnset PRIVATE
 	vekt::juce_runtime
 	vekt_project_options)
 
+add_executable(VektMonoResonanceVoice MonoRender.cpp MonoResonanceVoiceMain.cpp)
+target_link_libraries(VektMonoResonanceVoice PRIVATE
+	VektMonoCore
+	vekt::audio_analysis
+	vekt::juce_headers
+	vekt::juce_runtime
+	vekt_project_options)
+
 add_executable(VektLadderPrototype
 	LadderPrototype.cpp
 	LadderPrototypeMain.cpp)

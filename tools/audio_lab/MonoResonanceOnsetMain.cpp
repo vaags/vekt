@@ -56,9 +56,8 @@ int main(int argc, char** argv)
 	for (int index = 0; index <= 100; ++index)
 	{
 		const auto resonance = static_cast<float>(0.90 + index * 0.001);
-		const auto onset = std::clamp((resonance - 0.98f) / 0.02f, 0.0f, 1.0f);
-		const auto shaped = onset * onset * (3.0f - 2.0f * onset);
-		const auto voiceGain = 1.0f + 0.6f * shaped;
+		// The voice now sends its unboosted output to the mix at all resonance values.
+		constexpr float voiceGain = 1.0f;
 		vekt::mono::NonlinearTptLadder ladder;
 		ladder.prepare(rate);
 		const vekt::mono::NonlinearTptLadderSettings settings { 1'000.0f, resonance, 0.0f };
