@@ -1,6 +1,7 @@
 #include <vekt/mono/PluginProcessor.h>
 
 #include "MonoVoice.h"
+#include "../../tools/audio_lab/MonoWidthReference.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -8,6 +9,7 @@
 #include <juce_dsp/juce_dsp.h>
 
 #include <cmath>
+#include <complex>
 #include <numbers>
 #include <vector>
 
@@ -46,12 +48,60 @@ std::pair<float, float> fundamental(Wave wave)
 	return { static_cast<float>(2.0 * sine / cycleSamples), static_cast<float>(2.0 * cosine / cycleSamples) };
 }
 
+// Mono's Width oscillator at 25 Hz / 48 kHz: every guard-passing harmonic (up to H864) is present, and a
+// 4096-sample cycle resolves them all without aliasing.
+constexpr double oscillatorRate = 48'000.0;
+constexpr float oscillatorPitch = 25.0f;
+
+float oscillator(float phase, float morph, float width = 50.0f, bool zeroCentered = false)
+{
+	static vekt::mono::WidthOscillatorState state;
+	return vekt::mono::renderWidthOscillator(state, phase, oscillatorPitch, oscillatorRate, morph, width, zeroCentered);
+}
+
 auto atMorph(float morph, float width = 50.0f)
 {
-	return [morph, width](float phase) { return MonoVoice::waveform(phase, phaseIncrement, morph, width); };
+	return [morph, width](float phase) { return oscillator(phase, morph, width); };
 }
 
 float decibels(float ratio) { return 20.0f * std::log10(ratio); }
+}
+
+TEST_CASE("Mono Width offline Fourier reference preserves ideal phase and frozen DC", "[mono][oscillator][width][reference]")
+{
+	using vekt::audio_lab::renderMonoWidthReference;
+	// A low fundamental leaves the first 40 harmonics below Nyquist; compare
+	// the inverse Fourier series with the independent ideal function away from
+	// discontinuities, and check the complex fundamental's phase convention.
+	const auto sine = renderMonoWidthReference(0.0, 50.0, 100.0, 48'000.0, 480, 16);
+	REQUIRE(sine.harmonics[0].real() == Catch::Approx(0.0).margin(1.0e-5));
+	REQUIRE(sine.harmonics[1].real() == Catch::Approx(0.0).margin(1.0e-5));
+	REQUIRE(sine.harmonics[1].imag() == Catch::Approx(-static_cast<float>(vekt::mono::widthSineGain) * 0.5f).margin(1.0e-5));
+	for (const auto phase : { 0.125, 0.25, 0.5, 0.875 })
+		REQUIRE(sine.samples[static_cast<std::size_t>(phase * 480)]
+			== Catch::Approx(vekt::audio_lab::monoWidthIdealWave(phase, 0.0, 50.0)).margin(1.0e-4));
+	for (const auto width : { 5.0, 20.0, 50.0, 80.0, 95.0 })
+	{
+		CAPTURE(width);
+		const auto raw = renderMonoWidthReference(3.0, width, 100.0, 48'000.0, 480, 16);
+		const auto centered = renderMonoWidthReference(3.0, width, 100.0, 48'000.0, 480, 16, true);
+		const auto expected = static_cast<float>(vekt::mono::widthPulseGain) * (width / 50.0 - 1.0);
+		REQUIRE(raw.harmonics[0].real() == Catch::Approx(expected).margin(1.0e-4));
+		REQUIRE(centered.harmonics[0].real() == Catch::Approx(0.0).margin(1.0e-4));
+		REQUIRE(std::abs(centered.harmonics[1] - raw.harmonics[1]) < 1.0e-5);
+		// Round-trip one cycle: the DC term is the sample mean, and the Fourier
+		// coefficient c[1] encodes the fundamental magnitude and phase.
+		double average {};
+		for (const auto value : raw.samples) average += value;
+		REQUIRE(average / static_cast<double>(raw.samples.size()) == Catch::Approx(expected).margin(1.0e-4));
+	}
+	// Verify the midpoint quadrature/FFT resolution does not set the first
+	// harmonics in the most discontinuous supported waveform.
+	const auto coarse = renderMonoWidthReference(3.0, 5.0, 3'517.3, 48'000.0, 32, 16);
+	const auto fine = renderMonoWidthReference(3.0, 5.0, 3'517.3, 48'000.0, 32, 17);
+	REQUIRE(coarse.harmonics.size() == fine.harmonics.size());
+	for (std::size_t harmonic = 0; harmonic < coarse.harmonics.size(); ++harmonic)
+		REQUIRE(std::abs(coarse.harmonics[harmonic] - fine.harmonics[harmonic]) < 1.0e-4);
 }
 
 TEST_CASE("Mono oscillator anchors share the fundamental's phase and sign", "[mono][oscillator]")
@@ -92,35 +142,30 @@ TEST_CASE("Mono oscillator level stays within 1 dB across the whole Morph range"
 
 TEST_CASE("Mono oscillator anchors are the canonical shapes", "[mono][oscillator]")
 {
-	const auto wave = [](float morph, float phase) { return MonoVoice::waveform(phase, phaseIncrement, morph, 50.0f); };
+	// Bandlimited anchors: away from edges and corners they sit within the truncation ripple of the ideal shapes.
+	const auto wave = [](float morph, float phase) { return oscillator(phase, morph); };
+	const auto sineGain = static_cast<float>(vekt::mono::widthSineGain), pulseGain = static_cast<float>(vekt::mono::widthPulseGain);
 	// Sine and triangle peak at a quarter cycle; the saw falls through zero at half a cycle; the square is high first.
-	REQUIRE(wave(0.0f, 0.25f) == Catch::Approx(MonoVoice::sineAnchorGain));
-	// The triangle's corners are rounded by polyBLAMP by exactly 4 * increment / 3.
-	REQUIRE(wave(1.0f, 0.25f) == Catch::Approx(1.0f - 4.0f * phaseIncrement / 3.0f));
-	REQUIRE(wave(1.0f, 0.75f) == Catch::Approx(-1.0f + 4.0f * phaseIncrement / 3.0f));
-	REQUIRE(wave(1.0f, 0.0f) == Catch::Approx(0.0f).margin(1.0e-6));
-	REQUIRE(wave(2.0f, 0.25f) == Catch::Approx(0.5f));
-	REQUIRE(wave(2.0f, 0.5f) == Catch::Approx(0.0f).margin(1.0e-6));
-	REQUIRE(wave(2.0f, 0.75f) == Catch::Approx(-0.5f));
-	REQUIRE(wave(3.0f, 0.25f) == Catch::Approx(MonoVoice::pulseAnchorGain));
-	REQUIRE(wave(3.0f, 0.75f) == Catch::Approx(-MonoVoice::pulseAnchorGain));
-	// Every anchor position returns exactly that anchor, and positions between them interpolate linearly.
+	REQUIRE(wave(0.0f, 0.25f) == Catch::Approx(sineGain).margin(1.0e-4));
+	REQUIRE(wave(1.0f, 0.25f) == Catch::Approx(1.0f).margin(2.0e-3));
+	REQUIRE(wave(1.0f, 0.75f) == Catch::Approx(-1.0f).margin(2.0e-3));
+	REQUIRE(wave(1.0f, 0.0f) == Catch::Approx(0.0f).margin(1.0e-4));
+	REQUIRE(wave(2.0f, 0.25f) == Catch::Approx(0.5f).margin(2.0e-3));
+	REQUIRE(wave(2.0f, 0.5f) == Catch::Approx(0.0f).margin(1.0e-4));
+	REQUIRE(wave(2.0f, 0.75f) == Catch::Approx(-0.5f).margin(2.0e-3));
+	REQUIRE(wave(3.0f, 0.25f) == Catch::Approx(pulseGain).margin(2.0e-3));
+	REQUIRE(wave(3.0f, 0.75f) == Catch::Approx(-pulseGain).margin(2.0e-3));
+	// Positions between anchors mix them: linearly from sine to triangle; next to the saw its share is
+	// 2t^2 - t^3 (37.5% halfway).
 	for (int sample = 0; sample < 64; ++sample)
 	{
 		const auto phase = static_cast<float>(sample) / 64.0f;
-		for (int anchor = 0; anchor <= 3; ++anchor)
-			REQUIRE(wave(static_cast<float>(anchor), phase) == MonoVoice::anchorWave(anchor, phase, phaseIncrement, 50.0f));
-		const auto sine = MonoVoice::anchorWave(0, phase, phaseIncrement, 50.0f);
-		const auto triangle = MonoVoice::anchorWave(1, phase, phaseIncrement, 50.0f);
-		const auto saw = MonoVoice::anchorWave(2, phase, phaseIncrement, 50.0f);
-		const auto square = MonoVoice::anchorWave(3, phase, phaseIncrement, 50.0f);
-		// Sine to triangle mixes linearly; next to the saw the saw's share is 2t^2 - t^3 (37.5% halfway).
-		REQUIRE(wave(0.3f, phase) == Catch::Approx(sine + 0.3f * (triangle - sine)).margin(1.0e-6));
-		REQUIRE(wave(1.5f, phase) == Catch::Approx(triangle + 0.375f * (saw - triangle)).margin(1.0e-6));
-		REQUIRE(wave(2.5f, phase) == Catch::Approx(0.375f * saw + 0.625f * square).margin(1.0e-6));
+		const auto sine = wave(0.0f, phase), triangle = wave(1.0f, phase), saw = wave(2.0f, phase), square = wave(3.0f, phase);
+		REQUIRE(wave(0.3f, phase) == Catch::Approx(sine + 0.3f * (triangle - sine)).margin(1.0e-5));
+		REQUIRE(wave(1.5f, phase) == Catch::Approx(triangle + 0.375f * (saw - triangle)).margin(1.0e-5));
+		REQUIRE(wave(2.5f, phase) == Catch::Approx(0.375f * saw + 0.625f * square).margin(1.0e-5));
 	}
 }
-
 TEST_CASE("Mono oscillator morph is continuous across the triangle and saw anchors", "[mono][oscillator]")
 {
 	for (const auto anchor : { 1.0f, 2.0f })
@@ -130,12 +175,176 @@ TEST_CASE("Mono oscillator morph is continuous across the triangle and saw ancho
 		for (int sample = 0; sample < cycleSamples; ++sample)
 		{
 			const auto phase = static_cast<float>(sample) * phaseIncrement;
-			const auto below = MonoVoice::waveform(phase, phaseIncrement, std::nextafter(anchor, 0.0f), 50.0f);
-			const auto above = MonoVoice::waveform(phase, phaseIncrement, std::nextafter(anchor, 3.0f), 50.0f);
+			const auto below = oscillator(phase, std::nextafter(anchor, 0.0f));
+			const auto above = oscillator(phase, std::nextafter(anchor, 3.0f));
 			largestJump = std::max(largestJump, std::abs(above - below));
 		}
 		REQUIRE(largestJump < 1.0e-5f);
 	}
+}
+
+TEST_CASE("Mono Width DC policies follow the frozen-width analytical means", "[mono][oscillator][width]")
+{
+	constexpr int samples = 32'768;
+	constexpr float step = 1.0f / samples;
+	for (const auto width : { 5.0f, 20.0f, 50.0f, 80.0f, 95.0f })
+		for (int morphStep = 0; morphStep <= 12; ++morphStep)
+		{
+			const auto morph = morphStep * 0.25f;
+			CAPTURE(width, morph);
+			double raw {}, centered {}, signal {};
+			for (int sample = 0; sample < samples; ++sample)
+			{
+				const auto phase = sample * step;
+				const auto a = oscillator(phase, morph, width);
+				const auto b = oscillator(phase, morph, width, true);
+				raw += a; centered += b; signal += b * b;
+			}
+			REQUIRE(std::abs(centered / samples) < 1.0e-3);
+			REQUIRE(std::isfinite(signal));
+			if (morph == 3.0f)
+				REQUIRE(raw / samples == Catch::Approx(static_cast<float>(vekt::mono::widthPulseGain) * (width * 0.02f - 1.0f)).margin(1.0e-3));
+		}
+}
+
+TEST_CASE("Mono Width and Morph surface has finite fundamentals and continuous anchors", "[mono][oscillator][width]")
+{
+	constexpr int samples = 4'096;
+	constexpr float step = 1.0f / samples;
+	for (const auto width : { 5.0f, 10.0f, 20.0f, 30.0f, 40.0f, 50.0f, 60.0f, 70.0f, 80.0f, 90.0f, 95.0f })
+	{
+		for (int index = 0; index <= 60; ++index)
+		{
+			const auto morph = index * 0.05f;
+			CAPTURE(width, morph);
+			double sine {}, cosine {}, power {};
+			for (int sample = 0; sample < samples; ++sample)
+			{
+				const auto phase = sample * step;
+				const auto value = oscillator(phase, morph, width, true);
+				sine += value * std::sin(2.0 * std::numbers::pi * phase);
+				cosine += value * std::cos(2.0 * std::numbers::pi * phase);
+				power += value * value;
+			}
+			const auto magnitude = std::hypot(sine, cosine) * 2.0 / samples;
+			REQUIRE(std::isfinite(power));
+			REQUIRE(magnitude > 0.05);
+			for (const auto anchor : { 1.0f, 2.0f })
+			{
+				const auto phase = 0.123f;
+				REQUIRE(std::abs(oscillator(phase, std::nextafter(anchor, 0.0f), width)
+					- oscillator(phase, std::nextafter(anchor, 3.0f), width)) < 1.0e-5f);
+			}
+		}
+	}
+}
+
+TEST_CASE("Mono Width oscillator stays alias-free on a high note", "[mono][oscillator][width]")
+{
+	// Coherent measurement: the pitch sits exactly on FFT bin 1200 (3515.6 Hz at 48 kHz) and no window is
+	// used, so every harmonic lands on a bin and only aliases fall between them.
+	constexpr int order = 14;
+	constexpr int size = 1 << order;
+	constexpr double rate = 48'000.0;
+	constexpr int pitchBin = 1'200;
+	constexpr double frequency = pitchBin * rate / size;
+	const auto aliasRatio = [&](auto wave)
+	{
+		std::vector<float> data(2 * size);
+		for (int sample = 0; sample < size; ++sample)
+			data[static_cast<std::size_t>(sample)] = static_cast<float>(wave(static_cast<float>(std::fmod(sample * frequency / rate, 1.0))));
+		juce::dsp::FFT(order).performFrequencyOnlyForwardTransform(data.data());
+		double alias {}, total {};
+		for (int bin = 1; bin < size / 2; ++bin)
+		{
+			const auto power = static_cast<double>(data[static_cast<std::size_t>(bin)]) * data[static_cast<std::size_t>(bin)];
+			total += power;
+			if (bin % pitchBin != 0) alias += power;
+		}
+		return 10.0 * std::log10(std::max(alias, 1.0e-30) / total);
+	};
+	for (const auto width : { 5.0f, 20.0f, 50.0f, 80.0f, 95.0f })
+		for (int anchor = 0; anchor < 4; ++anchor)
+		{
+			const auto d = width * 0.01f;
+			const auto naive = aliasRatio([&](float phase)
+			{
+				const auto warped = phase < d ? phase / (2.0f * d) : 0.5f + (phase - d) / (2.0f * (1.0f - d));
+				switch (anchor)
+				{
+				case 0: return static_cast<float>(vekt::mono::widthSineGain) * std::sin(vekt::mono::twoPi * warped);
+				case 1: return 1.0f - 4.0f * std::abs(warped + 0.25f - std::floor(warped + 0.25f) - 0.5f);
+				case 2: return 1.0f - 2.0f * warped;
+				default: return static_cast<float>(vekt::mono::widthPulseGain) * (warped < 0.5f ? 1.0f : -1.0f);
+				}
+			});
+			// The naive shared warp is an aliasing yardstick only; its shape differs from the shipped anchors.
+			vekt::mono::WidthOscillatorState state;
+			const auto bandlimited = aliasRatio([&](float phase)
+				{ return vekt::mono::renderWidthOscillator(state, phase, static_cast<float>(frequency), rate, static_cast<float>(anchor), width, false); });
+			CAPTURE(width, anchor, naive, bandlimited);
+			REQUIRE(bandlimited < -80.0);
+		}
+}
+
+TEST_CASE("Mono Width DC policy changes the ladder input on a held narrow pulse", "[mono][oscillator][width]")
+{
+	vekt::mono::MonoVoiceSettings settings {};
+	settings.range.fill(1.0f);
+	settings.level = { 0.5f, 0.0f, 0.0f };
+	settings.morph.fill(3.0f);
+	settings.pulseWidth.fill(20.0f);
+	settings.cutoff = 1'000.0f;
+	settings.resonance = 0.85f;
+	settings.ampSustain = 1.0f;
+	settings.unison = 1;
+	MonoVoice raw, centered;
+	raw.prepare(48'000.0, 42);
+	centered.prepare(48'000.0, 42);
+	raw.start(1, 57, 0.8f, settings, true, false, 1);
+	settings.widthDcPolicy = vekt::mono::WidthDcPolicy::zeroCentered;
+	centered.start(1, 57, 0.8f, settings, true, false, 1);
+	double difference {};
+	for (int sample = 0; sample < 4'800; ++sample)
+	{
+		float rawLeft {}, rawRight {}, centeredLeft {}, centeredRight {};
+		settings.widthDcPolicy = vekt::mono::WidthDcPolicy::raw;
+		raw.render(rawLeft, rawRight, settings, 0.0f);
+		settings.widthDcPolicy = vekt::mono::WidthDcPolicy::zeroCentered;
+		centered.render(centeredLeft, centeredRight, settings, 0.0f);
+		REQUIRE(std::isfinite(rawLeft));
+		REQUIRE(std::isfinite(centeredLeft));
+		difference += std::abs(rawLeft - centeredLeft);
+	}
+	REQUIRE(difference > 1.0);
+}
+
+TEST_CASE("Mono moving Width and Morph remain finite through the voice and ladder", "[mono][oscillator][width]")
+{
+	vekt::mono::MonoVoiceSettings settings {};
+	settings.range.fill(1.0f);
+	settings.level = { 0.5f, 0.0f, 0.0f };
+	settings.pulseWidth.fill(50.0f);
+	settings.cutoff = 2'000.0f;
+	settings.resonance = 0.9f;
+	settings.drive = 12.0f;
+	settings.ampSustain = 1.0f;
+	settings.unison = 1;
+	MonoVoice voice;
+	voice.prepare(48'000.0, 42);
+	voice.start(1, 57, 0.8f, settings, true, false, 1);
+	for (int sample = 0; sample < 4'800; ++sample)
+	{
+		// Direct voice settings exercise the audio path; these jumps deliberately
+		// include an adversarial discontinuity, not a claim of click-free automation.
+		settings.pulseWidth[0] = sample % 64 < 32 ? 5.0f : 95.0f;
+		settings.morph[0] = sample % 800 < 400 ? 0.0f : 3.0f;
+		float left {}, right {};
+		voice.render(left, right, settings, 0.0f);
+		REQUIRE(std::isfinite(left));
+		REQUIRE(std::isfinite(right));
+	}
+	REQUIRE(voice.coupledDiagnostics().nonFiniteSamples == 0);
 }
 
 TEST_CASE("Mono voice output level stays within 1 dB across Morph through the open ladder", "[mono][oscillator]")
@@ -195,52 +404,6 @@ TEST_CASE("Mono saw morph curve delays the saw but meets it at the linear rate",
 	}
 }
 
-TEST_CASE("Mono triangle polyBLAMP reduces aliasing without changing the anchor", "[mono][oscillator]")
-{
-	// A high triangle whose harmonics fold back below Nyquist; measure energy away from true harmonics.
-	constexpr int order = 14;
-	constexpr int size = 1 << order;
-	constexpr double sampleRate = 48'000.0;
-	constexpr double frequency = 3'517.3;
-	const auto increment = static_cast<float>(frequency / sampleRate);
-	const auto aliasRatioDb = [&](auto wave)
-	{
-		std::vector<float> data(2 * size);
-		double phase {};
-		for (int sample = 0; sample < size; ++sample)
-		{
-			const auto window = 0.5 - 0.5 * std::cos(2.0 * std::numbers::pi * sample / size);
-			data[static_cast<std::size_t>(sample)] = static_cast<float>(wave(static_cast<float>(phase)) * window);
-			phase += frequency / sampleRate;
-			phase -= std::floor(phase);
-		}
-		juce::dsp::FFT(order).performFrequencyOnlyForwardTransform(data.data());
-		double alias {}, total {};
-		for (int bin = 1; bin < size / 2; ++bin)
-		{
-			const auto binFrequency = bin * sampleRate / size;
-			const auto harmonic = std::round(binFrequency / frequency);
-			const auto nearHarmonic = harmonic >= 1.0 && std::abs(binFrequency - harmonic * frequency) < 4.0 * sampleRate / size;
-			const auto power = static_cast<double>(data[static_cast<std::size_t>(bin)]) * data[static_cast<std::size_t>(bin)];
-			total += power;
-			if (!nearHarmonic) alias += power;
-		}
-		return 10.0 * std::log10(alias / total);
-	};
-	const auto naive = aliasRatioDb([](float phase)
-	{
-		auto shifted = phase + 0.25f;
-		shifted -= std::floor(shifted);
-		return 1.0f - 4.0f * std::abs(shifted - 0.5f);
-	});
-	const auto blamp = aliasRatioDb([increment](float phase) { return MonoVoice::anchorWave(1, phase, increment, 50.0f); });
-	CAPTURE(naive, blamp);
-	REQUIRE(blamp < naive - 6.0);
-	// Away from its corners the anchor is still the exact triangle.
-	REQUIRE(MonoVoice::anchorWave(1, 0.1f, increment, 50.0f) == Catch::Approx(0.4f));
-	REQUIRE(MonoVoice::anchorWave(1, 0.6f, increment, 50.0f) == Catch::Approx(-0.4f));
-}
-
 TEST_CASE("Mono Morph knob changes are smoothed but LFO morph modulation is not", "[mono][oscillator][lfo]")
 {
 	constexpr double sampleRate = 48'000.0;
@@ -288,4 +451,127 @@ TEST_CASE("Mono Morph knob changes are smoothed but LFO morph modulation is not"
 	for (int sample = 0; sample < 240; ++sample) modulated.render(left, right, settings, 0.0f);
 	// After 5 ms the LFO offset is essentially complete; a smoothed knob would still be at half its travel.
 	REQUIRE(modulated.getMorph(0) > 2.95f);
+}
+
+TEST_CASE("Mono Width keeps aligned fundamentals, full-depth PWM and a level two-tooth saw", "[mono][oscillator][width]")
+{
+	const auto fundamentalPhase = [](float morph, float width)
+	{
+		double real {}, imaginary {};
+		for (int sample = 0; sample < cycleSamples; ++sample)
+		{
+			const auto phase = static_cast<double>(sample) / cycleSamples;
+			const auto value = static_cast<double>(oscillator(static_cast<float>(phase), morph, width));
+			real += value * std::cos(2.0 * std::numbers::pi * phase);
+			imaginary -= value * std::sin(2.0 * std::numbers::pi * phase);
+		}
+		return std::atan2(imaginary, real);
+	};
+	// Every anchor's fundamental stays at +sin phase (-pi/2), so Morph cannot cancel it.
+	for (const auto width : { 5.0f, 20.0f, 49.0f, 51.0f, 80.0f, 95.0f })
+		for (const auto morph : { 0.0f, 1.0f, 2.0f, 3.0f })
+		{
+			CAPTURE(width, morph);
+			const auto error = std::remainder(fundamentalPhase(morph, width) + 0.5 * std::numbers::pi, 2.0 * std::numbers::pi);
+			REQUIRE(std::abs(error) < 0.01);
+		}
+	// The square keeps full PWM: its duty cycle equals Width.
+	for (const auto width : { 5.0f, 20.0f, 95.0f })
+	{
+		int high {};
+		for (int sample = 0; sample < cycleSamples; ++sample)
+			if (oscillator((static_cast<float>(sample) + 0.5f) / cycleSamples, 3.0f, width) > 0.0f) ++high;
+		REQUIRE(static_cast<float>(high) / cycleSamples == Catch::Approx(width * 0.01f).margin(0.005f));
+	}
+	// Two-tooth saw at the extreme: a quarter-cycle offset removes H2 and keeps the saw's RMS.
+	{
+		double sum {}, h2Real {}, h2Imaginary {}, h1Real {}, h1Imaginary {};
+		for (int sample = 0; sample < cycleSamples; ++sample)
+		{
+			const auto phase = static_cast<double>(sample) / cycleSamples;
+			const auto value = static_cast<double>(oscillator(static_cast<float>(phase), 2.0f, 95.0f));
+			sum += value * value;
+			h1Real += value * std::cos(2.0 * std::numbers::pi * phase);
+			h1Imaginary += value * std::sin(2.0 * std::numbers::pi * phase);
+			h2Real += value * std::cos(4.0 * std::numbers::pi * phase);
+			h2Imaginary += value * std::sin(4.0 * std::numbers::pi * phase);
+		}
+		REQUIRE(std::sqrt(sum / cycleSamples) == Catch::Approx(targetRms).margin(0.01));
+		REQUIRE(std::hypot(h2Real, h2Imaginary) < 0.01 * std::hypot(h1Real, h1Imaginary));
+	}
+}
+
+TEST_CASE("Mono Width offline reference matches the shipped Width model", "[mono][oscillator][width][reference]")
+{
+	// Independent Fourier coefficients (MonoWidthReference.h) versus a dense DFT of the production anchors.
+	for (int anchor = 0; anchor < 4; ++anchor)
+		for (const auto width : { 5.0f, 20.0f, 50.0f, 63.7f, 95.0f })
+		{
+			CAPTURE(anchor, width);
+			const auto reference = vekt::audio_lab::monoWidthAnchorCoefficients(anchor, width);
+			for (int harmonic = 0; harmonic <= 12; ++harmonic)
+			{
+				std::complex<double> actual {};
+				for (int sample = 0; sample < cycleSamples; ++sample)
+				{
+					const auto phase = static_cast<double>(sample) / cycleSamples;
+					actual += static_cast<double>(oscillator(static_cast<float>(phase), static_cast<float>(anchor), width))
+						* std::polar(1.0, -2.0 * std::numbers::pi * harmonic * phase);
+				}
+				actual /= static_cast<double>(cycleSamples);
+				CAPTURE(harmonic);
+				REQUIRE(std::abs(actual - reference[static_cast<std::size_t>(harmonic)]) < 2.0e-3);
+			}
+		}
+}
+
+TEST_CASE("Mono Width knob jumps ramp instead of stepping the oscillator", "[mono][oscillator][width]")
+{
+	// A sustained sine through the open filter: its largest sample-to-sample change is small, so any
+	// step from an instantaneous Width change (shape and DC both move) stands out. Without the ramp the
+	// 5 -> 95 % jump steps by ~0.33 against a steady maximum of ~0.03.
+	for (const auto [from, to] : { std::pair { 5.0f, 95.0f }, std::pair { 95.0f, 5.0f }, std::pair { 50.0f, 95.0f } })
+	{
+		CAPTURE(from, to);
+		vekt::mono::MonoVoiceSettings settings {};
+		settings.range.fill(1.0f);
+		settings.level = { 1.0f, 0.0f, 0.0f };
+		settings.morph.fill(0.0f);
+		settings.pulseWidth.fill(from);
+		settings.cutoff = 20'000.0f;
+		settings.ampSustain = 1.0f;
+		settings.unison = 1;
+		vekt::mono::MonoVoice voice;
+		voice.prepare(48'000.0, 7);
+		voice.start(1, 57, 0.8f, settings, true, false, 1);
+		float left {}, right {}, previous {};
+		float steadyStep {};
+		// render() adds into its outputs (the processor sums voices), so clear them per sample.
+		for (int sample = 0; sample < 4'800; ++sample)
+		{
+			left = right = 0.0f;
+			voice.render(left, right, settings, 0.0f);
+			if (sample >= 2'400) steadyStep = std::max(steadyStep, std::abs(left - previous));
+			previous = left;
+		}
+		settings.pulseWidth.fill(to);
+		float jumpStep {};
+		for (int sample = 0; sample < 960; ++sample)
+		{
+			left = right = 0.0f;
+			voice.render(left, right, settings, 0.0f);
+			jumpStep = std::max(jumpStep, std::abs(left - previous));
+			previous = left;
+		}
+		// The new shape can itself be steeper, so compare with the larger of the two steady states.
+		for (int sample = 0; sample < 2'400; ++sample)
+		{
+			left = right = 0.0f;
+			voice.render(left, right, settings, 0.0f);
+			steadyStep = std::max(steadyStep, std::abs(left - previous));
+			previous = left;
+		}
+		CAPTURE(steadyStep, jumpStep);
+		REQUIRE(jumpStep < 1.5f * steadyStep);
+	}
 }

@@ -177,7 +177,7 @@ float NonlinearTptLadder::processStep(float input,
 {
 	const auto resonance = std::clamp(settings.resonance, 0.0f, 1.0f);
 	const auto feedbackGain = ladderFeedbackGain(static_cast<double>(resonance));
-	const auto driveGain = std::pow(10.0f, settings.driveDecibels / 20.0f);
+	const auto driveGain = driveGainFor(settings.driveDecibels);
 	const auto drivenInput = std::clamp(static_cast<double>(input) * driveGain,
 		-signalLimit, signalLimit);
 	// |y4| <= |state4| + 2g, so this bracket contains the feedback root.
@@ -250,7 +250,7 @@ float NonlinearTptLadder::processCoupled(float input, const NonlinearTptLadderSe
 	const auto g = std::tan(std::numbers::pi_v<double> * cutoff / sampleRate)
 		* ladderResonanceTuning(static_cast<double>(settings.resonance));
 	const auto k = ladderFeedbackGain(static_cast<double>(settings.resonance));
-	const auto driveGain = std::pow(10.0f, settings.driveDecibels / 20.0f);
+	const auto driveGain = driveGainFor(settings.driveDecibels);
 	const auto driven = std::clamp(static_cast<double>(input) * driveGain, -signalLimit, signalLimit);
 	// Feed a bounded fraction of the driven input around the global feedback.
 	// With zero input this is exactly the uncompensated feedback system.
@@ -394,7 +394,7 @@ void NonlinearTptLadder::processCoupledLanes(std::span<NonlinearTptLadder> ladde
 	const auto g = std::tan(std::numbers::pi_v<double> * cutoff / sampleRate)
 		* ladderResonanceTuning(static_cast<double>(settings.resonance));
 	const auto k = ladderFeedbackGain(static_cast<double>(settings.resonance));
-	const auto driveGain = std::pow(10.0f, settings.driveDecibels / 20.0f);
+	const auto driveGain = ladders[0].driveGainFor(settings.driveDecibels);
 	LaneValues<Lanes> excitation {};
 	std::array<Stages, Lanes> output {};
 	for (std::size_t lane = 0; lane < Lanes; ++lane)

@@ -546,6 +546,8 @@ TEST_CASE("Mono coupled engine renders deterministically at 1x and 8x", "[mono][
 		setParameter(*processor, vekt::mono::parameters::filterResonance, 85.0f);
 		setParameter(*processor, vekt::mono::parameters::filterDrive, 12.0f);
 	}
+	setParameter(first, vekt::mono::parameters::quality, 0.0f);
+	setParameter(rerun, vekt::mono::parameters::quality, 0.0f);
 	setParameter(oversampled, vekt::mono::parameters::quality, 3.0f);
 	setParameter(oversampledRerun, vekt::mono::parameters::quality, 3.0f);
 	for (auto* processor : { &first, &rerun, &oversampled, &oversampledRerun })
@@ -1158,6 +1160,8 @@ TEST_CASE("Mono Ladder emphasis builds a resonant peak and remains stable", "[mo
 	{
 		vekt::mono::PluginProcessor processor;
 		setParameter(processor, vekt::mono::parameters::osc1Level, 0.0f);
+		setParameter(processor, vekt::mono::parameters::osc2Level, 0.0f);
+		setParameter(processor, vekt::mono::parameters::osc3Level, 0.0f);
 		setParameter(processor, vekt::mono::parameters::noiseType, 1.0f);
 		setParameter(processor, vekt::mono::parameters::noiseLevel, 50.0f);
 		setParameter(processor, vekt::mono::parameters::filterCutoff, 1'000.0f);
@@ -1499,7 +1503,7 @@ TEST_CASE("Mono Ladder drive adds harmonics without acting as output gain", "[mo
 	REQUIRE(drivenHarmonics > cleanHarmonics * 2.0f);
 	// Calibrated before the sine anchor was set to the saw's RMS (-1.76 dB); the saturated output barely
 	// moves with input level, so compare against the clean level at the original sine amplitude.
-	REQUIRE(drivenRms < cleanRms / vekt::mono::MonoVoice::sineAnchorGain * 4.0f);
+	REQUIRE(drivenRms < cleanRms / static_cast<float>(vekt::mono::widthSineGain) * 4.0f);
 }
 
 TEST_CASE("Mono maximum resonance keeps floating-point peaks and obeys master trim", "[mono][processor][filter][headroom][slow]")
@@ -1677,6 +1681,33 @@ TEST_CASE("Mono provides 25 categorized factory presets", "[mono][processor]")
 	REQUIRE(processor.getProgramName(23) == "Transmission FX");
 }
 
+TEST_CASE("Mono factory presets load with their stored values, including LFO settings", "[mono][processor][preset]")
+{
+	vekt::mono::PluginProcessor processor;
+	const auto& catalog = processor.getPresetSession().library();
+	int withLfoSettings {};
+	for (std::size_t index = 0; index < catalog.factoryPresetCount(); ++index)
+	{
+		vekt::presets::Preset preset;
+		REQUIRE(catalog.loadFactoryPreset(index, preset).wasOk());
+		CAPTURE(preset.name);
+		processor.setCurrentProgram(static_cast<int>(index));
+		REQUIRE(processor.getCurrentProgram() == static_cast<int>(index));
+		if (preset.soundSchemaVersion != 7) continue;
+		++withLfoSettings;
+		// Schema-7 files carry every sound parameter; each must exist and land unchanged.
+		REQUIRE(preset.parameters.size() == vekt::mono::parameters::soundParameterIds.size());
+		for (const auto& parameter : preset.parameters)
+		{
+			CAPTURE(parameter.identifier);
+			const auto* value = processor.getParameters().getRawParameterValue(parameter.identifier);
+			REQUIRE(value != nullptr);
+			REQUIRE(value->load() == Catch::Approx(parameter.value).margin(1.0e-3));
+		}
+	}
+	REQUIRE(withLfoSettings == 12);
+}
+
 TEST_CASE("Mono Classic Three Bass uses three oscillators", "[mono][processor][preset]")
 {
 	vekt::mono::PluginProcessor processor;
@@ -1719,7 +1750,8 @@ TEST_CASE("Mono factory presets use diverse oscillator and mixer designs", "[mon
 	{
 		vekt::presets::Preset preset;
 		REQUIRE(catalog.loadFactoryPreset(index, preset).wasOk());
-		REQUIRE(preset.soundSchemaVersion == 4);
+		// Presets voiced before the LFOs are schema 4; the ones given LFO settings are schema 7.
+		REQUIRE((preset.soundSchemaVersion == 4 || preset.soundSchemaVersion == 7));
 		const auto value = [&preset](const char* identifier)
 		{
 			const auto found = std::find_if(preset.parameters.begin(), preset.parameters.end(), [identifier](const auto& parameter)
@@ -1775,8 +1807,12 @@ TEST_CASE("Mono rejects obsolete pre-alpha preset schemas without mutation", "[m
 TEST_CASE("Mono migrates schema 4 and 5 presets to analog independent ADSR", "[mono][processor][preset][contour]")
 {
 	vekt::mono::PluginProcessor processor;
+	// A factory preset still stored at schema 4 (some were upgraded to 7 when they gained LFO settings).
+	const auto& library = processor.getPresetSession().library();
 	vekt::presets::Preset factory;
-	REQUIRE(processor.getPresetSession().library().loadFactoryPreset(0, factory).wasOk());
+	for (std::size_t index = 0; index < library.factoryPresetCount(); ++index)
+		if (library.loadFactoryPreset(index, factory).wasOk() && factory.soundSchemaVersion == 4) break;
+	REQUIRE(factory.soundSchemaVersion == 4);
 	for (const auto schema : { 4, 5 })
 	{
 		auto preset = factory;
@@ -1857,6 +1893,8 @@ TEST_CASE("Mono active-note transitions preserve the sample boundary", "[mono][p
 		setParameter(processor, vekt::mono::parameters::filterCutoff, 12'000.0f);
 		setParameter(processor, vekt::mono::parameters::filterEnvelopeAmount, 0.0f);
 		setParameter(processor, vekt::mono::parameters::ampAttack, 0.0005f);
+		// Sample-exact boundary check: at 1x no resampling filter smears the voice's own crossfade.
+		setParameter(processor, vekt::mono::parameters::quality, 0.0f);
 		processor.prepareToPlay(48'000.0, 1'024);
 		juce::AudioBuffer<float> buffer(2, 1'024);
 		juce::MidiBuffer midi;
@@ -2375,6 +2413,8 @@ TEST_CASE("Mono handles duplicate notes and channel panic messages without stuck
 	vekt::mono::PluginProcessor processor;
 	setParameter(processor, vekt::mono::parameters::performanceMode, 1.0f);
 	setParameter(processor, vekt::mono::parameters::ampRelease, 0.005f);
+	// MIDI logic only: at 1x the output is exactly silent after All Sound Off (no decimator tail).
+	setParameter(processor, vekt::mono::parameters::quality, 0.0f);
 	processor.prepareToPlay(48'000.0, 128);
 	juce::AudioBuffer<float> buffer(2, 128);
 	juce::MidiBuffer midi;

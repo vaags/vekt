@@ -29,6 +29,13 @@ float rawValue(vekt::mono::PluginProcessor& processor, const char* identifier)
 	return processor.getParameters().getRawParameterValue(identifier)->load();
 }
 
+// The parameter's own default, independent of the factory preset a new processor loads.
+float defaultValue(vekt::mono::PluginProcessor& processor, const char* identifier)
+{
+	const auto* parameter = processor.getParameters().getParameter(identifier);
+	return parameter->convertFrom0to1(parameter->getDefaultValue());
+}
+
 // A patch where every LFO destination is audible: all three oscillators on pulse
 // (so width matters), noise, two-voice unison, drive and a partly closed filter.
 void initializeRichPatch(vekt::mono::PluginProcessor& processor)
@@ -166,10 +173,10 @@ TEST_CASE("Mono LFO parameters are sound parameters that default to no modulatio
 			REQUIRE(processor.getParameters().getParameter(ids[index]) != nullptr);
 			REQUIRE(std::find(parameters::soundParameterIds.begin(), parameters::soundParameterIds.end(), ids[index]) != parameters::soundParameterIds.end());
 			// The first ten are source controls; the rest are destination depths.
-			if (index >= 10) REQUIRE(rawValue(processor, ids[index]) == 0.0f);
+			if (index >= 10) REQUIRE(defaultValue(processor, ids[index]) == 0.0f);
 		}
-		REQUIRE(rawValue(processor, lfo.amount) == Catch::Approx(100.0f));
-		REQUIRE(rawValue(processor, lfo.rate) == Catch::Approx(2.0f));
+		REQUIRE(defaultValue(processor, lfo.amount) == Catch::Approx(100.0f));
+		REQUIRE(defaultValue(processor, lfo.rate) == Catch::Approx(2.0f));
 		auto* rate = dynamic_cast<juce::RangedAudioParameter*>(processor.getParameters().getParameter(lfo.rate));
 		REQUIRE(rate->getNormalisableRange().start == Catch::Approx(vekt::mono::minimumLfoRateHz));
 		REQUIRE(rate->getNormalisableRange().end == Catch::Approx(vekt::mono::maximumLfoRateHz));

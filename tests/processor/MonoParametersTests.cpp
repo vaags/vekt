@@ -34,7 +34,7 @@ TEST_CASE("Mono quality choices retain legacy indices and expose oversampling fa
 		processor.getParameters().getParameter(vekt::mono::parameters::quality));
 	REQUIRE(parameter != nullptr);
 	REQUIRE(parameter->choices == juce::StringArray { "1x", "2x", "4x", "8x" });
-	REQUIRE(parameter->getIndex() == 0);
+	REQUIRE(parameter->getIndex() == 0); // 1x by default
 	REQUIRE_FALSE(parameter->isAutomatable());
 }
 

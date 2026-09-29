@@ -1,6 +1,7 @@
 #pragma once
 
 #include "NonlinearTptLadder.h"
+#include "WidthOscillator.h"
 #include "ContourEnvelope.h"
 #include "Lfo.h"
 
@@ -61,6 +62,10 @@ struct MonoLfoSettings
 
 inline constexpr std::size_t lfoCount = 2;
 
+// Width DC policy (not a saved/automatable parameter until the sound policy is decided): raw keeps each
+// anchor's frozen-Width mean, zeroCentered removes it.
+enum class WidthDcPolicy { raw, zeroCentered };
+
 struct MonoVoiceSettings
 {
 	std::array<float, 3> range, semitone, fine, octave, level, morph, pulseWidth;
@@ -72,6 +77,7 @@ struct MonoVoiceSettings
 	int unison {}, glideMode {}, noiseType {};
 	bool qCompensation {};
 	std::array<MonoLfoSettings, lfoCount> lfo {};
+	WidthDcPolicy widthDcPolicy { WidthDcPolicy::raw };
 };
 
 // Where the LFO sum lands for one sample. Every field is an offset that is exactly zero at zero depth.
@@ -84,9 +90,13 @@ struct MonoModulation
 class MonoVoice
 {
 public:
-	void prepare(double newSampleRate, std::uint32_t seed)
+	// newSampleRate is the rate render() runs at (oversampled); hostSampleRate (default: the same) sets
+	// the oscillator's spectral guard, which is defined at the host Nyquist.
+	void prepare(double newSampleRate, std::uint32_t seed, double hostSampleRate = 0.0)
 	{
 		sampleRate = static_cast<float>(newSampleRate);
+		hostRate = hostSampleRate > 0.0 ? hostSampleRate : newSampleRate;
+		juce::ignoreUnused(WidthWavetable::instance()); // build the shared tables before audio starts
 		for (auto& ladder : filterLadders) ladder.prepare(newSampleRate);
 		random.setSeed(seed);
 		voiceSeed = seed;
@@ -98,8 +108,10 @@ public:
 		amp.setSampleRate(newSampleRate);
 		filterEnvelope.setSampleRate(newSampleRate);
 		cutoffOctaves.reset(newSampleRate, 0.015);
-		// Host automation and knob moves of Morph ramp over 10 ms; LFO modulation is added afterwards, per sample.
+		// Host automation and knob moves of Morph and Width ramp over 10 ms (Width moves each anchor's shape and
+		// DC, so a jump would step the output); LFO modulation is added afterwards, per sample.
 		for (auto& morph : baseMorphs) morph.reset(newSampleRate, 0.01);
+		for (auto& width : baseWidths) width.reset(newSampleRate, 0.01);
 		resonance.reset(newSampleRate, 0.02);
 		driveDecibels.reset(newSampleRate, 0.02);
 		qInputCompensation.reset(newSampleRate, 0.02);
@@ -144,6 +156,7 @@ public:
 		hasPitch = true;
 		targetNote = target;
 		channel = newChannel; note = newNote; velocity = newVelocity; age = newAge;
+		velocityCurve = std::pow(juce::jlimit(0.0f, 1.0f, newVelocity), 0.65f); // shared by amp and filter velocity
 		polyPressure = 0.0f;
 		active = held = true; sustained = false;
 		fadeInSamples = wasActive ? 0 : transitionLength();
@@ -232,7 +245,7 @@ public:
 		const auto inputCompensation = qInputCompensation.getNextValue();
 		// No post-ladder resonance boost: isolate the ladder's own onset.
 		// Q compensation still acts only on driven input inside its feedback equation.
-		const auto velocityGain = (1.0f - settings.ampVelocity) + settings.ampVelocity * std::pow(velocity, 0.65f);
+		const auto velocityGain = (1.0f - settings.ampVelocity) + settings.ampVelocity * velocityCurve;
 		const auto allocationFade = fadeInSamples > 0
 			? 1.0f - static_cast<float>(fadeInSamples--) / static_cast<float>(transitionLength())
 			: 1.0f;
@@ -259,7 +272,10 @@ public:
 			if (!morphsInitialized) baseMorph.setCurrentAndTargetValue(settings.morph[oscillator]);
 			else if (!juce::approximatelyEqual(baseMorph.getTargetValue(), settings.morph[oscillator])) baseMorph.setTargetValue(settings.morph[oscillator]);
 			morphs[oscillator] = juce::jlimit(0.0f, 3.0f, baseMorph.getNextValue() + modulation.morph[oscillator]);
-			widths[oscillator] = juce::jlimit(5.0f, 95.0f, settings.pulseWidth[oscillator] + modulation.width[oscillator]);
+			auto& baseWidth = baseWidths[oscillator];
+			if (!morphsInitialized) baseWidth.setCurrentAndTargetValue(settings.pulseWidth[oscillator]);
+			else if (!juce::approximatelyEqual(baseWidth.getTargetValue(), settings.pulseWidth[oscillator])) baseWidth.setTargetValue(settings.pulseWidth[oscillator]);
+			widths[oscillator] = juce::jlimit(5.0f, 95.0f, baseWidth.getNextValue() + modulation.width[oscillator]);
 		}
 		morphsInitialized = true;
 		// All layers share one ladder setting; their ladders are solved together after the mixers are built.
@@ -272,16 +288,23 @@ public:
 			auto& mixer = mixers[static_cast<std::size_t>(stack)];
 			for (int oscillator = 0; oscillator < 3; ++oscillator)
 			{
-				const auto octave = std::exp2(settings.range[static_cast<std::size_t>(oscillator)] - 1.0f);
 				const auto cents = settings.fine[static_cast<std::size_t>(oscillator)] + normalizedStack * detune
 					+ driftCents * settings.drift * 0.2f;
-				const auto frequency = baseHz * octave * std::exp2(settings.octave[static_cast<std::size_t>(oscillator)]
+				// Range (footage) and Octave in octaves, semitones, cents and pitch modulation in one exp2.
+				const auto frequency = baseHz * std::exp2(settings.range[static_cast<std::size_t>(oscillator)] - 1.0f
+					+ settings.octave[static_cast<std::size_t>(oscillator)]
 					+ (settings.semitone[static_cast<std::size_t>(oscillator)] + cents * 0.01f + modulation.pitch[static_cast<std::size_t>(oscillator)]) / 12.0f);
 				const auto phaseIncrement = frequency / sampleRate;
 				auto& oscillatorPhase = phase[static_cast<std::size_t>(stack)][static_cast<std::size_t>(oscillator)];
 				oscillatorPhase += phaseIncrement;
 				oscillatorPhase -= std::floor(oscillatorPhase);
-				mixer += waveform(oscillatorPhase, phaseIncrement, morphs[static_cast<std::size_t>(oscillator)], widths[static_cast<std::size_t>(oscillator)]) * levels[static_cast<std::size_t>(oscillator)];
+				const auto morph = morphs[static_cast<std::size_t>(oscillator)];
+				const auto width = widths[static_cast<std::size_t>(oscillator)];
+				const auto level = levels[static_cast<std::size_t>(oscillator)];
+				// Silent oscillators are skipped; their phase still runs.
+				if (level > 0.0f)
+					mixer += renderWidthOscillator(widthStates[static_cast<std::size_t>(stack)][static_cast<std::size_t>(oscillator)],
+						oscillatorPhase, frequency, hostRate, morph, width, settings.widthDcPolicy == WidthDcPolicy::zeroCentered) * level;
 			}
 			if (settings.noiseType != 0)
 			{
@@ -364,98 +387,6 @@ private:
 		return std::max(1, static_cast<int>(std::round(voiceTransitionSeconds * sampleRate)));
 	}
 
-	static float wrapPhase(float phase) noexcept { return phase - std::floor(phase); }
-
-	// Integrated polyBLEP: the correction for a unit change of slope (per cycle) at phase 0, divided by
-	// (increment / 2). A symmetric cubic bump spanning one sample either side of the corner.
-	static float polyBlamp(float position, float increment) noexcept
-	{
-		if (position < increment)
-		{
-			const auto t = 1.0f - position / increment;
-			return t * t * t / 3.0f;
-		}
-		if (position > 1.0f - increment)
-		{
-			const auto t = 1.0f + (position - 1.0f) / increment;
-			return t * t * t / 3.0f;
-		}
-		return 0.0f;
-	}
-
-	static float polyBlep(float position, float phaseIncrement) noexcept
-	{
-		const auto increment = juce::jlimit(1.0e-6f, 0.5f, phaseIncrement);
-		if (position < increment)
-		{
-			const auto t = position / increment;
-			return t + t - t * t - 1.0f;
-		}
-		if (position > 1.0f - increment)
-		{
-			const auto t = (position - 1.0f) / increment;
-			return t * t + t + t + 1.0f;
-		}
-		return 0.0f;
-	}
-
-public:
-	// Morph anchors: 0 sine, 1 triangle, 2 saw, 3 pulse (square at 50% width). Every anchor's fundamental
-	// is +sin(2 pi phase), so morphing moves harmonics between shapes instead of cancelling the fundamental,
-	// and every anchor has the saw's RMS (1/sqrt 3) so Morph does not act as a hidden ladder drive.
-	static constexpr float sineAnchorGain = 0.81649658f;  // sqrt(2/3): sine RMS 0.707 -> 0.577 (-1.76 dB)
-	static constexpr float pulseAnchorGain = 0.57735027f; // 1/sqrt 3: a +/-1 pulse has RMS 1 at every width (-4.77 dB)
-
-	static float anchorWave(int anchor, float position, float phaseIncrement, float width) noexcept
-	{
-		switch (anchor)
-		{
-		case 0: return sineAnchorGain * std::sin(twoPi * position);
-		case 1:
-		{
-			// Peaks at a quarter cycle, in phase with the sine. polyBLAMP rounds the corners, where the
-			// slope jumps by -8 (peak) and +8 (trough) per cycle, to reduce aliasing like polyBLEP on the saw.
-			auto shifted = position + 0.25f;
-			shifted -= std::floor(shifted);
-			const auto increment = juce::jlimit(1.0e-6f, 0.5f, phaseIncrement);
-			return 1.0f - 4.0f * std::abs(shifted - 0.5f)
-				- 4.0f * increment * polyBlamp(wrapPhase(position - 0.25f), increment)
-				+ 4.0f * increment * polyBlamp(wrapPhase(position - 0.75f), increment);
-		}
-		case 2: return 1.0f - 2.0f * position + polyBlep(position, phaseIncrement); // falling ramp: fundamental +sin
-		default:
-		{
-			const auto pulseWidth = width * 0.01f;
-			const auto pulsePhase = position < pulseWidth ? position + 1.0f - pulseWidth : position - pulseWidth;
-			return pulseAnchorGain * ((position < pulseWidth ? 1.0f : -1.0f) + polyBlep(position, phaseIncrement) - polyBlep(pulsePhase, phaseIncrement));
-		}
-		}
-	}
-
-	// Share of the next anchor at a position within a segment: linear from sine to triangle, and warped by
-	// sawMorphWeight on both sides of the saw so its harmonics arrive late and leave early.
-	static float segmentMix(int segment, float fraction) noexcept
-	{
-		switch (segment)
-		{
-		case 0: return fraction;
-		case 1: return sawMorphWeight(fraction);
-		default: return 1.0f - sawMorphWeight(1.0f - fraction);
-		}
-	}
-
-	// Mixes the two adjacent anchors, read from one shared phase.
-	static float waveform(float position, float phaseIncrement, float morph, float width) noexcept
-	{
-		const auto segment = juce::jlimit(0, 2, static_cast<int>(morph));
-		const auto fraction = morph - static_cast<float>(segment);
-		const auto from = anchorWave(segment, position, phaseIncrement, width);
-		if (fraction <= 0.0f) return from;
-		return from + segmentMix(segment, fraction) * (anchorWave(segment + 1, position, phaseIncrement, width) - from);
-	}
-
-private:
-
 	void updateFilterControlTargets(const MonoVoiceSettings& settings)
 	{
 		const auto cutoffTarget = std::log2(juce::jlimit(10.0f, 32'000.0f, settings.cutoff));
@@ -483,7 +414,7 @@ private:
 		// offset cutoff in octave/control-voltage space rather than linear Hertz.
 		const auto keyOctaves = (playedNote - 60.0f) / 12.0f * settings.tracking;
 		const auto contourOctaves = settings.envelopeAmount * envelopeValue * maximumContourOctaves;
-		const auto velocityResponse = std::pow(juce::jlimit(0.0f, 1.0f, velocity), 0.65f);
+		const auto velocityResponse = velocityCurve;
 		const auto velocityOctaves = -settings.filterVelocity * (1.0f - velocityResponse) * maximumVelocityOctaves;
 		const auto maximumCutoff = std::min(32'000.0f, sampleRate * 0.45f);
 		const auto cutoff = juce::jlimit(10.0f, maximumCutoff,
@@ -528,15 +459,17 @@ private:
 	juce::Random random;
 	ContourEnvelope amp, filterEnvelope;
 	juce::SmoothedValue<float> cutoffOctaves, resonance, driveDecibels, qInputCompensation;
-	std::array<juce::SmoothedValue<float>, 3> baseMorphs;
+	std::array<juce::SmoothedValue<float>, 3> baseMorphs, baseWidths;
 	std::array<float, 3> lastMorphs {};
 	bool morphsInitialized {};
 	std::array<std::array<float, 3>, 4> phase {};
 	std::array<NonlinearTptLadder, 4> filterLadders;
+	std::array<std::array<WidthOscillatorState, 3>, 4> widthStates {}; // [unison layer][oscillator]
+	double hostRate { 48'000.0 };
 	std::array<float, 2> continuityOffset {}, lastOutput {};
 	std::array<float, 4> pinkStates {};
 	float unisonPhaseSpread {};
-	float currentNote {}, targetNote {}, velocity {}, panPosition {}, driftCents {};
+	float currentNote {}, targetNote {}, velocity {}, velocityCurve {}, panPosition {}, driftCents {};
 	int channel {}, note {};
 	std::uint64_t age {};
 	bool active {}, held {}, sustained {}, filterControlsInitialized {}, continuityPending {};

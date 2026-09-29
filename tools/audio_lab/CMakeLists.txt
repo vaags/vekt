@@ -62,6 +62,22 @@ target_link_libraries(VektMonoResonanceVoice PRIVATE
 	vekt::juce_runtime
 	vekt_project_options)
 
+add_executable(VektMonoWidthPitchLevelListening MonoWidthPitchLevelListeningMain.cpp)
+target_link_libraries(VektMonoWidthPitchLevelListening PRIVATE
+	VektMonoCore
+	vekt::dsp
+	vekt::juce_headers
+	vekt::juce_runtime
+	vekt_project_options)
+
+add_executable(VektMonoAdditiveCost MonoAdditiveCostMain.cpp)
+target_link_libraries(VektMonoAdditiveCost PRIVATE
+	VektMonoCore
+	vekt::dsp
+	vekt::juce_headers
+	vekt::juce_runtime
+	vekt_project_options)
+
 add_executable(VektLadderPrototype
 	LadderPrototype.cpp
 	LadderPrototypeMain.cpp)

@@ -131,7 +131,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	activeVoicesLabel.setTooltip("Voices sounding now, including release tails, out of the Voice count limit.");
 	performancePanel.addAndMakeVisible(activeVoicesLabel);
 	noiseBox.setTooltip("White or pink noise source.");
-	qualityBox.setTooltip("1x is the zero-oversampling default; 2x uses minimum-phase IIR, and 4x/8x use linear-phase FIR. Higher factors use more CPU and add latency. Changing it cuts any sounding notes.");
+	qualityBox.setTooltip("1x is the zero-oversampling default; 2x uses minimum-phase IIR, and 4x/8x use linear-phase FIR. Higher factors reduce filter aliasing on bright high notes but use more CPU and add latency. Changing it cuts any sounding notes.");
 	performanceModeBox.setTooltip("Mono retriggers each note; Mono Legato keeps the envelope active while notes overlap.");
 	heldKeyReturnButton.setTooltip("When enabled, releasing the active mono note returns to the selected still-held key (last or lowest priority).");
 	glideBox.setTooltip("Always glides every note change; Legato glides only while another note is held.");

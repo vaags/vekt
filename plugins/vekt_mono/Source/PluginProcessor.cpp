@@ -198,7 +198,8 @@ PluginProcessor::CoupledWorkSnapshot PluginProcessor::coupledWorkSnapshot() cons
 void PluginProcessor::prepareToPlay(double newSampleRate, int maximumBlockSize)
 {
 	sampleRateHz = newSampleRate;
-	oversampling.prepare(static_cast<std::size_t>(std::max(maximumBlockSize, 1)));
+	preparedBlockSize = std::max(maximumBlockSize, 1);
+	oversampling.prepare(static_cast<std::size_t>(preparedBlockSize));
 	for (auto& clock : lfoClocks) clock->reset();
 	vibratoClock->reset();
 	activeVoiceCount = choiceToVoiceCount(value(parameters::voiceCount));
@@ -242,7 +243,7 @@ void PluginProcessor::configureQuality(int quality)
 	for (std::size_t index = 0; index < voices.size(); ++index)
 	{
 		voices[index]->prepare(effectiveSampleRate,
-			0x4d6f6e6fu + static_cast<std::uint32_t>(index * 977));
+			0x4d6f6e6fu + static_cast<std::uint32_t>(index * 977), sampleRateHz);
 	}
 	setLatencySamples(oversampling.getActiveLatencySamples());
 }
@@ -454,6 +455,13 @@ void PluginProcessor::resetPlayingState()
 void PluginProcessor::render(juce::AudioBuffer<float>& buffer, int start, int count)
 {
 	if (count <= 0) return;
+	// The oversampler only holds the prepared block size; split larger host blocks.
+	if (activeQuality != 0 && count > preparedBlockSize)
+	{
+		for (int offset = 0; offset < count; offset += preparedBlockSize)
+			render(buffer, start + offset, std::min(preparedBlockSize, count - offset));
+		return;
+	}
 	const auto settings = snapshotSettings();
 	for (std::size_t index = 0; index < lfoClocks.size(); ++index) lfoClocks[index]->setRate(settings.lfo[index].source.rateHz);
 	vibratoClock->setRate(value(parameters::vibratoRate));

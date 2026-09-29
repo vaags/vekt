@@ -330,13 +330,13 @@ TEST_CASE("Mono quality menu exposes four selectable factors", "[mono][processor
 	juce::ComboBox* quality = nullptr;
 	for (auto* child : performance.getChildren())
 		if (auto* box = dynamic_cast<juce::ComboBox*>(child);
-			box != nullptr && box->getTooltip().contains("2x uses minimum-phase IIR"))
+			box != nullptr && box->getTooltip().contains("uses minimum-phase IIR"))
 			quality = box;
 	REQUIRE(quality != nullptr);
 	REQUIRE(quality->getNumItems() == 4);
 	for (int index = 0; index < 4; ++index)
 		REQUIRE(quality->getItemText(index) == juce::String(1 << index) + "x");
-	REQUIRE(quality->getSelectedItemIndex() == 0);
+	REQUIRE(quality->getSelectedItemIndex() == 0); // 1x is the default
 	quality->setSelectedItemIndex(3, juce::sendNotificationSync);
 	const auto* parameter = dynamic_cast<juce::AudioParameterChoice*>(
 		processor.getParameters().getParameter(vekt::mono::parameters::quality));

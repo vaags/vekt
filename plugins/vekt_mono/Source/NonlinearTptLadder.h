@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <span>
 
@@ -74,7 +75,19 @@ private:
 	[[nodiscard]] float completeCoupledStep(const std::array<double, 4>& output, double error, int iterations,
 		std::uint64_t lineSearchTrials, double feedbackInput, float driveGain, bool driveCompensation) noexcept;
 
+	// Drive in dB to linear gain, recomputed only when Drive changes (pow per sample is measurable).
+	[[nodiscard]] float driveGainFor(float decibels) noexcept
+	{
+		if (std::abs(decibels - cachedDriveDecibels) > 0.0f)
+		{
+			cachedDriveDecibels = decibels;
+			cachedDriveGain = std::pow(10.0f, decibels / 20.0f);
+		}
+		return cachedDriveGain;
+	}
+
 	float sampleRate { 48'000.0f };
+	float cachedDriveDecibels {}, cachedDriveGain { 1.0f };
 	double previousFeedbackInput {};
 	std::array<double, 4> integratorState {};
 	std::array<double, 4> previousOutput {};

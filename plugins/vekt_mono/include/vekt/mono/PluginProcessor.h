@@ -123,6 +123,7 @@ private:
 	int activeQuality {};
 	std::uint64_t noteAge {};
 	double sampleRateHz { 48'000.0 };
+	int preparedBlockSize { 1 };
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginProcessor)
 };
 }

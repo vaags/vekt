@@ -42,7 +42,7 @@
     "osc3Morph": 2,
     "osc1PulseWidth": 50,
     "osc2PulseWidth": 50,
-    "osc3PulseWidth": 42,
+    "osc3PulseWidth": 50,
     "noiseType": 0,
     "noiseLevel": 0,
     "filterCutoff": 680,

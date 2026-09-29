@@ -28,6 +28,7 @@ add_executable(vekt_dsp_tests
 	processor/MonoLfoTests.cpp
 	processor/MonoLfoRoutingTests.cpp
 	processor/MonoOscillatorTests.cpp
+	processor/MonoWidthRendererComparisonTests.cpp
 	processor/MonoUnisonTests.cpp
 	processor/MonoReproducibilityTests.cpp
 	processor/MonoLadderBatchTests.cpp
