@@ -151,8 +151,8 @@ private:
 	std::array<std::unique_ptr<SliderAttachment>, 5> ampAttachments;
 	std::array<ui::RotaryControl, 5> filterEnvelopeControls;
 	std::array<std::unique_ptr<SliderAttachment>, 5> filterEnvelopeAttachments;
-	std::array<ui::RotaryControl, 4> voiceControls;
-	std::array<std::unique_ptr<SliderAttachment>, 4> voiceAttachments;
+	std::array<ui::RotaryControl, 5> voiceControls;
+	std::array<std::unique_ptr<SliderAttachment>, 5> voiceAttachments;
 	juce::Slider outputFader;
 	ui::LevelMeter outputMeter { "OUT", juce::Colour::fromRGB(227, 156, 75), ui::LevelMeter::Orientation::vertical };
 	std::unique_ptr<SliderAttachment> outputAttachment;

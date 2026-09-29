@@ -879,3 +879,36 @@ not in presets, default Off (older sessions without it restore Off). The Perform
 Multicore shortens each callback; total CPU across cores rises slightly. A single voice gains nothing.
 Still to check: behavior in real hosts (Logic AU with workgroup, a VST3 host without), and small host
 block sizes where waking helpers costs a larger share.
+
+## Drift: oscillator slop and voice-card variation
+
+The existing Drift parameter (0–100 %, already stored in every preset) is now an analog-instability
+control, visible as a fifth knob in the Voice panel (the Noise and Output panels were narrowed to fit).
+At 100 %:
+
+* **Slop:** each oscillator of each voice and unison layer follows its own smooth random walk (a new
+  target every 1.5–4 s, two 0.6 s one-pole stages, motion below ~0.5 Hz), up to ±7 cents, plus a fixed
+  per-voice, per-oscillator tuning offset of up to ±3 cents. Previously Drift was one static per-voice
+  offset of up to ±20 cents.
+* **Vintage:** each voice slot has fixed tolerances: cutoff ±4 % (±0.057 octave), amp and filter envelope
+  times (attack, decay, release) ±6 % each, level ±0.3 dB.
+* Drift still scales the LFOs' per-voice rate, phase, symmetry and level variation as before.
+
+The walks and tolerances use a per-voice random stream separate from the phases and noise, so rendering
+stays reproducible and Multicore-identical. Tests cover the walk (bounded, no steps, slow) and a held A4
+at 100 % (wanders about -1 to +7 cents over 20 s; exact at 0 %). Cost: about +2 % for 8 voices.
+Presets using Drift change sound, most noticeably Tide Motion (72 %), Entropy FX (58 %), Vapor Pad (46 %),
+Horizon Pad (34 %), Orbit Motion (30 %), Polaris FX (24 %) and Comet FX (20 %).
+
+Follow-up: 100 % was too tame, so the knob is now progressive. The depths above are scaled by
+`driftAmount` = d + 3 d³ (d = Drift / 100: 0.10 at 10 %, 0.38 at 30 %, 0.88 at 50 %, 4 at 100 %), and the
+walk runs `driftSpeed` = 1 + 2 d² times faster (3x at 100 %). At 100 %: pitch wanders up to ±28 ct plus a
+fixed ±12 ct per voice and oscillator, cutoff ±17 %, envelope times ±24 %, level ±1.2 dB. A held A4 at 100 %
+spanned -25 to +28 ct over 20 s. The previous 100 % now sits near 52 %; presets above ~50 % Drift
+(Tide Motion 72 %, Entropy FX 58 %) become strongly unstable.
+
+Review fixes: (1) unison level compensation estimates how fast the layers separate from Detune; it now also
+counts Drift's per-layer wander (`drift × driftWanderCents` as a neighbour pitch difference), so a held
+4-layer unison at zero Detune and full Drift no longer sinks as the layers decorrelate (-4.7 dB over 8 s
+before, -0.8 dB now; tested). (2) The voice's main random stream keeps the draw the old static drift offset
+used, so unison phase offsets and noise, and therefore every sound at 0 % Drift, match the previous sequence.

@@ -97,8 +97,8 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 		addRotary(filterEnvelopePanel, filterEnvelopeControls[index], ampNames[index], filterEnvelopeIds[index], filterEnvelopeAttachments[index]);
 		filterEnvelopeControls[index].getSlider().setColour(juce::Slider::rotarySliderFillColourId, filterAccent);
 	}
-	const std::array voiceNames { "Detune", "Uni Spread", "Voice Pan", "Glide Time" };
-	const std::array voiceIds { parameters::unisonDetune, parameters::unisonSpread, parameters::voiceWidth, parameters::glideTime };
+	const std::array voiceNames { "Detune", "Uni Spread", "Voice Pan", "Glide Time", "Drift" };
+	const std::array voiceIds { parameters::unisonDetune, parameters::unisonSpread, parameters::voiceWidth, parameters::glideTime, parameters::drift };
 	for (std::size_t index = 0; index < voiceControls.size(); ++index) addRotary(voicePanel, voiceControls[index], voiceNames[index], voiceIds[index], voiceAttachments[index]);
 	for (auto* component : { static_cast<juce::Component*>(&outputFader), static_cast<juce::Component*>(&outputMeter) })
 		ioPanel.addAndMakeVisible(*component);
@@ -137,6 +137,9 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	performanceModeBox.setTooltip("Mono retriggers each note; Mono Legato keeps the envelope active while notes overlap.");
 	heldKeyReturnButton.setTooltip("When enabled, releasing the active mono note returns to the selected still-held key (last or lowest priority).");
 	glideBox.setTooltip("Always glides every note change; Legato glides only while another note is held.");
+	voiceControls[4].getSlider().setTooltip("Analog instability. Each oscillator wanders in pitch independently, and each voice gets "
+		"its own cutoff, envelope-time and level offsets, like separate analog voice cards. Subtle up to about 30 %; "
+		"at 100 % pitch wanders up to +/-28 ct (plus a fixed +/-12 ct per voice), three times faster.");
 	voiceControls[2].getSlider().setTooltip("Mixes polyphonic voices from centered at 0% to full round-robin stereo panning at 100%.");
 	getContent().addAndMakeVisible(lfoPanel);
 	const std::array destinationNames { "Osc 1 Pitch", "Osc 2 Pitch", "Osc 3 Pitch", "Osc 1 Morph", "Osc 2 Morph", "Osc 3 Morph",
@@ -297,7 +300,7 @@ void PluginEditor::resized()
 	ScalableEditor::resized(); auto& content = getContent(); title.setBounds(20, 16, 220, 40); presetNavigation.setBounds(260, 16, 320, 40); historyControls.setBounds(600, 16, 120, 40); status.setBounds(740, 16, editorWidth - 760, 40); presetBrowser.setBounds(content.getLocalBounds().reduced(20));
 	// Columns match the ADSR/Performance row below: 348 px panels with 16 px gaps.
 	for (std::size_t index = 0; index < oscillatorPanels.size(); ++index) oscillatorPanels[index].setBounds(20 + static_cast<int>(index) * 364, 68, 348, 184);
-	filterPanel.setBounds(20, 268, 348, 180); voicePanel.setBounds(384, 268, 280, 180); noisePanel.setBounds(680, 268, 216, 180); ioPanel.setBounds(912, 268, 188, 180); ampPanel.setBounds(20, 464, 348, 216); filterEnvelopePanel.setBounds(384, 464, 348, 216); performancePanel.setBounds(748, 464, 352, 216);
+	filterPanel.setBounds(20, 268, 348, 180); voicePanel.setBounds(384, 268, 347, 180); noisePanel.setBounds(747, 268, 190, 180); ioPanel.setBounds(953, 268, 147, 180); ampPanel.setBounds(20, 464, 348, 216); filterEnvelopePanel.setBounds(384, 464, 348, 216); performancePanel.setBounds(748, 464, 352, 216);
 	for (std::size_t index = 0; index < oscillatorControls.size(); ++index)
 	{
 		const auto x = 6 + static_cast<int>(index % 5) * 67;
@@ -308,9 +311,9 @@ void PluginEditor::resized()
 	for (std::size_t index = 0; index < ampControls.size(); ++index) ampControls[index].setBounds(6 + static_cast<int>(index) * 67, 38, 65, 140);
 	for (std::size_t index = 0; index < filterEnvelopeControls.size(); ++index) filterEnvelopeControls[index].setBounds(6 + static_cast<int>(index) * 67, 38, 65, 140);
 	for (std::size_t index = 0; index < voiceControls.size(); ++index) voiceControls[index].setBounds(6 + static_cast<int>(index) * 67, 32, 65, 136);
-	noiseTypeLabel.setBounds(12, 38, 112, 18); noiseBox.setBounds(12, 58, 112, 28); noiseLevelControl.setBounds(140, 32, 65, 136);
-	outputFader.setBounds(18, 34, 88, 132);
-	outputMeter.setBounds(124, 38, 36, 104);
+	noiseTypeLabel.setBounds(12, 38, 96, 18); noiseBox.setBounds(12, 58, 96, 28); noiseLevelControl.setBounds(116, 32, 65, 136);
+	outputFader.setBounds(12, 34, 76, 132);
+	outputMeter.setBounds(100, 38, 36, 104);
 	voiceCountBox.setBounds(12, 58, 154, 28); performanceModeBox.setBounds(184, 58, 154, 28); qualityBox.setBounds(12, 116, 154, 28); unisonBox.setBounds(184, 116, 154, 28); glideBox.setBounds(12, 174, 154, 28); multicoreBox.setBounds(184, 174, 154, 28);
 	lfoPanel.setBounds(1116, 68, 348, 380);
 	vibratoPanel.setBounds(1116, 464, 348, 216);

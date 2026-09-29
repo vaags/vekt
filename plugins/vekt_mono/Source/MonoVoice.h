@@ -87,6 +87,58 @@ struct MonoModulation
 	float filter {}, amp {}, drive {}, noise {}, detune {}, spread {};
 };
 
+// Drift (0..100 %) models analog instability: each oscillator of each voice and unison layer wanders slowly
+// and independently (Sequential-style oscillator "slop"), each voice has fixed per-oscillator tuning offsets,
+// and each voice slot has fixed "voice card" tolerances (Prophet-5 rev4-style Vintage). The knob is
+// progressive: driftAmount scales the depths below (1 at about 52 %, 4 at 100 %), and driftSpeed makes the
+// wandering up to 3x faster at the top, so low settings stay subtle and 100 % is plainly unstable.
+inline constexpr float driftWanderCents = 7.0f;         // wandering pitch, per oscillator and layer
+inline constexpr float driftStaticCents = 3.0f;         // fixed per-voice, per-oscillator tuning offset
+inline constexpr float driftCutoffOctaves = 0.057f;     // ~ +/-4 % cutoff per voice
+inline constexpr float driftEnvelopeTimeScale = 0.06f;  // +/-6 % attack, decay and release per voice
+inline constexpr float driftLevelScale = 0.035f;        // ~ +/-0.3 dB per voice
+
+// Depth multiplier for Drift 0..100 %: d + 3 d^3 (0.10 at 10 %, 0.38 at 30 %, 0.88 at 50 %, 4 at 100 %).
+[[nodiscard]] inline float driftAmount(float percent) noexcept
+{
+	const auto d = std::clamp(percent * 0.01f, 0.0f, 1.0f);
+	return d + 3.0f * d * d * d;
+}
+
+// Wander speed multiplier for Drift 0..100 %: 1 + 2 d^2 (3x at 100 %).
+[[nodiscard]] inline float driftSpeed(float percent) noexcept
+{
+	const auto d = std::clamp(percent * 0.01f, 0.0f, 1.0f);
+	return 1.0f + 2.0f * d * d;
+}
+
+// A smooth random walk in -1..1: a new random target every 1.5-4 s (divided by speed), followed through two
+// one-pole stages (0.6 s / speed each), so the motion stays below about 0.5 Hz x speed without steps.
+struct DriftWalk
+{
+	float value {}, stage {}, target {};
+	int samplesToNextTarget {};
+
+	void reset(juce::Random& random, float sampleRate) noexcept
+	{
+		target = random.nextFloat() * 2.0f - 1.0f;
+		stage = value = target;
+		samplesToNextTarget = static_cast<int>(random.nextFloat() * 4.0f * sampleRate);
+	}
+
+	float next(juce::Random& random, float sampleRate, float coefficient, float speed = 1.0f) noexcept
+	{
+		if (--samplesToNextTarget <= 0)
+		{
+			target = random.nextFloat() * 2.0f - 1.0f;
+			samplesToNextTarget = static_cast<int>((1.5f + 2.5f * random.nextFloat()) * sampleRate / speed);
+		}
+		stage += (target - stage) * coefficient;
+		value += (stage - value) * coefficient;
+		return value;
+	}
+};
+
 class MonoVoice
 {
 public:
@@ -96,6 +148,7 @@ public:
 	{
 		sampleRate = static_cast<float>(newSampleRate);
 		hostRate = hostSampleRate > 0.0 ? hostSampleRate : newSampleRate;
+		driftCoefficientSpeed = -1.0f; // Drift walks' one-pole coefficient, recomputed when Drift's speed changes
 		juce::ignoreUnused(WidthWavetable::instance()); // build the shared tables before audio starts
 		for (auto& ladder : filterLadders) ladder.prepare(newSampleRate);
 		random.setSeed(seed);
@@ -129,7 +182,19 @@ public:
 		for (auto& stackPhase : phase)
 			for (auto& oscillatorPhase : stackPhase)
 				oscillatorPhase = random.nextFloat();
-		driftCents = random.nextFloat() * 2.0f - 1.0f;
+		// Drift: this voice card's fixed tolerances, and each oscillator's wandering pitch, from their own stream
+		// so they are independent of the voice's phases and noise.
+		// The voice stream once drew a static drift offset here; keep the draw so the phases and noise that
+		// follow, and so every Drift-off sound, are unchanged.
+		juce::ignoreUnused(random.nextFloat());
+		driftRandom.setSeed(static_cast<juce::int64>(voiceSeed) * 0x9E3779B1LL + 0x5DEECE66DLL);
+		for (auto& offset : driftTuning) offset = driftRandom.nextFloat() * 2.0f - 1.0f;
+		driftCutoff = driftRandom.nextFloat() * 2.0f - 1.0f;
+		driftAmpTime = driftRandom.nextFloat() * 2.0f - 1.0f;
+		driftFilterTime = driftRandom.nextFloat() * 2.0f - 1.0f;
+		driftLevel = driftRandom.nextFloat() * 2.0f - 1.0f;
+		for (auto& layer : driftWalks)
+			for (auto& walk : layer) walk.reset(driftRandom, sampleRate);
 		pinkStates = {};
 		unisonPhaseSpread = 0.0f;
 		for (std::size_t index = 0; index < lfos.size(); ++index)
@@ -180,9 +245,7 @@ public:
 		continuityOffset = {};
 		if (retrigger)
 		{
-			ContourEnvelope::Parameters ampParameters { settings.ampAttack, settings.ampDecay, settings.ampSustain, settings.ampRelease };
-			ContourEnvelope::Parameters filterParameters { settings.filterAttack, settings.filterDecay, settings.filterSustain, settings.filterRelease };
-			amp.setParameters(ampParameters); filterEnvelope.setParameters(filterParameters);
+			amp.setParameters(ampEnvelopeParameters(settings)); filterEnvelope.setParameters(filterEnvelopeParameters(settings));
 			amp.noteOn(); filterEnvelope.noteOn();
 			// LFOs restart (Retrigger/One Shot) and re-run delay and fade whenever the envelopes retrigger.
 			for (std::size_t index = 0; index < lfos.size(); ++index)
@@ -240,8 +303,8 @@ public:
 		if (!active) return false;
 		// Refresh the parameters at each rendered segment (the processor snapshots
 		// automation at MIDI/block boundaries), including while a key is held.
-		amp.setParameters({ settings.ampAttack, settings.ampDecay, settings.ampSustain, settings.ampRelease });
-		filterEnvelope.setParameters({ settings.filterAttack, settings.filterDecay, settings.filterSustain, settings.filterRelease });
+		amp.setParameters(ampEnvelopeParameters(settings));
+		filterEnvelope.setParameters(filterEnvelopeParameters(settings));
 		auto modulation = nextModulation(settings, lfoClockPositions);
 		vibratoControl += (std::max(channelControl, polyPressure) - vibratoControl) * vibratoSmoothing;
 		for (auto& pitch : modulation.pitch) pitch += vibratoSemitones * vibratoControl;
@@ -263,14 +326,24 @@ public:
 		const auto allocationFade = fadeInSamples > 0
 			? 1.0f - static_cast<float>(fadeInSamples--) / static_cast<float>(transitionLength())
 			: 1.0f;
-		const auto amplitude = amp.getNextSample() * velocityGain * allocationFade * juce::jlimit(0.0f, 1.0f, 1.0f + modulation.amp);
+		const auto drift = driftAmount(settings.drift);
+		const auto wanderSpeed = driftSpeed(settings.drift);
+		if (std::abs(wanderSpeed - driftCoefficientSpeed) > 0.0f)
+		{
+			driftCoefficientSpeed = wanderSpeed;
+			driftCoefficient = 1.0f - std::exp(-wanderSpeed / (0.6f * sampleRate));
+		}
+		const auto amplitude = amp.getNextSample() * velocityGain * allocationFade * juce::jlimit(0.0f, 1.0f, 1.0f + modulation.amp)
+			* (1.0f + drift * driftLevelScale * driftLevel);
 		const auto detune = juce::jlimit(0.0f, 50.0f, settings.detune + modulation.detune);
 		// The layers' phase spread only grows during a note: by the drift between neighbouring layers at the
 		// current detune. Gain follows this spread, not the detune setting, so automating detune while a note
 		// holds changes the level only as fast as the layers actually drift apart.
 		if (unisonCount > 1 && unisonPhaseSpread < 1.0f)
 		{
-			const auto neighbourCents = 2.0f * detune / static_cast<float>(unisonCount - 1);
+			// Drift's per-layer wander separates the layers too, even at zero Detune; its depth is a typical
+			// pitch difference between two independent walks.
+			const auto neighbourCents = 2.0f * detune / static_cast<float>(unisonCount - 1) + drift * driftWanderCents;
 			unisonPhaseSpread = std::min(1.0f, unisonPhaseSpread + baseHz * (std::exp2(neighbourCents / 1'200.0f) - 1.0f) / sampleRate);
 		}
 		const auto noiseCorrelation = unisonNoiseCorrelation(unisonCount, unisonPhaseSpread);
@@ -294,7 +367,7 @@ public:
 		morphsInitialized = true;
 		// All layers share one ladder setting; their ladders are solved together after the mixers are built.
 		const auto ladderSettings = filterSettings(settings, filterEnvelopeValue, filterCutoff, filterResonance,
-			filterDriveDb, inputCompensation, playedNote, modulation.filter);
+			filterDriveDb, inputCompensation, playedNote, modulation.filter + drift * driftCutoffOctaves * driftCutoff);
 		auto& mixers = pending.mixers;
 		auto& pans = pending.pans;
 		mixers = {};
@@ -305,8 +378,11 @@ public:
 			auto& mixer = mixers[static_cast<std::size_t>(stack)];
 			for (int oscillator = 0; oscillator < 3; ++oscillator)
 			{
+				// The walk runs whether or not Drift is up, so turning Drift up mid-note joins its motion smoothly.
+				const auto wander = driftWalks[static_cast<std::size_t>(stack)][static_cast<std::size_t>(oscillator)]
+					.next(driftRandom, sampleRate, driftCoefficient, wanderSpeed);
 				const auto cents = settings.fine[static_cast<std::size_t>(oscillator)] + normalizedStack * detune
-					+ driftCents * settings.drift * 0.2f;
+					+ drift * (driftWanderCents * wander + driftStaticCents * driftTuning[static_cast<std::size_t>(oscillator)]);
 				// Range (footage) and Octave in octaves, semitones, cents and pitch modulation in one exp2.
 				const auto frequency = baseHz * std::exp2(settings.range[static_cast<std::size_t>(oscillator)] - 1.0f
 					+ settings.octave[static_cast<std::size_t>(oscillator)]
@@ -428,6 +504,19 @@ private:
 		return std::max(1, static_cast<int>(std::round(voiceTransitionSeconds * sampleRate)));
 	}
 
+	// Envelope times scaled by this voice card's Drift tolerance (sustain is a level, left as is).
+	[[nodiscard]] ContourEnvelope::Parameters ampEnvelopeParameters(const MonoVoiceSettings& settings) const noexcept
+	{
+		const auto scale = 1.0f + driftAmount(settings.drift) * driftEnvelopeTimeScale * driftAmpTime;
+		return { settings.ampAttack * scale, settings.ampDecay * scale, settings.ampSustain, settings.ampRelease * scale };
+	}
+
+	[[nodiscard]] ContourEnvelope::Parameters filterEnvelopeParameters(const MonoVoiceSettings& settings) const noexcept
+	{
+		const auto scale = 1.0f + driftAmount(settings.drift) * driftEnvelopeTimeScale * driftFilterTime;
+		return { settings.filterAttack * scale, settings.filterDecay * scale, settings.filterSustain, settings.filterRelease * scale };
+	}
+
 	void updateFilterControlTargets(const MonoVoiceSettings& settings)
 	{
 		const auto cutoffTarget = std::log2(juce::jlimit(10.0f, 32'000.0f, settings.cutoff));
@@ -518,7 +607,12 @@ private:
 	std::array<float, 2> continuityOffset {}, lastOutput {};
 	std::array<float, 4> pinkStates {};
 	float unisonPhaseSpread {};
-	float currentNote {}, targetNote {}, velocity {}, velocityCurve {}, panPosition {}, driftCents {};
+	float currentNote {}, targetNote {}, velocity {}, velocityCurve {}, panPosition {};
+	juce::Random driftRandom;
+	std::array<std::array<DriftWalk, 3>, 4> driftWalks {}; // [unison layer][oscillator]
+	std::array<float, 3> driftTuning {};
+	float driftCoefficient { 1.0f }, driftCoefficientSpeed { -1.0f };
+	float driftCutoff {}, driftAmpTime {}, driftFilterTime {}, driftLevel {};
 	int channel {}, note {};
 	std::uint64_t age {};
 	bool active {}, held {}, sustained {}, filterControlsInitialized {}, continuityPending {};

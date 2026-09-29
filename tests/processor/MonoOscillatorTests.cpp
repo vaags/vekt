@@ -575,3 +575,123 @@ TEST_CASE("Mono Width knob jumps ramp instead of stepping the oscillator", "[mon
 		REQUIRE(jumpStep < 1.5f * steadyStep);
 	}
 }
+
+TEST_CASE("Mono Drift walk is bounded, smooth and slow", "[mono][oscillator][drift]")
+{
+	constexpr float rate = 48'000.0f;
+	const auto coefficient = 1.0f - std::exp(-1.0f / (0.6f * rate));
+	juce::Random random(1234);
+	vekt::mono::DriftWalk walk;
+	walk.reset(random, rate);
+	float previous = walk.value, minimum = walk.value, maximum = walk.value, largestStep {};
+	int signChanges {};
+	for (int sample = 0; sample < static_cast<int>(60.0f * rate); ++sample)
+	{
+		const auto value = walk.next(random, rate, coefficient);
+		largestStep = std::max(largestStep, std::abs(value - previous));
+		if ((value > 0.0f) != (previous > 0.0f)) ++signChanges;
+		minimum = std::min(minimum, value);
+		maximum = std::max(maximum, value);
+		previous = value;
+	}
+	REQUIRE(minimum >= -1.0f);
+	REQUIRE(maximum <= 1.0f);
+	REQUIRE(maximum - minimum > 0.5f);   // it actually wanders over a minute
+	REQUIRE(largestStep < 1.0e-4f);      // no steps: ~0.5 Hz motion moves far less than this per sample
+	REQUIRE(signChanges < 60);           // slow: well under one zero crossing per second
+}
+
+TEST_CASE("Mono Drift wanders each voice's pitch by a few cents", "[mono][oscillator][drift]")
+{
+	// A held A4 sine through the open filter; pitch measured from interpolated rising zero crossings in
+	// half-second windows over 20 s.
+	const auto pitchCents = [](float drift)
+	{
+		vekt::mono::MonoVoiceSettings settings {};
+		settings.range.fill(1.0f);
+		settings.level = { 1.0f, 0.0f, 0.0f };
+		settings.morph.fill(0.0f);
+		settings.pulseWidth.fill(50.0f);
+		settings.cutoff = 20'000.0f;
+		settings.ampSustain = 1.0f;
+		settings.unison = 1;
+		settings.drift = drift;
+		MonoVoice voice;
+		voice.prepare(48'000.0, 99);
+		voice.start(1, 69, 0.8f, settings, true, false, 1);
+		std::vector<float> windows;
+		float previous {};
+		double lastCrossing = -1.0;
+		int crossings {};
+		double firstCrossing {};
+		constexpr int windowSamples = 24'000;
+		for (int sample = 0; sample < 20 * 48'000; ++sample)
+		{
+			float left {}, right {};
+			voice.render(left, right, settings, 0.0f);
+			if (sample > 4'800 && previous <= 0.0f && left > 0.0f)
+			{
+				const auto crossing = sample - 1 + previous / (previous - left);
+				if (crossings == 0) firstCrossing = crossing;
+				lastCrossing = crossing;
+				++crossings;
+			}
+			previous = left;
+			if (sample > 4'800 && sample % windowSamples == 0 && crossings > 1)
+			{
+				const auto hz = (crossings - 1) * 48'000.0 / (lastCrossing - firstCrossing);
+				windows.push_back(static_cast<float>(1'200.0 * std::log2(hz / 440.0)));
+				crossings = 0;
+			}
+		}
+		return windows;
+	};
+	const auto steady = pitchCents(0.0f);
+	for (const auto cents : steady) REQUIRE(std::abs(cents) < 0.05f);
+	const auto drifting = pitchCents(100.0f);
+	const auto [low, high] = std::minmax_element(drifting.begin(), drifting.end());
+	CAPTURE(*low, *high);
+	REQUIRE(*high - *low > 5.0f);                                          // it moves clearly at full Drift
+	REQUIRE(std::max(std::abs(*low), std::abs(*high)) < 40.5f);            // within 4 x +/-(7 + 3) ct plus measurement
+	// Low settings stay subtle: the depth curve is progressive.
+	REQUIRE(vekt::mono::driftAmount(10.0f) == Catch::Approx(0.103f));
+	REQUIRE(vekt::mono::driftAmount(100.0f) == Catch::Approx(4.0f));
+	REQUIRE(vekt::mono::driftSpeed(100.0f) == Catch::Approx(3.0f));
+}
+
+TEST_CASE("Mono unison level stays put while Drift separates the layers", "[mono][oscillator][drift]")
+{
+	// Four layers at zero Detune start identical; Drift's per-layer wander decorrelates them. The unison
+	// gain must follow that separation, or the note sinks by up to 6 dB as it is held.
+	vekt::mono::MonoVoiceSettings settings {};
+	settings.range.fill(1.0f);
+	settings.level = { 1.0f, 0.0f, 0.0f };
+	settings.morph.fill(2.0f);
+	settings.pulseWidth.fill(50.0f);
+	settings.cutoff = 20'000.0f;
+	settings.ampSustain = 1.0f;
+	settings.unison = 4;
+	settings.detune = 0.0f;
+	settings.drift = 100.0f;
+	MonoVoice voice;
+	voice.prepare(48'000.0, 5);
+	voice.start(1, 57, 0.8f, settings, true, false, 1);
+	const auto windowRms = [&](int samples)
+	{
+		double sum {};
+		for (int sample = 0; sample < samples; ++sample)
+		{
+			float left {}, right {};
+			voice.render(left, right, settings, 0.0f);
+			sum += 0.5 * (static_cast<double>(left) * left + static_cast<double>(right) * right);
+		}
+		return std::sqrt(sum / samples);
+	};
+	windowRms(2'400);
+	const auto start = windowRms(4'800);   // 50-150 ms: layers still nearly identical
+	windowRms(8 * 48'000);
+	const auto held = windowRms(2 * 48'000); // after ~8 s of drifting apart
+	const auto change = 20.0 * std::log10(held / start);
+	CAPTURE(change);
+	REQUIRE(std::abs(change) < 2.0);
+}
