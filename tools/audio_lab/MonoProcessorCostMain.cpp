@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
+#include <string>
 #include <string_view>
 #include <time.h>
 #include <vector>
@@ -36,12 +37,13 @@ void setParameter(vekt::mono::PluginProcessor& processor, const char* identifier
 	parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
 }
 
-int run(double rate, int blockSize, int voices, int factor, double seconds, bool work, bool transitions, bool cpu)
+int run(double rate, int blockSize, int voices, int factor, double seconds, bool work, bool transitions, bool cpu, int unison)
 {
 	if (!vekt::audio_lab::callback_allocation_probe::verify()) return 1;
 	vekt::mono::PluginProcessor processor;
 	const auto qualityIndex = factor == 1 ? 0 : factor == 2 ? 1 : factor == 4 ? 2 : 3;
 	setParameter(processor, vekt::mono::parameters::quality, static_cast<float>(qualityIndex));
+	setParameter(processor, vekt::mono::parameters::unison, static_cast<float>(unison == 1 ? 0 : unison == 2 ? 1 : 2));
 	// Voice Count choices are 2, 4, 8, 12, 16.
 	setParameter(processor, vekt::mono::parameters::voiceCount, static_cast<float>(voices == 8 ? 2 : voices == 12 ? 3 : 4));
 	setParameter(processor, vekt::mono::parameters::performanceMode, 0.0f);
@@ -169,7 +171,7 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 		<< "engine=coupled"
 		<< " workload=" << (transitions ? "transitions" : "sustained")
 		<< " transition_callbacks=" << transitionCallbacks
-		<< " rate=" << rate << " block=" << blockSize << " voices=" << voices
+		<< " rate=" << rate << " block=" << blockSize << " voices=" << voices << " unison=" << unison
 		<< " factor=" << factor << " requested_duration_s=" << seconds
 		<< " measured_duration_s=" << static_cast<double>(callbacks) * blockSize / rate
 		<< " callbacks=" << times.size()
@@ -215,9 +217,9 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 
 int main(int argc, char** argv)
 {
-	if (argc != 6 && argc != 7)
+	if (argc < 6 || argc > 8)
 	{
-		std::cerr << "Usage: VektMonoProcessorCost rate block_size voices(8|12|16) factor(1|2|4|8) seconds [work|transitions|cpu]\n";
+		std::cerr << "Usage: VektMonoProcessorCost rate block_size voices(8|12|16) factor(1|2|4|8) seconds [work|transitions|cpu] [unison=1|2|4]\n";
 		return 64;
 	}
 	try
@@ -227,16 +229,25 @@ int main(int argc, char** argv)
 		const auto voices = std::stoi(argv[3]);
 		const auto factor = std::stoi(argv[4]);
 		const auto seconds = std::stod(argv[5]);
-		const auto work = argc == 7 && std::string_view(argv[6]) == "work";
-		const auto transitions = argc == 7 && std::string_view(argv[6]) == "transitions";
-		const auto cpu = argc == 7 && std::string_view(argv[6]) == "cpu";
+		bool work {}, transitions {}, cpu {};
+		int unison = 1;
+		for (int index = 6; index < argc; ++index)
+		{
+			const std::string_view option(argv[index]);
+			if (option == "work") work = true;
+			else if (option == "transitions") transitions = true;
+			else if (option == "cpu") cpu = true;
+			else if (option.starts_with("unison=")) unison = std::stoi(std::string(option.substr(7)));
+			else return 64;
+		}
 		if (!std::isfinite(rate) || rate < 44'100.0 || rate > 192'000.0
 			|| block < 1 || block > 257 || (voices != 8 && voices != 12 && voices != 16)
 			|| (factor != 1 && factor != 2 && factor != 4 && factor != 8)
 			|| !std::isfinite(seconds) || seconds <= 0.0 || seconds > 30.0
-			|| (argc == 7 && !work && !transitions && !cpu)) return 64;
+			|| static_cast<int>(work) + static_cast<int>(transitions) + static_cast<int>(cpu) > 1
+			|| (unison != 1 && unison != 2 && unison != 4)) return 64;
 		juce::ScopedJuceInitialiser_GUI juceInitialiser;
-		return run(rate, block, voices, factor, seconds, work, transitions, cpu);
+		return run(rate, block, voices, factor, seconds, work, transitions, cpu, unison);
 	}
 	catch (const std::exception&) { return 64; }
 }

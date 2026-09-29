@@ -262,10 +262,14 @@ public:
 			widths[oscillator] = juce::jlimit(5.0f, 95.0f, settings.pulseWidth[oscillator] + modulation.width[oscillator]);
 		}
 		morphsInitialized = true;
+		// All layers share one ladder setting; their ladders are solved together after the mixers are built.
+		const auto ladderSettings = filterSettings(settings, filterEnvelopeValue, filterCutoff, filterResonance,
+			filterDriveDb, inputCompensation, playedNote, modulation.filter);
+		std::array<float, 4> mixers {}, ladderOutputs {}, pans {};
 		for (int stack = 0; stack < unisonCount; ++stack)
 		{
 			const auto normalizedStack = unisonCount == 1 ? 0.0f : (2.0f * static_cast<float>(stack) / static_cast<float>(unisonCount - 1) - 1.0f);
-			float mixer {};
+			auto& mixer = mixers[static_cast<std::size_t>(stack)];
 			for (int oscillator = 0; oscillator < 3; ++oscillator)
 			{
 				const auto octave = std::exp2(settings.range[static_cast<std::size_t>(oscillator)] - 1.0f);
@@ -293,12 +297,17 @@ public:
 				}
 				mixer += noise * noiseLevel;
 			}
-			const auto stackOutput = filter(mixer, settings, filterEnvelopeValue, filterCutoff,
-				filterResonance, filterDriveDb, inputCompensation, stack, playedNote, modulation.filter) * amplitude;
-			const auto pan = juce::jlimit(-1.0f, 1.0f, settings.voiceWidth * panPosition
+			pans[static_cast<std::size_t>(stack)] = juce::jlimit(-1.0f, 1.0f, settings.voiceWidth * panPosition
 				+ normalizedStack * unisonSpread);
-			voiceLeft += stackOutput * std::sqrt(0.5f * (1.0f - pan));
-			voiceRight += stackOutput * std::sqrt(0.5f * (1.0f + pan));
+		}
+		const auto layers = static_cast<std::size_t>(unisonCount);
+		NonlinearTptLadder::processCoupled(std::span(filterLadders.data(), layers), std::span<const float>(mixers.data(), layers),
+			std::span(ladderOutputs.data(), layers), ladderSettings);
+		for (std::size_t stack = 0; stack < layers; ++stack)
+		{
+			const auto stackOutput = ladderOutputs[stack] * amplitude;
+			voiceLeft += stackOutput * std::sqrt(0.5f * (1.0f - pans[stack]));
+			voiceRight += stackOutput * std::sqrt(0.5f * (1.0f + pans[stack]));
 		}
 		const auto layerGain = unisonGain(unisonCount, unisonPhaseSpread);
 		voiceLeft *= layerGain;
@@ -467,8 +476,8 @@ private:
 		if (!juce::approximatelyEqual(qInputCompensation.getTargetValue(), compensationTarget)) qInputCompensation.setTargetValue(compensationTarget);
 	}
 
-	float filter(float input, const MonoVoiceSettings& settings, float envelopeValue, float baseCutoff,
-		float resonanceAmount, float driveDb, float inputCompensation, int stack, float playedNote, float lfoOctaves)
+	[[nodiscard]] NonlinearTptLadderSettings filterSettings(const MonoVoiceSettings& settings, float envelopeValue, float baseCutoff,
+		float resonanceAmount, float driveDb, float inputCompensation, float playedNote, float lfoOctaves) const noexcept
 	{
 		// A ladder is controlled exponentially: keyboard, contour and velocity all
 		// offset cutoff in octave/control-voltage space rather than linear Hertz.
@@ -479,8 +488,7 @@ private:
 		const auto maximumCutoff = std::min(32'000.0f, sampleRate * 0.45f);
 		const auto cutoff = juce::jlimit(10.0f, maximumCutoff,
 			baseCutoff * std::exp2(keyOctaves + contourOctaves + velocityOctaves + lfoOctaves));
-		const NonlinearTptLadderSettings ladderSettings { cutoff, resonanceAmount, driveDb, false, inputCompensation };
-		return filterLadders[static_cast<std::size_t>(stack)].processCoupled(input, ladderSettings);
+		return { cutoff, resonanceAmount, driveDb, false, inputCompensation };
 	}
 
 	[[nodiscard]] MonoModulation nextModulation(const MonoVoiceSettings& settings, const std::array<double, lfoCount>& clockPositions) noexcept

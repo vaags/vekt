@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <span>
 
 namespace vekt::mono
 {
@@ -37,6 +38,12 @@ public:
 	[[nodiscard]] float process(float input, const NonlinearTptLadderSettings& settings) noexcept;
 	// Production solve of the four implicit stage equations.
 	[[nodiscard]] float processCoupled(float input, const NonlinearTptLadderSettings& settings) noexcept;
+	// Solves several ladders that share settings (e.g. one voice's unison layers) in lockstep. Each ladder keeps
+	// its own convergence, line search and diagnostics exactly as processCoupled; for two or four ladders prepared
+	// at the same sample rate, tanh is evaluated as a vector (Apple simd), which differs from libm by about 2 ulp.
+	// Any other count, or ladders prepared at different rates, use processCoupled per ladder.
+	static void processCoupled(std::span<NonlinearTptLadder> ladders, std::span<const float> inputs,
+		std::span<float> outputs, const NonlinearTptLadderSettings& settings) noexcept;
 	// Development-only bounded integration variant. Prepare at the rate of the
 	// incoming samples; interpolate endpoints and preserve that rate's prewarp.
 	[[nodiscard]] float processSubstepped(float input, const NonlinearTptLadderSettings& settings,
@@ -60,6 +67,12 @@ private:
 	[[nodiscard]] Evaluation evaluate(double input, double integrationGain) const noexcept;
 	[[nodiscard]] float processStep(float input, const NonlinearTptLadderSettings& settings,
 		double integrationGain) noexcept;
+	template <std::size_t Lanes>
+	static void processCoupledLanes(std::span<NonlinearTptLadder> ladders, std::span<const float> inputs,
+		std::span<float> outputs, const NonlinearTptLadderSettings& settings) noexcept;
+	// Shared end of a coupled step: diagnostics, the non-finite guard and the state update.
+	[[nodiscard]] float completeCoupledStep(const std::array<double, 4>& output, double error, int iterations,
+		std::uint64_t lineSearchTrials, double feedbackInput, float driveGain, bool driveCompensation) noexcept;
 
 	float sampleRate { 48'000.0f };
 	double previousFeedbackInput {};

@@ -2,9 +2,14 @@
 #include "LadderResonance.h"
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <limits>
 #include <numbers>
+
+#if defined(__APPLE__)
+#include <simd/simd.h>
+#endif
 
 namespace vekt::mono
 {
@@ -15,10 +20,38 @@ constexpr int maximumStageIterations = 24;
 constexpr double convergenceTolerance = 2.0e-7;
 constexpr double signalLimit = 24.0;
 
+[[nodiscard]] double sechSquaredFromTanh(double tangent) noexcept
+{
+	return std::max(0.0, 1.0 - tangent * tangent);
+}
+
+template <std::size_t Lanes>
+using LaneValues = std::array<double, Lanes>;
+
+// tanh of every lane at once. Apple's vector tanh is about 2.4x faster than scalar libm and within ~2 ulp of it.
+template <std::size_t Lanes>
+[[nodiscard]] LaneValues<Lanes> tanhLanes(const LaneValues<Lanes>& values) noexcept
+{
+#if defined(__APPLE__)
+	if constexpr (Lanes == 2)
+	{
+		const auto result = simd::tanh(simd_double2 { values[0], values[1] });
+		return { result[0], result[1] };
+	}
+	else if constexpr (Lanes == 4)
+	{
+		const auto result = simd::tanh(simd_double4 { values[0], values[1], values[2], values[3] });
+		return { result[0], result[1], result[2], result[3] };
+	}
+#endif
+	LaneValues<Lanes> result {};
+	for (std::size_t lane = 0; lane < Lanes; ++lane) result[lane] = std::tanh(values[lane]);
+	return result;
+}
+
 [[nodiscard]] double sechSquared(double value) noexcept
 {
-	const auto tangent = std::tanh(value);
-	return std::max(0.0, 1.0 - tangent * tangent);
+	return sechSquaredFromTanh(std::tanh(value));
 }
 }
 
@@ -223,17 +256,26 @@ float NonlinearTptLadder::processCoupled(float input, const NonlinearTptLadderSe
 	// With zero input this is exactly the uncompensated feedback system.
 	const auto excitation = driven + k * std::clamp(static_cast<double>(settings.inputFeedbackCompensation), 0.0, 0.5) * driven;
 	std::array<double, 4> output = previousOutput;
-	const auto residuals = [&](const std::array<double, 4>& values)
+	// tanh dominates the cost. Each distinct argument is evaluated once per trial point: stage s's input is
+	// stage s-1's output, and the Newton step reuses the tanh values from the residual at the current point.
+	// This is exactly the arithmetic of evaluating them separately, so output is bit-identical.
+	struct Point
 	{
-		std::array<double, 4> residual {};
-		auto stageInput = excitation - k * values[3];
+		std::array<double, 4> residual {}, stageTanh {};
+		double inputTanh {};
+	};
+	const auto evaluatePoint = [&](const std::array<double, 4>& values)
+	{
+		Point point;
+		point.inputTanh = std::tanh(excitation - k * values[3]);
+		auto inputTanh = point.inputTanh;
 		for (std::size_t stage = 0; stage < values.size(); ++stage)
 		{
-			residual[stage] = values[stage] - integratorState[stage]
-				- g * (std::tanh(stageInput) - std::tanh(values[stage]));
-			stageInput = values[stage];
+			point.stageTanh[stage] = std::tanh(values[stage]);
+			point.residual[stage] = values[stage] - integratorState[stage] - g * (inputTanh - point.stageTanh[stage]);
+			inputTanh = point.stageTanh[stage];
 		}
-		return residual;
+		return point;
 	};
 	const auto norm = [](const std::array<double, 4>& residual)
 	{
@@ -245,8 +287,8 @@ float NonlinearTptLadder::processCoupled(float input, const NonlinearTptLadderSe
 		}
 		return maximum;
 	};
-	auto residual = residuals(output);
-	auto error = norm(residual);
+	auto point = evaluatePoint(output);
+	auto error = norm(point.residual);
 	int iterations {};
 	std::uint64_t lineSearchTrials {};
 	for (; iterations < maximumCoupledIterations && error > convergenceTolerance; ++iterations)
@@ -254,15 +296,14 @@ float NonlinearTptLadder::processCoupled(float input, const NonlinearTptLadderSe
 		// Forward substitution with an affine dependence on delta[3] solves
 		// the cyclic 4x4 Jacobian without a generic matrix factorization.
 		std::array<double, 4> independent {}, dependent {};
-		const auto u = excitation - k * output[3];
-		const auto diagonal = 1.0 + g * sechSquared(output[0]);
-		independent[0] = -residual[0] / diagonal;
-		dependent[0] = -g * k * sechSquared(u) / diagonal;
+		const auto diagonal = 1.0 + g * sechSquaredFromTanh(point.stageTanh[0]);
+		independent[0] = -point.residual[0] / diagonal;
+		dependent[0] = -g * k * sechSquaredFromTanh(point.inputTanh) / diagonal;
 		for (std::size_t stage = 1; stage < output.size(); ++stage)
 		{
-			const auto coupling = g * sechSquared(output[stage - 1]);
-			const auto scale = 1.0 / (1.0 + g * sechSquared(output[stage]));
-			independent[stage] = (-residual[stage] + coupling * independent[stage - 1]) * scale;
+			const auto coupling = g * sechSquaredFromTanh(point.stageTanh[stage - 1]);
+			const auto scale = 1.0 / (1.0 + g * sechSquaredFromTanh(point.stageTanh[stage]));
+			independent[stage] = (-point.residual[stage] + coupling * independent[stage - 1]) * scale;
 			dependent[stage] = coupling * dependent[stage - 1] * scale;
 		}
 		const auto last = independent[3] / (1.0 - dependent[3]);
@@ -277,12 +318,12 @@ float NonlinearTptLadder::processCoupled(float input, const NonlinearTptLadderSe
 			auto trial = output;
 			for (std::size_t stage = 0; stage < trial.size(); ++stage)
 				trial[stage] += damping * step[stage];
-			const auto trialResidual = residuals(trial);
-			const auto trialError = norm(trialResidual);
+			const auto trialPoint = evaluatePoint(trial);
+			const auto trialError = norm(trialPoint.residual);
 			if (std::isfinite(trialError) && trialError < error)
 			{
 				output = trial;
-				residual = trialResidual;
+				point = trialPoint;
 				error = trialError;
 				accepted = true;
 				break;
@@ -290,6 +331,13 @@ float NonlinearTptLadder::processCoupled(float input, const NonlinearTptLadderSe
 		}
 		if (!accepted) break;
 	}
+	return completeCoupledStep(output, error, iterations, lineSearchTrials, excitation - k * output[3], driveGain,
+		settings.driveCompensation);
+}
+
+float NonlinearTptLadder::completeCoupledStep(const std::array<double, 4>& output, double error, int iterations,
+	std::uint64_t lineSearchTrials, double feedbackInput, float driveGain, bool driveCompensation) noexcept
+{
 	++solverDiagnostics.samples;
 	solverDiagnostics.coupledIterations += static_cast<std::uint64_t>(iterations);
 	solverDiagnostics.coupledLineSearchTrials += lineSearchTrials;
@@ -311,7 +359,166 @@ float NonlinearTptLadder::processCoupled(float input, const NonlinearTptLadderSe
 			-signalLimit, signalLimit);
 		previousOutput[stage] = output[stage];
 	}
-	previousFeedbackInput = excitation - k * output[3];
-	return static_cast<float>(settings.driveCompensation ? output[3] / std::sqrt(driveGain) : output[3]);
+	previousFeedbackInput = feedbackInput;
+	return static_cast<float>(driveCompensation ? output[3] / std::sqrt(driveGain) : output[3]);
+}
+void NonlinearTptLadder::processCoupled(std::span<NonlinearTptLadder> ladders, std::span<const float> inputs,
+	std::span<float> outputs, const NonlinearTptLadderSettings& settings) noexcept
+{
+	// The batched solve shares one integration gain, which depends on the sample rate; ladders prepared at
+	// different rates are solved one by one instead. The rates must be bit-identical (not merely close) for the
+	// shared gain to equal each lane's own, so compare their bits.
+	const auto sameRate = std::all_of(ladders.begin(), ladders.end(), [&](const NonlinearTptLadder& ladder)
+	{
+		return std::bit_cast<std::uint32_t>(ladder.sampleRate) == std::bit_cast<std::uint32_t>(ladders.front().sampleRate);
+	});
+	switch (sameRate ? ladders.size() : 0)
+	{
+	case 2: processCoupledLanes<2>(ladders, inputs, outputs, settings); return;
+	case 4: processCoupledLanes<4>(ladders, inputs, outputs, settings); return;
+	default:
+		for (std::size_t lane = 0; lane < ladders.size(); ++lane) outputs[lane] = ladders[lane].processCoupled(inputs[lane], settings);
+	}
+}
+
+template <std::size_t Lanes>
+void NonlinearTptLadder::processCoupledLanes(std::span<NonlinearTptLadder> ladders, std::span<const float> inputs,
+	std::span<float> outputs, const NonlinearTptLadderSettings& settings) noexcept
+{
+	// Mirrors processCoupled lane by lane; only tanh is shared across lanes.
+	constexpr int maximumCoupledIterations = 16;
+	constexpr int maximumLineSearchSteps = 10;
+	using Stages = std::array<double, 4>;
+	const auto sampleRate = ladders[0].sampleRate;
+	const auto cutoff = std::clamp(settings.cutoffHz, 10.0f, sampleRate * 0.45f);
+	const auto g = std::tan(std::numbers::pi_v<double> * cutoff / sampleRate)
+		* ladderResonanceTuning(static_cast<double>(settings.resonance));
+	const auto k = ladderFeedbackGain(static_cast<double>(settings.resonance));
+	const auto driveGain = std::pow(10.0f, settings.driveDecibels / 20.0f);
+	LaneValues<Lanes> excitation {};
+	std::array<Stages, Lanes> output {};
+	for (std::size_t lane = 0; lane < Lanes; ++lane)
+	{
+		const auto driven = std::clamp(static_cast<double>(inputs[lane]) * driveGain, -signalLimit, signalLimit);
+		excitation[lane] = driven + k * std::clamp(static_cast<double>(settings.inputFeedbackCompensation), 0.0, 0.5) * driven;
+		output[lane] = ladders[lane].previousOutput;
+	}
+	struct Points
+	{
+		std::array<Stages, Lanes> residual {}, stageTanh {};
+		LaneValues<Lanes> inputTanh {};
+	};
+	const auto evaluatePoints = [&](const std::array<Stages, Lanes>& values)
+	{
+		Points points;
+		LaneValues<Lanes> arguments {};
+		for (std::size_t lane = 0; lane < Lanes; ++lane) arguments[lane] = excitation[lane] - k * values[lane][3];
+		points.inputTanh = tanhLanes<Lanes>(arguments);
+		for (std::size_t stage = 0; stage < 4; ++stage)
+		{
+			for (std::size_t lane = 0; lane < Lanes; ++lane) arguments[lane] = values[lane][stage];
+			const auto stageTanh = tanhLanes<Lanes>(arguments);
+			for (std::size_t lane = 0; lane < Lanes; ++lane) points.stageTanh[lane][stage] = stageTanh[lane];
+		}
+		for (std::size_t lane = 0; lane < Lanes; ++lane)
+		{
+			auto inputTanh = points.inputTanh[lane];
+			for (std::size_t stage = 0; stage < 4; ++stage)
+			{
+				points.residual[lane][stage] = values[lane][stage] - ladders[lane].integratorState[stage]
+					- g * (inputTanh - points.stageTanh[lane][stage]);
+				inputTanh = points.stageTanh[lane][stage];
+			}
+		}
+		return points;
+	};
+	const auto norm = [](const Stages& residual)
+	{
+		double maximum {};
+		for (const auto value : residual)
+		{
+			if (!std::isfinite(value)) return std::numeric_limits<double>::infinity();
+			maximum = std::max(maximum, std::abs(value));
+		}
+		return maximum;
+	};
+	auto points = evaluatePoints(output);
+	LaneValues<Lanes> error {};
+	std::array<int, Lanes> iterations {};
+	std::array<std::uint64_t, Lanes> lineSearchTrials {};
+	std::array<bool, Lanes> running {};
+	for (std::size_t lane = 0; lane < Lanes; ++lane)
+	{
+		error[lane] = norm(points.residual[lane]);
+		running[lane] = true;
+	}
+	for (int iteration = 0; iteration < maximumCoupledIterations; ++iteration)
+	{
+		bool anyRunning = false;
+		for (std::size_t lane = 0; lane < Lanes; ++lane)
+		{
+			running[lane] = running[lane] && error[lane] > convergenceTolerance;
+			anyRunning = anyRunning || running[lane];
+		}
+		if (!anyRunning) break;
+		std::array<Stages, Lanes> step {};
+		for (std::size_t lane = 0; lane < Lanes; ++lane)
+		{
+			if (!running[lane]) continue;
+			const auto& residual = points.residual[lane];
+			const auto& stageTanh = points.stageTanh[lane];
+			Stages independent {}, dependent {};
+			const auto diagonal = 1.0 + g * sechSquaredFromTanh(stageTanh[0]);
+			independent[0] = -residual[0] / diagonal;
+			dependent[0] = -g * k * sechSquaredFromTanh(points.inputTanh[lane]) / diagonal;
+			for (std::size_t stage = 1; stage < 4; ++stage)
+			{
+				const auto coupling = g * sechSquaredFromTanh(stageTanh[stage - 1]);
+				const auto scale = 1.0 / (1.0 + g * sechSquaredFromTanh(stageTanh[stage]));
+				independent[stage] = (-residual[stage] + coupling * independent[stage - 1]) * scale;
+				dependent[stage] = coupling * dependent[stage - 1] * scale;
+			}
+			const auto last = independent[3] / (1.0 - dependent[3]);
+			for (std::size_t stage = 0; stage < 4; ++stage)
+				step[lane][stage] = independent[stage] + dependent[stage] * last;
+		}
+		auto searching = running;
+		std::array<bool, Lanes> accepted {};
+		for (int attempt = 0; attempt < maximumLineSearchSteps; ++attempt)
+		{
+			if (std::none_of(searching.begin(), searching.end(), [](bool value) { return value; })) break;
+			const auto damping = std::ldexp(1.0, -attempt);
+			auto trial = output;
+			for (std::size_t lane = 0; lane < Lanes; ++lane)
+				if (searching[lane])
+					for (std::size_t stage = 0; stage < 4; ++stage) trial[lane][stage] += damping * step[lane][stage];
+			const auto trialPoints = evaluatePoints(trial);
+			for (std::size_t lane = 0; lane < Lanes; ++lane)
+			{
+				if (!searching[lane]) continue;
+				++lineSearchTrials[lane];
+				const auto trialError = norm(trialPoints.residual[lane]);
+				if (std::isfinite(trialError) && trialError < error[lane])
+				{
+					output[lane] = trial[lane];
+					points.residual[lane] = trialPoints.residual[lane];
+					points.stageTanh[lane] = trialPoints.stageTanh[lane];
+					points.inputTanh[lane] = trialPoints.inputTanh[lane];
+					error[lane] = trialError;
+					accepted[lane] = true;
+					searching[lane] = false;
+				}
+			}
+		}
+		for (std::size_t lane = 0; lane < Lanes; ++lane)
+		{
+			if (!running[lane]) continue;
+			if (accepted[lane]) ++iterations[lane];
+			else running[lane] = false;
+		}
+	}
+	for (std::size_t lane = 0; lane < Lanes; ++lane)
+		outputs[lane] = ladders[lane].completeCoupledStep(output[lane], error[lane], iterations[lane], lineSearchTrials[lane],
+			excitation[lane] - k * output[lane][3], driveGain, settings.driveCompensation);
 }
 }

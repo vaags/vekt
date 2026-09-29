@@ -1,3 +1,35 @@
+# Mono ladder solver performance (29 September 2026)
+
+Profiling 8 voices with 4x unison (Release, M1 Pro, 48 kHz/128) put ~56% of the
+time in scalar double `tanh` inside the coupled solver. Two changes followed:
+
+1. **tanh caching (bit-identical).** Each distinct `tanh` argument is evaluated
+   once per trial point (stage s's input is stage s-1's output; the Newton step
+   reuses the residual's values). A fingerprint of every output sample and every
+   iteration/line-search count across quality, resonance, drive, Q compensation
+   and unison was unchanged. Cost fell 17-18% at every unison setting.
+2. **Batched unison layers.** A voice's 2 or 4 unison layers share one ladder
+   setting and are solved in lockstep; each layer keeps its own convergence,
+   line search and diagnostics exactly as the scalar solver, and only `tanh` is
+   evaluated as a vector (Apple `simd::tanh`, within ~2 ulp of libm; other
+   platforms keep scalar `tanh`). 1x unison stays on the scalar path.
+
+Deviation from the scalar solver, rendered through the processor: 11 of 14
+scenarios (2x and 4x unison, 1x/2x quality, 0/85/100% resonance, 0/24 dB drive,
+including 10 s and 5 s held self-oscillating 4x-unison chords) were bit-identical
+after float output; the largest difference was -129.7 dB max / -160.6 dB RMS
+relative to the signal (2x quality, 100% resonance, no drive). A ladder-level test
+over 10 s of full-resonance, full-drive self-oscillation measured -140 dB max /
+-203 dB RMS, with no unconverged or non-finite samples. Renders therefore no longer
+null bit-for-bit against earlier builds on unison patches.
+
+Median callback, 8 voices at 1x: unison 1x 350 -> 288 us; 2x 625 -> 403 us
+(-36%); 4x 1,144 -> 660 us (-42%). 16 voices with 4x unison now measure 1,329 us
+and 8 voices with 4x unison at 2x quality 1,317 us, against a 2,667 us deadline.
+Earlier cost-tool runs requesting 8/12/16 voices measured 2/4/8 after the Voice
+Count options gained 2 and 4, and ran with the first factory preset's 2x unison; the tool
+now maps voice counts correctly and takes `unison=1|2|4`.
+
 # Mono unison level policy (28 September 2026)
 
 Unison layers were summed and divided by N. Their oscillators start at independent
