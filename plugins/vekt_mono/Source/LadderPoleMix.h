@@ -1,5 +1,7 @@
 #pragma once
 
+#include "FilterModeEase.h"
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -30,7 +32,7 @@ using LadderPoleMixTaps = std::array<double, 5>;
 	const auto& from = m <= 0.0 ? lowPass : notch;
 	const auto& to = m <= 0.0 ? notch : highPass;
 	const auto position = m <= 0.0 ? m + 1.0 : m;
-	const auto t = position * position * (3.0 - 2.0 * position);
+	const auto t = filterModeEase(position);
 	LadderPoleMixTaps taps {};
 	for (std::size_t tap = 0; tap < taps.size(); ++tap) taps[tap] = (1.0 - t) * from[tap] + t * to[tap];
 	return taps;
@@ -87,7 +89,7 @@ using LadderPoleMixTaps = std::array<double, 5>;
 	};
 	if (mode > 0.0) return dot(ladderPoleMixTaps(mode, k));
 	const auto position = mode + 1.0;
-	const auto t = position * position * (3.0 - 2.0 * position);
+	const auto t = filterModeEase(position);
 	return (1.0 - t) * stages[3] + t * dot(ladderPoleMixTaps(0.0, k));
 }
 }

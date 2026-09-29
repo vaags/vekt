@@ -110,7 +110,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 	addOscillator(layout, 3, osc3Range, osc3Semitone, osc3Fine, osc3Level, osc3Morph, osc3PulseWidth);
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { noiseType, version }, "Noise", juce::StringArray { "Off", "White", "Pink" }, 0));
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { noiseLevel, version }, "Noise Level", juce::NormalisableRange<float> { 0.0f, 100.0f, 0.01f }, 0.0f, juce::AudioParameterFloatAttributes {}.withLabel("%")));
-	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { filterCutoff, version }, "Cutoff", juce::NormalisableRange<float> { 20.0f, 20'000.0f, 0.01f, 0.25f }, 1'000.0f, juce::AudioParameterFloatAttributes {}.withLabel("Hz")));
+	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { filterCutoff, version }, "Cutoff", juce::NormalisableRange<float> { 5.0f, 20'000.0f, 0.01f, 0.25f }, 1'000.0f, juce::AudioParameterFloatAttributes {}.withLabel("Hz")));
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { filterResonance, version }, "Resonance", juce::NormalisableRange<float> { 0.0f, 100.0f, 0.01f }, 10.0f, juce::AudioParameterFloatAttributes {}.withLabel("%")));
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { filterKeyTracking, version }, "Key Tracking", juce::NormalisableRange<float> { 0.0f, 100.0f, 0.01f }, 50.0f, juce::AudioParameterFloatAttributes {}.withLabel("%")));
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { filterEnvelopeAmount, version }, "Filter Envelope", juce::NormalisableRange<float> { 0.0f, 100.0f, 0.01f }, 50.0f, juce::AudioParameterFloatAttributes {}.withLabel("%")));
@@ -159,6 +159,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 		addDepth(layout, lfos[index].filterMode, "LFO " + juce::String(static_cast<int>(index) + 1) + " Filter Mode", 100.0f, 1.0f, "%");
 	// Experimental A/B: Notch/HP from the tanh of each ladder tap instead of the raw taps.
 	layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID { filterSaturatedTaps, version }, "Saturated Taps", false));
+	// Discrete filter topology (ADR 0006): 0 Ladder, 1 SVF. Not an LFO destination.
+	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { filterType, version }, "Filter Type", juce::StringArray { "Ladder", "SVF" }, 0));
 	return layout;
 }
 }

@@ -11,9 +11,13 @@ vekt_add_factory_presets(
 add_library(VektMonoCore STATIC
 	Source/LadderPoleMix.h
 	Source/LadderResonance.h
+	Source/FilterModeEase.h
+	Source/LinearTptSvf.h
+	Source/SvfResponse.h
 	Source/Lfo.h
 	Source/NonlinearTptLadder.cpp
 	Source/NonlinearTptLadder.h
+	Source/NonlinearTptSvf.h
 	Source/WidthOscillator.cpp
 	Source/WidthOscillator.h
 	Source/MonoRenderWorkers.cpp

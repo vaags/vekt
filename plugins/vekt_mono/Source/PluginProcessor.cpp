@@ -47,12 +47,13 @@ juce::Result migrateLfoPreset(presets::Preset& preset, const juce::AudioProcesso
 	return juce::Result::ok();
 }
 // Schema 8 adds the ladder's filter Mode (older presets keep the plain LP ladder); schema 9 adds the saturated-taps
-// A/B (off, the raw taps schema 8 presets were voiced with). Each step appends its parameters at their defaults.
+// A/B (off, the raw taps schema 8 presets were voiced with); schema 10 adds the filter type (Ladder, the only filter
+// earlier presets had). Each step appends its parameters at their defaults.
 juce::Result migratePreset(presets::Preset& preset, const juce::AudioProcessorValueTreeState& state)
 {
 	if (preset.soundSchemaVersion >= 4 && preset.soundSchemaVersion <= 6)
 		if (const auto result = migrateLfoPreset(preset, state); result.failed()) return result;
-	if (preset.soundSchemaVersion < 7 || preset.soundSchemaVersion > 9) return juce::Result::fail("Unsupported Mono preset sound schema");
+	if (preset.soundSchemaVersion < 7 || preset.soundSchemaVersion > 10) return juce::Result::fail("Unsupported Mono preset sound schema");
 	const auto addDefaults = [&](const auto& identifiers, int version)
 	{
 		for (const auto* identifier : identifiers)
@@ -64,6 +65,7 @@ juce::Result migratePreset(presets::Preset& preset, const juce::AudioProcessorVa
 	};
 	if (preset.soundSchemaVersion == 7) addDefaults(parameters::schema8ParameterIds, 8);
 	if (preset.soundSchemaVersion == 8) addDefaults(parameters::schema9ParameterIds, 9);
+	if (preset.soundSchemaVersion == 9) addDefaults(parameters::schema10ParameterIds, 10);
 	return juce::Result::ok();
 }
 
@@ -117,6 +119,7 @@ MonoVoiceSettings PluginProcessor::snapshotSettings() const
 	settings.qCompensation = value(parameters::filterQCompensation) >= 0.5f;
 	settings.filterMode = value(parameters::filterMode);
 	settings.saturatedModeTaps = value(parameters::filterSaturatedTaps) >= 0.5f;
+	settings.filterType = value(parameters::filterType) >= 0.5f ? FilterType::svf : FilterType::ladder;
 	settings.ampAttack = value(parameters::ampAttack);
 	settings.ampDecay = value(parameters::ampDecay);
 	settings.ampSustain = value(parameters::ampSustain) * 0.01f;
@@ -172,11 +175,11 @@ PluginProcessor::PluginProcessor()
 	: AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
 	  parameterState(*this, &undoManager, parameters::stateType, parameters::createLayout()),
 	  stateManager(parameterState, parameters::projectStateType, 3),
-	  presetSession(presetCatalog, { parameters::presetProductIdentifier, "Vekt Mono", 9 }, {
+	  presetSession(presetCatalog, { parameters::presetProductIdentifier, "Vekt Mono", 10 }, {
 		[this](const juce::String& name)
 		{
 			auto preset = presets::PresetSchema::create(parameters::presetProductIdentifier, name, parameterState, parameters::soundParameterIds);
-			preset.soundSchemaVersion = 9;
+			preset.soundSchemaVersion = 10;
 			return preset;
 		},
 		[this](presets::Preset& preset) { return migratePreset(preset, parameterState); },
@@ -262,6 +265,23 @@ PluginProcessor::CoupledWorkSnapshot PluginProcessor::coupledWorkSnapshot() cons
 	return total;
 }
 
+PluginProcessor::SvfWorkSnapshot PluginProcessor::svfWorkSnapshot() const noexcept
+{
+	SvfWorkSnapshot total;
+	for (const auto& voice : voices)
+	{
+		const auto value = voice->svfDiagnostics();
+		total.samples += value.samples;
+		total.iterations += value.iterations;
+		total.fallbackSteps += value.fallbackSteps;
+		total.unconverged += value.unconvergedSamples;
+		total.nonFinite += value.nonFiniteSamples;
+		total.maximumIterations = std::max(total.maximumIterations, value.maximumIterations);
+		total.maximumResidual = std::max(total.maximumResidual, value.maximumResidual);
+	}
+	return total;
+}
+
 void PluginProcessor::prepareToPlay(double newSampleRate, int maximumBlockSize)
 {
 	sampleRateHz = newSampleRate;
@@ -335,11 +355,40 @@ void PluginProcessor::renderUnit(int unit) noexcept
 	const auto voiceCount = static_cast<std::size_t>(segment.unitVoiceCount[static_cast<std::size_t>(unit)]);
 	auto* left = unitBuffer.data() + static_cast<std::size_t>(2 * unit) * unitStride;
 	auto* right = left + unitStride;
-	for (int sample = 0; sample < segment.samples; ++sample)
+	// The filter type is fixed for the segment: choose the per-sample filter step once, not per sample.
+	const auto renderSamples = [&](auto&& filterVoices)
 	{
-		const std::array lfoPositions { lfoPositionBuffer[static_cast<std::size_t>(2 * sample)],
-			lfoPositionBuffer[static_cast<std::size_t>(2 * sample + 1)] };
-		const auto vibrato = vibratoBuffer[static_cast<std::size_t>(sample)];
+		for (int sample = 0; sample < segment.samples; ++sample)
+		{
+			const std::array lfoPositions { lfoPositionBuffer[static_cast<std::size_t>(2 * sample)],
+				lfoPositionBuffer[static_cast<std::size_t>(2 * sample + 1)] };
+			const auto vibrato = vibratoBuffer[static_cast<std::size_t>(sample)];
+			const auto beginVoice = [&](MonoVoice& voice)
+			{
+				const auto channelIndex = static_cast<std::size_t>(juce::jlimit(0, 15, voice.getChannel() - 1));
+				return voice.beginSample(settings, pitchBendByChannel[channelIndex], lfoPositions, vibrato,
+					segment.channelControl[channelIndex]);
+			};
+			float unitLeft {}, unitRight {};
+			filterVoices(beginVoice, unitLeft, unitRight);
+			left[sample] = unitLeft;
+			right[sample] = unitRight;
+		}
+	};
+	if (settings.filterType == FilterType::svf)
+	{
+		renderSamples([&](const auto& beginVoice, float& unitLeft, float& unitRight)
+		{
+			for (std::size_t index = 0; index < voiceCount; ++index)
+			{
+				auto& voice = *voices[unitVoices[index]];
+				if (beginVoice(voice)) voice.finishSvfSample(unitLeft, unitRight);
+			}
+		});
+		return;
+	}
+	renderSamples([&](const auto& beginVoice, float& unitLeft, float& unitRight)
+	{
 		// The unit's voices build their ladder inputs, share one batched solve (tanh vectorized across up to four
 		// lanes), then finish their samples.
 		std::array<NonlinearTptLadder*, 4> ladders {};
@@ -351,9 +400,7 @@ void PluginProcessor::renderUnit(int unit) noexcept
 		for (std::size_t index = 0; index < voiceCount; ++index)
 		{
 			auto& voice = *voices[unitVoices[index]];
-			const auto channelIndex = static_cast<std::size_t>(juce::jlimit(0, 15, voice.getChannel() - 1));
-			sounding[index] = voice.beginSample(settings, pitchBendByChannel[channelIndex], lfoPositions, vibrato,
-				segment.channelControl[channelIndex]);
+			sounding[index] = beginVoice(voice);
 			if (!sounding[index]) continue;
 			firstLane[index] = lanes;
 			voice.ladderRequest(ladders.data() + lanes, ladderInputs.data() + lanes, ladderSettings.data() + lanes);
@@ -362,12 +409,9 @@ void PluginProcessor::renderUnit(int unit) noexcept
 		NonlinearTptLadder::processCoupled(std::span<NonlinearTptLadder* const>(ladders.data(), lanes),
 			std::span<const float>(ladderInputs.data(), lanes), std::span(ladderOutputs.data(), lanes),
 			std::span<const NonlinearTptLadderSettings* const>(ladderSettings.data(), lanes));
-		float unitLeft {}, unitRight {};
 		for (std::size_t index = 0; index < voiceCount; ++index)
 			if (sounding[index]) voices[unitVoices[index]]->finishSample(ladderOutputs.data() + firstLane[index], unitLeft, unitRight);
-		left[sample] = unitLeft;
-		right[sample] = unitRight;
-	}
+	});
 }
 
 void PluginProcessor::readTransport()
@@ -687,13 +731,13 @@ juce::Result PluginProcessor::loadAdjacentPreset(bool next)
 }
 juce::Result PluginProcessor::validatePresetSound(const presets::Preset& preset) const
 {
-	return preset.soundSchemaVersion != 9 ? juce::Result::fail("Unsupported Mono preset sound schema")
+	return preset.soundSchemaVersion != 10 ? juce::Result::fail("Unsupported Mono preset sound schema")
 		: presets::PresetSchema::validate(preset, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds);
 }
 juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 {
 	auto prepared = preset;
-	if (prepared.soundSchemaVersion >= 4 && prepared.soundSchemaVersion <= 8)
+	if (prepared.soundSchemaVersion >= 4 && prepared.soundSchemaVersion <= 9)
 		if (const auto result = migratePreset(prepared, parameterState); result.failed()) return result;
 	if (const auto result = validatePresetSound(prepared); result.failed()) return result;
 	undoManager.beginNewTransaction("Load preset: " + preset.name);
@@ -704,7 +748,7 @@ juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 bool PluginProcessor::matchesPresetSound(const presets::Preset& preset) const
 {
 	auto prepared = preset;
-	if (prepared.soundSchemaVersion >= 4 && prepared.soundSchemaVersion <= 8 && migratePreset(prepared, parameterState).failed()) return false;
+	if (prepared.soundSchemaVersion >= 4 && prepared.soundSchemaVersion <= 9 && migratePreset(prepared, parameterState).failed()) return false;
 	return validatePresetSound(prepared).wasOk()
 		&& presets::PresetSchema::matches(prepared, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds);
 }

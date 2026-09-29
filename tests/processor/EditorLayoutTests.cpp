@@ -274,7 +274,7 @@ TEST_CASE("Mono editor presents symmetric oscillator controls without overlap", 
 	for (const auto& [controlName, expectedText] : ladderTooltips)
 	{
 		bool found = false;
-		for (auto* child : find("Ladder Filter").getChildren())
+		for (auto* child : find("Filter").getChildren())
 			if (auto* rotary = dynamic_cast<vekt::ui::RotaryControl*>(child); rotary != nullptr && rotary->getName() == controlName)
 			{
 				found = true;
@@ -282,7 +282,7 @@ TEST_CASE("Mono editor presents symmetric oscillator controls without overlap", 
 			}
 		REQUIRE(found);
 	}
-	for (const auto* panelName : { "Osc 1", "Osc 2", "Osc 3", "Noise", "Ladder Filter", "Voice", "I/O", "Amp ADSR", "Filter ADSR", "Performance" })
+	for (const auto* panelName : { "Osc 1", "Osc 2", "Osc 3", "Noise", "Filter", "Voice", "I/O", "Amp ADSR", "Filter ADSR", "Performance" })
 	{
 		auto& panel = find(panelName);
 		for (int first = 0; first < panel.getNumChildComponents(); ++first)
@@ -309,7 +309,7 @@ TEST_CASE("Mono uses a secondary arc only for filter controls", "[processor][ui]
 	const auto accent = juce::Colour::fromRGB(123, 191, 173);
 	for (auto* panel : editor.getContent().getChildren())
 	{
-		const auto filterGroup = panel->getName() == "Ladder Filter" || panel->getName() == "Filter ADSR";
+		const auto filterGroup = panel->getName() == "Filter" || panel->getName() == "Filter ADSR";
 		for (auto* child : panel->getChildren())
 		{
 			auto* rotary = dynamic_cast<vekt::ui::RotaryControl*>(child);
@@ -415,6 +415,54 @@ TEST_CASE("Mono Saturated Taps checkbox binds the default-off sound parameter", 
 	REQUIRE(parameter->getValue() == Catch::Approx(1.0f));
 	for (auto* sibling : button->getParentComponent()->getChildren())
 		if (sibling != button) REQUIRE_FALSE(button->getBounds().intersects(sibling->getBounds()));
+}
+
+TEST_CASE("Mono Filter Type tabs select the filter and disable the Ladder-only toggles", "[mono][processor][ui][filter-type]")
+{
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	vekt::mono::PluginProcessor processor;
+	vekt::mono::PluginEditor editor(processor);
+	auto* ladder = findNamedButton(editor.getContent(), "Filter Type Ladder");
+	auto* svf = findNamedButton(editor.getContent(), "Filter Type SVF");
+	auto* qCompensation = findNamedButton(editor.getContent(), "Q Compensation");
+	auto* saturatedTaps = findNamedButton(editor.getContent(), "Saturated Taps");
+	REQUIRE(ladder != nullptr);
+	REQUIRE(svf != nullptr);
+	REQUIRE(qCompensation != nullptr);
+	REQUIRE(saturatedTaps != nullptr);
+	auto* parameter = processor.getParameters().getParameter(vekt::mono::parameters::filterType);
+	REQUIRE(parameter != nullptr);
+	// Default: Ladder lit, its toggles enabled.
+	REQUIRE(ladder->getToggleState());
+	REQUIRE_FALSE(svf->getToggleState());
+	REQUIRE(qCompensation->isEnabled());
+	REQUIRE(saturatedTaps->isEnabled());
+	// Clicking SVF selects it; the Ladder-only toggles stay visible but disabled, so the layout does not move.
+	// What a click runs (triggerClick() would post it asynchronously).
+	svf->onClick();
+	REQUIRE(parameter->getValue() == Catch::Approx(1.0f));
+	REQUIRE(svf->getToggleState());
+	REQUIRE_FALSE(ladder->getToggleState());
+	REQUIRE(qCompensation->isVisible());
+	REQUIRE_FALSE(qCompensation->isEnabled());
+	REQUIRE(saturatedTaps->isVisible());
+	REQUIRE_FALSE(saturatedTaps->isEnabled());
+	if (const auto* path = std::getenv("VEKT_MONO_SNAPSHOT_SVF")) writeSnapshot(editor, path);
+	// A parameter change from elsewhere (preset, automation, undo) shows on the tabs; on the message thread the
+	// attachment updates synchronously.
+	parameter->setValueNotifyingHost(0.0f);
+	REQUIRE(ladder->getToggleState());
+	REQUIRE_FALSE(svf->getToggleState());
+	REQUIRE(qCompensation->isEnabled());
+	// The header row fits beside the title at every editor size.
+	for (const auto width : { 1120, 1680, 2240 })
+	{
+		editor.setSize(width, width * 10 / 16);
+		checkVisibleBounds(editor.getContent());
+		for (auto* tab : { ladder, svf })
+			for (auto* sibling : tab->getParentComponent()->getChildren())
+				if (sibling != tab) REQUIRE_FALSE(tab->getBounds().intersects(sibling->getBounds()));
+	}
 }
 
 TEST_CASE("Mono Resonance knob writes its full range to the processor", "[mono][processor][ui]")

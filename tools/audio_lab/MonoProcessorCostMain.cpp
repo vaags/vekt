@@ -37,7 +37,8 @@ void setParameter(vekt::mono::PluginProcessor& processor, const char* identifier
 	parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
 }
 
-int run(double rate, int blockSize, int voices, int factor, double seconds, bool work, bool transitions, bool cpu, int unison, bool multicore)
+int run(double rate, int blockSize, int voices, int factor, double seconds, bool work, bool transitions, bool cpu, int unison, bool multicore,
+	bool svf)
 {
 	if (!vekt::audio_lab::callback_allocation_probe::verify()) return 1;
 	vekt::mono::PluginProcessor processor;
@@ -53,6 +54,7 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 	setParameter(processor, vekt::mono::parameters::filterResonance, 85.0f);
 	setParameter(processor, vekt::mono::parameters::filterDrive, 12.0f);
 	setParameter(processor, vekt::mono::parameters::multicore, multicore ? 1.0f : 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterType, svf ? 1.0f : 0.0f);
 	processor.prepareToPlay(rate, blockSize);
 	if (processor.getActiveQuality() != qualityIndex) return 1;
 	juce::AudioBuffer<float> buffer(2, blockSize);
@@ -169,7 +171,7 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 	const auto deadlineUs = blockSize * 1'000'000.0 / rate;
 	const auto p99_9Us = percentile(0.999);
 	std::cout << std::fixed << std::setprecision(3)
-		<< "engine=coupled"
+		<< "engine=" << (svf ? "svf" : "coupled")
 		<< " workload=" << (transitions ? "transitions" : "sustained")
 		<< " transition_callbacks=" << transitionCallbacks
 		<< " rate=" << rate << " block=" << blockSize << " voices=" << voices << " unison=" << unison
@@ -210,6 +212,17 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 			<< " slowest_callback_iterations=" << slowestWork.iterations
 			<< " slowest_callback_line_search_trials=" << slowestWork.lineSearchTrials
 			<< " slowest_callback_unconverged=" << slowestWork.unconverged;
+	if (svf)
+	{
+		const auto svfWork = processor.svfWorkSnapshot();
+		std::cout << " svf_samples=" << svfWork.samples
+			<< " svf_iterations=" << svfWork.iterations
+			<< " svf_fallback_steps=" << svfWork.fallbackSteps
+			<< " svf_unconverged=" << svfWork.unconverged
+			<< " svf_non_finite=" << svfWork.nonFinite
+			<< " svf_maximum_iterations=" << svfWork.maximumIterations
+			<< " svf_maximum_residual=" << std::scientific << svfWork.maximumResidual << std::fixed;
+	}
 	std::cout << '\n';
 	processor.releaseResources();
 	return std::isfinite(sumSquares) && sumSquares > 0.0 && callbackNewCalls == 0 ? 0 : 1;
@@ -218,9 +231,9 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 
 int main(int argc, char** argv)
 {
-	if (argc < 6 || argc > 9)
+	if (argc < 6 || argc > 10)
 	{
-		std::cerr << "Usage: VektMonoProcessorCost rate block_size voices(8|12|16) factor(1|2|4|8) seconds [work|transitions|cpu] [unison=1|2|4] [multicore]\n";
+		std::cerr << "Usage: VektMonoProcessorCost rate block_size voices(8|12|16) factor(1|2|4|8) seconds [work|transitions|cpu] [unison=1|2|4] [multicore] [svf]\n";
 		return 64;
 	}
 	try
@@ -232,7 +245,7 @@ int main(int argc, char** argv)
 		const auto seconds = std::stod(argv[5]);
 		bool work {}, transitions {}, cpu {};
 		int unison = 1;
-		bool multicore {};
+		bool multicore {}, svf {};
 		for (int index = 6; index < argc; ++index)
 		{
 			const std::string_view option(argv[index]);
@@ -241,6 +254,7 @@ int main(int argc, char** argv)
 			else if (option == "cpu") cpu = true;
 			else if (option.starts_with("unison=")) unison = std::stoi(std::string(option.substr(7)));
 			else if (option == "multicore") multicore = true;
+			else if (option == "svf") svf = true;
 			else return 64;
 		}
 		if (!std::isfinite(rate) || rate < 44'100.0 || rate > 192'000.0
@@ -250,7 +264,7 @@ int main(int argc, char** argv)
 			|| static_cast<int>(work) + static_cast<int>(transitions) + static_cast<int>(cpu) > 1
 			|| (unison != 1 && unison != 2 && unison != 4)) return 64;
 		juce::ScopedJuceInitialiser_GUI juceInitialiser;
-		return run(rate, block, voices, factor, seconds, work, transitions, cpu, unison, multicore);
+		return run(rate, block, voices, factor, seconds, work, transitions, cpu, unison, multicore, svf);
 	}
 	catch (const std::exception&) { return 64; }
 }

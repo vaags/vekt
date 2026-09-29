@@ -300,18 +300,20 @@ TEST_CASE("Mono loads schema 8 presets saved before Saturated Taps", "[mono][pro
 	vekt::mono::PluginProcessor processor;
 	setParameter(processor, vekt::mono::parameters::filterMode, 0.4f);
 	setParameter(processor, vekt::mono::parameters::lfos[0].filterMode, 30.0f);
-	// Exactly what a schema-8 build saved: every sound parameter except the schema-9 ones.
+	// Exactly what a schema-8 build saved: every sound parameter except the schema-9 and schema-10 ones.
 	std::vector<const char*> schema8Ids;
 	for (const auto* identifier : vekt::mono::parameters::soundParameterIds)
 		if (std::find(vekt::mono::parameters::schema9ParameterIds.begin(), vekt::mono::parameters::schema9ParameterIds.end(), identifier)
-			== vekt::mono::parameters::schema9ParameterIds.end())
+				== vekt::mono::parameters::schema9ParameterIds.end()
+			&& std::find(vekt::mono::parameters::schema10ParameterIds.begin(), vekt::mono::parameters::schema10ParameterIds.end(), identifier)
+				== vekt::mono::parameters::schema10ParameterIds.end())
 			schema8Ids.push_back(identifier);
 	auto preset = vekt::presets::PresetSchema::create(vekt::mono::parameters::presetProductIdentifier, "Schema 8", processor.getParameters(), schema8Ids);
 	preset.soundSchemaVersion = 8;
 	setParameter(processor, vekt::mono::parameters::filterSaturatedTaps, 1.0f);
 	setParameter(processor, vekt::mono::parameters::filterMode, -1.0f);
 	REQUIRE(processor.getPresetSession().prepare(preset).wasOk());
-	REQUIRE(preset.soundSchemaVersion == 9);
+	REQUIRE(preset.soundSchemaVersion == 10);
 	REQUIRE(preset.parameters.size() == vekt::mono::parameters::soundParameterIds.size());
 	REQUIRE(vekt::presets::PresetSchema::apply(preset, vekt::mono::parameters::presetProductIdentifier,
 		processor.getParameters(), vekt::mono::parameters::soundParameterIds).wasOk());
@@ -1782,7 +1784,8 @@ TEST_CASE("Mono factory presets load with their stored values, including LFO set
 		// Schema-7 and later files carry every sound parameter of their schema; each must exist and land unchanged.
 		REQUIRE(preset.parameters.size() == vekt::mono::parameters::soundParameterIds.size()
 			- (preset.soundSchemaVersion <= 7 ? vekt::mono::parameters::schema8ParameterIds.size() : 0)
-			- (preset.soundSchemaVersion <= 8 ? vekt::mono::parameters::schema9ParameterIds.size() : 0));
+			- (preset.soundSchemaVersion <= 8 ? vekt::mono::parameters::schema9ParameterIds.size() : 0)
+			- (preset.soundSchemaVersion <= 9 ? vekt::mono::parameters::schema10ParameterIds.size() : 0));
 		for (const auto& parameter : preset.parameters)
 		{
 			CAPTURE(parameter.identifier);
@@ -1940,7 +1943,7 @@ TEST_CASE("Mono migrates schema 4 and 5 presets to analog independent ADSR", "[m
 		const auto previousAmp = std::find_if(preset.parameters.begin(), preset.parameters.end(), [](const auto& p) { return p.identifier == vekt::mono::parameters::ampRelease; })->value;
 		const auto previousFilter = std::find_if(preset.parameters.begin(), preset.parameters.end(), [](const auto& p) { return p.identifier == vekt::mono::parameters::filterRelease; })->value;
 		REQUIRE(processor.getPresetSession().prepare(preset).wasOk());
-		REQUIRE(preset.soundSchemaVersion == 9);
+		REQUIRE(preset.soundSchemaVersion == 10);
 		REQUIRE(vekt::presets::PresetSchema::apply(preset, vekt::mono::parameters::presetProductIdentifier,
 			processor.getParameters(), vekt::mono::parameters::soundParameterIds).wasOk());
 		REQUIRE(processor.getParameters().getRawParameterValue(vekt::mono::parameters::ampRelease)->load() == Catch::Approx(previousAmp).margin(0.0001f));

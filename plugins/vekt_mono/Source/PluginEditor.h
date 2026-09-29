@@ -16,6 +16,21 @@
 
 namespace vekt::mono
 {
+// A selector tab in a panel header (the LFO and filter-type tabs): the selected tab is lit and outlined.
+inline void paintHeaderTab(juce::Graphics& graphics, juce::Button& button, bool hovered, bool pressed,
+	juce::Rectangle<int> textArea)
+{
+	const auto bounds = button.getLocalBounds().toFloat().reduced(0.5f);
+	const auto fill = button.getToggleState() ? juce::Colour::fromRGB(58, 66, 68) : juce::Colour::fromRGB(31, 36, 38);
+	graphics.setColour(pressed ? fill.brighter(0.12f) : hovered ? fill.brighter(0.06f) : fill);
+	graphics.fillRoundedRectangle(bounds, 4.0f);
+	graphics.setColour(button.getToggleState() ? juce::Colour::fromRGB(227, 156, 75) : juce::Colour::fromRGB(75, 84, 87));
+	graphics.drawRoundedRectangle(bounds, 4.0f, button.hasKeyboardFocus(true) ? 2.0f : 1.0f);
+	graphics.setColour(juce::Colour::fromRGB(224, 226, 220));
+	graphics.setFont(juce::FontOptions(14.0f).withStyle("Bold"));
+	graphics.drawText(button.getButtonText(), textArea, juce::Justification::centred);
+}
+
 // Selects which LFO the LFO panel shows; its dot glows with that LFO's live output.
 class LfoTabButton final : public juce::Button
 {
@@ -29,15 +44,8 @@ public:
 	}
 	void paintButton(juce::Graphics& graphics, bool hovered, bool pressed) override
 	{
+		paintHeaderTab(graphics, *this, hovered, pressed, getLocalBounds().withTrimmedRight(16));
 		const auto bounds = getLocalBounds().toFloat().reduced(0.5f);
-		const auto fill = getToggleState() ? juce::Colour::fromRGB(58, 66, 68) : juce::Colour::fromRGB(31, 36, 38);
-		graphics.setColour(pressed ? fill.brighter(0.12f) : hovered ? fill.brighter(0.06f) : fill);
-		graphics.fillRoundedRectangle(bounds, 4.0f);
-		graphics.setColour(getToggleState() ? juce::Colour::fromRGB(227, 156, 75) : juce::Colour::fromRGB(75, 84, 87));
-		graphics.drawRoundedRectangle(bounds, 4.0f, hasKeyboardFocus(true) ? 2.0f : 1.0f);
-		graphics.setColour(juce::Colour::fromRGB(224, 226, 220));
-		graphics.setFont(juce::FontOptions(14.0f).withStyle("Bold"));
-		graphics.drawText(getButtonText(), getLocalBounds().withTrimmedRight(16), juce::Justification::centred);
 		const auto dot = juce::Rectangle<float>(bounds.getRight() - 16.0f, bounds.getCentreY() - 4.0f, 8.0f, 8.0f);
 		graphics.setColour(juce::Colour::fromRGB(227, 156, 75).withAlpha(0.2f + 0.8f * std::min(1.0f, std::abs(level))));
 		graphics.fillEllipse(dot);
@@ -45,6 +53,17 @@ public:
 
 private:
 	float level {};
+};
+
+// One filter type (Ladder or SVF) in the filter panel's header.
+class FilterTypeTab final : public juce::Button
+{
+public:
+	FilterTypeTab() : Button({}) {}
+	void paintButton(juce::Graphics& graphics, bool hovered, bool pressed) override
+	{
+		paintHeaderTab(graphics, *this, hovered, pressed, getLocalBounds());
+	}
 };
 
 // Horizontal bar for the live mod wheel / aftertouch amount (0..1).
@@ -95,6 +114,8 @@ private:
 	void addChoice(ui::Panel& panel, juce::ComboBox& box, const juce::StringArray& choices, const char* identifier,
 		std::unique_ptr<ComboBoxAttachment>& attachment);
 	void selectLfo(std::size_t index);
+	// Shows the filter type (0 Ladder, 1 SVF): lights its tab and disables the Ladder-only toggles for the SVF.
+	void showFilterType(int type);
 	void refreshLfoVisibility();
 
 	struct LfoControls
@@ -119,7 +140,7 @@ private:
 	preset_ui::PresetBrowser presetBrowser;
 	std::array<ui::Panel, 3> oscillatorPanels { ui::Panel { "Osc 1" }, ui::Panel { "Osc 2" }, ui::Panel { "Osc 3" } };
 	ui::Panel noisePanel { "Noise" };
-	ui::Panel filterPanel { "Ladder Filter" };
+	ui::Panel filterPanel { "Filter" };
 	ui::Panel voicePanel { "Voice" };
 	ui::Panel ioPanel { "I/O" };
 	ui::Panel ampPanel { "Amp ADSR" };
@@ -145,10 +166,13 @@ private:
 	juce::Label noiseTypeLabel;
 	std::array<ui::RotaryControl, 6> filterControls;
 	std::array<std::unique_ptr<SliderAttachment>, 6> filterAttachments;
+	std::array<FilterTypeTab, 2> filterTypeTabs;
 	juce::ToggleButton qCompensationButton { "Q Comp" };
 	juce::ToggleButton saturatedTapsButton { "Sat Taps" };
 	std::unique_ptr<ButtonAttachment> saturatedTapsAttachment;
 	std::unique_ptr<ButtonAttachment> qCompensationAttachment;
+	// After the tabs and toggles its callback updates, so it is destroyed before them.
+	std::unique_ptr<juce::ParameterAttachment> filterTypeAttachment;
 	std::array<ui::RotaryControl, 5> ampControls;
 	std::array<std::unique_ptr<SliderAttachment>, 5> ampAttachments;
 	std::array<ui::RotaryControl, 5> filterEnvelopeControls;

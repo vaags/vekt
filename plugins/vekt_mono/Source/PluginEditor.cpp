@@ -77,7 +77,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	noisePanel.addAndMakeVisible(noiseTypeLabel);
 	const std::array filterNames { "Cutoff", "Resonance", "Key Track", "Env Amt", "Drive", "Mode" };
 	const std::array filterIds { parameters::filterCutoff, parameters::filterResonance, parameters::filterKeyTracking, parameters::filterEnvelopeAmount, parameters::filterDrive, parameters::filterMode };
-	// A secondary arc links the Ladder Filter and Filter ADSR; their titles and labels
+	// A secondary arc links the Filter and Filter ADSR; their titles and labels
 	// continue to identify the controls without relying on colour alone.
 	const auto filterAccent = juce::Colour::fromRGB(123, 191, 173);
 	for (std::size_t index = 0; index < filterControls.size(); ++index)
@@ -85,21 +85,42 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 		addRotary(filterPanel, filterControls[index], filterNames[index], filterIds[index], filterAttachments[index]);
 		filterControls[index].getSlider().setColour(juce::Slider::rotarySliderFillColourId, filterAccent);
 	}
-	filterControls[0].getSlider().setTooltip("Ladder cutoff frequency. Sweeps exponentially from dark to fully open.");
-	filterControls[1].getSlider().setTooltip("Ladder emphasis. Adds a resonant peak with natural bass loss and reaches self-oscillation near maximum.");
+	filterControls[0].getSlider().setTooltip("Cutoff frequency, the same for both filter types. Sweeps exponentially from dark to fully open.");
+	filterControls[1].getSlider().setTooltip("Emphasis. Ladder: a resonant peak with natural bass loss that reaches self-oscillation near maximum. "
+		"SVF: strong resonance up to Q 8 that never self-oscillates and softens as Drive rises.");
 	filterControls[2].getSlider().setTooltip("Keyboard tracking. At 100%, cutoff rises one octave per keyboard octave.");
 	filterControls[3].getSlider().setTooltip("Unipolar filter contour amount. Applies the filter envelope in octave pitch space.");
-	filterControls[4].getSlider().setTooltip("Ladder input overload. Drives the nonlinear filter while compensating output level.");
-	filterControls[5].getSlider().setTooltip("Ladder output mix from LP through Notch to HP. The same resonant ladder runs underneath; LP is the classic response.");
+	filterControls[4].getSlider().setTooltip("Input overload. Drives the nonlinear filter harder: the Ladder's stages saturate; the SVF's input "
+		"saturates and its resonance softens.");
+	filterControls[5].getSlider().setTooltip("Output mix from LP through Notch to HP. Ladder: a mix of its four stages over the same resonant ladder; "
+		"SVF: its native LP and HP, with an exact Notch between them.");
+	// Filter type: Ladder (4-pole, self-oscillating) or SVF (2-pole, strongly resonant, never self-oscillating).
+	const std::array filterTypeNames { "LADDER", "SVF" };
+	const std::array filterTypeTooltips { "Ladder: 4-pole, 24 dB/oct nonlinear ladder. Thick, and self-oscillates near maximum Resonance.",
+		"SVF: 2-pole, 12 dB/oct state-variable filter. More open, strongly resonant, never self-oscillates; native LP, Notch and HP." };
+	auto* filterTypeParameter = pluginProcessor.getParameters().getParameter(parameters::filterType);
+	filterTypeAttachment = std::make_unique<juce::ParameterAttachment>(*filterTypeParameter,
+		[this](float value) { showFilterType(juce::roundToInt(value)); }, &pluginProcessor.getUndoManager());
+	for (std::size_t index = 0; index < filterTypeTabs.size(); ++index)
+	{
+		auto& tab = filterTypeTabs[index];
+		tab.setButtonText(filterTypeNames[index]);
+		tab.setName(juce::String("Filter Type ") + (index == 0 ? "Ladder" : "SVF"));
+		tab.setTooltip(filterTypeTooltips[index]);
+		tab.onClick = [this, index] { filterTypeAttachment->setValueAsCompleteGesture(static_cast<float>(index)); };
+		filterPanel.addAndMakeVisible(tab);
+	}
+	filterTypeAttachment->sendInitialUpdate();
 	filterPanel.addAndMakeVisible(qCompensationButton);
 	qCompensationButton.setName("Q Compensation");
 	qCompensationButton.setComponentID(parameters::filterQCompensation);
-	qCompensationButton.setTooltip("Experimental input-path Q compensation. May change drive, harmonics and peaks; does not boost a free-running tone.");
+	qCompensationButton.setTooltip("Ladder only. Experimental input-path Q compensation. May change drive, harmonics and peaks; does not boost a "
+		"free-running tone.");
 	qCompensationAttachment = std::make_unique<ButtonAttachment>(pluginProcessor.getParameters(), parameters::filterQCompensation, qCompensationButton);
 	filterPanel.addAndMakeVisible(saturatedTapsButton);
 	saturatedTapsButton.setName("Saturated Taps");
 	saturatedTapsButton.setComponentID(parameters::filterSaturatedTaps);
-	saturatedTapsButton.setTooltip("Experimental A/B for Notch and HP: mixes the saturated ladder taps instead of the raw ones. Keeps bass out of HP "
+	saturatedTapsButton.setTooltip("Ladder only. Experimental A/B for Notch and HP: mixes the saturated ladder taps instead of the raw ones. Keeps bass out of HP "
 		"and lets Drive colour Notch/HP under heavy Drive. No effect at LP.");
 	saturatedTapsAttachment = std::make_unique<ButtonAttachment>(pluginProcessor.getParameters(), parameters::filterSaturatedTaps, saturatedTapsButton);
 	const std::array ampNames { "Attack", "Decay", "Sustain", "Release", "Velocity" };
@@ -253,6 +274,14 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 }
 
 PluginEditor::~PluginEditor() { setLookAndFeel(nullptr); }
+void PluginEditor::showFilterType(int type)
+{
+	for (std::size_t index = 0; index < filterTypeTabs.size(); ++index)
+		filterTypeTabs[index].setToggleState(static_cast<int>(index) == type, juce::dontSendNotification);
+	// Disabled, not hidden, so the panel keeps its layout (ADR 0006).
+	qCompensationButton.setEnabled(type == 0);
+	saturatedTapsButton.setEnabled(type == 0);
+}
 void PluginEditor::selectLfo(std::size_t index)
 {
 	selectedLfo = index;
@@ -322,8 +351,10 @@ void PluginEditor::resized()
 		oscillatorControls[index].setBounds(x, 40, 65, ui::RotaryControl::heightFor(ui::RotaryControl::Size::compact));
 	}
 	for (std::size_t index = 0; index < filterControls.size(); ++index) filterControls[index].setBounds(6 + static_cast<int>(index) * 56, 32, 55, 136);
-	qCompensationButton.setBounds(150, 5, 88, 24);
-	saturatedTapsButton.setBounds(246, 5, 94, 24);
+	filterTypeTabs[0].setBounds(64, 5, 66, 24);
+	filterTypeTabs[1].setBounds(134, 5, 44, 24);
+	qCompensationButton.setBounds(184, 5, 74, 24);
+	saturatedTapsButton.setBounds(262, 5, 80, 24);
 	for (std::size_t index = 0; index < ampControls.size(); ++index) ampControls[index].setBounds(6 + static_cast<int>(index) * 67, 38, 65, 140);
 	for (std::size_t index = 0; index < filterEnvelopeControls.size(); ++index) filterEnvelopeControls[index].setBounds(6 + static_cast<int>(index) * 67, 38, 65, 140);
 	for (std::size_t index = 0; index < voiceControls.size(); ++index) voiceControls[index].setBounds(6 + static_cast<int>(index) * 67, 32, 65, 136);

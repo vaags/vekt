@@ -1,5 +1,7 @@
 #pragma once
 
+#include "NonlinearTptSvf.h"
+#include "SvfResponse.h"
 #include "NonlinearTptLadder.h"
 #include "WidthOscillator.h"
 #include "ContourEnvelope.h"
@@ -67,6 +69,9 @@ inline constexpr std::size_t lfoCount = 2;
 // anchor's frozen-Width mean, zeroCentered removes it.
 enum class WidthDcPolicy { raw, zeroCentered };
 
+// The filter topology (ADR 0006). The SVF's resonance mapping and Drive knee are still provisional.
+enum class FilterType { ladder, svf };
+
 struct MonoVoiceSettings
 {
 	std::array<float, 3> range, semitone, fine, octave, level, morph, pulseWidth;
@@ -79,6 +84,7 @@ struct MonoVoiceSettings
 	bool qCompensation {};
 	float filterMode { -1.0f };
 	bool saturatedModeTaps {};
+	FilterType filterType { FilterType::ladder };
 	std::array<MonoLfoSettings, lfoCount> lfo {};
 	WidthDcPolicy widthDcPolicy { WidthDcPolicy::raw };
 };
@@ -154,6 +160,7 @@ public:
 		driftCoefficientSpeed = -1.0f; // Drift walks' one-pole coefficient, recomputed when Drift's speed changes
 		juce::ignoreUnused(WidthWavetable::instance()); // build the shared tables before audio starts
 		for (auto& ladder : filterLadders) ladder.prepare(newSampleRate);
+		for (auto& svf : filterSvfs) svf.prepare(newSampleRate);
 		random.setSeed(seed);
 		voiceSeed = seed;
 		for (auto& lfo : lfos) lfo.setSampleRate(newSampleRate);
@@ -207,7 +214,9 @@ public:
 		vibratoControl = polyPressure = 0.0f;
 		morphsInitialized = false;
 		for (auto& ladder : filterLadders) ladder.reset();
+		for (auto& svf : filterSvfs) svf.reset();
 		filterControlsInitialized = false;
+		filterRunning = false;
 		qInputCompensation.setCurrentAndTargetValue(0.0f);
 		fadeInSamples = 0;
 		continuitySamples = 0;
@@ -232,6 +241,7 @@ public:
 		if (!wasActive)
 		{
 			morphsInitialized = false;
+			filterRunning = false;
 			// Each new note draws fresh unison phase offsets, scaled by detune: at 0 cents the layers start in
 			// phase with the first (no static comb filter), and from 5 cents they are fully random. Drawing them
 			// per note, not per voice slot, keeps level and tone independent of which slot plays the note.
@@ -278,6 +288,8 @@ public:
 		hasPitch = gliding = false;
 		amp.reset(); filterEnvelope.reset();
 		for (auto& ladder : filterLadders) ladder.reset();
+		for (auto& svf : filterSvfs) svf.reset();
+		filterRunning = false;
 		fadeInSamples = 0;
 		continuitySamples = 0;
 		continuityPending = false;
@@ -287,11 +299,16 @@ public:
 
 	// vibratoSemitones is the shared vibrato LFO at full depth; channelControl is the channel's mod wheel or pressure.
 	// One sample of the voice. The processor splits this into beginSample, one batched ladder solve over all
-	// voices' layers, and finishSample; render does the same for a single voice (its layers solved together).
+	// voices' layers, and finishSample (or finishSvfSample); render does the same for a single voice.
 	void render(float& left, float& right, const MonoVoiceSettings& settings, float bend,
 		const std::array<double, lfoCount>& lfoClockPositions = {}, float vibratoSemitones = 0.0f, float channelControl = 0.0f)
 	{
 		if (!beginSample(settings, bend, lfoClockPositions, vibratoSemitones, channelControl)) return;
+		if (settings.filterType == FilterType::svf)
+		{
+			finishSvfSample(left, right);
+			return;
+		}
 		const auto layers = static_cast<std::size_t>(pending.layers);
 		std::array<float, 4> ladderOutputs {};
 		NonlinearTptLadder::processCoupled(std::span(filterLadders.data(), layers), std::span<const float>(pending.mixers.data(), layers),
@@ -305,6 +322,8 @@ public:
 		const std::array<double, lfoCount>& lfoClockPositions = {}, float vibratoSemitones = 0.0f, float channelControl = 0.0f)
 	{
 		if (!active) return false;
+		selectFilterType(settings.filterType);
+		filterRunning = true;
 		// Refresh the parameters at each rendered segment (the processor snapshots
 		// automation at MIDI/block boundaries), including while a key is held.
 		amp.setParameters(ampEnvelopeParameters(settings));
@@ -439,6 +458,25 @@ public:
 		}
 	}
 
+	// finishSample for the SVF: filters each unison layer through its own nonlinear SVF with the cutoff, resonance,
+	// Drive and smoothed Mode the ladder would get, mixed LP -> Notch -> HP from the SVF's native outputs, then trimmed
+	// for Resonance (svfOutputTrim). The voicing constants in SvfResponse.h are locked (ADR 0006).
+	void finishSvfSample(float& left, float& right) noexcept
+	{
+		const auto& filter = pending.ladderSettings;
+		const NonlinearTptSvfSettings svfSettings { static_cast<double>(filter.cutoffHz),
+			svfDamping(static_cast<double>(filter.resonance)), static_cast<double>(filter.driveDecibels), svfKnee,
+			svfDampingCurve };
+		const auto trim = svfOutputTrim(static_cast<double>(filter.resonance));
+		std::array<float, 4> outputs {};
+		for (std::size_t stack = 0; stack < static_cast<std::size_t>(pending.layers); ++stack)
+		{
+			const auto out = filterSvfs[stack].process(static_cast<double>(pending.mixers[stack]), svfSettings);
+			outputs[stack] = static_cast<float>(trim * svfModeMix(static_cast<double>(filter.mode), out.lowPass, out.highPass));
+		}
+		finishSample(outputs.data(), left, right);
+	}
+
 	// Everything after the ladder, given its output for each unison layer: amplitude, pan, layer gain and the
 	// note-transition continuity, added to left/right.
 	void finishSample(const float* ladderOutputs, float& left, float& right) noexcept
@@ -491,6 +529,22 @@ public:
 		}
 		return total;
 	}
+	[[nodiscard]] NonlinearTptSvfDiagnostics svfDiagnostics() const noexcept
+	{
+		NonlinearTptSvfDiagnostics total;
+		for (const auto& svf : filterSvfs)
+		{
+			const auto& value = svf.diagnostics();
+			total.samples += value.samples;
+			total.iterations += value.iterations;
+			total.fallbackSteps += value.fallbackSteps;
+			total.unconvergedSamples += value.unconvergedSamples;
+			total.nonFiniteSamples += value.nonFiniteSamples;
+			total.maximumIterations = std::max(total.maximumIterations, value.maximumIterations);
+			total.maximumResidual = std::max(total.maximumResidual, value.maximumResidual);
+		}
+		return total;
+	}
 	[[nodiscard]] bool isHeld() const noexcept { return held; }
 	[[nodiscard]] bool isSustained() const noexcept { return sustained; }
 	[[nodiscard]] bool matches(int expectedChannel, int expectedNote) const noexcept { return active && channel == expectedChannel && note == expectedNote; }
@@ -504,6 +558,20 @@ public:
 	[[nodiscard]] float getPolyPressure() const noexcept { return polyPressure; }
 
 private:
+	// A filter type change starts the newly selected filter from zero state; the other keeps its storage but is not
+	// run. While the voice sounds, the continuity offset declicks the output step and the new filter's own ring-up is
+	// left audible (ADR 0006); a voice starting from silence just adopts the type.
+	void selectFilterType(FilterType type) noexcept
+	{
+		if (type == filterType) return;
+		if (type == FilterType::svf) for (auto& svf : filterSvfs) svf.reset();
+		else for (auto& ladder : filterLadders) ladder.reset();
+		filterType = type;
+		if (!filterRunning) return;
+		continuitySamples = 0;
+		continuityPending = true;
+	}
+
 	[[nodiscard]] int transitionLength() const noexcept
 	{
 		return std::max(1, static_cast<int>(std::round(voiceTransitionSeconds * sampleRate)));
@@ -524,7 +592,9 @@ private:
 
 	void updateFilterControlTargets(const MonoVoiceSettings& settings)
 	{
-		const auto cutoffTarget = std::log2(juce::jlimit(10.0f, 32'000.0f, settings.cutoff));
+		// Cutoff reaches 5 Hz so a closed 2-pole SVF silences bass notes too (ADR 0006); modulation may take it one
+		// octave further, to 2.5 Hz.
+		const auto cutoffTarget = std::log2(juce::jlimit(2.5f, 32'000.0f, settings.cutoff));
 		// Feedback gain k already makes the input tap inert at zero resonance.
 		const auto compensationTarget = settings.qCompensation ? 0.5f : 0.0f;
 		if (!filterControlsInitialized)
@@ -554,7 +624,7 @@ private:
 		const auto velocityResponse = velocityCurve;
 		const auto velocityOctaves = -settings.filterVelocity * (1.0f - velocityResponse) * maximumVelocityOctaves;
 		const auto maximumCutoff = std::min(32'000.0f, sampleRate * 0.45f);
-		const auto cutoff = juce::jlimit(10.0f, maximumCutoff,
+		const auto cutoff = juce::jlimit(2.5f, maximumCutoff,
 			baseCutoff * std::exp2(keyOctaves + contourOctaves + velocityOctaves + lfoOctaves));
 		return { cutoff, resonanceAmount, driveDb, false, inputCompensation, mode, settings.saturatedModeTaps };
 	}
@@ -602,6 +672,8 @@ private:
 	bool morphsInitialized {};
 	std::array<std::array<float, 3>, 4> phase {};
 	std::array<NonlinearTptLadder, 4> filterLadders;
+	std::array<NonlinearTptSvf, 4> filterSvfs; // side by side with the ladders: only the selected type is run
+	FilterType filterType { FilterType::ladder };
 	std::array<std::array<WidthOscillatorState, 3>, 4> widthStates {}; // [unison layer][oscillator]
 	// Carried from beginSample to finishSample.
 	struct PendingSample
@@ -624,6 +696,7 @@ private:
 	int channel {}, note {};
 	std::uint64_t age {};
 	bool active {}, held {}, sustained {}, filterControlsInitialized {}, continuityPending {};
+	bool filterRunning {}; // the voice has rendered since it last started from silence
 	bool hasPitch {}, gliding {};
 };
 }

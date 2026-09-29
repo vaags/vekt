@@ -71,6 +71,14 @@ public:
 		std::uint64_t samples {}, iterations {}, lineSearchTrials {}, unconverged {}, nonFinite {};
 	};
 	[[nodiscard]] CoupledWorkSnapshot coupledWorkSnapshot() const noexcept;
+	// The SVF's solver work (ADR 0006), summed over voices like coupledWorkSnapshot.
+	struct SvfWorkSnapshot
+	{
+		std::uint64_t samples {}, iterations {}, fallbackSteps {}, unconverged {}, nonFinite {};
+		int maximumIterations {};
+		double maximumResidual {};
+	};
+	[[nodiscard]] SvfWorkSnapshot svfWorkSnapshot() const noexcept;
 	[[nodiscard]] std::array<float, 2> consumeOutputPeaks() noexcept { return outputMeter.consumePeaks(); }
 	// Latest output of each LFO on the most recently started sounding voice; 0 while silent. For display only.
 	[[nodiscard]] float getLfoDisplayValue(std::size_t index) const noexcept { return lfoDisplayValues[index].load(std::memory_order_relaxed); }
