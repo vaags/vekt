@@ -157,8 +157,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 	// Full depth sweeps the whole Mode range, LP to HP.
 	for (std::size_t index = 0; index < lfos.size(); ++index)
 		addDepth(layout, lfos[index].filterMode, "LFO " + juce::String(static_cast<int>(index) + 1) + " Filter Mode", 100.0f, 1.0f, "%");
-	// Experimental A/B: Notch/HP from the tanh of each ladder tap instead of the raw taps.
-	layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID { filterSaturatedTaps, version }, "Saturated Taps", false));
 	// Discrete filter topology (ADR 0006): 0 Ladder, 1 SVF. Not an LFO destination.
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { filterType, version }, "Filter Type", juce::StringArray { "Ladder", "SVF" }, 0));
 	return layout;

@@ -16,8 +16,6 @@ struct NonlinearTptLadderSettings
 	float inputFeedbackCompensation {};
 	// Output pole mix: -1 = LP (the plain ladder), 0 = Notch, +1 = HP. See LadderPoleMix.h.
 	float mode { -1.0f };
-	// A/B: Notch/HP taps in the tanh domain (ladderPoleMixSaturated) rather than raw.
-	bool saturatedModeTaps {};
 };
 
 struct NonlinearTptLadderDiagnostics

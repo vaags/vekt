@@ -8,9 +8,9 @@
 
 namespace vekt::mono
 {
-// Output taps [u, y1, y2, y3, y4] for the continuous LP -> Notch -> HP pole mix, where u is the feedback-solved
-// input to stage 1 (before its tanh) and y1..y4 are the stage outputs. Feedback always comes from y4, so Mode
-// only changes what is heard. With H one linearised stage and r = 1 / (1 + k):
+// Output tap coefficients [u, y1, y2, y3, y4] for the continuous LP -> Notch -> HP pole mix, where u is the
+// feedback-solved input to stage 1 (before its tanh) and y1..y4 are the stage outputs. Feedback always comes from
+// y4, so Mode only changes what is heard. With H one linearised stage and r = 1 / (1 + k):
 //   LP    H^4                                   (the plain ladder; its passband is r)
 //   Notch r (1 - 2H + 2H^2)(1 + kH)             (zero at the stage pole; both passbands r)
 //   HP    r (1 - H)^4                           (high passband r)
@@ -38,17 +38,6 @@ using LadderPoleMixTaps = std::array<double, 5>;
 	return taps;
 }
 
-// Mode at or below -1 returns y4 untouched, so the LP position is bit-identical to the plain ladder.
-[[nodiscard]] inline double ladderPoleMix(double mode, double k, double feedbackInput,
-	const std::array<double, 4>& stages) noexcept
-{
-	if (mode <= -1.0) return stages[3];
-	const auto taps = ladderPoleMixTaps(mode, k);
-	auto sum = taps[0] * feedbackInput;
-	for (std::size_t stage = 0; stage < stages.size(); ++stage) sum += taps[stage + 1] * stages[stage];
-	return sum;
-}
-
 // How much of the feedback gain k still acts once the stages saturate, for the peak level E of the driven input.
 // The saturated LP stops losing bass to resonance as E rises, so the saturated Notch/HP use k * s in their
 // normalisation. Fitted to sine measurements (inputs 0.25-1 at 0-24 dB Drive all collapse onto E = level * D).
@@ -63,14 +52,15 @@ using LadderPoleMixTaps = std::array<double, 5>;
 	return std::max(1.0, 3.0 / std::sqrt(driveGain));
 }
 
-// A/B variant: the same taps applied to a tanh(u / a) and a tanh(y1..y4 / a). Under heavy Drive the raw stages
-// lag u for seconds (the ladder integrates tanh, which is flat there), so the raw HP leaks bass and passes
-// the driven input clean. With a = 1 the taps are the tanh values each stage integrates, the lag sits where
-// they are flat, so the cancellations hold and the output saturates. Any curve keeps the DC cancellation, but
-// a = 1 also compresses a hot mixer by 3-5 dB at no Drive, where the raw taps do not leak; so the knee
-// widens as Drive falls (ladderPoleMixKnee). LP stays the raw y4, and the LP -> Notch half fades from it,
-// so Mode = LP is unchanged. inputTanh/stageTanh are tanh(u) and tanh(y), reused when a = 1.
-[[nodiscard]] inline double ladderPoleMixSaturated(double mode, double k, double feedbackInput, const std::array<double, 4>& stages,
+// The mixed output. The taps are applied to a tanh(u / a) and a tanh(y1..y4 / a), not the raw values: under heavy
+// Drive the raw stages lag u for seconds (the ladder integrates tanh, which is flat there), so a raw HP leaks
+// bass above its passband and passes the driven input clean. With a = 1 the taps are the tanh values each stage
+// integrates, the lag sits where they are flat, so the cancellations hold and the output saturates. Any curve
+// keeps the DC cancellation, but a = 1 also compresses a hot mixer by 3-5 dB at no Drive, where raw taps do not
+// leak; so the knee widens as Drive falls (ladderPoleMixKnee). k should be the feedback gain scaled by
+// ladderFeedbackAuthority. Mode at or below -1 returns y4 untouched, so LP is bit-identical to the plain ladder,
+// and the LP -> Notch half fades from that raw y4. inputTanh/stageTanh are tanh(u) and tanh(y), reused when a = 1.
+[[nodiscard]] inline double ladderPoleMix(double mode, double k, double feedbackInput, const std::array<double, 4>& stages,
 	double knee, double inputTanh, const std::array<double, 4>& stageTanh) noexcept
 {
 	if (mode <= -1.0) return stages[3];

@@ -167,9 +167,7 @@ private:
 	std::array<ui::RotaryControl, 6> filterControls;
 	std::array<std::unique_ptr<SliderAttachment>, 6> filterAttachments;
 	std::array<FilterTypeTab, 2> filterTypeTabs;
-	juce::ToggleButton qCompensationButton { "Q Comp" };
-	juce::ToggleButton saturatedTapsButton { "Sat Taps" };
-	std::unique_ptr<ButtonAttachment> saturatedTapsAttachment;
+	juce::ToggleButton qCompensationButton { "Q Compensation" };
 	std::unique_ptr<ButtonAttachment> qCompensationAttachment;
 	// After the tabs and toggles its callback updates, so it is destroyed before them.
 	std::unique_ptr<juce::ParameterAttachment> filterTypeAttachment;

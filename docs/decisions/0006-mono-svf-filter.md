@@ -135,8 +135,9 @@ OTA/SEM family. It is inspired by that lineage, not a model of any unit.
   0 to +24 dB range, into a fixed nonlinear knee. The knee is not a second
   Drive-dependent control (input gain and knee scale are equivalent up to output
   gain). +12 dB means "substantially driven" in both filters, not identical THD.
-- **Q Comp** and the **Saturated Taps** A/B remain Ladder-only. Under SVF they
-  are shown disabled, not hidden, so the panel geometry does not move.
+- **Q Comp** remains Ladder-only. Under SVF it is shown disabled, not hidden, so
+  the panel geometry does not move. (The Ladder's **Saturated Taps** A/B was
+  retired in sound schema 11: the saturated taps are its only Notch/HP mix.)
 - **Bandpass** is deferred until LP/Notch/HP is settled. Either model is
   acceptable later (BP as a discrete mode that disables Mode, or Mode morphing
   LP → BP → HP while BP is engaged); an inert Mode knob is not.
@@ -416,8 +417,8 @@ character as a closed LP. The trim stays independent of Mode.
 **Filter Type UI (29 September 2026):** the panel is titled "Filter", with
 `LADDER | SVF` header tabs styled like the LFO tabs (tooltips give 4-pole /
 2-pole). They are bound to `filterType` through a `ParameterAttachment`, so
-presets, automation and undo show on the tabs. Q Comp and Sat Taps are
-disabled, not hidden, under SVF. The shared filter-knob tooltips describe both
+presets, automation and undo show on the tabs. Q Comp is disabled, not hidden,
+under SVF. The shared filter-knob tooltips describe both
 types.
 - The SVF resonance curve between its endpoints: `k = 2` (Q 0.5) or
   `k = sqrt(2)` (Butterworth) at 0 %, and `k_min` (provisionally about 0.05,

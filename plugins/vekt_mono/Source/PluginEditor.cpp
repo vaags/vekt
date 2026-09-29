@@ -117,12 +117,6 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	qCompensationButton.setTooltip("Ladder only. Experimental input-path Q compensation. May change drive, harmonics and peaks; does not boost a "
 		"free-running tone.");
 	qCompensationAttachment = std::make_unique<ButtonAttachment>(pluginProcessor.getParameters(), parameters::filterQCompensation, qCompensationButton);
-	filterPanel.addAndMakeVisible(saturatedTapsButton);
-	saturatedTapsButton.setName("Saturated Taps");
-	saturatedTapsButton.setComponentID(parameters::filterSaturatedTaps);
-	saturatedTapsButton.setTooltip("Ladder only. Experimental A/B for Notch and HP: mixes the saturated ladder taps instead of the raw ones. Keeps bass out of HP "
-		"and lets Drive colour Notch/HP under heavy Drive. No effect at LP.");
-	saturatedTapsAttachment = std::make_unique<ButtonAttachment>(pluginProcessor.getParameters(), parameters::filterSaturatedTaps, saturatedTapsButton);
 	const std::array ampNames { "Attack", "Decay", "Sustain", "Release", "Velocity" };
 	const std::array ampIds { parameters::ampAttack, parameters::ampDecay, parameters::ampSustain, parameters::ampRelease, parameters::ampVelocity };
 	for (std::size_t index = 0; index < ampControls.size(); ++index) addRotary(ampPanel, ampControls[index], ampNames[index], ampIds[index], ampAttachments[index]);
@@ -280,7 +274,6 @@ void PluginEditor::showFilterType(int type)
 		filterTypeTabs[index].setToggleState(static_cast<int>(index) == type, juce::dontSendNotification);
 	// Disabled, not hidden, so the panel keeps its layout (ADR 0006).
 	qCompensationButton.setEnabled(type == 0);
-	saturatedTapsButton.setEnabled(type == 0);
 }
 void PluginEditor::selectLfo(std::size_t index)
 {
@@ -353,8 +346,7 @@ void PluginEditor::resized()
 	for (std::size_t index = 0; index < filterControls.size(); ++index) filterControls[index].setBounds(6 + static_cast<int>(index) * 56, 32, 55, 136);
 	filterTypeTabs[0].setBounds(64, 5, 66, 24);
 	filterTypeTabs[1].setBounds(134, 5, 44, 24);
-	qCompensationButton.setBounds(184, 5, 74, 24);
-	saturatedTapsButton.setBounds(262, 5, 80, 24);
+	qCompensationButton.setBounds(184, 5, 158, 24);
 	for (std::size_t index = 0; index < ampControls.size(); ++index) ampControls[index].setBounds(6 + static_cast<int>(index) * 67, 38, 65, 140);
 	for (std::size_t index = 0; index < filterEnvelopeControls.size(); ++index) filterEnvelopeControls[index].setBounds(6 + static_cast<int>(index) * 67, 38, 65, 140);
 	for (std::size_t index = 0; index < voiceControls.size(); ++index) voiceControls[index].setBounds(6 + static_cast<int>(index) * 67, 32, 65, 136);

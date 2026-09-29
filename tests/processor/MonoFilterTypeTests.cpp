@@ -98,7 +98,6 @@ void applyFixture(vekt::mono::PluginProcessor& processor, int fixture)
 		setParameter(processor, parameters::filterDrive, 18.0f);
 		setParameter(processor, parameters::filterResonance, 90.0f);
 		setParameter(processor, parameters::filterMode, 0.3f);
-		setParameter(processor, parameters::filterSaturatedTaps, 1.0f);
 		setParameter(processor, parameters::filterQCompensation, 1.0f);
 		setParameter(processor, parameters::lfos[0].rate, 3.0f);
 		setParameter(processor, parameters::lfos[0].filterMode, 40.0f);
@@ -161,18 +160,20 @@ TEST_CASE("Mono filter type is an appended sound parameter that defaults to Ladd
 	REQUIRE(parameters::schema10ParameterIds.size() == 1);
 }
 
-TEST_CASE("Mono migrates schema 9 presets to schema 10 with the Ladder filter", "[mono][filter][filter-type][preset]")
+TEST_CASE("Mono migrates schema 9 presets to the current schema with the Ladder filter", "[mono][filter][filter-type][preset]")
 {
 	juce::ScopedJuceInitialiser_GUI juceInitializer;
 	vekt::mono::PluginProcessor processor;
 	setParameter(processor, parameters::filterCutoff, 3'210.0f);
-	// Exactly what a schema-9 build saved: every sound parameter except the filter type.
+	// Exactly what a schema-9 build saved: every current sound parameter except the filter type, plus the since
+	// retired Saturated Taps.
 	std::vector<const char*> schema9Ids(parameters::soundParameterIds.begin(), parameters::soundParameterIds.end() - 1);
 	auto preset = vekt::presets::PresetSchema::create(parameters::presetProductIdentifier, "Schema 9", processor.getParameters(), schema9Ids);
+	preset.parameters.push_back({ "filterSaturatedTaps", 0.0f });
 	preset.soundSchemaVersion = 9;
 	setParameter(processor, parameters::filterType, 1.0f);
 	REQUIRE(processor.getPresetSession().prepare(preset).wasOk());
-	REQUIRE(preset.soundSchemaVersion == 10);
+	REQUIRE(preset.soundSchemaVersion == 11);
 	REQUIRE(preset.parameters.size() == parameters::soundParameterIds.size());
 	const auto written = std::find_if(preset.parameters.begin(), preset.parameters.end(), [](const auto& entry)
 	{

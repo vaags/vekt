@@ -170,8 +170,7 @@ float NonlinearTptLadder::processSubstepped(float input,
 			interpolate(previousSettings.driveDecibels, settings.driveDecibels),
 			settings.driveCompensation,
 			{},
-			interpolate(previousSettings.mode, settings.mode),
-			settings.saturatedModeTaps
+			interpolate(previousSettings.mode, settings.mode)
 		};
 		output = processStep(stepInput, stepSettings, integrationGain);
 	}
@@ -234,10 +233,10 @@ float NonlinearTptLadder::processStep(float input,
 
 	const auto mix = [&]
 	{
-		if (!settings.saturatedModeTaps) return ladderPoleMix(static_cast<double>(settings.mode), feedbackGain, feedbackInput, evaluation.output);
+		if (settings.mode <= -1.0f) return evaluation.output.back();
 		std::array<double, 4> stageTanh {};
 		for (std::size_t stage = 0; stage < stageTanh.size(); ++stage) stageTanh[stage] = std::tanh(evaluation.output[stage]);
-		return ladderPoleMixSaturated(static_cast<double>(settings.mode), feedbackGain * ladderFeedbackAuthority(drivenPeak), feedbackInput, evaluation.output,
+		return ladderPoleMix(static_cast<double>(settings.mode), feedbackGain * ladderFeedbackAuthority(drivenPeak), feedbackInput, evaluation.output,
 			ladderPoleMixKnee(static_cast<double>(driveGain)), std::tanh(feedbackInput), stageTanh);
 	};
 	const auto output = mix();
@@ -380,10 +379,9 @@ float NonlinearTptLadder::completeCoupledStep(const std::array<double, 4>& outpu
 	}
 	previousFeedbackInput = feedbackInput;
 	const auto mode = static_cast<double>(settings.mode);
-	const auto mixed = settings.saturatedModeTaps
-		? ladderPoleMixSaturated(mode, feedbackGain * ladderFeedbackAuthority(drivenPeak), feedbackInput, output,
-			ladderPoleMixKnee(static_cast<double>(driveGain)), inputTanh, stageTanh)
-		: ladderPoleMix(mode, feedbackGain, feedbackInput, output);
+	// LP skips the tap arithmetic (and its pow/sqrt) entirely.
+	const auto mixed = mode <= -1.0 ? output[3] : ladderPoleMix(mode, feedbackGain * ladderFeedbackAuthority(drivenPeak), feedbackInput,
+		output, ladderPoleMixKnee(static_cast<double>(driveGain)), inputTanh, stageTanh);
 	return static_cast<float>(settings.driveCompensation ? mixed / std::sqrt(driveGain) : mixed);
 }
 void NonlinearTptLadder::processCoupled(std::span<NonlinearTptLadder> ladders, std::span<const float> inputs,

@@ -399,24 +399,6 @@ TEST_CASE("Mono Q compensation checkbox binds the default-off sound parameter", 
 	}
 }
 
-TEST_CASE("Mono Saturated Taps checkbox binds the default-off sound parameter", "[mono][processor][ui][ladder-mode]")
-{
-	juce::ScopedJuceInitialiser_GUI initialiseJuce;
-	vekt::mono::PluginProcessor processor;
-	vekt::mono::PluginEditor editor(processor);
-	auto* button = findNamedButton(editor.getContent(), "Saturated Taps");
-	REQUIRE(button != nullptr);
-	REQUIRE(button->isVisible());
-	REQUIRE_FALSE(button->getToggleState());
-	auto* parameter = processor.getParameters().getParameter(vekt::mono::parameters::filterSaturatedTaps);
-	REQUIRE(parameter != nullptr);
-	REQUIRE(parameter->getDefaultValue() == Catch::Approx(0.0f));
-	button->setToggleState(true, juce::sendNotificationSync);
-	REQUIRE(parameter->getValue() == Catch::Approx(1.0f));
-	for (auto* sibling : button->getParentComponent()->getChildren())
-		if (sibling != button) REQUIRE_FALSE(button->getBounds().intersects(sibling->getBounds()));
-}
-
 TEST_CASE("Mono Filter Type tabs select the filter and disable the Ladder-only toggles", "[mono][processor][ui][filter-type]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
@@ -425,18 +407,15 @@ TEST_CASE("Mono Filter Type tabs select the filter and disable the Ladder-only t
 	auto* ladder = findNamedButton(editor.getContent(), "Filter Type Ladder");
 	auto* svf = findNamedButton(editor.getContent(), "Filter Type SVF");
 	auto* qCompensation = findNamedButton(editor.getContent(), "Q Compensation");
-	auto* saturatedTaps = findNamedButton(editor.getContent(), "Saturated Taps");
 	REQUIRE(ladder != nullptr);
 	REQUIRE(svf != nullptr);
 	REQUIRE(qCompensation != nullptr);
-	REQUIRE(saturatedTaps != nullptr);
 	auto* parameter = processor.getParameters().getParameter(vekt::mono::parameters::filterType);
 	REQUIRE(parameter != nullptr);
 	// Default: Ladder lit, its toggles enabled.
 	REQUIRE(ladder->getToggleState());
 	REQUIRE_FALSE(svf->getToggleState());
 	REQUIRE(qCompensation->isEnabled());
-	REQUIRE(saturatedTaps->isEnabled());
 	// Clicking SVF selects it; the Ladder-only toggles stay visible but disabled, so the layout does not move.
 	// What a click runs (triggerClick() would post it asynchronously).
 	svf->onClick();
@@ -445,8 +424,6 @@ TEST_CASE("Mono Filter Type tabs select the filter and disable the Ladder-only t
 	REQUIRE_FALSE(ladder->getToggleState());
 	REQUIRE(qCompensation->isVisible());
 	REQUIRE_FALSE(qCompensation->isEnabled());
-	REQUIRE(saturatedTaps->isVisible());
-	REQUIRE_FALSE(saturatedTaps->isEnabled());
 	if (const auto* path = std::getenv("VEKT_MONO_SNAPSHOT_SVF")) writeSnapshot(editor, path);
 	// A parameter change from elsewhere (preset, automation, undo) shows on the tabs; on the message thread the
 	// attachment updates synchronously.

@@ -46,14 +46,14 @@ juce::Result migrateLfoPreset(presets::Preset& preset, const juce::AudioProcesso
 	preset.soundSchemaVersion = 7;
 	return juce::Result::ok();
 }
-// Schema 8 adds the ladder's filter Mode (older presets keep the plain LP ladder); schema 9 adds the saturated-taps
-// A/B (off, the raw taps schema 8 presets were voiced with); schema 10 adds the filter type (Ladder, the only filter
-// earlier presets had). Each step appends its parameters at their defaults.
+// Schema 8 adds the ladder's filter Mode (older presets keep the plain LP ladder); schema 9 added a saturated-taps
+// A/B that schema 11 retires (the saturated taps are the only Notch/HP mix now); schema 10 adds the filter type
+// (Ladder, the only filter earlier presets had). Each added parameter starts at its default.
 juce::Result migratePreset(presets::Preset& preset, const juce::AudioProcessorValueTreeState& state)
 {
 	if (preset.soundSchemaVersion >= 4 && preset.soundSchemaVersion <= 6)
 		if (const auto result = migrateLfoPreset(preset, state); result.failed()) return result;
-	if (preset.soundSchemaVersion < 7 || preset.soundSchemaVersion > 10) return juce::Result::fail("Unsupported Mono preset sound schema");
+	if (preset.soundSchemaVersion < 7 || preset.soundSchemaVersion > 11) return juce::Result::fail("Unsupported Mono preset sound schema");
 	const auto addDefaults = [&](const auto& identifiers, int version)
 	{
 		for (const auto* identifier : identifiers)
@@ -64,8 +64,16 @@ juce::Result migratePreset(presets::Preset& preset, const juce::AudioProcessorVa
 		preset.soundSchemaVersion = version;
 	};
 	if (preset.soundSchemaVersion == 7) addDefaults(parameters::schema8ParameterIds, 8);
-	if (preset.soundSchemaVersion == 8) addDefaults(parameters::schema9ParameterIds, 9);
+	if (preset.soundSchemaVersion == 8) preset.soundSchemaVersion = 9;
 	if (preset.soundSchemaVersion == 9) addDefaults(parameters::schema10ParameterIds, 10);
+	if (preset.soundSchemaVersion == 10)
+	{
+		preset.parameters.erase(std::remove_if(preset.parameters.begin(), preset.parameters.end(), [](const auto& parameter)
+		{
+			return parameter.identifier == "filterSaturatedTaps";
+		}), preset.parameters.end());
+		preset.soundSchemaVersion = 11;
+	}
 	return juce::Result::ok();
 }
 
@@ -118,7 +126,6 @@ MonoVoiceSettings PluginProcessor::snapshotSettings() const
 	settings.drive = value(parameters::filterDrive);
 	settings.qCompensation = value(parameters::filterQCompensation) >= 0.5f;
 	settings.filterMode = value(parameters::filterMode);
-	settings.saturatedModeTaps = value(parameters::filterSaturatedTaps) >= 0.5f;
 	settings.filterType = value(parameters::filterType) >= 0.5f ? FilterType::svf : FilterType::ladder;
 	settings.ampAttack = value(parameters::ampAttack);
 	settings.ampDecay = value(parameters::ampDecay);
@@ -175,11 +182,11 @@ PluginProcessor::PluginProcessor()
 	: AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
 	  parameterState(*this, &undoManager, parameters::stateType, parameters::createLayout()),
 	  stateManager(parameterState, parameters::projectStateType, 3),
-	  presetSession(presetCatalog, { parameters::presetProductIdentifier, "Vekt Mono", 10 }, {
+	  presetSession(presetCatalog, { parameters::presetProductIdentifier, "Vekt Mono", 11 }, {
 		[this](const juce::String& name)
 		{
 			auto preset = presets::PresetSchema::create(parameters::presetProductIdentifier, name, parameterState, parameters::soundParameterIds);
-			preset.soundSchemaVersion = 10;
+			preset.soundSchemaVersion = 11;
 			return preset;
 		},
 		[this](presets::Preset& preset) { return migratePreset(preset, parameterState); },
@@ -731,13 +738,13 @@ juce::Result PluginProcessor::loadAdjacentPreset(bool next)
 }
 juce::Result PluginProcessor::validatePresetSound(const presets::Preset& preset) const
 {
-	return preset.soundSchemaVersion != 10 ? juce::Result::fail("Unsupported Mono preset sound schema")
+	return preset.soundSchemaVersion != 11 ? juce::Result::fail("Unsupported Mono preset sound schema")
 		: presets::PresetSchema::validate(preset, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds);
 }
 juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 {
 	auto prepared = preset;
-	if (prepared.soundSchemaVersion >= 4 && prepared.soundSchemaVersion <= 9)
+	if (prepared.soundSchemaVersion >= 4 && prepared.soundSchemaVersion <= 10)
 		if (const auto result = migratePreset(prepared, parameterState); result.failed()) return result;
 	if (const auto result = validatePresetSound(prepared); result.failed()) return result;
 	undoManager.beginNewTransaction("Load preset: " + preset.name);
@@ -748,7 +755,7 @@ juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 bool PluginProcessor::matchesPresetSound(const presets::Preset& preset) const
 {
 	auto prepared = preset;
-	if (prepared.soundSchemaVersion >= 4 && prepared.soundSchemaVersion <= 9 && migratePreset(prepared, parameterState).failed()) return false;
+	if (prepared.soundSchemaVersion >= 4 && prepared.soundSchemaVersion <= 10 && migratePreset(prepared, parameterState).failed()) return false;
 	return validatePresetSound(prepared).wasOk()
 		&& presets::PresetSchema::matches(prepared, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds);
 }
@@ -780,7 +787,6 @@ void PluginProcessor::setStateInformation(const void* data, int size)
 		restoreDefault(parameters::multicore);
 		for (const auto* identifier : parameters::schema7ParameterIds) restoreDefault(identifier);
 		for (const auto* identifier : parameters::schema8ParameterIds) restoreDefault(identifier);
-		for (const auto* identifier : parameters::schema9ParameterIds) restoreDefault(identifier);
 		for (const auto* identifier : { parameters::heldKeyReturn, parameters::filterQCompensation })
 		{
 			auto* parameter = parameterState.getParameter(identifier);

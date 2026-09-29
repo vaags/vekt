@@ -164,8 +164,7 @@ TEST_CASE("Mono LFO parameters are sound parameters that default to no modulatio
 {
 	vekt::mono::PluginProcessor processor;
 	REQUIRE(parameters::soundParameterIds.size() == parameters::legacySoundParameterIds.size() + 56 + parameters::vibratoParameterIds.size()
-		+ parameters::schema8ParameterIds.size() + parameters::schema9ParameterIds.size()
-		+ parameters::schema10ParameterIds.size());
+		+ parameters::schema8ParameterIds.size() + parameters::schema10ParameterIds.size());
 	for (const auto& lfo : parameters::lfos)
 	{
 		const auto ids = lfo.all();
@@ -324,7 +323,7 @@ TEST_CASE("Mono migrates earlier presets to the current schema with the LFOs at 
 		setParameter(processor, parameters::lfos[1].filter, 3.0f);
 		setParameter(processor, parameters::lfos[0].amount, 20.0f);
 		REQUIRE(processor.getPresetSession().prepare(preset).wasOk());
-		REQUIRE(preset.soundSchemaVersion == 10);
+		REQUIRE(preset.soundSchemaVersion == 11);
 		REQUIRE(preset.parameters.size() == parameters::soundParameterIds.size());
 		REQUIRE(vekt::presets::PresetSchema::apply(preset, parameters::presetProductIdentifier,
 			processor.getParameters(), parameters::soundParameterIds).wasOk());

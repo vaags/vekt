@@ -24,11 +24,11 @@ double decibels(double gain) { return 20.0 * std::log10(gain); }
 
 // Small-signal gain of the real ladder at one frequency: settle, then correlate over whole periods.
 double measureGain(float cutoffHz, float resonance, float mode, double frequency, double settleSeconds,
-	double amplitude = 1.0e-3, bool saturated = false)
+	double amplitude = 1.0e-3)
 {
 	NonlinearTptLadder ladder;
 	ladder.prepare(sampleRate);
-	const NonlinearTptLadderSettings settings { cutoffHz, resonance, 0.0f, false, 0.0f, mode, saturated };
+	const NonlinearTptLadderSettings settings { cutoffHz, resonance, 0.0f, false, 0.0f, mode };
 	const auto settle = static_cast<int>(settleSeconds * sampleRate);
 	const auto periods = std::max(1.0, std::round(0.25 * frequency));
 	const auto window = static_cast<int>(std::round(periods * sampleRate / frequency));
@@ -45,11 +45,11 @@ double measureGain(float cutoffHz, float resonance, float mode, double frequency
 }
 
 // Fundamental gain of the real ladder for a sine at a musical level, after one second of settling.
-double drivenGain(float resonance, float driveDecibels, float mode, bool saturated, double frequency, double amplitude = 0.5)
+double drivenGain(float resonance, float driveDecibels, float mode, double frequency, double amplitude = 0.5)
 {
 	NonlinearTptLadder ladder;
 	ladder.prepare(sampleRate);
-	const NonlinearTptLadderSettings settings { 1'000.0f, resonance, driveDecibels, false, 0.0f, mode, saturated };
+	const NonlinearTptLadderSettings settings { 1'000.0f, resonance, driveDecibels, false, 0.0f, mode };
 	const auto settle = static_cast<int>(sampleRate);
 	const auto window = static_cast<int>(std::round(std::round(frequency) * sampleRate / frequency));
 	double inPhase {}, quadrature {};
@@ -113,7 +113,7 @@ TEST_CASE("Mono ladder pole mix at LP returns stage four bit for bit", "[mono][f
 	for (const auto y4 : { 0.25, -0.0, 0.0, -3.5 })
 	{
 		const std::array<double, 4> stages { 0.9, -0.4, 0.7, y4 };
-		CHECK(std::bit_cast<std::uint64_t>(ladderPoleMix(-1.0, 3.9, 12.0, stages)) == std::bit_cast<std::uint64_t>(y4));
+		CHECK(std::bit_cast<std::uint64_t>(ladderPoleMix(-1.0, 3.9, 12.0, stages, 1.0, 0.5, stages)) == std::bit_cast<std::uint64_t>(y4));
 	}
 }
 
@@ -147,64 +147,38 @@ TEST_CASE("Mono ladder HP and Notch keep their DC behaviour through saturating s
 	{
 		INFO("resonance " << resonance);
 		const auto lowPass = settledDc(0.8f, resonance, 0.0f, -1.0f);
-		// Every stage settles where tanh(input) = tanh(output), i.e. at u, so the HP taps cancel and the Notch passes
-		// what LP passes. Heavy Drive breaks this in practice: far into tanh the stages creep towards u for seconds.
+		// Every stage settles where tanh(input) = tanh(output), i.e. at u (which LP outputs), so every tap is the
+		// same a tanh(u / a): the HP taps cancel and the Notch taps (summing to 1) give a tanh(u / a), a = 3 at no Drive.
 		CHECK(std::abs(settledDc(0.8f, resonance, 0.0f, 1.0f)) < 1.0e-5);
-		CHECK(settledDc(0.8f, resonance, 0.0f, 0.0f) == Catch::Approx(lowPass).margin(1.0e-5));
+		CHECK(settledDc(0.8f, resonance, 0.0f, 0.0f) == Catch::Approx(3.0 * std::tanh(lowPass / 3.0)).margin(1.0e-5));
 	}
 }
 
-TEST_CASE("Mono ladder saturated taps match raw taps at small signals", "[mono][filter][ladder-mode]")
+TEST_CASE("Mono ladder keeps bass out of HP and bounds Notch/HP under heavy drive", "[mono][filter][ladder-mode]")
 {
-	// At small signals tanh is the identity, so both tap domains give the same response.
-	for (const auto resonance : { 0.0f, 0.75f })
-		for (const auto mode : { -0.5f, 0.0f, 0.5f, 1.0f })
-			for (const auto frequency : { 50.0, 1'000.0, 8'000.0 })
-			{
-				INFO("resonance " << resonance << ", mode " << mode << ", frequency " << frequency);
-				const auto raw = measureGain(1'000.0f, resonance, mode, frequency, 1.0);
-				const auto saturated = measureGain(1'000.0f, resonance, mode, frequency, 1.0, 1.0e-3, true);
-				CHECK(std::abs(saturated - raw) < 1.0e-3 * std::max(raw, 0.1)); // floor -80 dB: the notch null itself
-			}
-	// LP ignores the switch bit for bit.
-	NonlinearTptLadder raw, saturated;
-	raw.prepare(sampleRate);
-	saturated.prepare(sampleRate);
-	for (int sample = 0; sample < 4'800; ++sample)
-	{
-		const auto input = static_cast<float>(0.8 * std::sin(0.03 * sample));
-		const auto a = raw.processCoupled(input, { 800.0f, 0.9f, 18.0f, false, 0.0f, -1.0f, false });
-		const auto b = saturated.processCoupled(input, { 800.0f, 0.9f, 18.0f, false, 0.0f, -1.0f, true });
-		REQUIRE(std::bit_cast<std::uint32_t>(a) == std::bit_cast<std::uint32_t>(b));
-	}
-}
-
-TEST_CASE("Mono ladder saturated taps keep bass out of HP and bound Notch/HP under heavy drive", "[mono][filter][ladder-mode]")
-{
-	// Raw taps: at +24 dB Drive a 20 Hz tone passes HP louder than the input and HP at 6 kHz follows the full Drive.
-	CHECK(decibels(drivenGain(0.0f, 24.0f, 1.0f, false, 20.0)) > 10.0);
-	CHECK(decibels(drivenGain(0.0f, 24.0f, 1.0f, false, 6'000.0)) > 20.0);
+	// Raw taps let a 20 Hz tone through HP above input level at +24 dB Drive, and let HP at 6 kHz follow the full
+	// Drive; the saturated taps must do neither.
 	for (const auto resonance : { 0.0f, 0.5f })
 	{
 		INFO("resonance " << resonance);
-		// The knee narrows with Drive, so bass stays out wherever the raw taps would leak.
+		// The knee narrows with Drive, so bass stays out wherever raw taps would leak (from about +15 dB).
 		for (const auto drive : { 12.0f, 15.0f, 18.0f, 24.0f })
 		{
 			INFO("drive " << drive);
-			CHECK(decibels(drivenGain(resonance, drive, 1.0f, true, 20.0)) < -40.0);
+			CHECK(decibels(drivenGain(resonance, drive, 1.0f, 20.0)) < -40.0);
 		}
-		const auto lowPass = decibels(drivenGain(resonance, 24.0f, -1.0f, true, 100.0));
+		const auto lowPass = decibels(drivenGain(resonance, 24.0f, -1.0f, 100.0));
 		for (const auto [mode, frequency] : { std::pair { 0.0f, 100.0 }, std::pair { 1.0f, 6'000.0 } })
-			CHECK(decibels(drivenGain(resonance, 24.0f, mode, true, frequency)) < lowPass);
+			CHECK(decibels(drivenGain(resonance, 24.0f, mode, frequency)) < lowPass);
 	}
 }
 
-TEST_CASE("Mono batched ladders mix saturated taps like the scalar solve", "[mono][filter][ladder-mode][ladder-coupled]")
+TEST_CASE("Mono batched ladders mix Notch/HP like the scalar solve", "[mono][filter][ladder-mode][ladder-coupled]")
 {
 	std::array<NonlinearTptLadder, 4> scalar, batched;
 	for (auto& ladder : scalar) ladder.prepare(sampleRate);
 	for (auto& ladder : batched) ladder.prepare(sampleRate);
-	const NonlinearTptLadderSettings settings { 900.0f, 0.6f, 18.0f, false, 0.0f, 0.4f, true };
+	const NonlinearTptLadderSettings settings { 900.0f, 0.6f, 18.0f, false, 0.0f, 0.4f };
 	std::array<float, 4> inputs {}, outputs {};
 	double maximumDifference {};
 	for (int sample = 0; sample < 9'600; ++sample)
@@ -220,26 +194,28 @@ TEST_CASE("Mono batched ladders mix saturated taps like the scalar solve", "[mon
 	CHECK(maximumDifference < 1.0e-5);
 }
 
-TEST_CASE("Mono ladder saturated taps barely compress a hot mixer without Drive", "[mono][filter][ladder-mode]")
+TEST_CASE("Mono ladder HP barely compresses a hot mixer without Drive", "[mono][filter][ladder-mode]")
 {
-	// A full three-oscillator mix reaches the ladder at about this level. With a = 1 the HP lost 3-5 dB here.
+	// A full three-oscillator mix reaches the ladder at about this level. With a = 1 the HP lost 3-5 dB more than
+	// raw taps here; with the Drive-following knee it stays within 2.5 dB of the small-signal response (worst,
+	// -1.8 dB, just above Cutoff where the stages themselves saturate).
 	for (const auto resonance : { 0.0f, 0.5f })
 		for (const auto frequency : { 3'000.0, 8'000.0 })
 		{
 			INFO("resonance " << resonance << ", frequency " << frequency);
-			const auto raw = decibels(drivenGain(resonance, 0.0f, 1.0f, false, frequency, 2.0));
-			CHECK(decibels(drivenGain(resonance, 0.0f, 1.0f, true, frequency, 2.0)) > raw - 1.5);
+			const auto linear = decibels(measureGain(1'000.0f, resonance, 1.0f, frequency, 1.0));
+			CHECK(decibels(drivenGain(resonance, 0.0f, 1.0f, frequency, 2.0)) > linear - 2.5);
 		}
 }
 
-TEST_CASE("Mono ladder saturated Notch/HP track LP whatever the resonance under heavy drive", "[mono][filter][ladder-mode]")
+TEST_CASE("Mono ladder Notch/HP track LP whatever the resonance under heavy drive", "[mono][filter][ladder-mode]")
 {
 	// Saturation takes away the feedback's bass loss from LP; the saturated taps follow it (ladderFeedbackAuthority)
 	// instead of keeping the small-signal 1 / (1 + k), which left HP 10-17 dB under LP at high resonance.
 	const auto gap = [](float resonance, float drive, float mode, double frequency, double amplitude)
 	{
-		return decibels(drivenGain(resonance, drive, mode, true, frequency, amplitude))
-			- decibels(drivenGain(resonance, drive, -1.0f, true, 100.0, amplitude));
+		return decibels(drivenGain(resonance, drive, mode, frequency, amplitude))
+			- decibels(drivenGain(resonance, drive, -1.0f, 100.0, amplitude));
 	};
 	for (const auto amplitude : { 0.25, 1.0 })
 		for (const auto drive : { 12.0f, 18.0f, 24.0f })
