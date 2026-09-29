@@ -219,10 +219,25 @@ public:
 	}
 
 	// vibratoSemitones is the shared vibrato LFO at full depth; channelControl is the channel's mod wheel or pressure.
+	// One sample of the voice. The processor splits this into beginSample, one batched ladder solve over all
+	// voices' layers, and finishSample; render does the same for a single voice (its layers solved together).
 	void render(float& left, float& right, const MonoVoiceSettings& settings, float bend,
 		const std::array<double, lfoCount>& lfoClockPositions = {}, float vibratoSemitones = 0.0f, float channelControl = 0.0f)
 	{
-		if (!active) return;
+		if (!beginSample(settings, bend, lfoClockPositions, vibratoSemitones, channelControl)) return;
+		const auto layers = static_cast<std::size_t>(pending.layers);
+		std::array<float, 4> ladderOutputs {};
+		NonlinearTptLadder::processCoupled(std::span(filterLadders.data(), layers), std::span<const float>(pending.mixers.data(), layers),
+			std::span(ladderOutputs.data(), layers), pending.ladderSettings);
+		finishSample(ladderOutputs.data(), left, right);
+	}
+
+	// Everything before the ladder: modulation, envelopes, oscillators and mixers. Returns false (and renders
+	// nothing) when the voice is silent; otherwise ladderLanes/ladderRequest describe the solve finishSample needs.
+	bool beginSample(const MonoVoiceSettings& settings, float bend,
+		const std::array<double, lfoCount>& lfoClockPositions = {}, float vibratoSemitones = 0.0f, float channelControl = 0.0f)
+	{
+		if (!active) return false;
 		// Refresh the parameters at each rendered segment (the processor snapshots
 		// automation at MIDI/block boundaries), including while a key is held.
 		amp.setParameters({ settings.ampAttack, settings.ampDecay, settings.ampSustain, settings.ampRelease });
@@ -230,7 +245,6 @@ public:
 		auto modulation = nextModulation(settings, lfoClockPositions);
 		vibratoControl += (std::max(channelControl, polyPressure) - vibratoControl) * vibratoSmoothing;
 		for (auto& pitch : modulation.pitch) pitch += vibratoSemitones * vibratoControl;
-		float voiceLeft {}, voiceRight {};
 		const auto glideCoefficient = !gliding || settings.glideMode == 0 || settings.glideTime <= 0.0f
 			? 1.0f : 1.0f - std::exp(-1.0f / (settings.glideTime * sampleRate));
 		currentNote += (targetNote - currentNote) * glideCoefficient;
@@ -281,7 +295,10 @@ public:
 		// All layers share one ladder setting; their ladders are solved together after the mixers are built.
 		const auto ladderSettings = filterSettings(settings, filterEnvelopeValue, filterCutoff, filterResonance,
 			filterDriveDb, inputCompensation, playedNote, modulation.filter);
-		std::array<float, 4> mixers {}, ladderOutputs {}, pans {};
+		auto& mixers = pending.mixers;
+		auto& pans = pending.pans;
+		mixers = {};
+		pans = {};
 		for (int stack = 0; stack < unisonCount; ++stack)
 		{
 			const auto normalizedStack = unisonCount == 1 ? 0.0f : (2.0f * static_cast<float>(stack) / static_cast<float>(unisonCount - 1) - 1.0f);
@@ -323,9 +340,33 @@ public:
 			pans[static_cast<std::size_t>(stack)] = juce::jlimit(-1.0f, 1.0f, settings.voiceWidth * panPosition
 				+ normalizedStack * unisonSpread);
 		}
+		pending.layers = unisonCount;
+		pending.amplitude = amplitude;
+		pending.ladderSettings = ladderSettings;
+		return true;
+	}
+
+	// The ladder solve beginSample asks for: one lane per unison layer, all with this voice's settings.
+	[[nodiscard]] int ladderLanes() const noexcept { return pending.layers; }
+	void ladderRequest(NonlinearTptLadder** ladders, float* inputs, const NonlinearTptLadderSettings** settings) noexcept
+	{
+		for (std::size_t stack = 0; stack < static_cast<std::size_t>(pending.layers); ++stack)
+		{
+			ladders[stack] = &filterLadders[stack];
+			inputs[stack] = pending.mixers[stack];
+			settings[stack] = &pending.ladderSettings;
+		}
+	}
+
+	// Everything after the ladder, given its output for each unison layer: amplitude, pan, layer gain and the
+	// note-transition continuity, added to left/right.
+	void finishSample(const float* ladderOutputs, float& left, float& right) noexcept
+	{
+		const auto unisonCount = pending.layers;
 		const auto layers = static_cast<std::size_t>(unisonCount);
-		NonlinearTptLadder::processCoupled(std::span(filterLadders.data(), layers), std::span<const float>(mixers.data(), layers),
-			std::span(ladderOutputs.data(), layers), ladderSettings);
+		const auto amplitude = pending.amplitude;
+		const auto& pans = pending.pans;
+		float voiceLeft {}, voiceRight {};
 		for (std::size_t stack = 0; stack < layers; ++stack)
 		{
 			const auto stackOutput = ladderOutputs[stack] * amplitude;
@@ -465,6 +506,14 @@ private:
 	std::array<std::array<float, 3>, 4> phase {};
 	std::array<NonlinearTptLadder, 4> filterLadders;
 	std::array<std::array<WidthOscillatorState, 3>, 4> widthStates {}; // [unison layer][oscillator]
+	// Carried from beginSample to finishSample.
+	struct PendingSample
+	{
+		std::array<float, 4> mixers {}, pans {};
+		float amplitude {};
+		int layers {};
+		NonlinearTptLadderSettings ladderSettings {};
+	} pending;
 	double hostRate { 48'000.0 };
 	std::array<float, 2> continuityOffset {}, lastOutput {};
 	std::array<float, 4> pinkStates {};

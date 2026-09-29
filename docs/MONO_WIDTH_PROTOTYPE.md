@@ -819,3 +819,18 @@ test (worst 5e-5 against the exact additive renderer). Tried and reverted: a per
 cache (pitch changes every sample with drift or vibrato, so it only added work) and a vector `tanh` for
 the single-ladder solve (no measurable gain). The remaining profile is roughly one third each: the ladder
 (`tanh`), the voice/processor loop, and the oscillator's table reads.
+
+### Ladder batching across voices
+
+The voice's per-sample work is split into `beginSample` (modulation, envelopes, oscillators, mixers) and
+`finishSample` (amplitude, pan, layer gain, continuity); `render` still does both around its own ladder
+solve. The processor now calls `beginSample` on every voice, solves all sounding voices' unison layers in
+one `NonlinearTptLadder::processCoupled` over per-lane settings (four, then two lanes at a time with
+Apple's vector tanh; a single lane stays scalar), then calls `finishSample`. The batched solve takes
+per-lane coefficients; lanes sharing a settings object (a voice's layers) reuse lane 0's. Like the
+existing unison batch it differs from the scalar solve by about 2 ulp in tanh.
+
+8 held voices, 1x, 128-sample blocks: unison 1 382 -> 336 µs (-12%), unison 2 605 -> 599 µs, unison 4
+1067 -> 1073 µs (+0.5%, bookkeeping). A single note cannot batch and is unchanged. Note: a microbenchmark
+of isolated, chained vector tanh calls was slower than libm, but inside the solve (where the four lanes'
+calls are independent) the vector path wins; turning it off costs 6-9% at unison 2/4.

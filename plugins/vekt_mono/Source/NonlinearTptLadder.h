@@ -45,6 +45,11 @@ public:
 	// Any other count, or ladders prepared at different rates, use processCoupled per ladder.
 	static void processCoupled(std::span<NonlinearTptLadder> ladders, std::span<const float> inputs,
 		std::span<float> outputs, const NonlinearTptLadderSettings& settings) noexcept;
+	// The same batched solve for ladders that each have their own settings (e.g. different voices): lanes are
+	// grouped four, then two, at a time; a single remaining lane uses processCoupled. Every lane keeps its own
+	// convergence and diagnostics; only tanh is shared across lanes. Ladders must not repeat.
+	static void processCoupled(std::span<NonlinearTptLadder* const> ladders, std::span<const float> inputs,
+		std::span<float> outputs, std::span<const NonlinearTptLadderSettings* const> settings) noexcept;
 	// Development-only bounded integration variant. Prepare at the rate of the
 	// incoming samples; interpolate endpoints and preserve that rate's prewarp.
 	[[nodiscard]] float processSubstepped(float input, const NonlinearTptLadderSettings& settings,
@@ -69,8 +74,8 @@ private:
 	[[nodiscard]] float processStep(float input, const NonlinearTptLadderSettings& settings,
 		double integrationGain) noexcept;
 	template <std::size_t Lanes>
-	static void processCoupledLanes(std::span<NonlinearTptLadder> ladders, std::span<const float> inputs,
-		std::span<float> outputs, const NonlinearTptLadderSettings& settings) noexcept;
+	static void processCoupledLanes(const std::array<NonlinearTptLadder*, Lanes>& ladders, const float* inputs,
+		float* outputs, const std::array<const NonlinearTptLadderSettings*, Lanes>& settings) noexcept;
 	// Shared end of a coupled step: diagnostics, the non-finite guard and the state update.
 	[[nodiscard]] float completeCoupledStep(const std::array<double, 4>& output, double error, int iterations,
 		std::uint64_t lineSearchTrials, double feedbackInput, float driveGain, bool driveCompensation) noexcept;

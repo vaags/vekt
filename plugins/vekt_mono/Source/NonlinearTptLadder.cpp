@@ -365,43 +365,91 @@ float NonlinearTptLadder::completeCoupledStep(const std::array<double, 4>& outpu
 void NonlinearTptLadder::processCoupled(std::span<NonlinearTptLadder> ladders, std::span<const float> inputs,
 	std::span<float> outputs, const NonlinearTptLadderSettings& settings) noexcept
 {
-	// The batched solve shares one integration gain, which depends on the sample rate; ladders prepared at
-	// different rates are solved one by one instead. The rates must be bit-identical (not merely close) for the
-	// shared gain to equal each lane's own, so compare their bits.
-	const auto sameRate = std::all_of(ladders.begin(), ladders.end(), [&](const NonlinearTptLadder& ladder)
+	std::array<NonlinearTptLadder*, 4> pointers {};
+	std::array<const NonlinearTptLadderSettings*, 4> shared {};
+	const auto count = std::min(ladders.size(), pointers.size());
+	for (std::size_t lane = 0; lane < count; ++lane)
 	{
-		return std::bit_cast<std::uint32_t>(ladder.sampleRate) == std::bit_cast<std::uint32_t>(ladders.front().sampleRate);
-	});
-	switch (sameRate ? ladders.size() : 0)
+		pointers[lane] = &ladders[lane];
+		shared[lane] = &settings;
+	}
+	processCoupled(std::span<NonlinearTptLadder* const>(pointers.data(), count), inputs.first(count), outputs.first(count),
+		std::span<const NonlinearTptLadderSettings* const>(shared.data(), count));
+	for (std::size_t lane = count; lane < ladders.size(); ++lane) outputs[lane] = ladders[lane].processCoupled(inputs[lane], settings);
+}
+
+void NonlinearTptLadder::processCoupled(std::span<NonlinearTptLadder* const> ladders, std::span<const float> inputs,
+	std::span<float> outputs, std::span<const NonlinearTptLadderSettings* const> settings) noexcept
+{
+	// The batched solve shares tanh only; each lane's integration gain comes from its own sample rate. Ladders
+	// prepared at different rates are nonetheless solved one by one, as before: the rates must be bit-identical
+	// (not merely close) for a lane to match its own solve, so compare their bits.
+	std::size_t lane {};
+	const auto sameRate = [&](std::size_t first, std::size_t count)
 	{
-	case 2: processCoupledLanes<2>(ladders, inputs, outputs, settings); return;
-	case 4: processCoupledLanes<4>(ladders, inputs, outputs, settings); return;
-	default:
-		for (std::size_t lane = 0; lane < ladders.size(); ++lane) outputs[lane] = ladders[lane].processCoupled(inputs[lane], settings);
+		for (auto index = first + 1; index < first + count; ++index)
+			if (std::bit_cast<std::uint32_t>(ladders[index]->sampleRate) != std::bit_cast<std::uint32_t>(ladders[first]->sampleRate))
+				return false;
+		return true;
+	};
+	const auto batch = [&]<std::size_t Lanes>(std::integral_constant<std::size_t, Lanes>)
+	{
+		std::array<NonlinearTptLadder*, Lanes> group {};
+		std::array<const NonlinearTptLadderSettings*, Lanes> groupSettings {};
+		for (std::size_t index = 0; index < Lanes; ++index)
+		{
+			group[index] = ladders[lane + index];
+			groupSettings[index] = settings[lane + index];
+		}
+		processCoupledLanes<Lanes>(group, inputs.data() + lane, outputs.data() + lane, groupSettings);
+		lane += Lanes;
+	};
+	while (lane < ladders.size())
+	{
+		const auto remaining = ladders.size() - lane;
+		if (remaining >= 4 && sameRate(lane, 4)) batch(std::integral_constant<std::size_t, 4> {});
+		else if (remaining >= 2 && sameRate(lane, 2)) batch(std::integral_constant<std::size_t, 2> {});
+		else
+		{
+			outputs[lane] = ladders[lane]->processCoupled(inputs[lane], *settings[lane]);
+			++lane;
+		}
 	}
 }
 
 template <std::size_t Lanes>
-void NonlinearTptLadder::processCoupledLanes(std::span<NonlinearTptLadder> ladders, std::span<const float> inputs,
-	std::span<float> outputs, const NonlinearTptLadderSettings& settings) noexcept
+void NonlinearTptLadder::processCoupledLanes(const std::array<NonlinearTptLadder*, Lanes>& ladders, const float* inputs,
+	float* outputs, const std::array<const NonlinearTptLadderSettings*, Lanes>& settings) noexcept
 {
 	// Mirrors processCoupled lane by lane; only tanh is shared across lanes.
 	constexpr int maximumCoupledIterations = 16;
 	constexpr int maximumLineSearchSteps = 10;
 	using Stages = std::array<double, 4>;
-	const auto sampleRate = ladders[0].sampleRate;
-	const auto cutoff = std::clamp(settings.cutoffHz, 10.0f, sampleRate * 0.45f);
-	const auto g = std::tan(std::numbers::pi_v<double> * cutoff / sampleRate)
-		* ladderResonanceTuning(static_cast<double>(settings.resonance));
-	const auto k = ladderFeedbackGain(static_cast<double>(settings.resonance));
-	const auto driveGain = ladders[0].driveGainFor(settings.driveDecibels);
-	LaneValues<Lanes> excitation {};
+	// Per-lane coefficients; lanes sharing one settings object (a voice's unison layers) reuse lane 0's.
+	LaneValues<Lanes> g {}, k {}, excitation {};
+	std::array<float, Lanes> driveGain {};
 	std::array<Stages, Lanes> output {};
 	for (std::size_t lane = 0; lane < Lanes; ++lane)
 	{
-		const auto driven = std::clamp(static_cast<double>(inputs[lane]) * driveGain, -signalLimit, signalLimit);
-		excitation[lane] = driven + k * std::clamp(static_cast<double>(settings.inputFeedbackCompensation), 0.0, 0.5) * driven;
-		output[lane] = ladders[lane].previousOutput;
+		const auto& laneSettings = *settings[lane];
+		if (lane > 0 && settings[lane] == settings[0] && std::bit_cast<std::uint32_t>(ladders[lane]->sampleRate)
+			== std::bit_cast<std::uint32_t>(ladders[0]->sampleRate))
+		{
+			g[lane] = g[0];
+			k[lane] = k[0];
+		}
+		else
+		{
+			const auto sampleRate = ladders[lane]->sampleRate;
+			const auto cutoff = std::clamp(laneSettings.cutoffHz, 10.0f, sampleRate * 0.45f);
+			g[lane] = std::tan(std::numbers::pi_v<double> * cutoff / sampleRate)
+				* ladderResonanceTuning(static_cast<double>(laneSettings.resonance));
+			k[lane] = ladderFeedbackGain(static_cast<double>(laneSettings.resonance));
+		}
+		driveGain[lane] = ladders[lane]->driveGainFor(laneSettings.driveDecibels);
+		const auto driven = std::clamp(static_cast<double>(inputs[lane]) * driveGain[lane], -signalLimit, signalLimit);
+		excitation[lane] = driven + k[lane] * std::clamp(static_cast<double>(laneSettings.inputFeedbackCompensation), 0.0, 0.5) * driven;
+		output[lane] = ladders[lane]->previousOutput;
 	}
 	struct Points
 	{
@@ -412,7 +460,7 @@ void NonlinearTptLadder::processCoupledLanes(std::span<NonlinearTptLadder> ladde
 	{
 		Points points;
 		LaneValues<Lanes> arguments {};
-		for (std::size_t lane = 0; lane < Lanes; ++lane) arguments[lane] = excitation[lane] - k * values[lane][3];
+		for (std::size_t lane = 0; lane < Lanes; ++lane) arguments[lane] = excitation[lane] - k[lane] * values[lane][3];
 		points.inputTanh = tanhLanes<Lanes>(arguments);
 		for (std::size_t stage = 0; stage < 4; ++stage)
 		{
@@ -425,8 +473,8 @@ void NonlinearTptLadder::processCoupledLanes(std::span<NonlinearTptLadder> ladde
 			auto inputTanh = points.inputTanh[lane];
 			for (std::size_t stage = 0; stage < 4; ++stage)
 			{
-				points.residual[lane][stage] = values[lane][stage] - ladders[lane].integratorState[stage]
-					- g * (inputTanh - points.stageTanh[lane][stage]);
+				points.residual[lane][stage] = values[lane][stage] - ladders[lane]->integratorState[stage]
+					- g[lane] * (inputTanh - points.stageTanh[lane][stage]);
 				inputTanh = points.stageTanh[lane][stage];
 			}
 		}
@@ -468,13 +516,14 @@ void NonlinearTptLadder::processCoupledLanes(std::span<NonlinearTptLadder> ladde
 			const auto& residual = points.residual[lane];
 			const auto& stageTanh = points.stageTanh[lane];
 			Stages independent {}, dependent {};
-			const auto diagonal = 1.0 + g * sechSquaredFromTanh(stageTanh[0]);
+			const auto laneG = g[lane], laneK = k[lane];
+			const auto diagonal = 1.0 + laneG * sechSquaredFromTanh(stageTanh[0]);
 			independent[0] = -residual[0] / diagonal;
-			dependent[0] = -g * k * sechSquaredFromTanh(points.inputTanh[lane]) / diagonal;
+			dependent[0] = -laneG * laneK * sechSquaredFromTanh(points.inputTanh[lane]) / diagonal;
 			for (std::size_t stage = 1; stage < 4; ++stage)
 			{
-				const auto coupling = g * sechSquaredFromTanh(stageTanh[stage - 1]);
-				const auto scale = 1.0 / (1.0 + g * sechSquaredFromTanh(stageTanh[stage]));
+				const auto coupling = laneG * sechSquaredFromTanh(stageTanh[stage - 1]);
+				const auto scale = 1.0 / (1.0 + laneG * sechSquaredFromTanh(stageTanh[stage]));
 				independent[stage] = (-residual[stage] + coupling * independent[stage - 1]) * scale;
 				dependent[stage] = coupling * dependent[stage - 1] * scale;
 			}
@@ -518,7 +567,7 @@ void NonlinearTptLadder::processCoupledLanes(std::span<NonlinearTptLadder> ladde
 		}
 	}
 	for (std::size_t lane = 0; lane < Lanes; ++lane)
-		outputs[lane] = ladders[lane].completeCoupledStep(output[lane], error[lane], iterations[lane], lineSearchTrials[lane],
-			excitation[lane] - k * output[lane][3], driveGain, settings.driveCompensation);
+		outputs[lane] = ladders[lane]->completeCoupledStep(output[lane], error[lane], iterations[lane], lineSearchTrials[lane],
+			excitation[lane] - k[lane] * output[lane][3], driveGain[lane], settings[lane]->driveCompensation);
 }
 }

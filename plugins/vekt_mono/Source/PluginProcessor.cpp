@@ -483,11 +483,30 @@ void PluginProcessor::render(juce::AudioBuffer<float>& buffer, int start, int co
 		float left {}, right {};
 		const std::array lfoPositions { lfoClocks[0]->getPosition(), lfoClocks[1]->getPosition() };
 		const auto vibrato = Lfo::bipolarShape(vibratoShape, vibratoClock->getPosition(), 0) * vibratoDepthSemitones;
-		for (auto& voice : voices)
+		// Every sounding voice builds its ladder inputs, then all voices' layers share one batched ladder solve
+		// (tanh vectorized across up to four lanes), then each voice finishes its sample.
+		constexpr std::size_t maximumLanes = 16 * 4;
+		std::array<NonlinearTptLadder*, maximumLanes> ladders {};
+		std::array<const NonlinearTptLadderSettings*, maximumLanes> ladderSettings {};
+		std::array<float, maximumLanes> ladderInputs {}, ladderOutputs {};
+		std::array<std::size_t, 16> firstLane {};
+		std::array<bool, 16> sounding {};
+		std::size_t lanes {};
+		for (std::size_t index = 0; index < voices.size(); ++index)
 		{
-			const auto channelIndex = static_cast<std::size_t>(juce::jlimit(0, 15, voice->getChannel() - 1));
-			voice->render(left, right, settings, pitchBendByChannel[channelIndex], lfoPositions, vibrato, channelControl[channelIndex]);
+			auto& voice = *voices[index];
+			const auto channelIndex = static_cast<std::size_t>(juce::jlimit(0, 15, voice.getChannel() - 1));
+			sounding[index] = voice.beginSample(settings, pitchBendByChannel[channelIndex], lfoPositions, vibrato, channelControl[channelIndex]);
+			if (!sounding[index]) continue;
+			firstLane[index] = lanes;
+			voice.ladderRequest(ladders.data() + lanes, ladderInputs.data() + lanes, ladderSettings.data() + lanes);
+			lanes += static_cast<std::size_t>(voice.ladderLanes());
 		}
+		NonlinearTptLadder::processCoupled(std::span<NonlinearTptLadder* const>(ladders.data(), lanes),
+			std::span<const float>(ladderInputs.data(), lanes), std::span(ladderOutputs.data(), lanes),
+			std::span<const NonlinearTptLadderSettings* const>(ladderSettings.data(), lanes));
+		for (std::size_t index = 0; index < voices.size(); ++index)
+			if (sounding[index]) voices[index]->finishSample(ladderOutputs.data() + firstLane[index], left, right);
 		for (auto& clock : lfoClocks) clock->advance();
 		vibratoClock->advance();
 		const auto sampleIndex = static_cast<int>(sample);
