@@ -1708,6 +1708,25 @@ TEST_CASE("Mono factory presets load with their stored values, including LFO set
 	REQUIRE(withLfoSettings == 12);
 }
 
+TEST_CASE("Mono factory presets are not marked modified right after loading", "[mono][processor][preset]")
+{
+	// Non-zero continuous LFO depths come back a few 1e-6 off after the 0..1 parameter round trip; that
+	// must not read as an edit (it used to show a "*" on every preset with LFO settings).
+	vekt::mono::PluginProcessor processor;
+	auto& session = processor.getPresetSession();
+	for (std::size_t index = 0; index < session.library().factoryPresetCount(); ++index)
+	{
+		processor.setCurrentProgram(static_cast<int>(index));
+		REQUIRE(session.loaded().has_value());
+		CAPTURE(session.loaded()->name);
+		REQUIRE_FALSE(session.modified());
+	}
+	// A real edit still counts.
+	auto* depth = processor.getParameters().getParameter(vekt::mono::parameters::lfos[0].width[0]);
+	depth->setValueNotifyingHost(depth->convertTo0to1(12.5f));
+	REQUIRE(session.modified());
+}
+
 TEST_CASE("Mono Classic Three Bass uses three oscillators", "[mono][processor][preset]")
 {
 	vekt::mono::PluginProcessor processor;

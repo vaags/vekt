@@ -158,7 +158,12 @@ bool PresetSchema::matches(
 		const auto expected = findParameter(preset, parameterId)->value;
 		const auto tolerance = std::max(
 			parameter->getNormalisableRange().interval * 0.5f, 1.0e-6f);
-		if (std::abs(current - expected) > tolerance)
+		// Applying a value round-trips it through the host's 0..1 scale, which on a continuous (unstepped),
+		// wide or skewed range can move it by more than 1e-6 in real units (a +/-100 depth lands ~8e-6
+		// off). A match on the normalized scale is unit-independent, so either comparison suffices.
+		constexpr auto normalizedTolerance = 1.0e-6f;
+		if (std::abs(current - expected) > tolerance
+			&& std::abs(parameter->getValue() - parameter->convertTo0to1(expected)) > normalizedTolerance)
 			return false;
 	}
 
