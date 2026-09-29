@@ -59,12 +59,16 @@ template <std::size_t Lanes>
 void NonlinearTptLadder::prepare(double newSampleRate) noexcept
 {
 	sampleRate = static_cast<float>(std::max(1.0, newSampleRate));
+	// 5 ms attack, 150 ms release: holds a 20 Hz peak within a few percent.
+	peakAttack = 1.0 - std::exp(-1.0 / (0.005 * static_cast<double>(sampleRate)));
+	peakRelease = 1.0 - std::exp(-1.0 / (0.15 * static_cast<double>(sampleRate)));
 	reset();
 }
 
 void NonlinearTptLadder::reset() noexcept
 {
 	previousFeedbackInput = 0.0;
+	drivenPeak = 0.0;
 	integratorState = {};
 	previousOutput = {};
 	solverDiagnostics = {};
@@ -166,7 +170,8 @@ float NonlinearTptLadder::processSubstepped(float input,
 			interpolate(previousSettings.driveDecibels, settings.driveDecibels),
 			settings.driveCompensation,
 			{},
-			interpolate(previousSettings.mode, settings.mode)
+			interpolate(previousSettings.mode, settings.mode),
+			settings.saturatedModeTaps
 		};
 		output = processStep(stepInput, stepSettings, integrationGain);
 	}
@@ -183,6 +188,7 @@ float NonlinearTptLadder::processStep(float input,
 	const auto driveGain = driveGainFor(settings.driveDecibels);
 	const auto drivenInput = std::clamp(static_cast<double>(input) * driveGain,
 		-signalLimit, signalLimit);
+	followDrivenPeak(drivenInput);
 	// |y4| <= |state4| + 2g, so this bracket contains the feedback root.
 	const auto feedbackSpan = feedbackGain * (signalLimit + 2.0 * integrationGain);
 	auto lower = drivenInput - feedbackSpan;
@@ -226,7 +232,15 @@ float NonlinearTptLadder::processStep(float input,
 		static_cast<float>(std::max(std::abs(residual), evaluation.maximumResidual)));
 	if (!converged) ++solverDiagnostics.unconvergedSamples;
 
-	const auto output = ladderPoleMix(static_cast<double>(settings.mode), feedbackGain, feedbackInput, evaluation.output);
+	const auto mix = [&]
+	{
+		if (!settings.saturatedModeTaps) return ladderPoleMix(static_cast<double>(settings.mode), feedbackGain, feedbackInput, evaluation.output);
+		std::array<double, 4> stageTanh {};
+		for (std::size_t stage = 0; stage < stageTanh.size(); ++stage) stageTanh[stage] = std::tanh(evaluation.output[stage]);
+		return ladderPoleMixSaturated(static_cast<double>(settings.mode), feedbackGain * ladderFeedbackAuthority(drivenPeak), feedbackInput, evaluation.output,
+			ladderPoleMixKnee(static_cast<double>(driveGain)), std::tanh(feedbackInput), stageTanh);
+	};
+	const auto output = mix();
 	if (!std::isfinite(output))
 	{
 		++solverDiagnostics.nonFiniteSamples;
@@ -258,6 +272,7 @@ float NonlinearTptLadder::processCoupled(float input, const NonlinearTptLadderSe
 	// Feed a bounded fraction of the driven input around the global feedback.
 	// With zero input this is exactly the uncompensated feedback system.
 	const auto excitation = driven + k * std::clamp(static_cast<double>(settings.inputFeedbackCompensation), 0.0, 0.5) * driven;
+	followDrivenPeak(excitation);
 	std::array<double, 4> output = previousOutput;
 	// tanh dominates the cost. Each distinct argument is evaluated once per trial point: stage s's input is
 	// stage s-1's output, and the Newton step reuses the tanh values from the residual at the current point.
@@ -335,12 +350,12 @@ float NonlinearTptLadder::processCoupled(float input, const NonlinearTptLadderSe
 		if (!accepted) break;
 	}
 	return completeCoupledStep(output, error, iterations, lineSearchTrials, excitation - k * output[3], k, driveGain,
-		settings);
+		settings, point.inputTanh, point.stageTanh);
 }
 
 float NonlinearTptLadder::completeCoupledStep(const std::array<double, 4>& output, double error, int iterations,
 	std::uint64_t lineSearchTrials, double feedbackInput, double feedbackGain, float driveGain,
-	const NonlinearTptLadderSettings& settings) noexcept
+	const NonlinearTptLadderSettings& settings, double inputTanh, const std::array<double, 4>& stageTanh) noexcept
 {
 	++solverDiagnostics.samples;
 	solverDiagnostics.coupledIterations += static_cast<std::uint64_t>(iterations);
@@ -364,7 +379,11 @@ float NonlinearTptLadder::completeCoupledStep(const std::array<double, 4>& outpu
 		previousOutput[stage] = output[stage];
 	}
 	previousFeedbackInput = feedbackInput;
-	const auto mixed = ladderPoleMix(static_cast<double>(settings.mode), feedbackGain, feedbackInput, output);
+	const auto mode = static_cast<double>(settings.mode);
+	const auto mixed = settings.saturatedModeTaps
+		? ladderPoleMixSaturated(mode, feedbackGain * ladderFeedbackAuthority(drivenPeak), feedbackInput, output,
+			ladderPoleMixKnee(static_cast<double>(driveGain)), inputTanh, stageTanh)
+		: ladderPoleMix(mode, feedbackGain, feedbackInput, output);
 	return static_cast<float>(settings.driveCompensation ? mixed / std::sqrt(driveGain) : mixed);
 }
 void NonlinearTptLadder::processCoupled(std::span<NonlinearTptLadder> ladders, std::span<const float> inputs,
@@ -454,6 +473,7 @@ void NonlinearTptLadder::processCoupledLanes(const std::array<NonlinearTptLadder
 		driveGain[lane] = ladders[lane]->driveGainFor(laneSettings.driveDecibels);
 		const auto driven = std::clamp(static_cast<double>(inputs[lane]) * driveGain[lane], -signalLimit, signalLimit);
 		excitation[lane] = driven + k[lane] * std::clamp(static_cast<double>(laneSettings.inputFeedbackCompensation), 0.0, 0.5) * driven;
+		ladders[lane]->followDrivenPeak(excitation[lane]);
 		output[lane] = ladders[lane]->previousOutput;
 	}
 	struct Points
@@ -573,6 +593,7 @@ void NonlinearTptLadder::processCoupledLanes(const std::array<NonlinearTptLadder
 	}
 	for (std::size_t lane = 0; lane < Lanes; ++lane)
 		outputs[lane] = ladders[lane]->completeCoupledStep(output[lane], error[lane], iterations[lane], lineSearchTrials[lane],
-			excitation[lane] - k[lane] * output[lane][3], k[lane], driveGain[lane], *settings[lane]);
+			excitation[lane] - k[lane] * output[lane][3], k[lane], driveGain[lane], *settings[lane],
+			points.inputTanh[lane], points.stageTanh[lane]);
 }
 }

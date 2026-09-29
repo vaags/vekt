@@ -16,6 +16,8 @@ struct NonlinearTptLadderSettings
 	float inputFeedbackCompensation {};
 	// Output pole mix: -1 = LP (the plain ladder), 0 = Notch, +1 = HP. See LadderPoleMix.h.
 	float mode { -1.0f };
+	// A/B: Notch/HP taps in the tanh domain (ladderPoleMixSaturated) rather than raw.
+	bool saturatedModeTaps {};
 };
 
 struct NonlinearTptLadderDiagnostics
@@ -81,7 +83,7 @@ private:
 	// Shared end of a coupled step: diagnostics, the non-finite guard and the state update.
 	[[nodiscard]] float completeCoupledStep(const std::array<double, 4>& output, double error, int iterations,
 		std::uint64_t lineSearchTrials, double feedbackInput, double feedbackGain, float driveGain,
-		const NonlinearTptLadderSettings& settings) noexcept;
+		const NonlinearTptLadderSettings& settings, double inputTanh, const std::array<double, 4>& stageTanh) noexcept;
 
 	// Drive in dB to linear gain, recomputed only when Drive changes (pow per sample is measurable).
 	[[nodiscard]] float driveGainFor(float decibels) noexcept
@@ -97,6 +99,13 @@ private:
 	float sampleRate { 48'000.0f };
 	float cachedDriveDecibels {}, cachedDriveGain { 1.0f };
 	double previousFeedbackInput {};
+	// Peak follower of the driven input, for the saturated taps' feedback authority (ladderFeedbackAuthority).
+	double drivenPeak {}, peakAttack {}, peakRelease {};
+	void followDrivenPeak(double driven) noexcept
+	{
+		const auto level = std::abs(driven);
+		drivenPeak += (level - drivenPeak) * (level > drivenPeak ? peakAttack : peakRelease);
+	}
 	std::array<double, 4> integratorState {};
 	std::array<double, 4> previousOutput {};
 	NonlinearTptLadderDiagnostics solverDiagnostics;

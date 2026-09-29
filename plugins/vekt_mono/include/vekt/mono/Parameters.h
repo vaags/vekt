@@ -59,6 +59,7 @@ inline constexpr auto filterEnvelopeAmount = "filterEnvelopeAmount";
 inline constexpr auto filterDrive = "filterDrive";
 inline constexpr auto filterQCompensation = "filterQCompensation";
 inline constexpr auto filterMode = "filterMode";
+inline constexpr auto filterSaturatedTaps = "filterSaturatedTaps";
 inline constexpr auto ampAttack = "ampAttack";
 inline constexpr auto ampDecay = "ampDecay";
 inline constexpr auto ampSustain = "ampSustain";
@@ -136,14 +137,18 @@ inline constexpr auto schema7ParameterIds = []
 
 // Parameters added in sound schema 8: the ladder's LP-Notch-HP Mode and its LFO depths.
 inline constexpr std::array schema8ParameterIds { filterMode, lfos[0].filterMode, lfos[1].filterMode };
+// Parameters added in sound schema 9: the saturated-taps A/B for Notch/HP.
+inline constexpr std::array schema9ParameterIds { filterSaturatedTaps };
 
 inline constexpr auto soundParameterIds = []
 {
-	std::array<const char*, legacySoundParameterIds.size() + schema7ParameterIds.size() + schema8ParameterIds.size()> ids {};
+	std::array<const char*, legacySoundParameterIds.size() + schema7ParameterIds.size() + schema8ParameterIds.size()
+		+ schema9ParameterIds.size()> ids {};
 	std::size_t next {};
 	for (const auto* identifier : legacySoundParameterIds) ids[next++] = identifier;
 	for (const auto* identifier : schema7ParameterIds) ids[next++] = identifier;
 	for (const auto* identifier : schema8ParameterIds) ids[next++] = identifier;
+	for (const auto* identifier : schema9ParameterIds) ids[next++] = identifier;
 	return ids;
 }();
 

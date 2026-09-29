@@ -145,7 +145,9 @@ private:
 	juce::Label noiseTypeLabel;
 	std::array<ui::RotaryControl, 6> filterControls;
 	std::array<std::unique_ptr<SliderAttachment>, 6> filterAttachments;
-	juce::ToggleButton qCompensationButton { "Q Compensation" };
+	juce::ToggleButton qCompensationButton { "Q Comp" };
+	juce::ToggleButton saturatedTapsButton { "Sat Taps" };
+	std::unique_ptr<ButtonAttachment> saturatedTapsAttachment;
 	std::unique_ptr<ButtonAttachment> qCompensationAttachment;
 	std::array<ui::RotaryControl, 5> ampControls;
 	std::array<std::unique_ptr<SliderAttachment>, 5> ampAttachments;

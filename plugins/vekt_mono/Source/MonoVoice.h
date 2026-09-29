@@ -78,6 +78,7 @@ struct MonoVoiceSettings
 	int unison {}, glideMode {}, noiseType {};
 	bool qCompensation {};
 	float filterMode { -1.0f };
+	bool saturatedModeTaps {};
 	std::array<MonoLfoSettings, lfoCount> lfo {};
 	WidthDcPolicy widthDcPolicy { WidthDcPolicy::raw };
 };
@@ -555,7 +556,7 @@ private:
 		const auto maximumCutoff = std::min(32'000.0f, sampleRate * 0.45f);
 		const auto cutoff = juce::jlimit(10.0f, maximumCutoff,
 			baseCutoff * std::exp2(keyOctaves + contourOctaves + velocityOctaves + lfoOctaves));
-		return { cutoff, resonanceAmount, driveDb, false, inputCompensation, mode };
+		return { cutoff, resonanceAmount, driveDb, false, inputCompensation, mode, settings.saturatedModeTaps };
 	}
 
 	[[nodiscard]] MonoModulation nextModulation(const MonoVoiceSettings& settings, const std::array<double, lfoCount>& clockPositions) noexcept

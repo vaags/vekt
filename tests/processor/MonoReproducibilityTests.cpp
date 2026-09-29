@@ -81,7 +81,7 @@ TEST_CASE("Mono preset loads give reproducible output whatever played before", "
 		setParameter(author, parameters::vibratoRate, 6.0f);
 		auto preset = vekt::presets::PresetSchema::create(parameters::presetProductIdentifier, "Reproducible", author.getParameters(), parameters::soundParameterIds);
 		preset.identifier = "mono-reproducibility-test";
-		preset.soundSchemaVersion = 8;
+		preset.soundSchemaVersion = 9;
 		REQUIRE(repository.save(preset).wasOk());
 	}
 	const auto loadAndPlay = [&repository](int warmUpSamples)

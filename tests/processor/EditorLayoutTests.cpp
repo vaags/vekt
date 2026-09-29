@@ -393,6 +393,24 @@ TEST_CASE("Mono Q compensation checkbox binds the default-off sound parameter", 
 	}
 }
 
+TEST_CASE("Mono Saturated Taps checkbox binds the default-off sound parameter", "[mono][processor][ui][ladder-mode]")
+{
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	vekt::mono::PluginProcessor processor;
+	vekt::mono::PluginEditor editor(processor);
+	auto* button = findNamedButton(editor.getContent(), "Saturated Taps");
+	REQUIRE(button != nullptr);
+	REQUIRE(button->isVisible());
+	REQUIRE_FALSE(button->getToggleState());
+	auto* parameter = processor.getParameters().getParameter(vekt::mono::parameters::filterSaturatedTaps);
+	REQUIRE(parameter != nullptr);
+	REQUIRE(parameter->getDefaultValue() == Catch::Approx(0.0f));
+	button->setToggleState(true, juce::sendNotificationSync);
+	REQUIRE(parameter->getValue() == Catch::Approx(1.0f));
+	for (auto* sibling : button->getParentComponent()->getChildren())
+		if (sibling != button) REQUIRE_FALSE(button->getBounds().intersects(sibling->getBounds()));
+}
+
 TEST_CASE("Mono Resonance knob writes its full range to the processor", "[mono][processor][ui]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
