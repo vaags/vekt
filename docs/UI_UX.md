@@ -160,21 +160,15 @@ braking. Drum disables Horn Tone and Horn/Drum Balance without losing their valu
 Width is below the microphone controls and affects wet audio only. All controls
 retain APVTS attachments/gestures and stable bounds during state changes.
 
-## Audio Lab File Input
+## Audio Lab Input
 
-- Audio Lab accepts one local WAV, MP3, FLAC, or AIFF/AIF file via drag-and-drop
-  or Open File. Other formats are deliberately excluded.
-- A successful load selects Audio File and loops the whole file. Loading does
-  not arm output; Mute freezes playback and Arm resumes it. Restart File returns
-  to the beginning. Switching to a generator retains the loaded file and position.
-- Preserve stereo and duplicate mono to both outputs. Reject multichannel files,
-  preserve recorded level, and correct playback for the device sample rate.
-- Open files on a worker thread and stream using background read-ahead. Failed
-  loads preserve the current source; newer requests supersede older completions.
-- Keep filename, playback position/duration, and errors in the lab header.
-  Disable generator octave controls in file mode. The embedded editor remains 16:10.
-- Looping does not apply crossfades or promise seamless endpoints for arbitrary
-  recordings. There is no seeking, normalization, playlist, or session restoration.
+- Vekt Mono is the only live input. The on-screen keyboard and MIDI input selector
+  drive Mono; the selected rack route can process its output through RAV and Glimmer.
+- The compact header keeps Restart App and input/output peak, latency, CPU, and
+  output device diagnostics together on one row above the on-screen keyboard.
+  Audio runs without an arm or mute step.
+- Audio file input and generator selection are not available in the live lab.
+  Standalone file-source utilities and tests remain for offline use.
 
 ## Accessibility
 
