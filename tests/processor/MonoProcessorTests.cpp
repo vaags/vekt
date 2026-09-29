@@ -274,6 +274,60 @@ TEST_CASE("Mono Q compensation defaults off and recalls sound state", "[mono][pr
 	}
 }
 
+TEST_CASE("Mono filter Mode defaults to LP, names its landmarks and recalls with state", "[mono][processor][state][ladder-mode]")
+{
+	juce::ScopedJuceInitialiser_GUI juceInitializer;
+	vekt::mono::PluginProcessor processor;
+	auto* parameter = processor.getParameters().getParameter(vekt::mono::parameters::filterMode);
+	REQUIRE(parameter != nullptr);
+	REQUIRE(parameter->getDefaultValue() == Catch::Approx(0.0f));
+	for (const auto [value, text] : { std::pair { -1.0f, "LP" }, std::pair { 0.0f, "Notch" }, std::pair { 1.0f, "HP" }, std::pair { 0.5f, "0.50" } })
+	{
+		REQUIRE(parameter->getText(parameter->convertTo0to1(value), 16) == text);
+		REQUIRE(parameter->convertFrom0to1(parameter->getValueForText(text)) == Catch::Approx(value).margin(1.0e-6));
+	}
+	setParameter(processor, vekt::mono::parameters::filterMode, 0.25f);
+	juce::MemoryBlock state;
+	processor.getStateInformation(state);
+	setParameter(processor, vekt::mono::parameters::filterMode, -1.0f);
+	processor.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
+	REQUIRE(processor.getParameters().getRawParameterValue(vekt::mono::parameters::filterMode)->load() == Catch::Approx(0.25f).margin(1.0e-3));
+}
+
+TEST_CASE("Mono filter Mode sweeps smoothly and changes the held sound", "[mono][processor][filter][ladder-mode]")
+{
+	juce::ScopedJuceInitialiser_GUI juceInitializer;
+	vekt::mono::PluginProcessor lowPass, swept;
+	for (auto* processor : { &lowPass, &swept })
+	{
+		initializeDryVoice(*processor);
+		setParameter(*processor, vekt::mono::parameters::filterCutoff, 800.0f);
+		setParameter(*processor, vekt::mono::parameters::filterResonance, 60.0f);
+		processor->prepareToPlay(48'000.0, 2400);
+	}
+	juce::AudioBuffer<float> lowPassBuffer(2, 2400), sweptBuffer(2, 2400);
+	juce::MidiBuffer midi;
+	midi.addEvent(juce::MidiMessage::noteOn(1, 48, 1.0f), 0);
+	renderBlock(lowPass, lowPassBuffer, midi);
+	renderBlock(swept, sweptBuffer, midi);
+	for (const auto mode : { 0.0f, 1.0f })
+	{
+		setParameter(swept, vekt::mono::parameters::filterMode, mode);
+		renderBlock(lowPass, lowPassBuffer);
+		renderBlock(swept, sweptBuffer);
+		REQUIRE(swept.coupledWorkSnapshot().nonFinite == 0);
+		// The 20 ms ramp starts from the previous response, so the first sample cannot jump.
+		REQUIRE(std::abs(sweptBuffer.getSample(0, 0) - lowPassBuffer.getSample(0, 0)) < 0.05f);
+		renderBlock(lowPass, lowPassBuffer);
+		renderBlock(swept, sweptBuffer);
+		juce::AudioBuffer<float> difference(1, 2400);
+		for (int sample = 0; sample < 2400; ++sample)
+			difference.setSample(0, sample, sweptBuffer.getSample(0, sample) - lowPassBuffer.getSample(0, sample));
+		INFO("mode " << mode);
+		REQUIRE(rms(difference) > 0.1f * rms(lowPassBuffer));
+	}
+}
+
 TEST_CASE("Mono contour engine measures analog timing and retrigger continuity", "[mono][processor][contour]")
 {
 	vekt::mono::ContourEnvelope envelope;
@@ -1672,14 +1726,14 @@ TEST_CASE("Mono voice count changes cut active notes immediately", "[mono][proce
 	REQUIRE(buffer.getMagnitude(0, buffer.getNumSamples()) > 0.0f);
 }
 
-TEST_CASE("Mono provides 25 categorized factory presets", "[mono][processor]")
+TEST_CASE("Mono provides 26 categorized factory presets", "[mono][processor]")
 {
 	vekt::mono::PluginProcessor processor;
 	auto& session = processor.getPresetSession();
 	const auto& catalog = session.library();
-	REQUIRE(catalog.factoryPresetCount() == 25);
+	REQUIRE(catalog.factoryPresetCount() == 26);
 	REQUIRE(catalog.folders(vekt::presets::PresetOrigin::factory).size() == 6);
-	REQUIRE(processor.getNumPrograms() == 25);
+	REQUIRE(processor.getNumPrograms() == 26);
 	processor.setCurrentProgram(23);
 	REQUIRE(processor.getCurrentProgram() == 23);
 	REQUIRE(processor.getProgramName(23) == "Transmission FX");
@@ -1697,10 +1751,11 @@ TEST_CASE("Mono factory presets load with their stored values, including LFO set
 		CAPTURE(preset.name);
 		processor.setCurrentProgram(static_cast<int>(index));
 		REQUIRE(processor.getCurrentProgram() == static_cast<int>(index));
-		if (preset.soundSchemaVersion != 7) continue;
+		if (preset.soundSchemaVersion < 7) continue;
 		++withLfoSettings;
-		// Schema-7 files carry every sound parameter; each must exist and land unchanged.
-		REQUIRE(preset.parameters.size() == vekt::mono::parameters::soundParameterIds.size());
+		// Schema-7 and -8 files carry every sound parameter of their schema; each must exist and land unchanged.
+		REQUIRE(preset.parameters.size() == vekt::mono::parameters::soundParameterIds.size()
+			- (preset.soundSchemaVersion == 7 ? vekt::mono::parameters::schema8ParameterIds.size() : 0));
 		for (const auto& parameter : preset.parameters)
 		{
 			CAPTURE(parameter.identifier);
@@ -1709,7 +1764,7 @@ TEST_CASE("Mono factory presets load with their stored values, including LFO set
 			REQUIRE(value->load() == Catch::Approx(parameter.value).margin(1.0e-3));
 		}
 	}
-	REQUIRE(withLfoSettings == 12);
+	REQUIRE(withLfoSettings == 13);
 }
 
 TEST_CASE("Mono factory presets are not marked modified right after loading", "[mono][processor][preset]")
@@ -1773,8 +1828,8 @@ TEST_CASE("Mono factory presets use diverse oscillator and mixer designs", "[mon
 	{
 		vekt::presets::Preset preset;
 		REQUIRE(catalog.loadFactoryPreset(index, preset).wasOk());
-		// Presets voiced before the LFOs are schema 4; the ones given LFO settings are schema 7.
-		REQUIRE((preset.soundSchemaVersion == 4 || preset.soundSchemaVersion == 7));
+		// Presets voiced before the LFOs are schema 4; the ones given LFO settings are schema 7, or 8 with a filter Mode.
+		REQUIRE((preset.soundSchemaVersion == 4 || preset.soundSchemaVersion == 7 || preset.soundSchemaVersion == 8));
 		const auto value = [&preset](const char* identifier)
 		{
 			const auto found = std::find_if(preset.parameters.begin(), preset.parameters.end(), [identifier](const auto& parameter)
@@ -1799,6 +1854,15 @@ TEST_CASE("Mono factory presets use diverse oscillator and mixer designs", "[mon
 		noiseLevels.insert(value(vekt::mono::parameters::noiseLevel));
 		voicePans.insert(value(vekt::mono::parameters::voiceWidth));
 		REQUIRE(value(vekt::mono::parameters::filterQCompensation) == Catch::Approx(0.0f));
+	}
+	// Factory presets from before the filter Mode load as the plain LP ladder.
+	for (std::size_t index = 0; index < catalog.factoryPresetCount(); ++index)
+	{
+		vekt::presets::Preset preset;
+		REQUIRE(catalog.loadFactoryPreset(index, preset).wasOk());
+		if (preset.soundSchemaVersion == 8) continue;
+		processor.setCurrentProgram(static_cast<int>(index));
+		REQUIRE(processor.getParameters().getRawParameterValue(vekt::mono::parameters::filterMode)->load() == Catch::Approx(-1.0f));
 	}
 	REQUIRE(oscillatorShapes.size() >= 20);
 	REQUIRE(oscillatorTunings.size() >= 20);
@@ -1849,7 +1913,7 @@ TEST_CASE("Mono migrates schema 4 and 5 presets to analog independent ADSR", "[m
 		const auto previousAmp = std::find_if(preset.parameters.begin(), preset.parameters.end(), [](const auto& p) { return p.identifier == vekt::mono::parameters::ampRelease; })->value;
 		const auto previousFilter = std::find_if(preset.parameters.begin(), preset.parameters.end(), [](const auto& p) { return p.identifier == vekt::mono::parameters::filterRelease; })->value;
 		REQUIRE(processor.getPresetSession().prepare(preset).wasOk());
-		REQUIRE(preset.soundSchemaVersion == 7);
+		REQUIRE(preset.soundSchemaVersion == 8);
 		REQUIRE(vekt::presets::PresetSchema::apply(preset, vekt::mono::parameters::presetProductIdentifier,
 			processor.getParameters(), vekt::mono::parameters::soundParameterIds).wasOk());
 		REQUIRE(processor.getParameters().getRawParameterValue(vekt::mono::parameters::ampRelease)->load() == Catch::Approx(previousAmp).margin(0.0001f));
@@ -2367,6 +2431,7 @@ TEST_CASE("Mono processor and extracted voice render identically", "[mono][proce
 	settings.envelopeAmount = raw(vekt::mono::parameters::filterEnvelopeAmount) * 0.01f;
 	settings.drive = raw(vekt::mono::parameters::filterDrive);
 	settings.qCompensation = raw(vekt::mono::parameters::filterQCompensation) >= 0.5f;
+	settings.filterMode = raw(vekt::mono::parameters::filterMode);
 	settings.ampAttack = raw(vekt::mono::parameters::ampAttack);
 	settings.ampDecay = raw(vekt::mono::parameters::ampDecay);
 	settings.ampSustain = raw(vekt::mono::parameters::ampSustain) * 0.01f;

@@ -258,8 +258,9 @@ TEST_CASE("Mono editor presents symmetric oscillator controls without overlap", 
 		std::pair { "Cutoff", "exponentially" },
 		std::pair { "Resonance", "natural bass loss" },
 		std::pair { "Key Track", "one octave" },
-		std::pair { "Env Amount", "octave pitch space" },
-		std::pair { "Drive", "nonlinear filter" }
+		std::pair { "Env Amt", "octave pitch space" },
+		std::pair { "Drive", "nonlinear filter" },
+		std::pair { "Mode", "Notch" }
 	};
 	for (const auto& [controlName, expectedText] : ladderTooltips)
 	{
@@ -460,10 +461,11 @@ TEST_CASE("Mono LFO panel shows one LFO at a time with every destination", "[mon
 	// Every destination has a bipolar slider bound to its depth parameter, reset by double-click to zero.
 	const std::array destinations { "Osc 1 Pitch", "Osc 2 Pitch", "Osc 3 Pitch", "Osc 1 Morph", "Osc 2 Morph", "Osc 3 Morph",
 		"Osc 1 Width", "Osc 2 Width", "Osc 3 Width", "Osc 1 Level", "Osc 2 Level", "Osc 3 Level",
-		"Filter", "Amp", "Drive", "Noise", "Detune", "Spread" };
+		"Filter", "Amp", "Drive", "Noise", "Detune", "Spread", "Filter Mode" };
 	for (std::size_t lfo = 0; lfo < vekt::mono::parameters::lfos.size(); ++lfo)
 	{
-		const auto ids = vekt::mono::parameters::lfos[lfo].all();
+		const auto ids = vekt::mono::parameters::lfos[lfo].depths();
+		static_assert(ids.size() == destinations.size());
 		for (std::size_t depth = 0; depth < destinations.size(); ++depth)
 		{
 			const auto name = "LFO " + juce::String(static_cast<int>(lfo) + 1) + " " + destinations[depth];
@@ -473,8 +475,8 @@ TEST_CASE("Mono LFO panel shows one LFO at a time with every destination", "[mon
 			REQUIRE(static_cast<bool>(slider->getProperties()["bipolar"]));
 			REQUIRE(slider->getDoubleClickReturnValue() == Catch::Approx(0.0));
 			slider->setValue(slider->getMaximum(), juce::sendNotificationSync);
-			auto* parameter = dynamic_cast<juce::RangedAudioParameter*>(processor.getParameters().getParameter(ids[10 + depth]));
-			REQUIRE(processor.getParameters().getRawParameterValue(ids[10 + depth])->load()
+			auto* parameter = dynamic_cast<juce::RangedAudioParameter*>(processor.getParameters().getParameter(ids[depth]));
+			REQUIRE(processor.getParameters().getRawParameterValue(ids[depth])->load()
 				== Catch::Approx(parameter->getNormalisableRange().end));
 		}
 	}

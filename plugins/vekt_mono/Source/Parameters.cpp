@@ -136,6 +136,27 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 	// Depth is reached with the mod wheel or aftertouch fully up; at rest the vibrato is silent.
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { vibratoDepth, version }, "Vibrato Depth",
 		juce::NormalisableRange<float> { 0.0f, 100.0f, 0.1f }, 50.0f, withDecimals(1, "ct")));
+	// Ladder output pole mix: -1 LP (the plain ladder), 0 Notch, +1 HP. The landmarks read as names.
+	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { filterMode, version }, "Filter Mode",
+		juce::NormalisableRange<float> { -1.0f, 1.0f, 0.001f }, -1.0f, juce::AudioParameterFloatAttributes {}
+			.withStringFromValueFunction([](float value, int)
+			{
+				if (value <= -0.9995f) return juce::String("LP");
+				if (std::abs(value) < 0.0005f) return juce::String("Notch");
+				if (value >= 0.9995f) return juce::String("HP");
+				return juce::String(value, 2);
+			})
+			.withValueFromStringFunction([](const juce::String& text)
+			{
+				const auto trimmed = text.trim();
+				if (trimmed.equalsIgnoreCase("LP")) return -1.0f;
+				if (trimmed.equalsIgnoreCase("Notch") || trimmed.equalsIgnoreCase("N")) return 0.0f;
+				if (trimmed.equalsIgnoreCase("HP")) return 1.0f;
+				return juce::jlimit(-1.0f, 1.0f, trimmed.getFloatValue());
+			})));
+	// Full depth sweeps the whole Mode range, LP to HP.
+	for (std::size_t index = 0; index < lfos.size(); ++index)
+		addDepth(layout, lfos[index].filterMode, "LFO " + juce::String(static_cast<int>(index) + 1) + " Filter Mode", 100.0f, 1.0f, "%");
 	return layout;
 }
 }

@@ -163,7 +163,8 @@ public:
 TEST_CASE("Mono LFO parameters are sound parameters that default to no modulation", "[mono][lfo][parameters]")
 {
 	vekt::mono::PluginProcessor processor;
-	REQUIRE(parameters::soundParameterIds.size() == parameters::legacySoundParameterIds.size() + 56 + parameters::vibratoParameterIds.size());
+	REQUIRE(parameters::soundParameterIds.size() == parameters::legacySoundParameterIds.size() + 56 + parameters::vibratoParameterIds.size()
+		+ parameters::schema8ParameterIds.size());
 	for (const auto& lfo : parameters::lfos)
 	{
 		const auto ids = lfo.all();
@@ -175,6 +176,9 @@ TEST_CASE("Mono LFO parameters are sound parameters that default to no modulatio
 			// The first ten are source controls; the rest are destination depths.
 			if (index >= 10) REQUIRE(defaultValue(processor, ids[index]) == 0.0f);
 		}
+		REQUIRE(processor.getParameters().getParameter(lfo.filterMode) != nullptr);
+		REQUIRE(std::find(parameters::soundParameterIds.begin(), parameters::soundParameterIds.end(), lfo.filterMode) != parameters::soundParameterIds.end());
+		REQUIRE(defaultValue(processor, lfo.filterMode) == 0.0f);
 		REQUIRE(defaultValue(processor, lfo.amount) == Catch::Approx(100.0f));
 		REQUIRE(defaultValue(processor, lfo.rate) == Catch::Approx(2.0f));
 		auto* rate = dynamic_cast<juce::RangedAudioParameter*>(processor.getParameters().getParameter(lfo.rate));
@@ -212,8 +216,8 @@ TEST_CASE("Mono LFOs reach every destination", "[mono][lfo][slow]")
 	const auto expected = renderNote(reference, 9'600);
 	for (std::size_t lfoIndex = 0; lfoIndex < parameters::lfos.size(); ++lfoIndex)
 	{
-		const auto ids = parameters::lfos[lfoIndex].all();
-		for (std::size_t index = 10; index < ids.size(); ++index)
+		const auto ids = parameters::lfos[lfoIndex].depths();
+		for (std::size_t index = 0; index < ids.size(); ++index)
 		{
 			INFO("LFO " << lfoIndex + 1 << " destination " << ids[index]);
 			vekt::mono::PluginProcessor modulated;
@@ -305,7 +309,7 @@ TEST_CASE("Mono synced free LFO follows the host song position", "[mono][lfo]")
 	REQUIRE(differenceRms(renderAt(8.5), onBeat) > 1.0e-3f);
 }
 
-TEST_CASE("Mono migrates earlier presets to schema 7 with the LFOs at their defaults", "[mono][lfo][preset]")
+TEST_CASE("Mono migrates earlier presets to the current schema with the LFOs at their defaults", "[mono][lfo][preset]")
 {
 	vekt::mono::PluginProcessor processor;
 	vekt::presets::Preset factory;
@@ -319,7 +323,7 @@ TEST_CASE("Mono migrates earlier presets to schema 7 with the LFOs at their defa
 		setParameter(processor, parameters::lfos[1].filter, 3.0f);
 		setParameter(processor, parameters::lfos[0].amount, 20.0f);
 		REQUIRE(processor.getPresetSession().prepare(preset).wasOk());
-		REQUIRE(preset.soundSchemaVersion == 7);
+		REQUIRE(preset.soundSchemaVersion == 8);
 		REQUIRE(preset.parameters.size() == parameters::soundParameterIds.size());
 		REQUIRE(vekt::presets::PresetSchema::apply(preset, parameters::presetProductIdentifier,
 			processor.getParameters(), parameters::soundParameterIds).wasOk());

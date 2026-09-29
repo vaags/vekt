@@ -58,6 +58,7 @@ struct MonoLfoSettings
 	Lfo::Parameters source;
 	std::array<float, 3> pitch {}, morph {}, width {}, level {}; // semitones, morph units, pulse-width %, level 0..1
 	float filter {}, amp {}, drive {}, noise {}, detune {}, spread {}; // octaves, gain, dB, level, cents, spread
+	float filterMode {}; // Mode units (-1 LP .. +1 HP)
 };
 
 inline constexpr std::size_t lfoCount = 2;
@@ -76,6 +77,7 @@ struct MonoVoiceSettings
 	float detune {}, unisonSpread {}, voiceWidth {}, glideTime {}, drift {};
 	int unison {}, glideMode {}, noiseType {};
 	bool qCompensation {};
+	float filterMode { -1.0f };
 	std::array<MonoLfoSettings, lfoCount> lfo {};
 	WidthDcPolicy widthDcPolicy { WidthDcPolicy::raw };
 };
@@ -84,7 +86,7 @@ struct MonoVoiceSettings
 struct MonoModulation
 {
 	std::array<float, 3> pitch {}, morph {}, width {}, level {};
-	float filter {}, amp {}, drive {}, noise {}, detune {}, spread {};
+	float filter {}, amp {}, drive {}, noise {}, detune {}, spread {}, filterMode {};
 };
 
 // Drift (0..100 %) models analog instability: each oscillator of each voice and unison layer wanders slowly
@@ -168,6 +170,7 @@ public:
 		resonance.reset(newSampleRate, 0.02);
 		driveDecibels.reset(newSampleRate, 0.02);
 		qInputCompensation.reset(newSampleRate, 0.02);
+		filterMode.reset(newSampleRate, 0.02);
 		reset();
 	}
 
@@ -320,6 +323,7 @@ public:
 		const auto filterResonance = resonance.getNextValue();
 		const auto filterDriveDb = juce::jlimit(0.0f, 24.0f, driveDecibels.getNextValue() + modulation.drive);
 		const auto inputCompensation = qInputCompensation.getNextValue();
+		const auto mode = juce::jlimit(-1.0f, 1.0f, filterMode.getNextValue() + modulation.filterMode);
 		// No post-ladder resonance boost: isolate the ladder's own onset.
 		// Q compensation still acts only on driven input inside its feedback equation.
 		const auto velocityGain = (1.0f - settings.ampVelocity) + settings.ampVelocity * velocityCurve;
@@ -367,7 +371,7 @@ public:
 		morphsInitialized = true;
 		// All layers share one ladder setting; their ladders are solved together after the mixers are built.
 		const auto ladderSettings = filterSettings(settings, filterEnvelopeValue, filterCutoff, filterResonance,
-			filterDriveDb, inputCompensation, playedNote, modulation.filter + drift * driftCutoffOctaves * driftCutoff);
+			filterDriveDb, inputCompensation, mode, playedNote, modulation.filter + drift * driftCutoffOctaves * driftCutoff);
 		auto& mixers = pending.mixers;
 		auto& pans = pending.pans;
 		mixers = {};
@@ -528,6 +532,7 @@ private:
 			resonance.setCurrentAndTargetValue(settings.resonance);
 			driveDecibels.setCurrentAndTargetValue(settings.drive);
 			qInputCompensation.setCurrentAndTargetValue(compensationTarget);
+			filterMode.setCurrentAndTargetValue(settings.filterMode);
 			filterControlsInitialized = true;
 			return;
 		}
@@ -535,10 +540,11 @@ private:
 		if (!juce::approximatelyEqual(resonance.getTargetValue(), settings.resonance)) resonance.setTargetValue(settings.resonance);
 		if (!juce::approximatelyEqual(driveDecibels.getTargetValue(), settings.drive)) driveDecibels.setTargetValue(settings.drive);
 		if (!juce::approximatelyEqual(qInputCompensation.getTargetValue(), compensationTarget)) qInputCompensation.setTargetValue(compensationTarget);
+		if (!juce::approximatelyEqual(filterMode.getTargetValue(), settings.filterMode)) filterMode.setTargetValue(settings.filterMode);
 	}
 
 	[[nodiscard]] NonlinearTptLadderSettings filterSettings(const MonoVoiceSettings& settings, float envelopeValue, float baseCutoff,
-		float resonanceAmount, float driveDb, float inputCompensation, float playedNote, float lfoOctaves) const noexcept
+		float resonanceAmount, float driveDb, float inputCompensation, float mode, float playedNote, float lfoOctaves) const noexcept
 	{
 		// A ladder is controlled exponentially: keyboard, contour and velocity all
 		// offset cutoff in octave/control-voltage space rather than linear Hertz.
@@ -549,7 +555,7 @@ private:
 		const auto maximumCutoff = std::min(32'000.0f, sampleRate * 0.45f);
 		const auto cutoff = juce::jlimit(10.0f, maximumCutoff,
 			baseCutoff * std::exp2(keyOctaves + contourOctaves + velocityOctaves + lfoOctaves));
-		return { cutoff, resonanceAmount, driveDb, false, inputCompensation };
+		return { cutoff, resonanceAmount, driveDb, false, inputCompensation, mode };
 	}
 
 	[[nodiscard]] MonoModulation nextModulation(const MonoVoiceSettings& settings, const std::array<double, lfoCount>& clockPositions) noexcept
@@ -574,6 +580,7 @@ private:
 			modulation.noise += lfo.noise * output;
 			modulation.detune += lfo.detune * output;
 			modulation.spread += lfo.spread * output;
+			modulation.filterMode += lfo.filterMode * output;
 		}
 		return modulation;
 	}
@@ -588,7 +595,7 @@ private:
 	int fadeInSamples {}, continuitySamples {};
 	juce::Random random;
 	ContourEnvelope amp, filterEnvelope;
-	juce::SmoothedValue<float> cutoffOctaves, resonance, driveDecibels, qInputCompensation;
+	juce::SmoothedValue<float> cutoffOctaves, resonance, driveDecibels, qInputCompensation, filterMode;
 	std::array<juce::SmoothedValue<float>, 3> baseMorphs, baseWidths;
 	std::array<float, 3> lastMorphs {};
 	bool morphsInitialized {};

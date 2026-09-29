@@ -102,12 +102,12 @@ private:
 		juce::ComboBox shape, polarity, mode;
 		juce::ToggleButton sync { "Sync" };
 		ui::RotaryControl rate, division, amount, phase, delay, fade;
-		// Same order as the destination depths in parameters::LfoParameterIds::all().
-		std::array<juce::Slider, 18> depths;
+		// Same order as parameters::LfoParameterIds::depths().
+		std::array<juce::Slider, 19> depths;
 		std::unique_ptr<ComboBoxAttachment> shapeAttachment, polarityAttachment, modeAttachment;
 		std::unique_ptr<ButtonAttachment> syncAttachment;
 		std::array<std::unique_ptr<SliderAttachment>, 6> knobAttachments;
-		std::array<std::unique_ptr<SliderAttachment>, 18> depthAttachments;
+		std::array<std::unique_ptr<SliderAttachment>, 19> depthAttachments;
 	};
 
 	PluginProcessor& pluginProcessor;
@@ -135,16 +135,16 @@ private:
 	ControlMeter vibratoMeter;
 	std::array<LfoTabButton, 2> lfoTabs;
 	std::array<LfoControls, 2> lfoControls;
-	// Column headers (Pitch, Morph, Width, Level), oscillator rows, then the six single destinations.
-	std::array<juce::Label, 13> lfoDestinationLabels;
+	// Column headers (Pitch, Morph, Width, Level), oscillator rows, then the seven single destinations.
+	std::array<juce::Label, 14> lfoDestinationLabels;
 	std::size_t selectedLfo {};
 	std::array<ui::RotaryControl, 15> oscillatorControls;
 	std::array<std::unique_ptr<SliderAttachment>, 15> oscillatorAttachments;
 	ui::RotaryControl noiseLevelControl;
 	std::unique_ptr<SliderAttachment> noiseLevelAttachment;
 	juce::Label noiseTypeLabel;
-	std::array<ui::RotaryControl, 5> filterControls;
-	std::array<std::unique_ptr<SliderAttachment>, 5> filterAttachments;
+	std::array<ui::RotaryControl, 6> filterControls;
+	std::array<std::unique_ptr<SliderAttachment>, 6> filterAttachments;
 	juce::ToggleButton qCompensationButton { "Q Compensation" };
 	std::unique_ptr<ButtonAttachment> qCompensationAttachment;
 	std::array<ui::RotaryControl, 5> ampControls;

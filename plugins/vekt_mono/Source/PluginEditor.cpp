@@ -2,6 +2,13 @@
 
 namespace vekt::mono
 {
+namespace
+{
+// Grid slot (two rows of four) of each single LFO destination, in depths() order: Filter, Amp, Drive, Noise,
+// Detune, Spread, Filter Mode. Mode sits beside Filter.
+constexpr std::array lfoSingleSlots { 0, 2, 3, 4, 5, 6, 1 };
+}
+
 PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	: ScalableEditor(newProcessor, editorWidth, ui::ScalableEditor::logicalHeight), pluginProcessor(newProcessor), historyControls(newProcessor.getUndoManager()),
 	  presetBrowser(newProcessor.getPresetSession())
@@ -68,8 +75,8 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	noiseTypeLabel.setText("Type", juce::dontSendNotification);
 	noiseTypeLabel.setJustificationType(juce::Justification::centredLeft);
 	noisePanel.addAndMakeVisible(noiseTypeLabel);
-	const std::array filterNames { "Cutoff", "Resonance", "Key Track", "Env Amount", "Drive" };
-	const std::array filterIds { parameters::filterCutoff, parameters::filterResonance, parameters::filterKeyTracking, parameters::filterEnvelopeAmount, parameters::filterDrive };
+	const std::array filterNames { "Cutoff", "Resonance", "Key Track", "Env Amt", "Drive", "Mode" };
+	const std::array filterIds { parameters::filterCutoff, parameters::filterResonance, parameters::filterKeyTracking, parameters::filterEnvelopeAmount, parameters::filterDrive, parameters::filterMode };
 	// A secondary arc links the Ladder Filter and Filter ADSR; their titles and labels
 	// continue to identify the controls without relying on colour alone.
 	const auto filterAccent = juce::Colour::fromRGB(123, 191, 173);
@@ -83,6 +90,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	filterControls[2].getSlider().setTooltip("Keyboard tracking. At 100%, cutoff rises one octave per keyboard octave.");
 	filterControls[3].getSlider().setTooltip("Unipolar filter contour amount. Applies the filter envelope in octave pitch space.");
 	filterControls[4].getSlider().setTooltip("Ladder input overload. Drives the nonlinear filter while compensating output level.");
+	filterControls[5].getSlider().setTooltip("Ladder output mix from LP through Notch to HP. The same resonant ladder runs underneath; LP is the classic response.");
 	filterPanel.addAndMakeVisible(qCompensationButton);
 	qCompensationButton.setName("Q Compensation");
 	qCompensationButton.setComponentID(parameters::filterQCompensation);
@@ -144,7 +152,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	getContent().addAndMakeVisible(lfoPanel);
 	const std::array destinationNames { "Osc 1 Pitch", "Osc 2 Pitch", "Osc 3 Pitch", "Osc 1 Morph", "Osc 2 Morph", "Osc 3 Morph",
 		"Osc 1 Width", "Osc 2 Width", "Osc 3 Width", "Osc 1 Level", "Osc 2 Level", "Osc 3 Level",
-		"Filter", "Amp", "Drive", "Noise", "Detune", "Spread" };
+		"Filter", "Amp", "Drive", "Noise", "Detune", "Spread", "Filter Mode" };
 	for (std::size_t index = 0; index < lfoControls.size(); ++index)
 	{
 		const auto& ids = parameters::lfos[index];
@@ -176,7 +184,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 		controls.amount.getSlider().setTooltip("Master depth: scales every destination of this LFO.");
 		controls.delay.getSlider().setTooltip("Silent time after each note starts.");
 		controls.fade.getSlider().setTooltip("Fade-in time after the delay.");
-		const auto depthIds = ids.all();
+		const auto depthIds = ids.depths();
 		for (std::size_t depth = 0; depth < controls.depths.size(); ++depth)
 		{
 			auto& slider = controls.depths[depth];
@@ -187,7 +195,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 			slider.setName(prefix + destinationNames[depth]);
 			slider.setTooltip(prefix + destinationNames[depth] + " depth. Double-click to reset.");
 			lfoPanel.addAndMakeVisible(slider);
-			controls.depthAttachments[depth] = std::make_unique<SliderAttachment>(pluginProcessor.getParameters(), depthIds[10 + depth], slider);
+			controls.depthAttachments[depth] = std::make_unique<SliderAttachment>(pluginProcessor.getParameters(), depthIds[depth], slider);
 			slider.setDoubleClickReturnValue(true, 0.0);
 		}
 		auto& tab = lfoTabs[index];
@@ -197,7 +205,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 		tab.onClick = [this, index] { selectLfo(index); };
 		lfoPanel.addAndMakeVisible(tab);
 	}
-	const std::array destinationLabels { "Pitch", "Morph", "Width", "Level", "Osc 1", "Osc 2", "Osc 3", "Filter", "Amp", "Drive", "Noise", "Detune", "Spread" };
+	const std::array destinationLabels { "Pitch", "Morph", "Width", "Level", "Osc 1", "Osc 2", "Osc 3", "Filter", "Amp", "Drive", "Noise", "Detune", "Spread", "Mode" };
 	for (std::size_t index = 0; index < lfoDestinationLabels.size(); ++index)
 	{
 		auto& label = lfoDestinationLabels[index];
@@ -306,7 +314,7 @@ void PluginEditor::resized()
 		const auto x = 6 + static_cast<int>(index % 5) * 67;
 		oscillatorControls[index].setBounds(x, 40, 65, ui::RotaryControl::heightFor(ui::RotaryControl::Size::compact));
 	}
-	for (std::size_t index = 0; index < filterControls.size(); ++index) filterControls[index].setBounds(6 + static_cast<int>(index) * 67, 32, 65, 136);
+	for (std::size_t index = 0; index < filterControls.size(); ++index) filterControls[index].setBounds(6 + static_cast<int>(index) * 56, 32, 55, 136);
 	qCompensationButton.setBounds(174, 5, 166, 24);
 	for (std::size_t index = 0; index < ampControls.size(); ++index) ampControls[index].setBounds(6 + static_cast<int>(index) * 67, 38, 65, 140);
 	for (std::size_t index = 0; index < filterEnvelopeControls.size(); ++index) filterEnvelopeControls[index].setBounds(6 + static_cast<int>(index) * 67, 38, 65, 140);
@@ -330,17 +338,17 @@ void PluginEditor::resized()
 		for (auto* rate : { &controls.rate, &controls.division }) rate->setBounds(6, 72, 65, ui::RotaryControl::heightFor(ui::RotaryControl::Size::compact));
 		for (std::size_t knob = 0; knob < knobs.size(); ++knob)
 			knobs[knob]->setBounds(73 + static_cast<int>(knob) * 67, 72, 65, ui::RotaryControl::heightFor(ui::RotaryControl::Size::compact));
-		// Oscillator grid: rows Osc 1-3, columns Pitch/Morph/Width/Level; then two rows of three single destinations.
+		// Oscillator grid: rows Osc 1-3, columns Pitch/Morph/Width/Level; then the single destinations in two rows of four.
 		for (std::size_t column = 0; column < 4; ++column)
 			for (std::size_t row = 0; row < 3; ++row)
 				controls.depths[column * 3 + row].setBounds(56 + static_cast<int>(column) * 72, 214 + static_cast<int>(row) * 24, 68, 22);
-		for (std::size_t single = 0; single < 6; ++single)
-			controls.depths[12 + single].setBounds(12 + static_cast<int>(single % 3) * 112, 306 + static_cast<int>(single / 3) * 42, 104, 22);
+		for (std::size_t single = 0; single < lfoSingleSlots.size(); ++single)
+			controls.depths[12 + single].setBounds(12 + lfoSingleSlots[single] % 4 * 84, 306 + lfoSingleSlots[single] / 4 * 42, 78, 22);
 	}
 	for (std::size_t column = 0; column < 4; ++column) lfoDestinationLabels[column].setBounds(56 + static_cast<int>(column) * 72, 198, 68, 14);
 	for (std::size_t row = 0; row < 3; ++row) lfoDestinationLabels[4 + row].setBounds(12, 214 + static_cast<int>(row) * 24, 44, 22);
-	for (std::size_t single = 0; single < 6; ++single)
-		lfoDestinationLabels[7 + single].setBounds(12 + static_cast<int>(single % 3) * 112, 290 + static_cast<int>(single / 3) * 42, 104, 14);
+	for (std::size_t single = 0; single < lfoSingleSlots.size(); ++single)
+		lfoDestinationLabels[7 + single].setBounds(12 + lfoSingleSlots[single] % 4 * 84, 290 + lfoSingleSlots[single] / 4 * 42, 78, 14);
 	performanceLabels[0].setBounds(12, 38, 90, 18); activeVoicesLabel.setBounds(102, 38, 64, 18); performanceLabels[1].setBounds(184, 38, 50, 18); performanceLabels[2].setBounds(12, 96, 154, 18); performanceLabels[3].setBounds(184, 96, 154, 18); performanceLabels[4].setBounds(12, 154, 154, 18); performanceLabels[5].setBounds(184, 154, 154, 18); heldKeyReturnButton.setBounds(238, 34, 100, 22); priorityBox.setBounds(127, 5, 145, 26); juce::ignoreUnused(content);
 }
 }
