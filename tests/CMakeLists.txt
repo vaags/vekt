@@ -32,6 +32,7 @@ add_executable(vekt_dsp_tests
 	processor/MonoUnisonTests.cpp
 	processor/MonoReproducibilityTests.cpp
 	processor/MonoLadderBatchTests.cpp
+	processor/MonoLadderPoleMixTests.cpp
 	processor/EditorLayoutTests.cpp
 	processor/ValueFormatTests.cpp
 	audio_lab/FileSourceTests.cpp

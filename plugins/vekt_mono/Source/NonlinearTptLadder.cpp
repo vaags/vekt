@@ -1,4 +1,5 @@
 #include "NonlinearTptLadder.h"
+#include "LadderPoleMix.h"
 #include "LadderResonance.h"
 
 #include <algorithm>
@@ -163,7 +164,9 @@ float NonlinearTptLadder::processSubstepped(float input,
 			cutoff,
 			interpolate(previousSettings.resonance, settings.resonance),
 			interpolate(previousSettings.driveDecibels, settings.driveDecibels),
-			settings.driveCompensation
+			settings.driveCompensation,
+			{},
+			interpolate(previousSettings.mode, settings.mode)
 		};
 		output = processStep(stepInput, stepSettings, integrationGain);
 	}
@@ -223,7 +226,7 @@ float NonlinearTptLadder::processStep(float input,
 		static_cast<float>(std::max(std::abs(residual), evaluation.maximumResidual)));
 	if (!converged) ++solverDiagnostics.unconvergedSamples;
 
-	const auto output = evaluation.output.back();
+	const auto output = ladderPoleMix(static_cast<double>(settings.mode), feedbackGain, feedbackInput, evaluation.output);
 	if (!std::isfinite(output))
 	{
 		++solverDiagnostics.nonFiniteSamples;
@@ -331,12 +334,13 @@ float NonlinearTptLadder::processCoupled(float input, const NonlinearTptLadderSe
 		}
 		if (!accepted) break;
 	}
-	return completeCoupledStep(output, error, iterations, lineSearchTrials, excitation - k * output[3], driveGain,
-		settings.driveCompensation);
+	return completeCoupledStep(output, error, iterations, lineSearchTrials, excitation - k * output[3], k, driveGain,
+		settings);
 }
 
 float NonlinearTptLadder::completeCoupledStep(const std::array<double, 4>& output, double error, int iterations,
-	std::uint64_t lineSearchTrials, double feedbackInput, float driveGain, bool driveCompensation) noexcept
+	std::uint64_t lineSearchTrials, double feedbackInput, double feedbackGain, float driveGain,
+	const NonlinearTptLadderSettings& settings) noexcept
 {
 	++solverDiagnostics.samples;
 	solverDiagnostics.coupledIterations += static_cast<std::uint64_t>(iterations);
@@ -360,7 +364,8 @@ float NonlinearTptLadder::completeCoupledStep(const std::array<double, 4>& outpu
 		previousOutput[stage] = output[stage];
 	}
 	previousFeedbackInput = feedbackInput;
-	return static_cast<float>(driveCompensation ? output[3] / std::sqrt(driveGain) : output[3]);
+	const auto mixed = ladderPoleMix(static_cast<double>(settings.mode), feedbackGain, feedbackInput, output);
+	return static_cast<float>(settings.driveCompensation ? mixed / std::sqrt(driveGain) : mixed);
 }
 void NonlinearTptLadder::processCoupled(std::span<NonlinearTptLadder> ladders, std::span<const float> inputs,
 	std::span<float> outputs, const NonlinearTptLadderSettings& settings) noexcept
@@ -568,6 +573,6 @@ void NonlinearTptLadder::processCoupledLanes(const std::array<NonlinearTptLadder
 	}
 	for (std::size_t lane = 0; lane < Lanes; ++lane)
 		outputs[lane] = ladders[lane]->completeCoupledStep(output[lane], error[lane], iterations[lane], lineSearchTrials[lane],
-			excitation[lane] - k[lane] * output[lane][3], driveGain[lane], settings[lane]->driveCompensation);
+			excitation[lane] - k[lane] * output[lane][3], k[lane], driveGain[lane], *settings[lane]);
 }
 }

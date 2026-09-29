@@ -14,6 +14,8 @@ struct NonlinearTptLadderSettings
 	float driveDecibels {};
 	bool driveCompensation {};
 	float inputFeedbackCompensation {};
+	// Output pole mix: -1 = LP (the plain ladder), 0 = Notch, +1 = HP. See LadderPoleMix.h.
+	float mode { -1.0f };
 };
 
 struct NonlinearTptLadderDiagnostics
@@ -78,7 +80,8 @@ private:
 		float* outputs, const std::array<const NonlinearTptLadderSettings*, Lanes>& settings) noexcept;
 	// Shared end of a coupled step: diagnostics, the non-finite guard and the state update.
 	[[nodiscard]] float completeCoupledStep(const std::array<double, 4>& output, double error, int iterations,
-		std::uint64_t lineSearchTrials, double feedbackInput, float driveGain, bool driveCompensation) noexcept;
+		std::uint64_t lineSearchTrials, double feedbackInput, double feedbackGain, float driveGain,
+		const NonlinearTptLadderSettings& settings) noexcept;
 
 	// Drive in dB to linear gain, recomputed only when Drive changes (pow per sample is measurable).
 	[[nodiscard]] float driveGainFor(float decibels) noexcept
