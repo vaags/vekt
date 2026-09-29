@@ -15,6 +15,8 @@ add_library(VektMonoCore STATIC
 	Source/NonlinearTptLadder.h
 	Source/WidthOscillator.cpp
 	Source/WidthOscillator.h
+	Source/MonoRenderWorkers.cpp
+	Source/MonoRenderWorkers.h
 	Source/FactoryPresets.cpp
 	Source/MonoVoice.h
 	Source/Parameters.cpp

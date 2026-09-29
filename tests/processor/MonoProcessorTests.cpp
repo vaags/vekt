@@ -2,9 +2,12 @@
 
 #include "MonoVoice.h"
 #include "ContourEnvelope.h"
+#include "MonoRenderWorkers.h"
 
 #include <vekt/audio_analysis/Measurements.h>
 #include <vekt/presets/PresetSchema.h>
+
+#include <juce_events/juce_events.h>
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -16,6 +19,7 @@
 #include <numbers>
 #include <memory>
 #include <set>
+#include <thread>
 
 namespace
 {
@@ -2447,4 +2451,93 @@ TEST_CASE("Mono handles duplicate notes and channel panic messages without stuck
 	for (int sample = 96; sample < buffer.getNumSamples(); ++sample)
 		tailEnergy += std::abs(buffer.getSample(0, sample)) + std::abs(buffer.getSample(1, sample));
 	REQUIRE(tailEnergy == Catch::Approx(0.0f).margin(1.0e-7f));
+}
+
+TEST_CASE("Mono Multicore renders exactly the same samples as single-threaded rendering", "[mono][processor][multicore]")
+{
+	// Work units and their summing order do not depend on threads, so switching Multicore must not change a
+	// single sample: 16 voices, every unison setting, 1x and 2x, notes ending inside blocks and LFO movement.
+	for (const auto unison : { 0.0f, 1.0f, 2.0f })
+		for (const auto quality : { 0.0f, 1.0f })
+		{
+			CAPTURE(unison, quality);
+			vekt::mono::PluginProcessor single, multi;
+			for (auto* processor : { &single, &multi })
+			{
+				setParameter(*processor, vekt::mono::parameters::voiceCount, 4.0f); // 16 voices
+				setParameter(*processor, vekt::mono::parameters::unison, unison);
+				setParameter(*processor, vekt::mono::parameters::quality, quality);
+				setParameter(*processor, vekt::mono::parameters::ampRelease, 0.02f);
+				setParameter(*processor, vekt::mono::parameters::lfos[0].width[0], 30.0f);
+				setParameter(*processor, vekt::mono::parameters::lfos[0].rate, 7.0f);
+			}
+			setParameter(multi, vekt::mono::parameters::multicore, 1.0f);
+			single.prepareToPlay(48'000.0, 256);
+			multi.prepareToPlay(48'000.0, 256);
+			REQUIRE(single.getRenderHelperCount() == 0);
+			REQUIRE(multi.getRenderHelperCount() == vekt::mono::MonoRenderWorkers::defaultThreadCount());
+			juce::AudioBuffer<float> a(2, 256), b(2, 256);
+			for (int block = 0; block < 40; ++block)
+			{
+				juce::MidiBuffer midi;
+				if (block < 16) midi.addEvent(juce::MidiMessage::noteOn(1, 40 + 3 * block, 0.8f), (block * 37) % 256);
+				if (block >= 20 && block < 36) midi.addEvent(juce::MidiMessage::noteOff(1, 40 + 3 * (block - 20)), (block * 53) % 256);
+				auto midiCopy = midi;
+				single.processBlock(a, midi);
+				multi.processBlock(b, midiCopy);
+				for (int channel = 0; channel < 2; ++channel)
+					for (int sample = 0; sample < a.getNumSamples(); ++sample)
+					{
+						CAPTURE(block, channel, sample);
+						REQUIRE(std::bit_cast<std::uint32_t>(a.getSample(channel, sample)) == std::bit_cast<std::uint32_t>(b.getSample(channel, sample)));
+					}
+			}
+		}
+}
+
+TEST_CASE("Mono Multicore helpers are created once when prepare and enabling overlap", "[mono][processor][multicore]")
+{
+	// prepareToPlay (a host thread) and switching Multicore on (the message thread) can both create the pool.
+	juce::ScopedJuceInitialiser_GUI messageThread;
+	for (int attempt = 0; attempt < 20; ++attempt)
+	{
+		vekt::mono::PluginProcessor processor;
+		std::atomic<bool> go {};
+		std::thread host([&]
+		{
+			while (!go.load()) std::this_thread::yield();
+			processor.prepareToPlay(48'000.0, 128);
+		});
+		go.store(true);
+		setParameter(processor, vekt::mono::parameters::multicore, 1.0f);
+		host.join();
+		processor.prepareToPlay(48'000.0, 128); // creates the pool if the host thread saw Multicore still off
+		REQUIRE(processor.getRenderHelperCount() == vekt::mono::MonoRenderWorkers::defaultThreadCount());
+	}
+}
+
+TEST_CASE("Mono Multicore keeps rendering while the host workgroup changes", "[mono][processor][multicore]")
+{
+	// The workgroup arrives on the render thread and must never wait for a helper; rendering continues and
+	// still matches single-threaded output.
+	vekt::mono::PluginProcessor single, multi;
+	for (auto* processor : { &single, &multi })
+		setParameter(*processor, vekt::mono::parameters::voiceCount, 4.0f);
+	setParameter(multi, vekt::mono::parameters::multicore, 1.0f);
+	single.prepareToPlay(48'000.0, 128);
+	multi.prepareToPlay(48'000.0, 128);
+	REQUIRE(multi.getRenderHelperCount() > 0);
+	juce::AudioBuffer<float> a(2, 128), b(2, 128);
+	for (int block = 0; block < 60; ++block)
+	{
+		juce::MidiBuffer midi;
+		if (block < 12) midi.addEvent(juce::MidiMessage::noteOn(1, 48 + 2 * block, 0.8f), 0);
+		auto midiCopy = midi;
+		multi.audioWorkgroupContextChanged({}); // as JUCE does from the render callback
+		single.processBlock(a, midi);
+		multi.processBlock(b, midiCopy);
+		for (int channel = 0; channel < 2; ++channel)
+			for (int sample = 0; sample < a.getNumSamples(); ++sample)
+				REQUIRE(std::bit_cast<std::uint32_t>(a.getSample(channel, sample)) == std::bit_cast<std::uint32_t>(b.getSample(channel, sample)));
+	}
 }

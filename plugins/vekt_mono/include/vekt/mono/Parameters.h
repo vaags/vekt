@@ -15,6 +15,8 @@ inline constexpr auto performanceMode = "performanceMode";
 inline constexpr auto heldKeyReturn = "heldKeyReturn";
 inline constexpr auto notePriority = "notePriority";
 inline constexpr auto quality = "quality";
+// Render voices on helper threads too. Saved with the plugin state, not in presets; not automatable.
+inline constexpr auto multicore = "multicore";
 inline constexpr auto unison = "unison";
 inline constexpr auto unisonDetune = "unisonDetune";
 inline constexpr auto unisonSpread = "unisonSpread";

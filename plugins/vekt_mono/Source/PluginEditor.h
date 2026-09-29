@@ -156,11 +156,11 @@ private:
 	juce::Slider outputFader;
 	ui::LevelMeter outputMeter { "OUT", juce::Colour::fromRGB(227, 156, 75), ui::LevelMeter::Orientation::vertical };
 	std::unique_ptr<SliderAttachment> outputAttachment;
-	juce::ComboBox voiceCountBox, performanceModeBox, qualityBox, unisonBox, noiseBox, glideBox, priorityBox;
+	juce::ComboBox voiceCountBox, performanceModeBox, qualityBox, unisonBox, noiseBox, glideBox, priorityBox, multicoreBox;
 	juce::ToggleButton heldKeyReturnButton { "Held return" };
-	std::array<juce::Label, 5> performanceLabels;
+	std::array<juce::Label, 6> performanceLabels;
 	juce::Label activeVoicesLabel;
-	std::unique_ptr<ComboBoxAttachment> voiceCountAttachment, performanceModeAttachment, qualityAttachment, unisonAttachment, noiseAttachment, glideAttachment, priorityAttachment;
+	std::unique_ptr<ComboBoxAttachment> voiceCountAttachment, performanceModeAttachment, qualityAttachment, unisonAttachment, noiseAttachment, glideAttachment, priorityAttachment, multicoreAttachment;
 	std::unique_ptr<ButtonAttachment> heldKeyReturnAttachment;
 };
 }

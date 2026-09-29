@@ -2,6 +2,7 @@
 
 #include "FactoryPresets.h"
 #include "MonoVoice.h"
+#include "MonoRenderWorkers.h"
 #include "PluginEditor.h"
 
 #include <vekt/presets/PresetPaths.h>
@@ -176,9 +177,52 @@ PluginProcessor::PluginProcessor()
 		&& presetSession.prepare(initialPreset).wasOk()
 		&& presets::PresetSchema::apply(initialPreset, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds).wasOk())
 		presetSession.adopt(initialPreset, presets::PresetOrigin::factory);
+	workgroupMailbox = std::make_unique<WorkgroupMailbox>();
+	parameterState.addParameterListener(parameters::multicore, this);
 }
 
-PluginProcessor::~PluginProcessor() = default;
+PluginProcessor::~PluginProcessor()
+{
+	parameterState.removeParameterListener(parameters::multicore, this);
+	cancelPendingUpdate();
+	renderWorkers.store(nullptr);
+	renderWorkerPool.reset();
+}
+
+void PluginProcessor::parameterChanged(const juce::String& identifier, float newValue)
+{
+	if (identifier != parameters::multicore || newValue < 0.5f) return;
+	// Threads are created off the audio thread: now if this is the message thread, else asynchronously.
+	if (juce::MessageManager::existsAndIsCurrentThread()) ensureRenderWorkers();
+	else triggerAsyncUpdate();
+}
+
+void PluginProcessor::handleAsyncUpdate() { ensureRenderWorkers(); }
+
+void PluginProcessor::ensureRenderWorkers()
+{
+	// prepareToPlay (a host thread) and the message thread can both get here; never the audio thread.
+	const std::scoped_lock lock(renderWorkerCreation);
+	if (renderWorkerPool != nullptr) return;
+	const auto helpers = MonoRenderWorkers::defaultThreadCount();
+	if (helpers <= 0) return;
+	// The helpers join whatever workgroup the mailbox holds when they first wake.
+	renderWorkerPool = std::make_unique<MonoRenderWorkers>(helpers, helperBlockSize.load(), helperSampleRate.load(), *workgroupMailbox);
+	renderWorkers.store(renderWorkerPool.get(), std::memory_order_release);
+}
+
+void PluginProcessor::audioWorkgroupContextChanged(const juce::AudioWorkgroup& workgroup)
+{
+	// JUCE calls this from the audio/render callback, which must not wait for a helper reading the mailbox.
+	stagedWorkgroup = workgroup;
+	workgroupStaged = !workgroupMailbox->tryPublish(stagedWorkgroup);
+}
+
+int PluginProcessor::getRenderHelperCount() const noexcept
+{
+	const auto* workers = renderWorkers.load(std::memory_order_acquire);
+	return workers != nullptr ? workers->threads() : 0;
+}
 
 PluginProcessor::CoupledWorkSnapshot PluginProcessor::coupledWorkSnapshot() const noexcept
 {
@@ -199,7 +243,15 @@ void PluginProcessor::prepareToPlay(double newSampleRate, int maximumBlockSize)
 {
 	sampleRateHz = newSampleRate;
 	preparedBlockSize = std::max(maximumBlockSize, 1);
+	helperBlockSize.store(std::max(preparedBlockSize, 64));
+	helperSampleRate.store(newSampleRate);
 	oversampling.prepare(static_cast<std::size_t>(preparedBlockSize));
+	// Segment buffers at the highest internal rate (8x), so no allocation happens while rendering.
+	unitStride = static_cast<std::size_t>(preparedBlockSize) * 8;
+	lfoPositionBuffer.assign(2 * unitStride, 0.0);
+	vibratoBuffer.assign(unitStride, 0.0f);
+	unitBuffer.assign(voices.size() * 2 * unitStride, 0.0f);
+	if (value(parameters::multicore) >= 0.5f) ensureRenderWorkers();
 	for (auto& clock : lfoClocks) clock->reset();
 	vibratoClock->reset();
 	activeVoiceCount = choiceToVoiceCount(value(parameters::voiceCount));
@@ -248,6 +300,53 @@ void PluginProcessor::configureQuality(int quality)
 	setLatencySamples(oversampling.getActiveLatencySamples());
 }
 
+void PluginProcessor::renderUnitJob(void* processor, int unit) noexcept
+{
+	static_cast<PluginProcessor*>(processor)->renderUnit(unit);
+}
+
+void PluginProcessor::renderUnit(int unit) noexcept
+{
+	const auto& settings = *segment.settings;
+	const auto& unitVoices = segment.unitVoices[static_cast<std::size_t>(unit)];
+	const auto voiceCount = static_cast<std::size_t>(segment.unitVoiceCount[static_cast<std::size_t>(unit)]);
+	auto* left = unitBuffer.data() + static_cast<std::size_t>(2 * unit) * unitStride;
+	auto* right = left + unitStride;
+	for (int sample = 0; sample < segment.samples; ++sample)
+	{
+		const std::array lfoPositions { lfoPositionBuffer[static_cast<std::size_t>(2 * sample)],
+			lfoPositionBuffer[static_cast<std::size_t>(2 * sample + 1)] };
+		const auto vibrato = vibratoBuffer[static_cast<std::size_t>(sample)];
+		// The unit's voices build their ladder inputs, share one batched solve (tanh vectorized across up to four
+		// lanes), then finish their samples.
+		std::array<NonlinearTptLadder*, 4> ladders {};
+		std::array<const NonlinearTptLadderSettings*, 4> ladderSettings {};
+		std::array<float, 4> ladderInputs {}, ladderOutputs {};
+		std::array<std::size_t, 4> firstLane {};
+		std::array<bool, 4> sounding {};
+		std::size_t lanes {};
+		for (std::size_t index = 0; index < voiceCount; ++index)
+		{
+			auto& voice = *voices[unitVoices[index]];
+			const auto channelIndex = static_cast<std::size_t>(juce::jlimit(0, 15, voice.getChannel() - 1));
+			sounding[index] = voice.beginSample(settings, pitchBendByChannel[channelIndex], lfoPositions, vibrato,
+				segment.channelControl[channelIndex]);
+			if (!sounding[index]) continue;
+			firstLane[index] = lanes;
+			voice.ladderRequest(ladders.data() + lanes, ladderInputs.data() + lanes, ladderSettings.data() + lanes);
+			lanes += static_cast<std::size_t>(voice.ladderLanes());
+		}
+		NonlinearTptLadder::processCoupled(std::span<NonlinearTptLadder* const>(ladders.data(), lanes),
+			std::span<const float>(ladderInputs.data(), lanes), std::span(ladderOutputs.data(), lanes),
+			std::span<const NonlinearTptLadderSettings* const>(ladderSettings.data(), lanes));
+		float unitLeft {}, unitRight {};
+		for (std::size_t index = 0; index < voiceCount; ++index)
+			if (sounding[index]) voices[unitVoices[index]]->finishSample(ladderOutputs.data() + firstLane[index], unitLeft, unitRight);
+		left[sample] = unitLeft;
+		right[sample] = unitRight;
+	}
+}
+
 void PluginProcessor::readTransport()
 {
 	transportPpq.reset();
@@ -280,6 +379,7 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
 	}
 	applyConfigurationChanges();
 	readTransport();
+	if (workgroupStaged) workgroupStaged = !workgroupMailbox->tryPublish(stagedWorkgroup);
 	int position {};
 	for (const auto metadata : midi)
 	{
@@ -455,8 +555,8 @@ void PluginProcessor::resetPlayingState()
 void PluginProcessor::render(juce::AudioBuffer<float>& buffer, int start, int count)
 {
 	if (count <= 0) return;
-	// The oversampler only holds the prepared block size; split larger host blocks.
-	if (activeQuality != 0 && count > preparedBlockSize)
+	// The oversampler and the segment buffers only hold the prepared block size; split larger host blocks.
+	if (count > preparedBlockSize)
 	{
 		for (int offset = 0; offset < count; offset += preparedBlockSize)
 			render(buffer, start + offset, std::min(preparedBlockSize, count - offset));
@@ -478,40 +578,49 @@ void PluginProcessor::render(juce::AudioBuffer<float>& buffer, int start, int co
 		const juce::dsp::AudioBlock<const float> inputBlock(renderBlock);
 		renderBlock = oversampling.processSamplesUp(inputBlock);
 	}
-	for (std::size_t sample = 0; sample < renderBlock.getNumSamples(); ++sample)
+	const auto samples = static_cast<int>(renderBlock.getNumSamples());
+	// The shared clocks advance once per sample for all voices; precompute them for the segment.
+	for (int sample = 0; sample < samples; ++sample)
 	{
-		float left {}, right {};
-		const std::array lfoPositions { lfoClocks[0]->getPosition(), lfoClocks[1]->getPosition() };
-		const auto vibrato = Lfo::bipolarShape(vibratoShape, vibratoClock->getPosition(), 0) * vibratoDepthSemitones;
-		// Every sounding voice builds its ladder inputs, then all voices' layers share one batched ladder solve
-		// (tanh vectorized across up to four lanes), then each voice finishes its sample.
-		constexpr std::size_t maximumLanes = 16 * 4;
-		std::array<NonlinearTptLadder*, maximumLanes> ladders {};
-		std::array<const NonlinearTptLadderSettings*, maximumLanes> ladderSettings {};
-		std::array<float, maximumLanes> ladderInputs {}, ladderOutputs {};
-		std::array<std::size_t, 16> firstLane {};
-		std::array<bool, 16> sounding {};
-		std::size_t lanes {};
-		for (std::size_t index = 0; index < voices.size(); ++index)
-		{
-			auto& voice = *voices[index];
-			const auto channelIndex = static_cast<std::size_t>(juce::jlimit(0, 15, voice.getChannel() - 1));
-			sounding[index] = voice.beginSample(settings, pitchBendByChannel[channelIndex], lfoPositions, vibrato, channelControl[channelIndex]);
-			if (!sounding[index]) continue;
-			firstLane[index] = lanes;
-			voice.ladderRequest(ladders.data() + lanes, ladderInputs.data() + lanes, ladderSettings.data() + lanes);
-			lanes += static_cast<std::size_t>(voice.ladderLanes());
-		}
-		NonlinearTptLadder::processCoupled(std::span<NonlinearTptLadder* const>(ladders.data(), lanes),
-			std::span<const float>(ladderInputs.data(), lanes), std::span(ladderOutputs.data(), lanes),
-			std::span<const NonlinearTptLadderSettings* const>(ladderSettings.data(), lanes));
-		for (std::size_t index = 0; index < voices.size(); ++index)
-			if (sounding[index]) voices[index]->finishSample(ladderOutputs.data() + firstLane[index], left, right);
+		lfoPositionBuffer[static_cast<std::size_t>(2 * sample)] = lfoClocks[0]->getPosition();
+		lfoPositionBuffer[static_cast<std::size_t>(2 * sample + 1)] = lfoClocks[1]->getPosition();
+		vibratoBuffer[static_cast<std::size_t>(sample)] = Lfo::bipolarShape(vibratoShape, vibratoClock->getPosition(), 0) * vibratoDepthSemitones;
 		for (auto& clock : lfoClocks) clock->advance();
 		vibratoClock->advance();
-		const auto sampleIndex = static_cast<int>(sample);
-		renderBlock.setSample(0, sampleIndex, left * outputGain);
-		renderBlock.setSample(1, sampleIndex, right * outputGain);
+	}
+	// Work units: sounding voices in voice order, four ladder lanes each (four, two or one voice at unison 1, 2
+	// or 4). Notes only start at segment boundaries, so the units are fixed for the segment. The grouping and
+	// the summing order below do not depend on threads, so Multicore on and off render identical samples.
+	segment.settings = &settings;
+	segment.channelControl = channelControl;
+	segment.samples = samples;
+	segment.units = 0;
+	const auto voicesPerUnit = std::max(1, 4 / std::max(1, settings.unison));
+	for (std::size_t index = 0; index < voices.size(); ++index)
+	{
+		if (!voices[index]->isActive()) continue;
+		if (segment.units == 0 || segment.unitVoiceCount[static_cast<std::size_t>(segment.units - 1)] == voicesPerUnit)
+			segment.unitVoiceCount[static_cast<std::size_t>(segment.units++)] = 0;
+		auto& unitSize = segment.unitVoiceCount[static_cast<std::size_t>(segment.units - 1)];
+		segment.unitVoices[static_cast<std::size_t>(segment.units - 1)][static_cast<std::size_t>(unitSize++)] = static_cast<std::uint8_t>(index);
+	}
+	// Threads only pay off with at least two units and enough samples to amortize waking the helpers.
+	auto* workers = renderWorkers.load(std::memory_order_acquire);
+	if (workers != nullptr && value(parameters::multicore) >= 0.5f && segment.units >= 2 && samples >= 32)
+		workers->run(segment.units, &PluginProcessor::renderUnitJob, this);
+	else
+		for (int unit = 0; unit < segment.units; ++unit) renderUnit(unit);
+	for (int sample = 0; sample < samples; ++sample)
+	{
+		float left {}, right {};
+		for (int unit = 0; unit < segment.units; ++unit)
+		{
+			const auto* unitSamples = unitBuffer.data() + static_cast<std::size_t>(2 * unit) * unitStride;
+			left += unitSamples[sample];
+			right += unitSamples[unitStride + static_cast<std::size_t>(sample)];
+		}
+		renderBlock.setSample(0, sample, left * outputGain);
+		renderBlock.setSample(1, sample, right * outputGain);
 	}
 	if (activeQuality != 0)
 	{
@@ -601,6 +710,7 @@ void PluginProcessor::setStateInformation(const void* data, int size)
 			parameter->setValueNotifyingHost(parameter->getDefaultValue());
 		};
 		restoreDefault(parameters::notePriority);
+		restoreDefault(parameters::multicore);
 		for (const auto* identifier : parameters::schema7ParameterIds) restoreDefault(identifier);
 		for (const auto* identifier : { parameters::heldKeyReturn, parameters::filterQCompensation })
 		{

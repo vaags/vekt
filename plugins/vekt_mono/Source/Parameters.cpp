@@ -93,6 +93,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { voiceCount, version }, "Voice Count", juce::StringArray { "2", "4", "8", "12", "16" }, 2, nonAutomatable()));
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { performanceMode, version }, "Performance Mode", juce::StringArray { "Poly", "Mono", "Mono Legato" }, 0));
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { quality, version }, "Quality", juce::StringArray { "1x", "2x", "4x", "8x" }, 0, nonAutomatable()));
+	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { multicore, version }, "Multicore", juce::StringArray { "Off", "On" }, 0, nonAutomatable()));
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { unison, version }, "Unison", juce::StringArray { "1x", "2x", "4x" }, 0));
 	// Unison Detune is in cents and defaults to 15 so switching unison on thickens the sound straight away.
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { unisonDetune, version }, "Unison Detune",

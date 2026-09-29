@@ -834,3 +834,48 @@ existing unison batch it differs from the scalar solve by about 2 ulp in tanh.
 1067 -> 1073 µs (+0.5%, bookkeeping). A single note cannot batch and is unchanged. Note: a microbenchmark
 of isolated, chained vector tanh calls was slower than libm, but inside the solve (where the four lanes'
 calls are independent) the vector path wins; turning it off costs 6-9% at unison 2/4.
+
+## Multicore rendering (Off by default, per instance)
+
+`multicore` (Off/On) is a non-automatable, non-sound parameter like Quality: saved with the plugin state,
+not in presets, default Off (older sessions without it restore Off). The Performance panel shows it.
+
+* **Work units.** Each render segment precomputes the shared LFO clocks and vibrato per sample, then
+  splits the sounding voices (voice order) into units of four ladder lanes: four, two or one voice at
+  unison 1, 2 or 4. A unit renders its voices over the whole segment into its own buffer, with its own
+  batched ladder solve per sample. Units are summed in unit order. Because neither the grouping nor the
+  summing order depends on threads, **Multicore on and off render bit-identical samples** (tested over 16
+  voices, unison 1/2/4, 1x/2x, notes ending inside blocks, LFO movement). Relative to the previous
+  per-sample packing only float summation order differs.
+* **Helpers** (`MonoRenderWorkers`): up to three real-time threads (performance cores minus one), created
+  on the message thread the first time Multicore is on and kept until the plugin is destroyed; instances
+  with Multicore off start none. `run()` publishes (unit count << 32 | next unit) in one atomic word, wakes
+  helpers through a semaphore, and drains the same counter on the audio thread, so a late helper only means
+  the audio thread renders more itself. It then waits for units already started. No allocation or locks
+  while rendering.
+* **Workgroups.** JUCE calls `audioWorkgroupContextChanged` from the audio/render callback, so it must not
+  wait. It publishes into a `WorkgroupMailbox` with a single try-lock; if a helper is reading at that moment
+  the value stays staged and is retried at the start of the next `processBlock` (same thread). Helpers read
+  the mailbox (and may wait for it) when they wake, before claiming any unit, then join the workgroup so
+  macOS schedules them like the audio thread.
+* **Pool creation** can be reached from `prepareToPlay` (a host thread) and the message thread; a mutex
+  covers the check and the creation. The audio thread only reads the published atomic pointer. AU/AUv3 and Standalone provide one; VST3 on macOS
+  does not, so helpers there run at real-time priority outside the host's workgroup. Audio Lab forwards
+  its device's workgroup.
+* **When to go parallel.** Only with at least two units and 32 internal samples in the segment; otherwise
+  units render inline.
+* The processor now also splits host blocks longer than the prepared size at 1x (the segment buffers
+  are sized from it).
+
+`VektMonoProcessorCost ... [multicore]`, 48 kHz, 1x, 128-sample blocks (median / p99.9 / max µs; budget
+2667):
+
+| Load | Single-threaded | Multicore |
+|---|---:|---:|
+| 8 voices | 330 / 576 / 579 | 184 / 291 / 294 |
+| 16 voices | 643 / 795 / 804 | 215 / 268 / 284 |
+| 16 voices, unison 4 | 2075 / 2286 / 2297 | 603 / 671 / 696 |
+
+Multicore shortens each callback; total CPU across cores rises slightly. A single voice gains nothing.
+Still to check: behavior in real hosts (Logic AU with workgroup, a VST3 host without), and small host
+block sizes where waking helpers costs a larger share.

@@ -118,7 +118,9 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	addChoice(performancePanel, qualityBox, { "1x", "2x", "4x", "8x" }, parameters::quality, qualityAttachment);
 	addChoice(performancePanel, unisonBox, { "1x", "2x", "4x" }, parameters::unison, unisonAttachment);
 	addChoice(performancePanel, glideBox, { "Off", "Always", "Legato" }, parameters::glideMode, glideAttachment);
-	const std::array performanceNames { "Voice count", "Mode", "Quality", "Unison", "Glide" };
+	addChoice(performancePanel, multicoreBox, { "Off", "On" }, parameters::multicore, multicoreAttachment);
+	multicoreBox.setTooltip("Render voices on up to three extra CPU cores as well. Helps with many voices or unison; the sound is identical either way. Leave off if your host already spreads tracks across cores.");
+	const std::array performanceNames { "Voice count", "Mode", "Quality", "Unison", "Glide", "Multicore" };
 	for (std::size_t index = 0; index < performanceLabels.size(); ++index)
 	{
 		performanceLabels[index].setText(performanceNames[index], juce::dontSendNotification);
@@ -309,7 +311,7 @@ void PluginEditor::resized()
 	noiseTypeLabel.setBounds(12, 38, 112, 18); noiseBox.setBounds(12, 58, 112, 28); noiseLevelControl.setBounds(140, 32, 65, 136);
 	outputFader.setBounds(18, 34, 88, 132);
 	outputMeter.setBounds(124, 38, 36, 104);
-	voiceCountBox.setBounds(12, 58, 154, 28); performanceModeBox.setBounds(184, 58, 154, 28); qualityBox.setBounds(12, 116, 154, 28); unisonBox.setBounds(184, 116, 154, 28); glideBox.setBounds(12, 174, 154, 28);
+	voiceCountBox.setBounds(12, 58, 154, 28); performanceModeBox.setBounds(184, 58, 154, 28); qualityBox.setBounds(12, 116, 154, 28); unisonBox.setBounds(184, 116, 154, 28); glideBox.setBounds(12, 174, 154, 28); multicoreBox.setBounds(184, 174, 154, 28);
 	lfoPanel.setBounds(1116, 68, 348, 380);
 	vibratoPanel.setBounds(1116, 464, 348, 216);
 	vibratoRateControl.setBounds(6, 38, 65, 140);
@@ -336,6 +338,6 @@ void PluginEditor::resized()
 	for (std::size_t row = 0; row < 3; ++row) lfoDestinationLabels[4 + row].setBounds(12, 214 + static_cast<int>(row) * 24, 44, 22);
 	for (std::size_t single = 0; single < 6; ++single)
 		lfoDestinationLabels[7 + single].setBounds(12 + static_cast<int>(single % 3) * 112, 290 + static_cast<int>(single / 3) * 42, 104, 14);
-	performanceLabels[0].setBounds(12, 38, 90, 18); activeVoicesLabel.setBounds(102, 38, 64, 18); performanceLabels[1].setBounds(184, 38, 50, 18); performanceLabels[2].setBounds(12, 96, 154, 18); performanceLabels[3].setBounds(184, 96, 154, 18); performanceLabels[4].setBounds(12, 154, 154, 18); heldKeyReturnButton.setBounds(238, 34, 100, 22); priorityBox.setBounds(127, 5, 145, 26); juce::ignoreUnused(content);
+	performanceLabels[0].setBounds(12, 38, 90, 18); activeVoicesLabel.setBounds(102, 38, 64, 18); performanceLabels[1].setBounds(184, 38, 50, 18); performanceLabels[2].setBounds(12, 96, 154, 18); performanceLabels[3].setBounds(184, 96, 154, 18); performanceLabels[4].setBounds(12, 154, 154, 18); performanceLabels[5].setBounds(184, 154, 154, 18); heldKeyReturnButton.setBounds(238, 34, 100, 22); priorityBox.setBounds(127, 5, 145, 26); juce::ignoreUnused(content);
 }
 }

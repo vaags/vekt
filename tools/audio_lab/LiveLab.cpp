@@ -253,6 +253,8 @@ public:
 		ravProcessor.prepareToPlay(sampleRate, samplesPerBlockExpected);
 		glimmerProcessor.prepareToPlay(sampleRate, samplesPerBlockExpected);
 		monoProcessor.prepareToPlay(sampleRate, samplesPerBlockExpected);
+		// A plugin host passes its audio workgroup; this lab hosts Mono directly, so forward the device's.
+		if (auto* device = getCurrentAudioDevice()) monoProcessor.audioWorkgroupContextChanged(device->getWorkgroup());
 		midiCollector.reset(sampleRate);
 		midiCollector.ensureStorageAllocated(4096);
 		fileSource.prepare(samplesPerBlockExpected, sampleRate);

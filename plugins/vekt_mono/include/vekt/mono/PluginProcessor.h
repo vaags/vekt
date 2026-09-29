@@ -14,6 +14,7 @@
 #include <atomic>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <vector>
 
@@ -21,9 +22,12 @@ namespace vekt::mono
 {
 struct MonoVoiceSettings;
 class MonoVoice;
+class MonoRenderWorkers;
+class WorkgroupMailbox;
 class LfoClock;
 
-class PluginProcessor final : public juce::AudioProcessor
+class PluginProcessor final : public juce::AudioProcessor, private juce::AudioProcessorValueTreeState::Listener,
+	private juce::AsyncUpdater
 {
 public:
 	PluginProcessor();
@@ -31,6 +35,10 @@ public:
 
 	void prepareToPlay(double sampleRate, int maximumBlockSize) override;
 	void releaseResources() override;
+	// Helper threads join the host's audio workgroup (macOS) so they are scheduled like the audio thread.
+	void audioWorkgroupContextChanged(const juce::AudioWorkgroup& workgroup) override;
+	// Helper render threads running (0 until Multicore is first switched on). For tests and diagnostics.
+	[[nodiscard]] int getRenderHelperCount() const noexcept;
 	bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
 	void processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi) override;
 	using AudioProcessor::processBlock;
@@ -81,6 +89,12 @@ private:
 	void releaseSustainedNotes(int channel);
 	void resetPlayingState();
 	void render(juce::AudioBuffer<float>& buffer, int startSample, int numberOfSamples);
+	// Renders one work unit (a group of voices sharing the batched ladder solve) over the current segment.
+	void renderUnit(int unit) noexcept;
+	static void renderUnitJob(void* processor, int unit) noexcept;
+	void parameterChanged(const juce::String& identifier, float newValue) override;
+	void handleAsyncUpdate() override;
+	void ensureRenderWorkers();
 	void applyConfigurationChanges();
 	void readTransport();
 	void configureQuality(int quality);
@@ -123,6 +137,31 @@ private:
 	int activeQuality {};
 	std::uint64_t noteAge {};
 	double sampleRateHz { 48'000.0 };
+	// Multicore: the pool is created on the message thread the first time Multicore is on, then kept.
+	// Created on non-audio threads only (prepareToPlay, the message thread); the mutex covers check and create.
+	std::mutex renderWorkerCreation;
+	// The helpers' real-time timing, written by prepareToPlay and read by pool creation on another thread.
+	std::atomic<int> helperBlockSize { 512 };
+	std::atomic<double> helperSampleRate { 48'000.0 };
+	std::unique_ptr<MonoRenderWorkers> renderWorkerPool;
+	std::atomic<MonoRenderWorkers*> renderWorkers {};
+	// Host workgroup: published without waiting from the render thread; a value the mailbox could not take
+	// (a helper was reading) stays staged, touched only by that thread, and is retried at the next block.
+	std::unique_ptr<WorkgroupMailbox> workgroupMailbox;
+	juce::AudioWorkgroup stagedWorkgroup;
+	bool workgroupStaged {};
+	// One render segment's shared inputs, precomputed so work units render independently.
+	struct RenderSegment
+	{
+		const MonoVoiceSettings* settings {};
+		std::array<float, 16> channelControl {};
+		int samples {}, units {};
+		std::array<std::array<std::uint8_t, 4>, 16> unitVoices {};
+		std::array<int, 16> unitVoiceCount {};
+	} segment;
+	std::size_t unitStride {};
+	std::vector<double> lfoPositionBuffer; // two per sample
+	std::vector<float> vibratoBuffer, unitBuffer; // unitBuffer: [unit][left, right][sample]
 	int preparedBlockSize { 1 };
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginProcessor)
 };
