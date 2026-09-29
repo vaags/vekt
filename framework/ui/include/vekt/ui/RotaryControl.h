@@ -30,6 +30,12 @@ public:
 	void setLabel(juce::String text);
 	void setLayout(Size dialSize, int valueWidth);
 	void setWaveformGuide(bool shouldShow);
+	// Fills the arc from the parameter's zero instead of its minimum, for signed amounts.
+	void setBipolar(bool isBipolar);
+	// For cyclic parameters: maps the range onto one full turn from 12 o'clock and draws a
+	// position cursor on a closed ring instead of a filled amount. Dragging or scrolling past
+	// either end wraps round to the other end.
+	void setEndless(bool isEndless);
 	void refreshValueText();
 	[[nodiscard]] juce::Slider& getSlider() noexcept;
 	void resized() override;

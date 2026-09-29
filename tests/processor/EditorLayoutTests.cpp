@@ -47,6 +47,18 @@ vekt::ui::LevelMeter* findMeter(juce::Component& parent, const juce::String& nam
 	return nullptr;
 }
 
+// Opt-in render artefact for visual review. FileOutputStream appends to an existing file, so
+// truncate it: an appended PNG still opens as the stale first image.
+void writeSnapshot(juce::Component& editor, const char* path)
+{
+	const auto image = editor.createComponentSnapshot(editor.getLocalBounds(), true, 2.0f);
+	juce::FileOutputStream stream { juce::File(juce::String(path)) };
+	REQUIRE(stream.openedOk());
+	REQUIRE(stream.setPosition(0));
+	REQUIRE(stream.truncate().wasOk());
+	REQUIRE(juce::PNGImageFormat().writeImageToStream(image, stream));
+}
+
 vekt::ui::RotaryControl* findRotary(juce::Component& parent, const juce::String& name)
 {
 	for (auto* child : parent.getChildren())
@@ -141,10 +153,7 @@ TEST_CASE("Rav editor keeps its controls within the 16:10 canvas", "[processor][
 	if (const auto* path = std::getenv("VEKT_EDITOR_SNAPSHOT"))
 	{
 		editor.setSize(1120, 700);
-		const auto image = editor.createComponentSnapshot(editor.getLocalBounds(), true, 2.0f);
-		juce::FileOutputStream stream { juce::File(juce::String(path)) };
-		REQUIRE(stream.openedOk());
-		REQUIRE(juce::PNGImageFormat().writeImageToStream(image, stream));
+		writeSnapshot(editor, path);
 	}
 
 	juce::Button* settings = nullptr;
@@ -288,10 +297,7 @@ TEST_CASE("Mono editor presents symmetric oscillator controls without overlap", 
 	if (const auto* path = std::getenv("VEKT_MONO_SNAPSHOT"))
 	{
 		editor.resized();
-		const auto image = editor.createComponentSnapshot(editor.getLocalBounds(), true, 2.0f);
-		juce::FileOutputStream stream { juce::File(juce::String(path)) };
-		REQUIRE(stream.openedOk());
-		REQUIRE(juce::PNGImageFormat().writeImageToStream(image, stream));
+		writeSnapshot(editor, path);
 	}
 }
 
@@ -517,10 +523,7 @@ TEST_CASE("Mono LFO panel shows one LFO at a time with every destination", "[mon
 	if (const auto* path = std::getenv("VEKT_MONO_LFO_SNAPSHOT"))
 	{
 		editor.setSize(editor.getLogicalWidth(), editor.getLogicalHeight());
-		const auto image = editor.createComponentSnapshot(editor.getLocalBounds(), true, 2.0f);
-		juce::FileOutputStream stream { juce::File(juce::String(path)) };
-		REQUIRE(stream.openedOk());
-		REQUIRE(juce::PNGImageFormat().writeImageToStream(image, stream));
+		writeSnapshot(editor, path);
 	}
 }
 
@@ -619,12 +622,7 @@ TEST_CASE("Glimmer editor keeps stereo meters within its canvas", "[processor][u
 	if (const auto* path = std::getenv("VEKT_GLIMMER_SNAPSHOT"))
 	{
 		editor.setSize(1120, 700);
-		const auto image = editor.createComponentSnapshot(editor.getLocalBounds(), true, 2.0f);
-		juce::FileOutputStream stream { juce::File(juce::String(path)) };
-		REQUIRE(stream.openedOk());
-		REQUIRE(stream.setPosition(0));
-		REQUIRE(stream.truncate().wasOk());
-		REQUIRE(juce::PNGImageFormat().writeImageToStream(image, stream));
+		writeSnapshot(editor, path);
 	}
 	const auto findButton = [&](const juce::String& name) -> juce::Button&
 	{
@@ -720,12 +718,7 @@ TEST_CASE("Glimmer editor keeps stereo meters within its canvas", "[processor][u
 	if (const auto* path = std::getenv("VEKT_GLIMMER_BROWSER_SNAPSHOT"))
 	{
 		editor.setSize(1120, 700);
-		const auto image = editor.createComponentSnapshot(editor.getLocalBounds(), true, 2.0f);
-		juce::FileOutputStream stream { juce::File(juce::String(path)) };
-		REQUIRE(stream.openedOk());
-		REQUIRE(stream.setPosition(0));
-		REQUIRE(stream.truncate().wasOk());
-		REQUIRE(juce::PNGImageFormat().writeImageToStream(image, stream));
+		writeSnapshot(editor, path);
 	}
 	browser->onClose();
 	REQUIRE_FALSE(browser->isVisible());

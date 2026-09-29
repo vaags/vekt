@@ -170,6 +170,8 @@ void PluginEditor::configureRotary(ui::Panel& panel, ui::RotaryControl& control,
 		ui::configureValueFormat(control.getSlider(), ui::ValueFormat::percent);
 	else
 		ui::configureValueFormat(control.getSlider(), ui::ValueFormat::decimal);
+	control.setBipolar(identifier == parameters::hornTone || identifier == parameters::drumTone || identifier == parameters::hornDrumBalance);
+	control.setEndless(identifier == parameters::micAngle);
 	control.refreshValueText();
 }
 

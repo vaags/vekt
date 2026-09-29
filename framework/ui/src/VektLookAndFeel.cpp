@@ -98,44 +98,75 @@ void VektLookAndFeel::drawRotarySlider(juce::Graphics& graphics, int x, int y, i
 	const auto bounds = drawableBounds.withSizeKeepingCentre(dialSide, dialSide).reduced(8.0f);
 	const auto radius = std::min(bounds.getWidth(), bounds.getHeight()) * 0.5f;
 	const auto centre = bounds.getCentre();
-	const auto dialBounds = bounds.reduced(8.0f);
-	const auto dialRadius = std::min(dialBounds.getWidth(), dialBounds.getHeight()) * 0.5f;
-	const auto needleThickness = juce::jlimit(2.5f, 5.0f, dialSide * 0.035f);
-	graphics.setColour(juce::Colour::fromRGB(19, 24, 27));
-	graphics.fillEllipse(dialBounds);
-	graphics.setColour(juce::Colour::fromRGB(70, 82, 86));
-	graphics.drawEllipse(dialBounds, 1.0f);
-	graphics.setColour(findColour(juce::Slider::rotarySliderOutlineColourId));
-	juce::Path track;
-	track.addCentredArc(centre.x, centre.y, radius, radius, 0.0f, startAngle, endAngle, true);
-	graphics.strokePath(track, juce::PathStrokeType(3.0f));
+	const auto bipolar = static_cast<bool>(slider.getProperties()["bipolar"]);
+	const auto endless = static_cast<bool>(slider.getProperties()["endless"]);
+	const auto opacity = slider.isEnabled() ? 1.0f : 0.45f;
+	const auto ringStroke = juce::PathStrokeType(4.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
+	const auto angle = startAngle + position * (endAngle - startAngle);
+	const auto strokeArc = [&](float from, float to, juce::Colour colour)
+	{
+		juce::Path arc;
+		arc.addCentredArc(centre.x, centre.y, radius, radius, 0.0f, std::min(from, to), std::max(from, to), true);
+		graphics.setColour(colour.withMultipliedAlpha(opacity));
+		graphics.strokePath(arc, ringStroke);
+	};
+	// The ring sits on the rim of the dial: one object instead of a dial floating inside a track.
+	// The dial is a step lighter than Panel so it reads as a raised knob, including in the ring's gap.
+	graphics.setColour(juce::Colour::fromRGB(38, 45, 49).withMultipliedAlpha(opacity));
+	graphics.fillEllipse(bounds);
+	const auto trackColour = findColour(juce::Slider::rotarySliderOutlineColourId);
+	// Endless controls close the ring, since they have no start or end to leave a gap for.
+	if (endless)
+		strokeArc(0.0f, juce::MathConstants<float>::twoPi, trackColour);
+	else
+		strokeArc(startAngle, endAngle, trackColour);
 	if (waveformGuide)
 	{
 		// Keep the annotations visually subordinate to the dial. A large, bright ring
 		// of glyphs makes an identically-sized guided knob appear smaller by contrast.
 		const auto glyphSize = juce::jlimit(8.0f, 10.0f, dialSide * 0.10f);
 		const auto glyphRadius = radius + 14.0f;
-		graphics.setColour(juce::Colour::fromRGB(150, 162, 162));
+		graphics.setColour(juce::Colour::fromRGB(150, 162, 162).withMultipliedAlpha(opacity));
 		for (int waveform = 0; waveform < 4; ++waveform)
 		{
 			const auto proportion = static_cast<float>(waveform) / 3.0f;
-			const auto angle = startAngle + proportion * (endAngle - startAngle) - juce::MathConstants<float>::halfPi;
-			drawWaveformGlyph(graphics, { centre.x + std::cos(angle) * glyphRadius,
-				centre.y + std::sin(angle) * glyphRadius }, glyphSize, waveform);
+			const auto glyphAngle = startAngle + proportion * (endAngle - startAngle) - juce::MathConstants<float>::halfPi;
+			drawWaveformGlyph(graphics, { centre.x + std::cos(glyphAngle) * glyphRadius,
+				centre.y + std::sin(glyphAngle) * glyphRadius }, glyphSize, waveform);
 		}
 	}
 	// A slider may override the active arc without changing its dial, needle or value readout.
-	graphics.setColour(slider.findColour(juce::Slider::rotarySliderFillColourId));
-	juce::Path arc;
-	arc.addCentredArc(centre.x, centre.y, radius, radius, 0.0f, startAngle,
-		startAngle + position * (endAngle - startAngle), true);
-	graphics.strokePath(arc, juce::PathStrokeType(4.0f));
-	const auto angle = startAngle + position * (endAngle - startAngle);
-	graphics.setColour(juce::Colour::fromRGB(242, 239, 225));
-	graphics.drawLine(centre.x, centre.y,
-		centre.x + std::cos(angle - juce::MathConstants<float>::halfPi) * dialRadius * 0.88f,
-		centre.y + std::sin(angle - juce::MathConstants<float>::halfPi) * dialRadius * 0.88f,
-		needleThickness);
+	const auto fillColour = slider.findColour(juce::Slider::rotarySliderFillColourId);
+	const auto pointOnRadius = [&](float distance, float atAngle)
+	{
+		return centre.getPointOnCircumference(distance, atAngle);
+	};
+	if (endless)
+	{
+		// A short cursor marks position without implying an amount filled from a start point.
+		constexpr auto cursorHalfWidth = juce::degreesToRadians(14.0f);
+		strokeArc(angle - cursorHalfWidth, angle + cursorHalfWidth, fillColour);
+	}
+	else if (bipolar)
+	{
+		const auto zeroProportion = static_cast<float>(juce::jlimit(0.0, 1.0, slider.valueToProportionOfLength(0.0)));
+		const auto zeroAngle = startAngle + zeroProportion * (endAngle - startAngle);
+		graphics.setColour(juce::Colour::fromRGB(116, 128, 132).withMultipliedAlpha(opacity));
+		graphics.drawLine(juce::Line<float>(pointOnRadius(radius + 4.0f, zeroAngle), pointOnRadius(radius + 7.0f, zeroAngle)), 1.5f);
+		if (std::abs(angle - zeroAngle) > 0.01f)
+			strokeArc(zeroAngle, angle, fillColour);
+	}
+	else if (position > 0.0f)
+	{
+		strokeArc(startAngle, angle, fillColour);
+	}
+	// The pointer stops just inside the ring so its tip lands where the value arc ends.
+	juce::Path pointer;
+	pointer.startNewSubPath(pointOnRadius(radius * 0.3f, angle));
+	pointer.lineTo(pointOnRadius(radius - 7.0f, angle));
+	graphics.setColour(juce::Colour::fromRGB(242, 239, 225).withMultipliedAlpha(opacity));
+	graphics.strokePath(pointer, juce::PathStrokeType(juce::jlimit(2.5f, 5.0f, dialSide * 0.035f),
+		juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 }
 
 void VektLookAndFeel::drawLinearSlider(juce::Graphics& graphics, int x, int y, int width, int height,

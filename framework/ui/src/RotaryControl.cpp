@@ -90,6 +90,22 @@ void RotaryControl::setWaveformGuide(bool shouldShow)
 	slider.repaint();
 }
 
+void RotaryControl::setBipolar(bool isBipolar)
+{
+	slider.getProperties().set("bipolar", isBipolar);
+	slider.repaint();
+}
+
+void RotaryControl::setEndless(bool isEndless)
+{
+	slider.getProperties().set("endless", isEndless);
+	if (isEndless)
+		slider.setRotaryParameters(0.0f, juce::MathConstants<float>::twoPi, false);
+	else
+		slider.setRotaryParameters(juce::MathConstants<float>::pi * 1.2f, juce::MathConstants<float>::pi * 2.8f, true);
+	slider.repaint();
+}
+
 void RotaryControl::refreshValueText() { updateValueText(); }
 
 juce::Slider& RotaryControl::getSlider() noexcept

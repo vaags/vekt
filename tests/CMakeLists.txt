@@ -45,7 +45,8 @@ add_executable(vekt_dsp_tests
 	../tools/audio_lab/LadderPrototype.cpp
     dsp/TanhStageTests.cpp
     ui/StereoMeterBallisticsTests.cpp
-    ui/LevelMeterTests.cpp)
+    ui/LevelMeterTests.cpp
+    ui/RotaryControlTests.cpp)
 
 target_link_libraries(vekt_dsp_tests PRIVATE
     vekt::dsp

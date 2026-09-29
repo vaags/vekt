@@ -396,6 +396,7 @@ void PluginEditor::configureRotary(juce::Component& parent, ui::RotaryControl& c
 	else if (id == parameters::lowMidCutoffHz || id == parameters::midHighCutoffHz)
 		format = ui::ValueFormat::frequency;
 	ui::configureValueFormat(control.getSlider(), format);
+	control.setBipolar(id == parameters::tone || id == parameters::bias);
 	control.refreshValueText();
 }
 }

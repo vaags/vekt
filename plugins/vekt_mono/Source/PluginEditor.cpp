@@ -62,8 +62,8 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 		control.getSlider().setName(qualifiedName);
 		switch (index % oscillatorNames.size())
 		{
-		case 0: control.getSlider().setTooltip("Coarse oscillator tuning from two octaves down to two octaves up."); break;
-		case 1: control.getSlider().setTooltip("Fine oscillator tuning from -100 to +100 cents."); break;
+		case 0: control.getSlider().setTooltip("Coarse oscillator tuning from two octaves down to two octaves up."); control.setBipolar(true); break;
+		case 1: control.getSlider().setTooltip("Fine oscillator tuning from -100 to +100 cents."); control.setBipolar(true); break;
 		case 2: control.setWaveformGuide(true); break;
 		default: break;
 		}
@@ -187,6 +187,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 			knobs[knob]->setName(prefix + knobNames[knob]);
 			knobs[knob]->getSlider().setName(prefix + knobNames[knob]);
 		}
+		controls.phase.setEndless(true);
 		controls.amount.getSlider().setTooltip("Master depth: scales every destination of this LFO.");
 		controls.delay.getSlider().setTooltip("Silent time after each note starts.");
 		controls.fade.getSlider().setTooltip("Fade-in time after the delay.");
