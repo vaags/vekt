@@ -138,9 +138,17 @@ OTA/SEM family. It is inspired by that lineage, not a model of any unit.
 - **Q Comp** remains Ladder-only. Under SVF it is shown disabled, not hidden, so
   the panel geometry does not move. (The Ladder's **Saturated Taps** A/B was
   retired in sound schema 11: the saturated taps are its only Notch/HP mix.)
-- **Bandpass** is deferred until LP/Notch/HP is settled. Either model is
-  acceptable later (BP as a discrete mode that disables Mode, or Mode morphing
-  LP → BP → HP while BP is engaged); an inert Mode knob is not.
+- **Bandpass** was tried and dropped (30 September 2026). The prototype was an
+  SVF-only switch that turned Mode into LP → BP → HP, with BP taken from the
+  damping term `k psi(B)` (exactly unity at the cutoff at any Drive) and no
+  Resonance trim. Untrimmed, BP sat within 0.3 dB of the trimmed LP/HP at
+  50 % Resonance and 8 dB below at 100 %; the full trim would have put it
+  19 dB below. It worked technically: no click on engaging, and no change at
+  the LP/HP landmarks. By listening, though, the LP → Notch → HP sweep was
+  preferred. A 2-pole BP is broad (6 dB/oct skirts), and its blends with LP
+  and HP sound like weaker versions of them. If BP is revisited, try a
+  constant-skirt (SEM-style) BP, whose peak rises with Q, rather than the
+  constant-peak one.
 
 ### DSP
 
