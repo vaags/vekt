@@ -1,6 +1,7 @@
 #include <vekt/mono/Parameters.h>
 
 #include "Lfo.h"
+#include "WidthOscillator.h"
 
 #include <memory>
 
@@ -27,7 +28,11 @@ void addOscillator(juce::AudioProcessorValueTreeState::ParameterLayout& layout, 
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { level, version }, "Osc " + juce::String(index) + " Level",
 		juce::NormalisableRange<float> { 0.0f, 100.0f, 0.01f }, index == 1 ? 100.0f : 0.0f, juce::AudioParameterFloatAttributes {}.withLabel("%")));
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { morph, version }, "Osc " + juce::String(index) + " Morph",
-		juce::NormalisableRange<float> { 0.0f, 3.0f, 0.001f }, 2.0f));
+		juce::NormalisableRange<float> { 0.0f, 4.0f, 0.001f }, 2.0f,
+		// Morph is cyclic: 4 is the sine again, so it reads as 0 rather than as a fifth position. Round to the
+		// displayed step first, so 3.9999998 does not print as 4.000.
+		juce::AudioParameterFloatAttributes {}.withStringFromValueFunction([](float value, int)
+			{ return juce::String(wrapMorph(std::round(value * 1'000.0f) / 1'000.0f), 3); })));
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { width, version }, "Osc " + juce::String(index) + " Width",
 		juce::NormalisableRange<float> { 5.0f, 95.0f, 0.01f }, 50.0f, juce::AudioParameterFloatAttributes {}.withLabel("%")));
 }

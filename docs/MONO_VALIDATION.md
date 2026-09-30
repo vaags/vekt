@@ -69,6 +69,80 @@ Unison Detune now defaults to 15 cents (labelled in cents). Presets store their
 own detune, but presets using unison get louder (about +3 dB at 2x, +6 dB at 4x)
 and low-detune unison presets lose their comb colouring.
 
+# Mono cyclic Morph (30 September 2026)
+
+Morph is now a cycle of four segments over 0-4: sine, triangle, saw, square and
+back to sine (4 is the sine; values wrap). The square-to-sine segment is a
+crossfade of the two existing anchors, like the others: no new anchor, table or
+Width model. A tanh-driven sine was rejected; a proper band-limited version
+would add a drive dimension to the tables, its square end would not match the
+pulse anchor away from 50% Width (the sine warps with depth 0.45, the pulse with
+1.0), and it would make one quarter of the knob reshape the wave while the rest
+crossfades. Spectral tilt was rejected as a second meaning of Morph that
+overlaps the filter.
+
+Policy: **Morph linearly reweights adjacent, phase-compatible anchors by
+default. Where one anchor's added harmonics perceptually dominate the segment,
+its share uses the delayed curve `w(t) = t^p (p - (p - 1) t)` (t = 1 at the
+richer anchor). The strength is chosen by listening and spectral checks, not by
+the harmonic roll-off alone, and the judgement weighs the segment's cleaner end
+as well as its midpoint.** Segments 2 (saw to square) and 3 (square to sine)
+use the same expression, `1 - w(1 - fraction)`, which puts the curve on the
+first anchor; `lerp(square, sine, w(t))` would bias the wrong way.
+
+Square is not saw-like enough to assume the saw's p = 2. With equal
+fundamentals the non-fundamental energy is saw -1.9 dB, square -6.3 dB,
+triangle -18.3 dB. Idealised square-to-sine blends at 50% Width, overtones
+relative to the fundamental (t = 0 square, 1 sine):
+
+| t | 0 | 0.1 | 0.25 | 0.5 | 0.75 | 0.9 | 0.97 |
+|---|---|---|---|---|---|---|---|
+| linear | -6.5 | -7.5 | -9.2 | -13.0 | -19.2 | -27.3 | -37.8 |
+| p = 1.5 | -6.5 | -7.5 | -9.5 | -14.1 | -22.5 | -34.1 | -49.6 |
+| p = 2 | -6.5 | -7.6 | -9.8 | -15.6 | -26.5 | -41.8 | -62.4 |
+
+Linear is gentler at its midpoint than the curved triangle-to-saw segment
+(about -11 dB) but near the sine it leaves the square's odd harmonics about
+-27 dB against an unmasked sine, close to the linear triangle-to-saw failure
+that motivated the saw curve. The level dip is -0.2 dB for every curve. Away
+from 50% Width the total overtone energy still falls monotonically, but single
+low harmonics can null mid-segment (the 3rd at 35% Width near t = 0.74); the
+existing sine-to-triangle segment does the same, so this is inherent to
+crossfading anchors that Width warps differently.
+
+**The curve is not chosen yet.** p = 2 is the provisional default for
+consistency with the saw segments; Audio Lab's "Square-sine" selector switches
+linear / p = 1.5 / p = 2 for every Mono instance (process-wide, not saved).
+Audition at several pitches and at 10/20/35/50% Width, then fix the curve and
+remove the selector, as was done for the saw.
+
+Around the cycle: the 10 ms knob ramp runs unwrapped and takes the short way
+round, so crossing the 4-to-0 wrap does not sweep back through saw
+and triangle; LFO modulation wraps (modulo 4, any number of turns) instead of
+clamping. 100% LFO Morph depth is one full turn (4 units, was 3) **from the
+knob's position to each LFO peak**: a unipolar saw at 100% rotates seamlessly
+through every waveform once per LFO cycle (its reset lands on the same Morph),
+and a bipolar LFO at 100% covers two turns peak to peak. Because the ring is
+circular, the furthest a bipolar LFO can reach from the knob's waveform is half
+a turn, at 50% depth; more depth sweeps past it again. The four factory presets
+with LFO Morph depths (Tide Motion, Orbit Motion, Amber Pad, Vapor Pad) were
+scaled by 3/4 to keep the size of their sweeps. That keeps the excursion but
+not the old clamp: only Tide Motion's osc 3 (2.82 +/- 0.3) reached an old
+endpoint; it used to stop at the square and now dips slightly towards the sine,
+and needs a listening pass. The Morph knob is endless and starts its turn at
+7:30, putting the glyphs on the diagonals (sine 7:30, triangle 10:30, saw 1:30,
+square 4:30), close to where the 0-3 knob had them. The square-to-sine segment
+fills the old rotary gap round 6 o'clock; the 4-to-0 wrap itself is at the sine
+(7:30), since 4 is 0. The glyphs sit outside the dial and fit only in the corners
+of the square slider canvas; at 12/3/6/9 o'clock they are clipped. Morph
+displays wrapped after rounding to its 0.001 step, so 4 (or 3.9999998) reads
+0.000. Host automation lanes interpolate linearly, so a recorded
+move across the 4-to-0 wrap (3.95 to 0.05) plays back the long way round through saw
+and triangle; the voice's shortest-path ramp cannot tell those values from a
+real sweep. This affects every cyclic parameter and should be checked in the
+main hosts; LFO modulation does not have it. The Width research prototypes in Audio Lab (long residual,
+table, adaptive knots, pitch levels) still model Morph 0-3 only.
+
 # Mono oscillator morph policy (28 September 2026)
 
 Morph interpolates linearly between two adjacent anchors read from one shared
@@ -83,7 +157,7 @@ All anchors now share the saw's RMS, `1/sqrt(3)`. Triangle and saw are unchanged
 **the sine anchor is 1.76 dB and the pulse anchor 4.77 dB below their earlier
 amplitudes**, so Morph no longer acts as a hidden ladder drive. A +/-1 pulse has
 the same RMS at every width, so one gain covers the Width range. Level across
-Morph 0-3 stays within 1 dB (the largest residual, about 0.6 dB between triangle
+Morph 0-3 stayed within 1 dB (the largest residual, about 0.6 dB between triangle
 and saw, is the triangle's alternating odd-harmonic signs partly cancelling the
 saw's). Sine-based level measurements taken before this change, including the
 raw-ladder to stereo calibration traces below, used the louder sine; the drive

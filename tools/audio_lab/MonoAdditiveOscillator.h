@@ -161,16 +161,13 @@ private:
 		next = (next + 1) % cache.size();
 		entry.morph = keyMorph;
 		entry.width = keyWidth;
-		const auto segment = std::clamp(static_cast<int>(keyMorph), 0, 2);
-		const auto fraction = static_cast<double>(keyMorph) - segment;
-		const auto sawWeight = [](double t) { return t * t * (2.0 - t); };
-		const auto weight = segment == 0 ? fraction : segment == 1 ? sawWeight(fraction) : 1.0 - sawWeight(1.0 - fraction);
-		monoWidthAnalyticAnchorCoefficients(segment, keyWidth, entry.coefficients.size(), entry.coefficients.data());
-		if (weight > 0.0)
+		const auto blend = monoWidthMorphBlend(keyMorph, vekt::mono::squareSineMorphPower());
+		monoWidthAnalyticAnchorCoefficients(blend.from, keyWidth, entry.coefficients.size(), entry.coefficients.data());
+		if (blend.weight > 0.0)
 		{
-			monoWidthAnalyticAnchorCoefficients(segment + 1, keyWidth, scratch.size(), scratch.data());
+			monoWidthAnalyticAnchorCoefficients(blend.to, keyWidth, scratch.size(), scratch.data());
 			for (std::size_t index = 0; index < scratch.size(); ++index)
-				entry.coefficients[index] += weight * (scratch[index] - entry.coefficients[index]);
+				entry.coefficients[index] += blend.weight * (scratch[index] - entry.coefficients[index]);
 		}
 		entry.dc = static_cast<float>(entry.coefficients[0].real());
 		for (std::size_t index = 0; index < entry.coefficients.size(); ++index)

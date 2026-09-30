@@ -163,7 +163,7 @@ MonoVoiceSettings PluginProcessor::snapshotSettings() const
 		for (std::size_t oscillator = 0; oscillator < 3; ++oscillator)
 		{
 			lfo.pitch[oscillator] = amount * value(ids.pitch[oscillator]);
-			lfo.morph[oscillator] = amount * value(ids.morph[oscillator]) * 0.03f;
+			lfo.morph[oscillator] = amount * value(ids.morph[oscillator]) * 0.04f; // 100% = one full turn of the Morph cycle
 			lfo.width[oscillator] = amount * value(ids.width[oscillator]) * 0.45f;
 			lfo.level[oscillator] = amount * value(ids.level[oscillator]) * 0.01f;
 		}

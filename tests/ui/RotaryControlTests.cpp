@@ -37,6 +37,16 @@ TEST_CASE("Endless rotary controls wrap drags past either end", "[ui][rotary]")
 	REQUIRE(dragUp(slider, 350.0, fullDrag * 0.1f) == Catch::Approx(26.0));
 	REQUIRE(dragUp(slider, 10.0, -fullDrag * 0.1f) == Catch::Approx(334.0));
 
+	// A start angle turns the ring (so glyphs can sit on the diagonals) without changing the wrap.
+	control.setEndless(true, juce::MathConstants<float>::pi * 1.25f);
+	const auto rotary = slider.getRotaryParameters();
+	REQUIRE(rotary.startAngleRadians == Catch::Approx(juce::MathConstants<float>::pi * 1.25f));
+	REQUIRE(rotary.endAngleRadians == Catch::Approx(juce::MathConstants<float>::pi * 3.25f));
+	REQUIRE_FALSE(rotary.stopAtEnd);
+	REQUIRE(dragUp(slider, 350.0, fullDrag * 0.1f) == Catch::Approx(26.0));
+	control.setEndless(true, -juce::MathConstants<float>::halfPi);
+	REQUIRE(slider.getRotaryParameters().startAngleRadians == Catch::Approx(juce::MathConstants<float>::pi * 1.5f));
+
 	control.setEndless(false);
 	REQUIRE(dragUp(slider, 350.0, fullDrag * 0.1f) == Catch::Approx(360.0));
 	REQUIRE(dragUp(slider, 10.0, -fullDrag * 0.1f) == Catch::Approx(0.0));

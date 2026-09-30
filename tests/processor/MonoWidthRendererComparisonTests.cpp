@@ -1295,7 +1295,7 @@ TEST_CASE("Mono production Width oscillator matches the exact 4 bands/octave add
 		double worst {};
 		for (const auto pitch : { 25.0f, 55.0f, 440.0f, 2483.7f, 7000.0f, 21000.0f })
 			for (const auto width : { 5.0f, 27.3f, 50.0f, 83.0f, 95.0f })
-				for (const auto morph : { 0.0f, 0.4f, 1.0f, 1.7f, 2.0f, 2.5f, 3.0f })
+				for (const auto morph : { 0.0f, 0.4f, 1.0f, 1.7f, 2.0f, 2.5f, 3.0f, 3.3f, 3.8f })
 					for (const auto phase : { 0.0f, 0.137f, 0.5f, 0.93f })
 					{
 						CAPTURE(rate, pitch, width, morph, phase);
@@ -1311,10 +1311,8 @@ TEST_CASE("Mono production Width oscillator matches the exact 4 bands/octave add
 							vekt::mono::widthHarmonics(anchor, width, 0, 0, c0);
 							return c0[0].real();
 						};
-						const auto segment = std::clamp(static_cast<int>(morph), 0, 2);
-						const auto t = static_cast<double>(morph) - segment;
-						const auto blend = segment == 0 ? t : segment == 1 ? t * t * (2.0 - t) : 1.0 - (1.0 - t) * (1.0 - t) * (1.0 + t);
-						const auto mean = dc(segment) + blend * (dc(segment + 1) - dc(segment));
+						const auto blend = vekt::audio_lab::monoWidthMorphBlend(morph);
+						const auto mean = dc(blend.from) + blend.weight * (dc(blend.to) - dc(blend.from));
 						REQUIRE(centered == Catch::Approx(actual - mean).margin(1.0e-5));
 					}
 		std::cout << "production-vs-additive rate=" << rate << " worst_abs_error=" << worst

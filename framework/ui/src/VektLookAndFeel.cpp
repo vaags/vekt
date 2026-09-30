@@ -129,7 +129,10 @@ void VektLookAndFeel::drawRotarySlider(juce::Graphics& graphics, int x, int y, i
 		graphics.setColour(juce::Colour::fromRGB(150, 162, 162).withMultipliedAlpha(opacity));
 		for (int waveform = 0; waveform < 4; ++waveform)
 		{
-			const auto proportion = static_cast<float>(waveform) / 3.0f;
+			// Glyph n marks the value n (0 sine to 3 square), wherever the slider's range and angles put it.
+			// The glyphs sit outside the dial and are only visible near the diagonals, in the square
+			// canvas's corners.
+			const auto proportion = static_cast<float>(slider.valueToProportionOfLength(waveform));
 			const auto glyphAngle = startAngle + proportion * (endAngle - startAngle) - juce::MathConstants<float>::halfPi;
 			drawWaveformGlyph(graphics, { centre.x + std::cos(glyphAngle) * glyphRadius,
 				centre.y + std::sin(glyphAngle) * glyphRadius }, glyphSize, waveform);

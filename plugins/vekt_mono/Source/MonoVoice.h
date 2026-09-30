@@ -22,12 +22,6 @@ constexpr float maximumContourOctaves = 8.0f;
 constexpr float maximumVelocityOctaves = 4.0f;
 constexpr float voiceTransitionSeconds = 0.003f;
 
-// Saw share for segment position t in [0, 1] (t = 1 at the saw anchor), in the two Morph segments next to the
-// saw (1-2 and 2-3). Linear mixing lets the saw's 1/n odd-and-even harmonics dominate long before the saw
-// anchor; 2t^2 - t^3 delays them (37.5% saw halfway) and, unlike plain t^2, meets the saw with slope 1, so
-// LFO sweeps do not accelerate into the saw anchor. Chosen by ear over linear, p = 1.5 and t^2.
-[[nodiscard]] inline float sawMorphWeight(float t) noexcept { return t * t * (2.0f - t); }
-
 // Width of the random phase offsets a new note gives its unison layers, in cycles: none at 0 cents (the layers
 // start as identical copies), fully random from this detune up.
 inline constexpr float unisonDecorrelatedDetuneCents = 5.0f;
@@ -379,9 +373,14 @@ public:
 		{
 			levels[oscillator] = juce::jlimit(0.0f, 1.0f, settings.level[oscillator] + modulation.level[oscillator]);
 			auto& baseMorph = baseMorphs[oscillator];
+			// Morph is cyclic: the ramp runs unwrapped and takes the short way round, so crossing the 4-to-0 wrap on
+			// the knob (e.g. 3.9 to 0.1) does not sweep back through saw and triangle.
 			if (!morphsInitialized) baseMorph.setCurrentAndTargetValue(settings.morph[oscillator]);
-			else if (!juce::approximatelyEqual(baseMorph.getTargetValue(), settings.morph[oscillator])) baseMorph.setTargetValue(settings.morph[oscillator]);
-			morphs[oscillator] = juce::jlimit(0.0f, 3.0f, baseMorph.getNextValue() + modulation.morph[oscillator]);
+			else if (const auto step = morphDistance(baseMorph.getTargetValue(), settings.morph[oscillator]); std::abs(step) > 1.0e-6f)
+				baseMorph.setTargetValue(baseMorph.getTargetValue() + step);
+			else if (!baseMorph.isSmoothing() && !juce::approximatelyEqual(baseMorph.getTargetValue(), settings.morph[oscillator]))
+				baseMorph.setCurrentAndTargetValue(settings.morph[oscillator]); // re-anchor after turns round the cycle
+			morphs[oscillator] = wrapMorph(baseMorph.getNextValue() + modulation.morph[oscillator]);
 			auto& baseWidth = baseWidths[oscillator];
 			if (!morphsInitialized) baseWidth.setCurrentAndTargetValue(settings.pulseWidth[oscillator]);
 			else if (!juce::approximatelyEqual(baseWidth.getTargetValue(), settings.pulseWidth[oscillator])) baseWidth.setTargetValue(settings.pulseWidth[oscillator]);
@@ -551,7 +550,8 @@ public:
 	[[nodiscard]] int getChannel() const noexcept { return channel; }
 	void setPanPosition(float value) noexcept { panPosition = value; }
 	[[nodiscard]] float getLfoOutput(std::size_t index) const noexcept { return lfoOutputs[index]; }
-	// Morph each oscillator used for the most recent sample: the smoothed knob value plus LFO modulation.
+	// Morph each oscillator used for the most recent sample, in [0, 4): the smoothed knob value plus LFO
+	// modulation, wrapped round the cycle.
 	[[nodiscard]] float getMorph(std::size_t oscillator) const noexcept { return lastMorphs[oscillator]; }
 	void setPolyPressure(float pressure) noexcept { polyPressure = pressure; }
 	[[nodiscard]] float getPolyPressure() const noexcept { return polyPressure; }

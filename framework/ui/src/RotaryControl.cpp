@@ -96,11 +96,15 @@ void RotaryControl::setBipolar(bool isBipolar)
 	slider.repaint();
 }
 
-void RotaryControl::setEndless(bool isEndless)
+void RotaryControl::setEndless(bool isEndless, float startAngle)
 {
 	slider.getProperties().set("endless", isEndless);
 	if (isEndless)
-		slider.setRotaryParameters(0.0f, juce::MathConstants<float>::twoPi, false);
+	{
+		// JUCE wants both angles in [0, 4 pi).
+		const auto start = startAngle - juce::MathConstants<float>::twoPi * std::floor(startAngle / juce::MathConstants<float>::twoPi);
+		slider.setRotaryParameters(start, start + juce::MathConstants<float>::twoPi, false);
+	}
 	else
 		slider.setRotaryParameters(juce::MathConstants<float>::pi * 1.2f, juce::MathConstants<float>::pi * 2.8f, true);
 	slider.repaint();

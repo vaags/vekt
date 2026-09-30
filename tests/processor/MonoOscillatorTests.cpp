@@ -11,6 +11,7 @@
 #include <cmath>
 #include <complex>
 #include <numbers>
+#include <utility>
 #include <vector>
 
 namespace
@@ -132,12 +133,18 @@ TEST_CASE("Mono oscillator anchors have matching RMS at the saw's level", "[mono
 
 TEST_CASE("Mono oscillator level stays within 1 dB across the whole Morph range", "[mono][oscillator]")
 {
-	for (int step = 0; step <= 60; ++step)
+	using vekt::mono::SquareSineMorphCurve;
+	for (const auto curve : { SquareSineMorphCurve::linear, SquareSineMorphCurve::shaped15, SquareSineMorphCurve::shaped20 })
 	{
-		const auto morph = static_cast<float>(step) * 0.05f;
-		CAPTURE(morph);
-		REQUIRE(std::abs(decibels(cycleRms(atMorph(morph)) / targetRms)) < 1.0f);
+		vekt::mono::squareSineMorphCurve.store(curve);
+		for (int step = 0; step <= 80; ++step)
+		{
+			const auto morph = static_cast<float>(step) * 0.05f;
+			CAPTURE(static_cast<int>(curve), morph);
+			REQUIRE(std::abs(decibels(cycleRms(atMorph(morph)) / targetRms)) < 1.0f);
+		}
 	}
+	vekt::mono::squareSineMorphCurve.store(SquareSineMorphCurve::shaped20);
 }
 
 TEST_CASE("Mono oscillator anchors are the canonical shapes", "[mono][oscillator]")
@@ -164,11 +171,16 @@ TEST_CASE("Mono oscillator anchors are the canonical shapes", "[mono][oscillator
 		REQUIRE(wave(0.3f, phase) == Catch::Approx(sine + 0.3f * (triangle - sine)).margin(1.0e-5));
 		REQUIRE(wave(1.5f, phase) == Catch::Approx(triangle + 0.375f * (saw - triangle)).margin(1.0e-5));
 		REQUIRE(wave(2.5f, phase) == Catch::Approx(0.375f * saw + 0.625f * square).margin(1.0e-5));
+		// From the square back to the sine the square's share is delayed the same way (37.5% halfway at p = 2),
+		// and Morph wraps: 4 is the sine again and -0.5 is 3.5.
+		REQUIRE(wave(3.5f, phase) == Catch::Approx(0.375f * square + 0.625f * sine).margin(1.0e-5));
+		REQUIRE(wave(4.0f, phase) == Catch::Approx(sine).margin(1.0e-6));
+		REQUIRE(wave(-0.5f, phase) == Catch::Approx(wave(3.5f, phase)).margin(1.0e-6));
 	}
 }
-TEST_CASE("Mono oscillator morph is continuous across the triangle and saw anchors", "[mono][oscillator]")
+TEST_CASE("Mono oscillator morph is continuous across every anchor, including the wrap to sine", "[mono][oscillator]")
 {
-	for (const auto anchor : { 1.0f, 2.0f })
+	for (const auto anchor : { 1.0f, 2.0f, 3.0f, 4.0f })
 	{
 		CAPTURE(anchor);
 		float largestJump {};
@@ -176,7 +188,7 @@ TEST_CASE("Mono oscillator morph is continuous across the triangle and saw ancho
 		{
 			const auto phase = static_cast<float>(sample) * phaseIncrement;
 			const auto below = oscillator(phase, std::nextafter(anchor, 0.0f));
-			const auto above = oscillator(phase, std::nextafter(anchor, 3.0f));
+			const auto above = oscillator(phase, std::nextafter(anchor, 5.0f));
 			largestJump = std::max(largestJump, std::abs(above - below));
 		}
 		REQUIRE(largestJump < 1.0e-5f);
@@ -188,7 +200,7 @@ TEST_CASE("Mono Width DC policies follow the frozen-width analytical means", "[m
 	constexpr int samples = 32'768;
 	constexpr float step = 1.0f / samples;
 	for (const auto width : { 5.0f, 20.0f, 50.0f, 80.0f, 95.0f })
-		for (int morphStep = 0; morphStep <= 12; ++morphStep)
+		for (int morphStep = 0; morphStep <= 16; ++morphStep)
 		{
 			const auto morph = morphStep * 0.25f;
 			CAPTURE(width, morph);
@@ -213,7 +225,7 @@ TEST_CASE("Mono Width and Morph surface has finite fundamentals and continuous a
 	constexpr float step = 1.0f / samples;
 	for (const auto width : { 5.0f, 10.0f, 20.0f, 30.0f, 40.0f, 50.0f, 60.0f, 70.0f, 80.0f, 90.0f, 95.0f })
 	{
-		for (int index = 0; index <= 60; ++index)
+		for (int index = 0; index <= 80; ++index)
 		{
 			const auto morph = index * 0.05f;
 			CAPTURE(width, morph);
@@ -229,11 +241,11 @@ TEST_CASE("Mono Width and Morph surface has finite fundamentals and continuous a
 			const auto magnitude = std::hypot(sine, cosine) * 2.0 / samples;
 			REQUIRE(std::isfinite(power));
 			REQUIRE(magnitude > 0.05);
-			for (const auto anchor : { 1.0f, 2.0f })
+			for (const auto anchor : { 1.0f, 2.0f, 3.0f, 4.0f })
 			{
 				const auto phase = 0.123f;
 				REQUIRE(std::abs(oscillator(phase, std::nextafter(anchor, 0.0f), width)
-					- oscillator(phase, std::nextafter(anchor, 3.0f), width)) < 1.0e-5f);
+					- oscillator(phase, std::nextafter(anchor, 5.0f), width)) < 1.0e-5f);
 			}
 		}
 	}
@@ -376,7 +388,7 @@ TEST_CASE("Mono voice output level stays within 1 dB across Morph through the op
 		return buffer.getRMSLevel(0, 0, buffer.getNumSamples());
 	};
 	const auto saw = outputRms(2.0f);
-	for (int step = 0; step <= 12; ++step)
+	for (int step = 0; step <= 16; ++step)
 	{
 		const auto morph = static_cast<float>(step) * 0.25f;
 		CAPTURE(morph);
@@ -384,24 +396,77 @@ TEST_CASE("Mono voice output level stays within 1 dB across Morph through the op
 	}
 }
 
-TEST_CASE("Mono saw morph curve delays the saw but meets it at the linear rate", "[mono][oscillator]")
+TEST_CASE("Mono morph curves delay the richer anchor but meet it at the linear rate", "[mono][oscillator]")
 {
-	using vekt::mono::sawMorphWeight;
-	REQUIRE(sawMorphWeight(0.0f) == 0.0f);
-	REQUIRE(sawMorphWeight(0.25f) == Catch::Approx(0.109375f));
-	REQUIRE(sawMorphWeight(0.5f) == Catch::Approx(0.375f));
-	REQUIRE(sawMorphWeight(0.75f) == Catch::Approx(0.703125f));
-	REQUIRE(sawMorphWeight(1.0f) == 1.0f);
-	// Arrives at the saw anchor with slope 1, like linear morphing, so LFO sweeps do not speed up there.
-	constexpr float step = 1.0e-3f;
-	REQUIRE((sawMorphWeight(1.0f) - sawMorphWeight(1.0f - step)) / step == Catch::Approx(1.0f).margin(0.01f));
-	float previous {};
-	for (int index = 1; index <= 100; ++index)
+	using vekt::mono::delayedMorphWeight;
+	using vekt::mono::morphSegmentBlend;
+	REQUIRE(delayedMorphWeight(0.25, 2.0) == Catch::Approx(0.109375));
+	REQUIRE(delayedMorphWeight(0.5, 2.0) == Catch::Approx(0.375));
+	REQUIRE(delayedMorphWeight(0.75, 2.0) == Catch::Approx(0.703125));
+	REQUIRE(delayedMorphWeight(0.5, 1.5) == Catch::Approx(std::pow(0.5, 1.5) * 1.25));
+	REQUIRE(delayedMorphWeight(0.5, 1.0) == Catch::Approx(0.5));
+	// Sine to triangle is linear; the saw's share and the square's share are delayed: 37.5% halfway at p = 2.
+	REQUIRE(morphSegmentBlend(0, 0.3) == Catch::Approx(0.3));
+	REQUIRE(morphSegmentBlend(1, 0.5) == Catch::Approx(0.375));
+	REQUIRE(morphSegmentBlend(2, 0.5) == Catch::Approx(0.625));
+	REQUIRE(morphSegmentBlend(3, 0.5) == Catch::Approx(0.625));
+	using vekt::mono::SquareSineMorphCurve;
+	for (const auto [curve, power] : { std::pair { SquareSineMorphCurve::linear, 1.0 },
+		std::pair { SquareSineMorphCurve::shaped15, 1.5 }, std::pair { SquareSineMorphCurve::shaped20, 2.0 } })
 	{
-		const auto weight = sawMorphWeight(static_cast<float>(index) / 100.0f);
-		REQUIRE(weight > previous);
-		previous = weight;
+		CAPTURE(power);
+		vekt::mono::squareSineMorphCurve.store(curve);
+		REQUIRE(morphSegmentBlend(3, 0.0) == 0.0);
+		REQUIRE(morphSegmentBlend(3, 1.0) == 1.0);
+		REQUIRE(morphSegmentBlend(3, 0.5) == Catch::Approx(1.0 - delayedMorphWeight(0.5, power)));
+		// Leaves the square at the linear rate for every curve, so sweeps do not jump away from it.
+		constexpr double step = 1.0e-4;
+		REQUIRE(morphSegmentBlend(3, step) / step == Catch::Approx(1.0).margin(0.01));
+		double previous = -1.0;
+		for (int index = 0; index <= 100; ++index)
+		{
+			const auto blend = morphSegmentBlend(3, index / 100.0);
+			REQUIRE(blend > previous);
+			previous = blend;
+		}
 	}
+	vekt::mono::squareSineMorphCurve.store(SquareSineMorphCurve::shaped20);
+	// Every p meets the richer anchor with slope 1.
+	constexpr double step = 1.0e-4;
+	for (const auto power : { 1.0, 1.5, 2.0 })
+		REQUIRE((1.0 - delayedMorphWeight(1.0 - step, power)) / step == Catch::Approx(1.0).margin(0.01));
+}
+
+TEST_CASE("Mono Morph wraps round its cycle", "[mono][oscillator]")
+{
+	using vekt::mono::morphDistance;
+	using vekt::mono::wrapMorph;
+	REQUIRE(wrapMorph(0.0f) == 0.0f);
+	REQUIRE(wrapMorph(3.5f) == 3.5f);
+	REQUIRE(wrapMorph(4.0f) == 0.0f);
+	REQUIRE(wrapMorph(5.25f) == 1.25f);
+	REQUIRE(wrapMorph(-0.5f) == 3.5f);
+	REQUIRE(wrapMorph(-1.0e-9f) < 4.0f);
+	// Genuinely modulo 4, several turns out, as summed modulation sources can reach.
+	REQUIRE(wrapMorph(8.0f) == 0.0f);
+	REQUIRE(wrapMorph(12.25f) == 0.25f);
+	REQUIRE(wrapMorph(-4.0f) == 0.0f);
+	REQUIRE(wrapMorph(-4.5f) == 3.5f);
+	REQUIRE(wrapMorph(-8.5f) == 3.5f);
+	REQUIRE(morphDistance(0.0f, 1.5f) == 1.5f);
+	REQUIRE(morphDistance(0.0f, 3.0f) == Catch::Approx(-1.0f));
+	REQUIRE(morphDistance(3.9f, 0.1f) == Catch::Approx(0.2f));
+	REQUIRE(morphDistance(0.1f, 3.9f) == Catch::Approx(-0.2f));
+	REQUIRE(morphDistance(6.5f, 2.5f) == Catch::Approx(0.0f).margin(1.0e-6f));
+
+	// The readout is the wrapped value, so the top of the range reads as the sine it is.
+	vekt::mono::PluginProcessor processor;
+	auto* parameter = processor.getParameters().getParameter(vekt::mono::parameters::osc1Morph);
+	const auto text = [parameter](float morph) { return parameter->getText(parameter->convertTo0to1(morph), 32); };
+	REQUIRE(text(4.0f) == "0.000");
+	REQUIRE(text(3.9999998f) == "0.000");
+	REQUIRE(text(3.5f) == "3.500");
+	REQUIRE(text(0.0f) == "0.000");
 }
 
 TEST_CASE("Mono Morph knob changes are smoothed but LFO morph modulation is not", "[mono][oscillator][lfo]")
@@ -424,14 +489,55 @@ TEST_CASE("Mono Morph knob changes are smoothed but LFO morph modulation is not"
 	for (int sample = 0; sample < 480; ++sample) voice.render(left, right, settings, 0.0f);
 	REQUIRE(voice.getMorph(0) == 0.0f);
 
-	// A knob jump from sine to square ramps linearly over 10 ms (480 samples).
-	settings.morph[0] = 3.0f;
+	// A knob jump from sine to saw ramps linearly over 10 ms (480 samples).
+	settings.morph[0] = 1.5f;
 	voice.render(left, right, settings, 0.0f);
 	REQUIRE(voice.getMorph(0) < 0.05f);
 	for (int sample = 1; sample < 240; ++sample) voice.render(left, right, settings, 0.0f);
-	REQUIRE(voice.getMorph(0) == Catch::Approx(1.5f).margin(0.02f));
+	REQUIRE(voice.getMorph(0) == Catch::Approx(0.75f).margin(0.02f));
+	for (int sample = 240; sample < 480; ++sample) voice.render(left, right, settings, 0.0f);
+	REQUIRE(voice.getMorph(0) == Catch::Approx(1.5f));
+
+	// The ramp takes the short way round the cycle: sine to square goes back through the square-sine segment
+	// (via 3.5), not forwards through triangle and saw.
+	settings.morph[0] = 0.0f;
+	for (int sample = 0; sample < 480; ++sample) voice.render(left, right, settings, 0.0f);
+	REQUIRE(voice.getMorph(0) == Catch::Approx(0.0f).margin(1.0e-5f));
+	settings.morph[0] = 3.0f;
+	for (int sample = 0; sample < 240; ++sample) voice.render(left, right, settings, 0.0f);
+	REQUIRE(voice.getMorph(0) == Catch::Approx(3.5f).margin(0.02f));
 	for (int sample = 240; sample < 480; ++sample) voice.render(left, right, settings, 0.0f);
 	REQUIRE(voice.getMorph(0) == Catch::Approx(3.0f));
+	// Crossing the 4-to-0 wrap on the knob (3.9 to 0.1) moves only 0.2 and never passes through saw or triangle.
+	settings.morph[0] = 3.9f;
+	for (int sample = 0; sample < 480; ++sample) voice.render(left, right, settings, 0.0f);
+	settings.morph[0] = 0.1f;
+	for (int sample = 0; sample < 480; ++sample)
+	{
+		voice.render(left, right, settings, 0.0f);
+		const auto morph = voice.getMorph(0);
+		REQUIRE((morph >= 3.9f - 1.0e-4f || morph <= 0.1f + 1.0e-4f));
+	}
+	REQUIRE(voice.getMorph(0) == Catch::Approx(0.1f).margin(1.0e-5f));
+	// A knob swept across the 4-to-0 wrap in small steps (3.8 ... 0.2), faster than the ramp settles, follows it
+	// round and never jumps back towards saw or triangle.
+	settings.morph[0] = 3.8f;
+	for (int sample = 0; sample < 480; ++sample) voice.render(left, right, settings, 0.0f);
+	for (const auto target : { 3.85f, 3.9f, 3.95f, 3.99f, 0.01f, 0.05f, 0.1f, 0.15f, 0.2f })
+	{
+		settings.morph[0] = target;
+		for (int sample = 0; sample < 60; ++sample)
+		{
+			voice.render(left, right, settings, 0.0f);
+			const auto morph = voice.getMorph(0);
+			CAPTURE(target, morph);
+			REQUIRE((morph >= 3.8f - 1.0e-4f || morph <= 0.2f + 1.0e-4f));
+		}
+	}
+	for (int sample = 0; sample < 480; ++sample) voice.render(left, right, settings, 0.0f);
+	REQUIRE(voice.getMorph(0) == Catch::Approx(0.2f).margin(1.0e-5f));
+	settings.morph[0] = 3.0f;
+	for (int sample = 0; sample < 480; ++sample) voice.render(left, right, settings, 0.0f);
 
 	// A new note on a silent voice starts at the knob's value, not partway through a ramp.
 	vekt::mono::MonoVoice fresh;

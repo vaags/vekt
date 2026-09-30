@@ -5,6 +5,7 @@
 #include <PluginEditor.h>
 #include <vekt/glimmer/PluginProcessor.h>
 #include <vekt/mono/PluginProcessor.h>
+#include <WidthOscillator.h>
 
 #include <juce_audio_utils/juce_audio_utils.h>
 
@@ -101,7 +102,8 @@ public:
 		restoreRackState();
 		for (auto* component : { static_cast<juce::Component*>(&restartButton),
 			static_cast<juce::Component*>(&statusLabel), static_cast<juce::Component*>(&productTabs),
-			static_cast<juce::Component*>(&orderButton), static_cast<juce::Component*>(&midiInputBox) })
+			static_cast<juce::Component*>(&orderButton), static_cast<juce::Component*>(&midiInputBox),
+			static_cast<juce::Component*>(&squareSineCurveBox) })
 			addAndMakeVisible(*component);
 		addAndMakeVisible(keyboard);
 		orderButton.setTooltip("Process Vekt Mono through this rack route.");
@@ -125,6 +127,14 @@ public:
 			"Bypass", "RAV", "Glimmer", "RAV -> Glimmer", "Glimmer -> RAV" };
 		orderButton.setButtonText(routeNames[static_cast<std::size_t>(rackRoute.load())]);
 		midiInputBox.onChange = [this] { selectMidiInput(midiInputBox.getSelectedItemIndex() - 1); };
+		// Audition only: switches how Mono morphs from square to sine (Morph 3-4) for every Mono instance; not saved.
+		squareSineCurveBox.addItemList({ "Square-sine: linear", "Square-sine: p=1.5", "Square-sine: p=2" }, 1);
+		squareSineCurveBox.setSelectedId(static_cast<int>(vekt::mono::squareSineMorphCurve.load()) + 1, juce::dontSendNotification);
+		squareSineCurveBox.setTooltip("Compare Mono's square-to-sine Morph curves (Morph 3 to 4). p=2 matches the saw segments.");
+		squareSineCurveBox.onChange = [this]
+		{
+			vekt::mono::squareSineMorphCurve.store(static_cast<vekt::mono::SquareSineMorphCurve>(squareSineCurveBox.getSelectedId() - 1));
+		};
 		restartButton.onClick = []
 		{
 			const auto executable = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
@@ -258,7 +268,8 @@ public:
 		productTabs.setBounds(284, 56, 150, 36);
 		orderButton.setBounds(442, 56, 152, 36);
 		restartButton.setBounds(602, 56, 132, 36);
-		statusLabel.setBounds(746, 56, getWidth() - 762, 36);
+		squareSineCurveBox.setBounds(742, 58, 190, 32);
+		statusLabel.setBounds(940, 56, getWidth() - 956, 36);
 		keyboard.setBounds(16, 108, getWidth() - 32, 36);
 		for (auto* editor : { monoEditor.get(), ravEditor.get(), glimmerEditor.get() })
 		{
@@ -494,6 +505,7 @@ private:
 	juce::Label statusLabel;
 	juce::ComboBox productTabs;
 	juce::ComboBox midiInputBox;
+	juce::ComboBox squareSineCurveBox;
 	juce::TextButton orderButton { "RAV -> Glimmer" };
 	double sampleRateHz { 48'000.0 };
 	std::atomic<float> outputPeak {};

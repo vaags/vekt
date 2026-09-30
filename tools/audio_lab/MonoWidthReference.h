@@ -43,12 +43,29 @@ inline double monoWidthIdealAnchor(int anchor, double phase, double width)
 	}
 }
 
+// Cyclic Morph (period 4): the segment, the fraction through it and the second anchor's weight. Sine to
+// triangle is linear; the richer anchor's share is t^p (p - (p - 1) t) elsewhere, p = 2 next to the saw and
+// squareSinePower from the square back to the sine.
+struct MonoWidthMorphBlend
+{
+	int from {}, to {};
+	double weight {};
+};
+
+inline MonoWidthMorphBlend monoWidthMorphBlend(double morph, double squareSinePower = 2.0)
+{
+	const auto position = morph - 4.0 * std::floor(morph / 4.0);
+	const auto segment = std::clamp(static_cast<int>(position), 0, 3);
+	const auto fraction = position - segment;
+	const auto delayed = [](double t, double power) { return std::pow(t, power) * (power - (power - 1.0) * t); };
+	const auto weight = segment == 0 ? fraction : segment == 1 ? delayed(fraction, 2.0)
+		: 1.0 - delayed(1.0 - fraction, segment == 2 ? 2.0 : squareSinePower);
+	return { segment, (segment + 1) % 4, weight };
+}
+
 inline double monoWidthIdealWave(double phase, double morph, double width, bool zeroCentered = false)
 {
-	const auto segment = std::clamp(static_cast<int>(morph), 0, 2);
-	const auto fraction = morph - segment;
-	const auto sawWeight = [](double t) { return t * t * (2.0 - t); };
-	const auto weight = segment == 0 ? fraction : segment == 1 ? sawWeight(fraction) : 1.0 - sawWeight(1.0 - fraction);
+	const auto blend = monoWidthMorphBlend(morph);
 	const auto anchor = [&](int index)
 	{
 		auto value = monoWidthIdealAnchor(index, phase, width);
@@ -60,8 +77,8 @@ inline double monoWidthIdealWave(double phase, double morph, double width, bool 
 		}
 		return value;
 	};
-	const auto from = anchor(segment);
-	return from + weight * (anchor(segment + 1) - from);
+	const auto from = anchor(blend.from);
+	return from + blend.weight * (anchor(blend.to) - from);
 }
 
 // Offline bandwidth policy, separate from the unmodified Fourier correctness
@@ -155,14 +172,11 @@ inline std::vector<std::complex<double>> monoWidthAnchorCoefficients(int anchor,
 inline std::vector<std::complex<double>> monoWidthShippedCoefficients(double morph, double width,
 	int resolutionOrder = 16)
 {
-	const auto segment = std::clamp(static_cast<int>(morph), 0, 2);
-	const auto fraction = morph - segment;
-	const auto sawWeight = [](double t) { return t * t * (2.0 - t); };
-	const auto weight = segment == 0 ? fraction : segment == 1 ? sawWeight(fraction) : 1.0 - sawWeight(1.0 - fraction);
-	auto from = monoWidthAnchorCoefficients(segment, width, resolutionOrder);
-	if (weight <= 0.0) return from;
-	const auto to = monoWidthAnchorCoefficients(segment + 1, width, resolutionOrder);
-	for (std::size_t index = 0; index < from.size(); ++index) from[index] += weight * (to[index] - from[index]);
+	const auto blend = monoWidthMorphBlend(morph);
+	auto from = monoWidthAnchorCoefficients(blend.from, width, resolutionOrder);
+	if (blend.weight <= 0.0) return from;
+	const auto to = monoWidthAnchorCoefficients(blend.to, width, resolutionOrder);
+	for (std::size_t index = 0; index < from.size(); ++index) from[index] += blend.weight * (to[index] - from[index]);
 	return from;
 }
 }

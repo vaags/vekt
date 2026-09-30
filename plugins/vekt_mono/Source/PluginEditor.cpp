@@ -64,7 +64,14 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 		{
 		case 0: control.getSlider().setTooltip("Coarse oscillator tuning from two octaves down to two octaves up."); control.setBipolar(true); break;
 		case 1: control.getSlider().setTooltip("Fine oscillator tuning from -100 to +100 cents."); control.setBipolar(true); break;
-		case 2: control.setWaveformGuide(true); break;
+		case 2:
+			control.setWaveformGuide(true);
+			// Sine at 7:30, so the glyphs sit on the diagonals, in the corners of the square slider canvas (at
+			// 12/3/6/9 o'clock they would fall outside it). Square to sine fills the old rotary gap round 6 o'clock;
+			// the 4-to-0 wrap itself is at the sine, 7:30.
+			control.setEndless(true, juce::MathConstants<float>::pi * 1.25f);
+			control.getSlider().setTooltip("Waveform: sine, triangle, saw, square, then back to sine. Turns endlessly.");
+			break;
 		default: break;
 		}
 	}

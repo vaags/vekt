@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cmath>
 #include <complex>
 #include <cstddef>
@@ -24,6 +25,70 @@ inline constexpr std::array<double, 4> widthAnchorDepths { 0.45, 0.65, 0.0, 1.0 
 [[nodiscard]] inline double widthBreakpoint(int anchor, double width) noexcept
 {
 	return (50.0 + widthAnchorDepths[static_cast<std::size_t>(anchor)] * (std::clamp(width, 5.0, 95.0) - 50.0)) * 0.01;
+}
+
+// Morph is cyclic: 0 sine, 1 triangle, 2 saw, 3 square, and 4 is the sine again. Each segment mixes two
+// adjacent anchors; the 3-4 segment runs from the square back to the sine.
+inline constexpr float morphPeriod = 4.0f;
+
+[[nodiscard]] inline float wrapMorph(float morph) noexcept
+{
+	const auto wrapped = morph - morphPeriod * std::floor(morph / morphPeriod);
+	return wrapped < morphPeriod ? wrapped : 0.0f;
+}
+
+// Shortest signed distance from one Morph position to another round the cycle, in [-2, 2).
+[[nodiscard]] inline float morphDistance(float from, float to) noexcept
+{
+	return wrapMorph(to - from + 0.5f * morphPeriod) - 0.5f * morphPeriod;
+}
+
+// A spectrally rich anchor can dominate a linear morph long before it is reached. This curve delays its share
+// while keeping the endpoints exact: w(t) = t^p (p - (p - 1) t), with t in [0, 1] the distance from the plainer
+// anchor (t = 1 at the rich one). p = 1 is linear; every p meets the rich anchor with slope 1, so LFO sweeps do
+// not accelerate into it.
+[[nodiscard]] inline double delayedMorphWeight(double t, double power) noexcept
+{
+	// This runs per sample; avoid pow for the powers Morph uses.
+	const auto rise = power == 1.0 ? t : power == 2.0 ? t * t : power == 1.5 ? t * std::sqrt(t) : std::pow(t, power);
+	return rise * (power - (power - 1.0) * t);
+}
+
+// Square-to-sine curve (segment 3-4), still to be chosen by ear. Audio Lab switches it for every Mono instance
+// in the process; it is not saved.
+enum class SquareSineMorphCurve { linear, shaped15, shaped20 };
+inline std::atomic<SquareSineMorphCurve> squareSineMorphCurve { SquareSineMorphCurve::shaped20 };
+
+[[nodiscard]] inline double squareSineMorphPower() noexcept
+{
+	switch (squareSineMorphCurve.load(std::memory_order_relaxed))
+	{
+	case SquareSineMorphCurve::linear: return 1.0;
+	case SquareSineMorphCurve::shaped15: return 1.5;
+	case SquareSineMorphCurve::shaped20: break;
+	}
+	return 2.0;
+}
+
+// Share of the segment's second anchor at a fraction through it. The invariant: the anchor that owns the curve
+// gets w(its distance back from its own end), so a curved second anchor gets w(fraction) and a curved first
+// anchor gets w(1 - fraction), making the blend 1 - w(1 - fraction). Which anchor owns the curve:
+//   0 sine-triangle    linear
+//   1 triangle-saw     the saw (second anchor): w(fraction), p = 2
+//   2 saw-square       the saw (first anchor):  1 - w(1 - fraction), p = 2
+//   3 square-sine      the square (first anchor): 1 - w(1 - fraction), p from the Audio Lab audition
+// Do not simplify 1 - w(1 - fraction) to w(fraction): that delays the second anchor instead, e.g. the sine rather
+// than the square (62.5% square halfway at p = 2 instead of 37.5%). The saw's p = 2 was chosen by ear over
+// linear, p = 1.5 and t^2.
+[[nodiscard]] inline double morphSegmentBlend(int segment, double fraction) noexcept
+{
+	switch (segment)
+	{
+	case 0: return fraction;
+	case 1: return delayedMorphWeight(fraction, 2.0);
+	case 2: return 1.0 - delayedMorphWeight(1.0 - fraction, 2.0);
+	default: return 1.0 - delayedMorphWeight(1.0 - fraction, squareSineMorphPower());
+	}
 }
 
 [[nodiscard]] inline double twoToothDelta(double width) noexcept { return 0.25 * std::abs(std::clamp(width, 5.0, 95.0) - 50.0) / 45.0; }
@@ -215,18 +280,17 @@ struct WidthOscillatorState
 };
 
 // One sample of the Width oscillator. frequencyHz and hostRate set the guard (host Nyquist, whatever
-// the oversampled rate the voice runs at); zeroCenteredDc drops each anchor's frozen-Width mean.
+// the oversampled rate the voice runs at); zeroCenteredDc drops each anchor's frozen-Width mean. Morph
+// wraps, so any value is valid.
 inline float renderWidthOscillator(WidthOscillatorState& state, float phase, float frequencyHz, double hostRate,
 	float morph, float width, bool zeroCenteredDc)
 {
 	const auto& table = WidthWavetable::instance();
-	const auto segment = std::clamp(static_cast<int>(morph), 0, 2);
-	const auto fraction = static_cast<double>(morph) - segment;
-	const auto sawWeight = [](double t) { return t * t * (2.0 - t); };
-	const auto blend = static_cast<float>(segment == 0 ? fraction : segment == 1 ? sawWeight(fraction)
-		: 1.0 - sawWeight(1.0 - fraction));
+	const auto position = wrapMorph(morph);
+	const auto segment = std::clamp(static_cast<int>(position), 0, 3);
+	const auto blend = static_cast<float>(morphSegmentBlend(segment, static_cast<double>(position) - segment));
 	const auto& from = state.anchor(segment, width);
-	const auto* to = blend > 0.0f ? &state.anchor(segment + 1, width) : nullptr;
+	const auto* to = blend > 0.0f ? &state.anchor((segment + 1) % 4, width) : nullptr;
 	auto value = zeroCenteredDc ? 0.0 : static_cast<double>((1.0f - blend) * from.dc + (to != nullptr ? blend * to->dc : 0.0f));
 	const auto pitch = static_cast<double>(std::abs(frequencyHz));
 	if (pitch <= 0.0) return static_cast<float>(value);

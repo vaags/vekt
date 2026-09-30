@@ -215,7 +215,11 @@ TEST_CASE("Mono editor presents symmetric oscillator controls without overlap", 
 				if (oscillatorSliderBounds.isEmpty()) oscillatorSliderBounds = rotary->getSlider().getBounds();
 				REQUIRE(rotary->getSlider().getBounds() == oscillatorSliderBounds);
 				REQUIRE(rotary->getSlider().getName() == name);
-				if (name.endsWith("Morph")) REQUIRE(static_cast<bool>(rotary->getSlider().getProperties()["waveformGuide"]));
+				if (name.endsWith("Morph"))
+				{
+					REQUIRE(static_cast<bool>(rotary->getSlider().getProperties()["waveformGuide"]));
+					REQUIRE(static_cast<bool>(rotary->getSlider().getProperties()["endless"]));
+				}
 				REQUIRE(rotary->getHeight() == vekt::ui::RotaryControl::heightFor(vekt::ui::RotaryControl::Size::compact));
 				for (const auto bounds : panelBounds) REQUIRE_FALSE(bounds.intersects(rotary->getBounds()));
 				panelBounds.push_back(rotary->getBounds());
