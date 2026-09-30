@@ -60,6 +60,7 @@ inline constexpr auto filterDrive = "filterDrive";
 inline constexpr auto filterQCompensation = "filterQCompensation";
 inline constexpr auto filterMode = "filterMode";
 inline constexpr auto filterType = "filterType";
+inline constexpr auto filterK35 = "filterK35";
 inline constexpr auto ampAttack = "ampAttack";
 inline constexpr auto ampDecay = "ampDecay";
 inline constexpr auto ampSustain = "ampSustain";
@@ -140,16 +141,20 @@ inline constexpr std::array schema8ParameterIds { filterMode, lfos[0].filterMode
 // Sound schema 9 added a saturated-taps A/B (filterSaturatedTaps); schema 11 retired it, the saturated taps being
 // the only Notch/HP mix since. Parameters added in sound schema 10: the Ladder/SVF filter type (ADR 0006).
 inline constexpr std::array schema10ParameterIds { filterType };
+// Parameters added in sound schema 12: the K35 filter (ADR 0007), an override on top of the Ladder/SVF filter type so
+// that filterType's two choices, and host automation of them, keep their exact normalised mapping.
+inline constexpr std::array schema12ParameterIds { filterK35 };
 
 inline constexpr auto soundParameterIds = []
 {
 	std::array<const char*, legacySoundParameterIds.size() + schema7ParameterIds.size() + schema8ParameterIds.size()
-		+ schema10ParameterIds.size()> ids {};
+		+ schema10ParameterIds.size() + schema12ParameterIds.size()> ids {};
 	std::size_t next {};
 	for (const auto* identifier : legacySoundParameterIds) ids[next++] = identifier;
 	for (const auto* identifier : schema7ParameterIds) ids[next++] = identifier;
 	for (const auto* identifier : schema8ParameterIds) ids[next++] = identifier;
 	for (const auto* identifier : schema10ParameterIds) ids[next++] = identifier;
+	for (const auto* identifier : schema12ParameterIds) ids[next++] = identifier;
 	return ids;
 }();
 

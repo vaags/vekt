@@ -446,6 +446,70 @@ TEST_CASE("Mono Filter Type tabs select the filter and disable the Ladder-only t
 	}
 }
 
+TEST_CASE("Mono K35 tab overrides Filter Type in one undoable step and disables Mode and Q Comp", "[mono][processor][ui][filter-type][k35]")
+{
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	vekt::mono::PluginProcessor processor;
+	vekt::mono::PluginEditor editor(processor);
+	auto* ladder = findNamedButton(editor.getContent(), "Filter Type Ladder");
+	auto* svf = findNamedButton(editor.getContent(), "Filter Type SVF");
+	auto* k35 = findNamedButton(editor.getContent(), "Filter Type K35");
+	auto* qCompensation = findNamedButton(editor.getContent(), "Q Compensation");
+	auto* mode = findRotary(editor.getContent(), "Mode");
+	REQUIRE(ladder != nullptr);
+	REQUIRE(svf != nullptr);
+	REQUIRE(k35 != nullptr);
+	REQUIRE(qCompensation != nullptr);
+	REQUIRE(mode != nullptr);
+	auto& state = processor.getParameters();
+	const auto value = [&state](const char* identifier) { return state.getRawParameterValue(identifier)->load(); };
+	auto& undo = processor.getUndoManager();
+	// APVTS normally flushes parameter changes to its undoable tree on a timer; copyState() flushes now.
+	const auto flush = [&state] { juce::ignoreUnused(state.copyState()); };
+	// SVF, then K35: K35 lit, the SVF kept underneath, Mode and Q Comp disabled but visible.
+	svf->onClick();
+	flush();
+	k35->onClick();
+	flush();
+	REQUIRE(value(vekt::mono::parameters::filterK35) == 1.0f);
+	REQUIRE(value(vekt::mono::parameters::filterType) == 1.0f);
+	REQUIRE(k35->getToggleState());
+	REQUIRE_FALSE(svf->getToggleState());
+	REQUIRE_FALSE(ladder->getToggleState());
+	REQUIRE(mode->isVisible());
+	REQUIRE_FALSE(mode->isEnabled());
+	REQUIRE_FALSE(qCompensation->isEnabled());
+	if (const auto* path = std::getenv("VEKT_MONO_SNAPSHOT_K35")) writeSnapshot(editor, path);
+	// Automating Filter Type under K35 changes what is underneath, not the tab.
+	state.getParameter(vekt::mono::parameters::filterType)->setValueNotifyingHost(0.0f);
+	flush();
+	REQUIRE(k35->getToggleState());
+	REQUIRE_FALSE(ladder->getToggleState());
+	// Clicking SVF turns K35 off and selects the SVF: two parameter writes, one undo step.
+	svf->onClick();
+	flush();
+	REQUIRE(value(vekt::mono::parameters::filterK35) == 0.0f);
+	REQUIRE(value(vekt::mono::parameters::filterType) == 1.0f);
+	REQUIRE(svf->getToggleState());
+	REQUIRE(mode->isEnabled());
+	REQUIRE(undo.undo());
+	REQUIRE(value(vekt::mono::parameters::filterK35) == 1.0f);
+	REQUIRE(value(vekt::mono::parameters::filterType) == 0.0f);
+	REQUIRE(k35->getToggleState());
+	REQUIRE(undo.redo());
+	REQUIRE(value(vekt::mono::parameters::filterK35) == 0.0f);
+	REQUIRE(value(vekt::mono::parameters::filterType) == 1.0f);
+	// Three tabs and the shortened Q Comp toggle share the header without overlap at every size.
+	for (const auto width : { 1120, 1680, 2240 })
+	{
+		editor.setSize(width, width * 10 / 16);
+		checkVisibleBounds(editor.getContent());
+		for (auto* control : { ladder, svf, k35, qCompensation })
+			for (auto* sibling : control->getParentComponent()->getChildren())
+				if (sibling != control) REQUIRE_FALSE(control->getBounds().intersects(sibling->getBounds()));
+	}
+}
+
 TEST_CASE("Mono Resonance knob writes its full range to the processor", "[mono][processor][ui]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;

@@ -164,6 +164,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 		addDepth(layout, lfos[index].filterMode, "LFO " + juce::String(static_cast<int>(index) + 1) + " Filter Mode", 100.0f, 1.0f, "%");
 	// Discrete filter topology (ADR 0006): 0 Ladder, 1 SVF. Not an LFO destination.
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { filterType, version }, "Filter Type", juce::StringArray { "Ladder", "SVF" }, 0));
+	// The K35 filter (ADR 0007): when on it replaces whichever topology Filter Type selects, which is kept (and still
+	// automatable) underneath. Registered last so no existing parameter index moves. Not an LFO destination.
+	layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID { filterK35, version }, "Filter K35", false));
 	return layout;
 }
 }

@@ -92,33 +92,51 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 		addRotary(filterPanel, filterControls[index], filterNames[index], filterIds[index], filterAttachments[index]);
 		filterControls[index].getSlider().setColour(juce::Slider::rotarySliderFillColourId, filterAccent);
 	}
-	filterControls[0].getSlider().setTooltip("Cutoff frequency, the same for both filter types. Sweeps exponentially from dark to fully open.");
+	filterControls[0].getSlider().setTooltip("Cutoff frequency, the same for every filter type. Sweeps exponentially from dark to fully open.");
 	filterControls[1].getSlider().setTooltip("Emphasis. Ladder: a resonant peak with natural bass loss that reaches self-oscillation near maximum. "
-		"SVF: strong resonance up to Q 8 that never self-oscillates and softens as Drive rises.");
+		"SVF: strong resonance up to Q 8 that never self-oscillates and softens as Drive rises. K35: ringing up to Q 100 at 95 %, "
+		"screaming self-oscillation in the last few percent, held and quenched by the played signal.");
 	filterControls[2].getSlider().setTooltip("Keyboard tracking. At 100%, cutoff rises one octave per keyboard octave.");
 	filterControls[3].getSlider().setTooltip("Unipolar filter contour amount. Applies the filter envelope in octave pitch space.");
 	filterControls[4].getSlider().setTooltip("Input overload. Drives the nonlinear filter harder: the Ladder's stages saturate; the SVF's input "
-		"saturates and its resonance softens.");
+		"saturates and its resonance softens; K35's output stage, already gritty at 0 dB, grows nastier and quenches the resonance.");
 	filterControls[5].getSlider().setTooltip("Output mix from LP through Notch to HP. Ladder: a mix of its four stages over the same resonant ladder; "
-		"SVF: its native LP and HP, with an exact Notch between them.");
-	// Filter type: Ladder (4-pole, self-oscillating) or SVF (2-pole, strongly resonant, never self-oscillating).
-	const std::array filterTypeNames { "LADDER", "SVF" };
+		"SVF: its native LP and HP, with an exact Notch between them. K35 is low-pass only.");
+	// Filter type (ADR 0006, 0007): Ladder (4-pole, self-oscillating), SVF (2-pole, strongly resonant, never
+	// self-oscillating) or K35 (2-pole low-pass, gritty). K35 is its own parameter on top of the Ladder/SVF choice, which
+	// it keeps underneath; the tabs show whichever is in effect.
+	const std::array filterTypeNames { "LADDER", "SVF", "K35" };
 	const std::array filterTypeTooltips { "Ladder: 4-pole, 24 dB/oct nonlinear ladder. Thick, and self-oscillates near maximum Resonance.",
-		"SVF: 2-pole, 12 dB/oct state-variable filter. More open, strongly resonant, never self-oscillates; native LP, Notch and HP." };
-	auto* filterTypeParameter = pluginProcessor.getParameters().getParameter(parameters::filterType);
-	filterTypeAttachment = std::make_unique<juce::ParameterAttachment>(*filterTypeParameter,
-		[this](float value) { showFilterType(juce::roundToInt(value)); }, &pluginProcessor.getUndoManager());
+		"SVF: 2-pole, 12 dB/oct state-variable filter. More open, strongly resonant, never self-oscillates; native LP, Notch and HP.",
+		"K35: 2-pole, 12 dB/oct low-pass after the early MS-20 filter, with a diode-limited output stage. Gritty even at Drive 0, "
+		"screaming at the top of Resonance. Low-pass only." };
+	// No undo manager of their own: each tab click opens one transaction for all of its parameter writes.
+	filterTypeAttachment = std::make_unique<juce::ParameterAttachment>(*pluginProcessor.getParameters().getParameter(parameters::filterType),
+		[this](float value)
+		{
+			shownFilterType = juce::roundToInt(value);
+			refreshFilterType();
+		}, nullptr);
+	filterK35Attachment = std::make_unique<juce::ParameterAttachment>(*pluginProcessor.getParameters().getParameter(parameters::filterK35),
+		[this](float value)
+		{
+			shownK35 = value >= 0.5f;
+			refreshFilterType();
+		}, nullptr);
 	for (std::size_t index = 0; index < filterTypeTabs.size(); ++index)
 	{
 		auto& tab = filterTypeTabs[index];
 		tab.setButtonText(filterTypeNames[index]);
-		tab.setName(juce::String("Filter Type ") + (index == 0 ? "Ladder" : "SVF"));
+		tab.setName(juce::String("Filter Type ") + (index == 0 ? "Ladder" : index == 1 ? "SVF" : "K35"));
 		tab.setTooltip(filterTypeTooltips[index]);
-		tab.onClick = [this, index] { filterTypeAttachment->setValueAsCompleteGesture(static_cast<float>(index)); };
+		tab.onClick = [this, index] { selectFilterType(static_cast<int>(index)); };
 		filterPanel.addAndMakeVisible(tab);
 	}
 	filterTypeAttachment->sendInitialUpdate();
+	filterK35Attachment->sendInitialUpdate();
 	filterPanel.addAndMakeVisible(qCompensationButton);
+	// Short text so three filter tabs fit in the header; the name, tooltip and parameter keep the full title.
+	qCompensationButton.setButtonText("Q Comp");
 	qCompensationButton.setName("Q Compensation");
 	qCompensationButton.setComponentID(parameters::filterQCompensation);
 	qCompensationButton.setTooltip("Ladder only. Experimental input-path Q compensation. May change drive, harmonics and peaks; does not boost a "
@@ -275,12 +293,30 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 }
 
 PluginEditor::~PluginEditor() { setLookAndFeel(nullptr); }
-void PluginEditor::showFilterType(int type)
+// The topology in effect: K35 when its parameter is on, otherwise Filter Type's Ladder or SVF.
+void PluginEditor::refreshFilterType()
 {
+	const auto type = shownK35 ? 2 : shownFilterType;
 	for (std::size_t index = 0; index < filterTypeTabs.size(); ++index)
 		filterTypeTabs[index].setToggleState(static_cast<int>(index) == type, juce::dontSendNotification);
-	// Disabled, not hidden, so the panel keeps its layout (ADR 0006).
+	// Disabled, not hidden, so the panel keeps its layout (ADR 0006, 0007): Q Comp is Ladder-only, Mode has no meaning
+	// for the low-pass-only K35.
 	qCompensationButton.setEnabled(type == 0);
+	filterControls[5].setEnabled(type != 2);
+}
+
+// A tab click as one undoable step: K35 turns its override on and keeps Filter Type; Ladder or SVF turns the override
+// off and sets Filter Type. Each write is a complete host gesture.
+void PluginEditor::selectFilterType(int type)
+{
+	pluginProcessor.getUndoManager().beginNewTransaction("Filter Type");
+	if (type == 2)
+	{
+		filterK35Attachment->setValueAsCompleteGesture(1.0f);
+		return;
+	}
+	if (shownK35) filterK35Attachment->setValueAsCompleteGesture(0.0f);
+	filterTypeAttachment->setValueAsCompleteGesture(static_cast<float>(type));
 }
 void PluginEditor::selectLfo(std::size_t index)
 {
@@ -353,7 +389,8 @@ void PluginEditor::resized()
 	for (std::size_t index = 0; index < filterControls.size(); ++index) filterControls[index].setBounds(6 + static_cast<int>(index) * 56, 32, 55, 136);
 	filterTypeTabs[0].setBounds(64, 5, 66, 24);
 	filterTypeTabs[1].setBounds(134, 5, 44, 24);
-	qCompensationButton.setBounds(184, 5, 158, 24);
+	filterTypeTabs[2].setBounds(182, 5, 44, 24);
+	qCompensationButton.setBounds(232, 5, 110, 24);
 	for (std::size_t index = 0; index < ampControls.size(); ++index) ampControls[index].setBounds(6 + static_cast<int>(index) * 67, 38, 65, 140);
 	for (std::size_t index = 0; index < filterEnvelopeControls.size(); ++index) filterEnvelopeControls[index].setBounds(6 + static_cast<int>(index) * 67, 38, 65, 140);
 	for (std::size_t index = 0; index < voiceControls.size(); ++index) voiceControls[index].setBounds(6 + static_cast<int>(index) * 67, 32, 65, 136);

@@ -1,11 +1,15 @@
 #pragma once
 
+#include "Korg35Response.h"
+#include "NonlinearTptKorg35.h"
 #include "NonlinearTptSvf.h"
 #include "SvfResponse.h"
 #include "NonlinearTptLadder.h"
 #include "WidthOscillator.h"
 #include "ContourEnvelope.h"
 #include "Lfo.h"
+
+#include <vekt/dsp/DcBlocker.h>
 
 #include <juce_audio_basics/juce_audio_basics.h>
 
@@ -63,8 +67,10 @@ inline constexpr std::size_t lfoCount = 2;
 // anchor's frozen-Width mean, zeroCentered removes it.
 enum class WidthDcPolicy { raw, zeroCentered };
 
-// The filter topology (ADR 0006). The SVF's resonance mapping and Drive knee are still provisional.
-enum class FilterType { ladder, svf };
+// The filter topology: Ladder (ADR 0005), SVF (ADR 0006) or K35 (ADR 0007). The processor derives it per render
+// segment from filterType (Ladder/SVF) and the filterK35 override.
+enum class FilterType { ladder, svf, korg35 };
+
 
 struct MonoVoiceSettings
 {
@@ -154,6 +160,8 @@ public:
 		juce::ignoreUnused(WidthWavetable::instance()); // build the shared tables before audio starts
 		for (auto& ladder : filterLadders) ladder.prepare(newSampleRate);
 		for (auto& svf : filterSvfs) svf.prepare(newSampleRate);
+		for (auto& filter : filterKorgs) filter.prepare(newSampleRate);
+		for (auto& blocker : korgDcBlockers) blocker.prepare(newSampleRate, korg35DcBlockerHz);
 		random.setSeed(seed);
 		voiceSeed = seed;
 		for (auto& lfo : lfos) lfo.setSampleRate(newSampleRate);
@@ -208,6 +216,8 @@ public:
 		morphsInitialized = false;
 		for (auto& ladder : filterLadders) ladder.reset();
 		for (auto& svf : filterSvfs) svf.reset();
+		for (auto& filter : filterKorgs) filter.reset();
+		for (auto& blocker : korgDcBlockers) blocker.reset();
 		filterControlsInitialized = false;
 		filterRunning = false;
 		qInputCompensation.setCurrentAndTargetValue(0.0f);
@@ -282,6 +292,8 @@ public:
 		amp.reset(); filterEnvelope.reset();
 		for (auto& ladder : filterLadders) ladder.reset();
 		for (auto& svf : filterSvfs) svf.reset();
+		for (auto& filter : filterKorgs) filter.reset();
+		for (auto& blocker : korgDcBlockers) blocker.reset();
 		filterRunning = false;
 		fadeInSamples = 0;
 		continuitySamples = 0;
@@ -297,9 +309,9 @@ public:
 		const std::array<double, lfoCount>& lfoClockPositions = {}, float vibratoSemitones = 0.0f, float channelControl = 0.0f)
 	{
 		if (!beginSample(settings, bend, lfoClockPositions, vibratoSemitones, channelControl)) return;
-		if (settings.filterType == FilterType::svf)
+		if (settings.filterType != FilterType::ladder)
 		{
-			finishSvfSample(left, right);
+			finishNonLadderSample(left, right);
 			return;
 		}
 		const auto layers = static_cast<std::size_t>(pending.layers);
@@ -475,6 +487,60 @@ public:
 		finishSample(outputs.data(), left, right);
 	}
 
+	// finishSample for whichever non-ladder type beginSample selected.
+	void finishNonLadderSample(float& left, float& right) noexcept
+	{
+		if (filterType == FilterType::svf) finishSvfSample(left, right);
+		else finishKorg35Sample(left, right);
+	}
+
+	// finishSample for K35 (ADR 0007): each unison layer through its own reduced early-Korg35 filter with the cutoff and
+	// Drive the ladder would get and Resonance through korg35Feedback (Korg35Response.h), then its output stage's
+	// DC blocker (the circuit's output is capacitor-coupled; the limiter partly rectifies inputs without half-wave
+	// symmetry). The blocker sees only the output: the filter's own feedback keeps the unblocked limiter output. Then
+	// K35's own Resonance trim (korg35OutputTrim). Low-pass only; Mode and Q Comp do not apply.
+	// A single voice (render): its own layers as one batched solve. The processor instead batches every voice of a
+	// render unit through korg35Lanes / korg35Request / finishKorg35Sample(outputs).
+	void finishKorg35Sample(float& left, float& right) noexcept
+	{
+		std::array<NonlinearTptKorg35*, 4> filters {};
+		std::array<const NonlinearTptKorg35Settings*, 4> settings {};
+		std::array<double, 4> inputs {}, outputs {};
+		korg35Request(filters.data(), inputs.data(), settings.data());
+		const auto lanes = static_cast<std::size_t>(korg35Lanes());
+		NonlinearTptKorg35::processLanes(std::span<NonlinearTptKorg35* const>(filters.data(), lanes), std::span<const double>(inputs.data(), lanes),
+			std::span(outputs.data(), lanes), std::span<const NonlinearTptKorg35Settings* const>(settings.data(), lanes));
+		finishKorg35Sample(outputs.data(), left, right);
+	}
+
+	// The K35 solve this sample needs, one lane per unison layer, all with this voice's settings.
+	[[nodiscard]] int korg35Lanes() const noexcept { return pending.layers; }
+	void korg35Request(NonlinearTptKorg35** filters, double* inputs, const NonlinearTptKorg35Settings** settings) noexcept
+	{
+		const auto& filter = pending.ladderSettings;
+		korg35Settings.cutoffHz = static_cast<double>(filter.cutoffHz);
+		korg35Settings.feedback = korg35Feedback(static_cast<double>(filter.resonance));
+		korg35Settings.driveDecibels = static_cast<double>(filter.driveDecibels);
+		korg35Settings.knee = korg35Knee;
+		for (std::size_t stack = 0; stack < static_cast<std::size_t>(pending.layers); ++stack)
+		{
+			filters[stack] = &filterKorgs[stack];
+			inputs[stack] = static_cast<double>(pending.mixers[stack]);
+			settings[stack] = &korg35Settings;
+		}
+	}
+
+	// After the K35 solve, given each layer's filter output: the output stage (DC blocker, Resonance trim), then the
+	// rest of the voice.
+	void finishKorg35Sample(const double* filterOutputs, float& left, float& right) noexcept
+	{
+		const auto trim = korg35OutputTrim(static_cast<double>(pending.ladderSettings.resonance));
+		std::array<float, 4> outputs {};
+		for (std::size_t stack = 0; stack < static_cast<std::size_t>(pending.layers); ++stack)
+			outputs[stack] = static_cast<float>(trim * korgDcBlockers[stack].processSample(filterOutputs[stack]));
+		finishSample(outputs.data(), left, right);
+	}
+
 	// Everything after the ladder, given its output for each unison layer: amplitude, pan, layer gain and the
 	// note-transition continuity, added to left/right.
 	void finishSample(const float* ladderOutputs, float& left, float& right) noexcept
@@ -564,6 +630,11 @@ private:
 	{
 		if (type == filterType) return;
 		if (type == FilterType::svf) for (auto& svf : filterSvfs) svf.reset();
+		else if (type == FilterType::korg35)
+		{
+			for (auto& filter : filterKorgs) filter.reset();
+			for (auto& blocker : korgDcBlockers) blocker.reset();
+		}
 		else for (auto& ladder : filterLadders) ladder.reset();
 		filterType = type;
 		if (!filterRunning) return;
@@ -672,6 +743,9 @@ private:
 	std::array<std::array<float, 3>, 4> phase {};
 	std::array<NonlinearTptLadder, 4> filterLadders;
 	std::array<NonlinearTptSvf, 4> filterSvfs; // side by side with the ladders: only the selected type is run
+	std::array<NonlinearTptKorg35, 4> filterKorgs; // likewise
+	std::array<dsp::DcBlocker<double>, 4> korgDcBlockers; // K35's output stage
+	NonlinearTptKorg35Settings korg35Settings;             // this sample's K35 settings, shared by its layers
 	FilterType filterType { FilterType::ladder };
 	std::array<std::array<WidthOscillatorState, 3>, 4> widthStates {}; // [unison layer][oscillator]
 	// Carried from beginSample to finishSample.
