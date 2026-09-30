@@ -123,22 +123,25 @@ TEST_CASE("Mono dumps filter fixture renders", "[.][mono-dump]")
 	REQUIRE(directory != nullptr);
 	const juce::File folder(directory);
 	REQUIRE(folder.createDirectory().wasOk());
-	struct Case { int fixture, quality; double sampleRate; bool multicore, svf; };
-	for (const auto& [fixture, quality, sampleRate, multicore, svf] : { Case { 0, 0, 48'000.0, false, false }, Case { 1, 0, 48'000.0, false, false },
+	struct Case { int fixture, quality; double sampleRate; bool multicore, svf, k35 = false; };
+	for (const auto& [fixture, quality, sampleRate, multicore, svf, k35] : { Case { 0, 0, 48'000.0, false, false }, Case { 1, 0, 48'000.0, false, false },
 		Case { 2, 0, 48'000.0, false, false }, Case { 0, 1, 48'000.0, false, false }, Case { 1, 1, 44'100.0, false, false },
 		Case { 2, 1, 96'000.0, false, false }, Case { 1, 3, 48'000.0, false, false }, Case { 1, 0, 48'000.0, true, false },
 		Case { 0, 0, 48'000.0, false, true }, Case { 1, 1, 44'100.0, false, true }, Case { 2, 1, 96'000.0, false, true },
-		Case { 1, 3, 48'000.0, false, true }, Case { 1, 0, 48'000.0, true, true } })
+		Case { 1, 3, 48'000.0, false, true }, Case { 1, 0, 48'000.0, true, true }, Case { 0, 0, 48'000.0, false, false, true },
+		Case { 1, 1, 44'100.0, false, false, true }, Case { 2, 1, 96'000.0, false, false, true }, Case { 1, 3, 48'000.0, false, false, true },
+		Case { 1, 0, 48'000.0, true, false, true } })
 	{
 		vekt::mono::PluginProcessor processor;
 		setParameter(processor, parameters::quality, static_cast<float>(quality));
 		setParameter(processor, parameters::multicore, multicore ? 1.0f : 0.0f);
 		setParameter(processor, parameters::filterType, svf ? 1.0f : 0.0f);
+		setParameter(processor, parameters::filterK35, k35 ? 1.0f : 0.0f);
 		applyFixture(processor, fixture);
 		processor.prepareToPlay(sampleRate, 512);
 		const auto render = playChord(processor, 48 * 512);
 		const auto name = "f" + juce::String(fixture) + "-q" + juce::String(quality) + "-" + juce::String(sampleRate, 0)
-			+ (multicore ? "-mc" : "") + (svf ? "-svf" : "") + ".raw";
+			+ (multicore ? "-mc" : "") + (svf ? "-svf" : "") + (k35 ? "-k35" : "") + ".raw";
 		juce::FileOutputStream stream(folder.getChildFile(name));
 		REQUIRE(stream.openedOk());
 		stream.setPosition(0);
@@ -688,63 +691,6 @@ TEST_CASE("Mono K35 switches under a held note without a click", "[mono][filter]
 		}
 }
 
-TEST_CASE("Mono K35 output stage removes the DC offset and keeps the low end", "[mono][filter][filter-type][k35]")
-{
-	// The blocker alone: first order at 5 Hz, about -3 dB there and within 0.3 dB from 20 Hz up.
-	for (const auto sampleRate : { 48'000.0, 384'000.0 })
-	{
-		const auto gainAt = [sampleRate](double frequency)
-		{
-			vekt::dsp::DcBlocker<double> blocker;
-			blocker.prepare(sampleRate, vekt::mono::korg35DcBlockerHz);
-			const auto period = sampleRate / frequency;
-			double peak {};
-			for (long sample = 0; sample < static_cast<long>(10.0 * sampleRate); ++sample)
-			{
-				const auto y = blocker.processSample(std::sin(2.0 * std::numbers::pi * static_cast<double>(sample) / period));
-				if (sample > static_cast<long>(8.0 * sampleRate)) peak = std::max(peak, std::abs(y));
-			}
-			return 20.0 * std::log10(peak);
-		};
-		INFO("rate " << sampleRate);
-		CHECK(gainAt(20.0) > -0.3);
-		CHECK(std::abs(gainAt(5.0) + 3.0) < 0.2);
-	}
-	// The output stage on K35's own output: a driven band-limited 100 Hz saw (whole periods at 96 kHz) leaves the bare
-	// filter with a DC offset of tens of dB below its RMS; after the blocker it is gone. (The voice applies the blocker
-	// to the filter's output only, so the loop, which feeds back the unblocked limiter output, is unchanged.)
-	constexpr double sampleRate = 96'000.0;
-	constexpr int period = 960;
-	vekt::mono::NonlinearTptKorg35 filter;
-	filter.prepare(sampleRate);
-	vekt::mono::NonlinearTptKorg35Settings settings;
-	settings.cutoffHz = 2'000.0;
-	settings.feedback = vekt::mono::korg35Feedback(0.9);
-	settings.knee = vekt::mono::korg35Knee;
-	settings.driveDecibels = 24.0;
-	vekt::dsp::DcBlocker<double> blocker;
-	blocker.prepare(sampleRate, vekt::mono::korg35DcBlockerHz);
-	double rawMean {}, rawEnergy {}, blockedMean {}, blockedEnergy {};
-	constexpr int settle = 200 * period, measured = 100 * period;
-	for (int sample = 0; sample < settle + measured; ++sample)
-	{
-		double saw {};
-		for (int harmonic = 1; harmonic * 100 < 20'000; ++harmonic)
-			saw += (harmonic % 2 == 1 ? 1.0 : -1.0) * std::sin(2.0 * std::numbers::pi * harmonic * (sample % period) / period) / harmonic;
-		const auto raw = filter.process(2.0 / std::numbers::pi * saw, settings);
-		const auto blocked = blocker.processSample(raw);
-		if (sample < settle) continue;
-		rawMean += raw;
-		rawEnergy += raw * raw;
-		blockedMean += blocked;
-		blockedEnergy += blocked * blocked;
-	}
-	const auto dcDb = [](double mean, double energy) { return 20.0 * std::log10(std::abs(mean / measured) / std::sqrt(energy / measured) + 1.0e-300); };
-	INFO("DC re RMS: raw " << dcDb(rawMean, rawEnergy) << " dB, blocked " << dcDb(blockedMean, blockedEnergy) << " dB");
-	CHECK(dcDb(rawMean, rawEnergy) > -40.0);
-	CHECK(dcDb(blockedMean, blockedEnergy) < -100.0);
-}
-
 TEST_CASE("Mono K35 stays finite under hostile modulation through the processor", "[mono][filter][filter-type][k35]")
 {
 	for (const auto quality : { 0.0f, 3.0f })
@@ -776,4 +722,711 @@ TEST_CASE("Mono K35 stays finite under hostile modulation through the processor"
 			CHECK(peak > 1.0e-3f);
 			CHECK(peak < 16.0f);
 		}
+}
+
+namespace
+{
+// DC of a held render over [start, end): consecutive windows of whole periods (about 0.1 s each). ratio is the mean
+// over all windows re the RMS (signed); spread is the standard deviation of the window means re the RMS, i.e. slow
+// sub-audio movement rather than a constant offset.
+struct DcReading
+{
+	double ratio {}, spread {}, rms {};
+};
+
+DcReading readDc(const std::vector<float>& y, double frequency, int start, int end, double sampleRate = 48'000.0)
+{
+	const auto periods = std::max(1.0, std::round(0.1 * frequency));
+	const auto window = static_cast<int>(std::round(periods * sampleRate / frequency));
+	std::vector<double> means;
+	double energy {};
+	int count {};
+	for (int first = start; first + window <= end; first += window)
+	{
+		double sum {};
+		for (int sample = first; sample < first + window; ++sample)
+		{
+			sum += y[static_cast<std::size_t>(sample)];
+			energy += static_cast<double>(y[static_cast<std::size_t>(sample)]) * y[static_cast<std::size_t>(sample)];
+			++count;
+		}
+		means.push_back(sum / window);
+	}
+	double mean {};
+	for (const auto value : means) mean += value;
+	mean /= static_cast<double>(means.size());
+	double variance {};
+	for (const auto value : means) variance += (value - mean) * (value - mean);
+	const auto rms = std::sqrt(energy / count);
+	return { mean / rms, std::sqrt(variance / static_cast<double>(means.size())) / rms, rms };
+}
+
+juce::String signedDb(double ratio)
+{
+	// Level in dB, then the polarity of the mean: -36.7n is a negative mean 36.7 dB below the RMS.
+	return juce::String(20.0 * std::log10(std::abs(ratio) + 1.0e-300), 1) + (ratio < 0.0 ? "n" : "p");
+}
+
+double noteHz(int note) { return 440.0 * std::pow(2.0, (note - 69) / 12.0); }
+
+// A single voice's left output, with an optional release at releaseAt.
+std::vector<float> renderHeldVoice(const vekt::mono::MonoVoiceSettings& settings, int note, int samples, int releaseAt = -1)
+{
+	vekt::mono::MonoVoice voice;
+	voice.prepare(48'000.0, 0x4d6f6e6fu);
+	voice.setPanPosition(0.0f);
+	voice.start(1, note, 0.8f, settings, true, false, 1);
+	std::vector<float> output(static_cast<std::size_t>(samples));
+	for (int sample = 0; sample < samples; ++sample)
+	{
+		if (sample == releaseAt) voice.release(false);
+		float left {}, right {};
+		voice.render(left, right, settings, 0.0f);
+		output[static_cast<std::size_t>(sample)] = left;
+	}
+	return output;
+}
+
+// The voice's filter output before its DC blocker (ADR 0008), reconstructed within numerical precision from a render
+// with known amplitude: divide by the amplitude, then apply the first-order blocker's inverse,
+// x[n] = y[n] - a y[n-1] + x[n-1]. This is well conditioned: the float rounding of y enters the running sum only
+// through 1 - a (6.5e-4 at 48 kHz).
+std::vector<double> unblockedFilterOutput(const std::vector<float>& output, const std::vector<float>& amplitude)
+{
+	const auto a = std::exp(-2.0 * std::numbers::pi * vekt::mono::filterOutputDcBlockerHz / 48'000.0);
+	std::vector<double> unblocked(output.size());
+	double previousBlocked {}, previousUnblocked {};
+	for (std::size_t sample = 0; sample < output.size(); ++sample)
+	{
+		const auto blocked = amplitude[sample] > 0.0f ? static_cast<double>(output[sample]) / amplitude[sample] : 0.0;
+		unblocked[sample] = blocked - a * previousBlocked + previousUnblocked;
+		previousBlocked = blocked;
+		previousUnblocked = unblocked[sample];
+	}
+	return unblocked;
+}
+
+// A band-limited saw at the given note, peak `level`, from the voice's own oscillator.
+std::vector<float> bandLimitedSaw(int note, int samples, float level, float pulseWidth = 50.0f, float morph = 2.0f)
+{
+	const auto frequency = 440.0 * std::pow(2.0, (note - 69) / 12.0);
+	std::vector<float> saw(static_cast<std::size_t>(samples));
+	vekt::mono::WidthOscillatorState state;
+	double phase {};
+	for (auto& value : saw)
+	{
+		phase += frequency / 48'000.0;
+		phase -= std::floor(phase);
+		value = level * vekt::mono::renderWidthOscillator(state, static_cast<float>(phase), static_cast<float>(frequency), 48'000.0, morph, pulseWidth, false);
+	}
+	return saw;
+}
+
+// A bare filter (Ladder, SVF low-pass or K35, from rest, untrimmed) at 48 kHz: what the voice's DC blocker receives.
+std::vector<float> renderBareFilter(vekt::mono::FilterType type, float cutoff, float resonance, float drive, const std::vector<float>& input)
+{
+	std::vector<float> y(input.size());
+	vekt::mono::NonlinearTptLadder ladder;
+	vekt::mono::NonlinearTptSvf svf;
+	vekt::mono::NonlinearTptKorg35 korg;
+	ladder.prepare(48'000.0);
+	svf.prepare(48'000.0);
+	korg.prepare(48'000.0);
+	const vekt::mono::NonlinearTptLadderSettings ladderSettings { cutoff, resonance, drive, false, 0.0f, -1.0f };
+	const vekt::mono::NonlinearTptSvfSettings svfSettings { cutoff, vekt::mono::svfDamping(resonance), drive, vekt::mono::svfKnee,
+		vekt::mono::svfDampingCurve };
+	vekt::mono::NonlinearTptKorg35Settings korgSettings;
+	korgSettings.cutoffHz = cutoff;
+	korgSettings.feedback = vekt::mono::korg35Feedback(resonance);
+	korgSettings.driveDecibels = drive;
+	korgSettings.knee = vekt::mono::korg35Knee;
+	for (std::size_t n = 0; n < y.size(); ++n)
+		y[n] = type == vekt::mono::FilterType::ladder ? ladder.processCoupled(input[n], ladderSettings)
+			: type == vekt::mono::FilterType::svf ? static_cast<float>(svf.process(input[n], svfSettings).lowPass)
+			: static_cast<float>(korg.process(input[n], korgSettings));
+	return y;
+}
+
+// The voice's amplitude (amp envelope x allocation fade) as MonoVoice computes it, for measurementVoice settings.
+std::vector<float> voiceAmplitude(const vekt::mono::MonoVoiceSettings& settings, int samples, int releaseAt = -1)
+{
+	vekt::mono::ContourEnvelope amp;
+	amp.setSampleRate(48'000.0);
+	amp.setParameters({ settings.ampAttack, settings.ampDecay, settings.ampSustain, settings.ampRelease });
+	amp.noteOn();
+	const auto transition = static_cast<int>(std::round(0.003 * 48'000.0));
+	std::vector<float> amplitude(static_cast<std::size_t>(samples));
+	for (int sample = 0; sample < samples; ++sample)
+	{
+		if (sample == releaseAt) amp.noteOff();
+		const auto fade = sample < transition ? 1.0f - static_cast<float>(transition - sample) / static_cast<float>(transition) : 1.0f;
+		amplitude[static_cast<std::size_t>(sample)] = amp.getNextSample() * 1.0f * fade;
+	}
+	return amplitude;
+}
+}
+
+// Development measurement, hidden: DC at the output of the Ladder and SVF. A controlled single saw voice (no tracking,
+// contour or drift, amp sustain 100 %, so the output is the filter output times a constant), held 1.5 s, measured over
+// 0.5-1.5 s: mean re RMS (spread of 0.1 s window means re RMS) in dB, of the filter output before the voice's DC
+// blocker (reconstructed by unblockedFilterOutput), then after it, i.e. the voice output (ADR 0008).
+TEST_CASE("Mono Ladder and SVF output DC", "[.][mono-dc]")
+{
+	constexpr int samples = 72'000;
+	for (const auto type : { vekt::mono::FilterType::ladder, vekt::mono::FilterType::svf })
+		for (const auto drive : { 0.0f, 12.0f, 24.0f })
+		{
+			std::cout << "\n" << (type == vekt::mono::FilterType::ladder ? "Ladder" : "SVF") << " Drive +" << drive
+				<< " dB | Res | cutoff | note 33 / 45 / 57: DC re RMS (spread) dB\n";
+			for (const auto resonance : { 0.0f, 0.5f, 0.9f })
+				for (const auto cutoff : { 300.0f, 2'000.0f, 5'000.0f })
+				{
+					std::cout << juce::String(100.0f * resonance, 0) << " % | " << cutoff << " |";
+					for (const auto note : { 33, 45, 57 })
+					{
+						const auto settings = measurementVoice(type, cutoff, resonance, drive);
+						const auto y = renderHeldVoice(settings, note, samples);
+						const auto unblocked = unblockedFilterOutput(y, voiceAmplitude(settings, samples));
+						const auto dc = readDc(std::vector<float>(unblocked.begin(), unblocked.end()), noteHz(note), 24'000, samples);
+						std::cout << " " << signedDb(dc.ratio) << " (" << juce::String(20.0 * std::log10(dc.spread + 1.0e-300), 0) << ") -> "
+							<< signedDb(readDc(y, noteHz(note), 24'000, samples).ratio);
+					}
+					std::cout << "\n";
+				}
+		}
+}
+
+// Development measurement, hidden: where the DC comes from. (a) The oscillator alone: mean re RMS of each Morph anchor
+// and a 25 % pulse, raw and zero-centred. (b) Through each filter at Res 90 %, 2 kHz, note 45 (the voice's filter output
+// before its DC blocker): the same waveforms, and the saw per Mode.
+TEST_CASE("Mono Ladder and SVF output DC sources", "[.][mono-dc-source]")
+{
+	struct Shape { float morph, width; const char* name; };
+	const std::array shapes { Shape { 0.0f, 50.0f, "sine" }, Shape { 1.0f, 50.0f, "triangle" }, Shape { 2.0f, 50.0f, "saw" },
+		Shape { 3.0f, 50.0f, "square" }, Shape { 3.0f, 25.0f, "pulse 25 %" }, Shape { 2.0f, 25.0f, "saw W 25 %" } };
+	std::cout << "\nOscillator alone, note 45 | mean re RMS dB, raw / zero-centred\n";
+	for (const auto& shape : shapes)
+	{
+		std::cout << shape.name << " |";
+		for (const auto zeroCentred : { false, true })
+		{
+			vekt::mono::WidthOscillatorState state;
+			std::vector<float> y(48'000);
+			double phase {};
+			const auto frequency = noteHz(45);
+			for (auto& value : y)
+			{
+				phase += frequency / 48'000.0;
+				phase -= std::floor(phase);
+				value = vekt::mono::renderWidthOscillator(state, static_cast<float>(phase), static_cast<float>(frequency), 48'000.0, shape.morph, shape.width, zeroCentred);
+			}
+			std::cout << " " << signedDb(readDc(y, frequency, 4'800, 48'000).ratio);
+		}
+		std::cout << "\n";
+	}
+	for (const auto type : { vekt::mono::FilterType::ladder, vekt::mono::FilterType::svf })
+	{
+		std::cout << "\n" << (type == vekt::mono::FilterType::ladder ? "Ladder" : "SVF")
+			<< ", Res 90 %, 2 kHz, note 45 | Drive 0 / +12 / +24: DC re RMS dB (raw policy; zero-centred)\n";
+		for (const auto& shape : shapes)
+		{
+			std::cout << shape.name << " |";
+			for (const auto drive : { 0.0f, 12.0f, 24.0f })
+			{
+				auto settings = measurementVoice(type, 2'000.0f, 0.9f, drive);
+				settings.morph[0] = shape.morph;
+				settings.pulseWidth[0] = shape.width;
+				const auto beforeBlocker = [&settings]
+				{
+					const auto unblocked = unblockedFilterOutput(renderHeldVoice(settings, 45, 72'000), voiceAmplitude(settings, 72'000));
+					return readDc(std::vector<float>(unblocked.begin(), unblocked.end()), noteHz(45), 24'000, 72'000);
+				};
+				const auto raw = beforeBlocker();
+				settings.widthDcPolicy = vekt::mono::WidthDcPolicy::zeroCentered;
+				const auto centred = beforeBlocker();
+				std::cout << " " << signedDb(raw.ratio) << "; " << signedDb(centred.ratio);
+			}
+			std::cout << "\n";
+		}
+		for (const auto mode : { -1.0f, -0.5f, 0.0f, 0.5f, 1.0f })
+		{
+			std::cout << "saw, Mode " << mode << " |";
+			for (const auto drive : { 0.0f, 12.0f, 24.0f })
+			{
+				const auto settings = measurementVoice(type, 2'000.0f, 0.9f, drive, mode);
+				const auto unblocked = unblockedFilterOutput(renderHeldVoice(settings, 45, 72'000), voiceAmplitude(settings, 72'000));
+				std::cout << " " << signedDb(readDc(std::vector<float>(unblocked.begin(), unblocked.end()), noteHz(45), 24'000, 72'000).ratio);
+			}
+			std::cout << "\n";
+		}
+	}
+}
+
+// Development measurement, hidden: the ADR 0007 case through the whole PluginProcessor (48 kHz, 1x; Res 90 %, 2 kHz,
+// filter envelope 0, amp sustain 100 %, Drift 0), over 1-2 s of the left channel: DC re RMS dB (spread of 0.1 s
+// window means re RMS). Two patches: the processor's start-up sound as the ADR measured it (the first factory preset:
+// unison 2x, three detuned oscillators, delayed vibrato), and a plain saw (Osc 1 only, Morph 2, no fine, unison 1,
+// no LFO). One note (45) and a four-note chord (45 / 52 / 57 / 61). Windows cover whole periods of note 45 only, so
+// detuned layers, vibrato and the chord show up as spread. Since ADR 0008 this is the output after the voices' DC
+// blockers; the numbers before it are in ADR 0008.
+TEST_CASE("Mono Ladder and SVF output DC through the processor", "[.][mono-dc-processor]")
+{
+	for (const auto plain : { false, true })
+		for (const auto type : { 0.0f, 1.0f })
+		{
+			std::cout << "\n" << (plain ? "plain saw, " : "start-up patch, ") << (type == 0.0f ? "Ladder" : "SVF")
+				<< " | Drive 0 / +12 / +24: one note; chord\n";
+			for (const auto drive : { 0.0f, 12.0f, 24.0f })
+			{
+				for (const auto chord : { false, true })
+				{
+					vekt::mono::PluginProcessor processor;
+					setParameter(processor, parameters::filterType, type);
+					setParameter(processor, parameters::filterResonance, 90.0f);
+					setParameter(processor, parameters::filterCutoff, 2'000.0f);
+					setParameter(processor, parameters::filterDrive, drive);
+					setParameter(processor, parameters::filterEnvelopeAmount, 0.0f);
+					setParameter(processor, parameters::ampSustain, 100.0f);
+					setParameter(processor, parameters::drift, 0.0f);
+					if (plain)
+					{
+						setParameter(processor, parameters::unison, 0.0f);
+						setParameter(processor, parameters::osc1Fine, 0.0f);
+						setParameter(processor, parameters::osc1Morph, 2.0f);
+						setParameter(processor, parameters::osc2Level, 0.0f);
+						setParameter(processor, parameters::osc3Level, 0.0f);
+						setParameter(processor, parameters::vibratoDepth, 0.0f);
+						for (const auto* pitch : parameters::lfos[0].pitch)
+							setParameter(processor, pitch, 0.0f);
+					}
+					processor.prepareToPlay(48'000.0, 512);
+					const auto output = hold(processor, 188, chord ? -1 : 45, [&](int block)
+					{
+						if (!chord || block != 0) return;
+						juce::MidiBuffer midi;
+						for (const auto note : { 45, 52, 57, 61 }) midi.addEvent(juce::MidiMessage::noteOn(1, note, 0.8f), 0);
+						juce::AudioBuffer<float> first(2, 512);
+						processor.processBlock(first, midi); // the chord starts one block early; the analysis is later
+					});
+					std::vector<float> left(output.getReadPointer(0), output.getReadPointer(0) + output.getNumSamples());
+					const auto dc = readDc(left, noteHz(45), 48'000, output.getNumSamples());
+					std::cout << " " << signedDb(dc.ratio) << " (" << juce::String(20.0 * std::log10(dc.spread + 1.0e-300), 0) << ")";
+				}
+				std::cout << " |";
+			}
+			std::cout << "\n";
+		}
+}
+
+// Development measurement, hidden: is the DC audible at note on / off? The voice's filter output s before its DC blocker
+// (a held render with a 0.5 ms attack through unblockedFilterOutput; the replica error of the blocked version against
+// a real render is printed) has a steady
+// mean m. Unblocked, the DC reaches the output as the pedestal m x amplitude, switched by the amp envelope. With a
+// 5 Hz DcBlocker between filter and amp (reset at note start), what is left of it is the blocker's response to the
+// DC step m (it is linear), times the amplitude: m exp(-t / 32 ms) x amplitude at note on, nothing by note off.
+// Per 50 ms window at note on and note off, in the thump band (20 Hz to half the fundamental: two one-pole high-passes
+// at 20 Hz, two one-pole low-passes at f0 / 2): the pedestal's energy re the note's own energy in that band, and re
+// the note's whole energy in the window; then the same for what the blocker leaves.
+TEST_CASE("Mono Ladder and SVF output DC at note on and off", "[.][mono-dc-thump]")
+{
+	constexpr int samples = 72'000, releaseAt = 48'000, window = 2'400;
+	struct Envelope { float attack, release; const char* name; };
+	for (const auto type : { vekt::mono::FilterType::ladder, vekt::mono::FilterType::svf })
+		for (const auto drive : { 0.0f, 24.0f })
+		{
+			std::cout << "\n" << (type == vekt::mono::FilterType::ladder ? "Ladder" : "SVF") << ", Drive +" << drive
+				<< ", Res 90 %, 2 kHz | envelope | note | DC re RMS | on: pedestal re band, re all; blocked re band, re all"
+				<< " | off: same (dB) | replica error\n";
+			for (const auto& envelope : { Envelope { 0.005f, 0.3f, "5 ms / 300 ms" }, Envelope { 0.0005f, 0.005f, "0.5 ms / 5 ms" } })
+				for (const auto note : { 33, 45, 69, 81 })
+				{
+					auto fast = measurementVoice(type, 2'000.0f, 0.9f, drive);
+					fast.ampAttack = 0.0005f;
+					const auto preAmp = unblockedFilterOutput(renderHeldVoice(fast, note, samples), voiceAmplitude(fast, samples));
+					std::vector<float> steady(preAmp.begin() + 24'000, preAmp.begin() + 72'000);
+					const auto reading = readDc(steady, noteHz(note), 0, 48'000);
+					const auto mean = reading.ratio * reading.rms;
+					auto settings = fast;
+					settings.ampAttack = envelope.attack;
+					settings.ampRelease = envelope.release;
+					const auto amplitude = voiceAmplitude(settings, samples, releaseAt);
+					const auto real = renderHeldVoice(settings, note, samples, releaseAt);
+					vekt::dsp::DcBlocker<double> blocker, voiceBlocker;
+					blocker.prepare(48'000.0, vekt::mono::filterOutputDcBlockerHz);
+					voiceBlocker.prepare(48'000.0, vekt::mono::filterOutputDcBlockerHz);
+					std::vector<double> plain(preAmp.size()), pedestal(preAmp.size()), residual(preAmp.size());
+					double replicaError {};
+					for (std::size_t sample = 0; sample < preAmp.size(); ++sample)
+					{
+						plain[sample] = preAmp[sample] * amplitude[sample];
+						pedestal[sample] = mean * amplitude[sample];
+						residual[sample] = blocker.processSample(sample == 0 ? 0.0 : mean) * amplitude[sample];
+						replicaError = std::max(replicaError, std::abs(voiceBlocker.processSample(preAmp[sample]) * amplitude[sample] - real[sample]));
+					}
+					const auto band = [note](const std::vector<double>& x)
+					{
+						const auto pole = [](double hz) { return std::exp(-2.0 * std::numbers::pi * hz / 48'000.0); };
+						const auto high = pole(20.0), low = pole(0.5 * noteHz(note));
+						std::vector<double> y(x.size());
+						double h1x {}, h1y {}, h2x {}, h2y {}, l1 {}, l2 {};
+						for (std::size_t n = 0; n < x.size(); ++n)
+						{
+							h1y = x[n] - h1x + high * h1y; h1x = x[n];
+							h2y = h1y - h2x + high * h2y; h2x = h1y;
+							l1 = h2y + low * (l1 - h2y);
+							l2 = l1 + low * (l2 - l1);
+							y[n] = l2;
+						}
+						return y;
+					};
+					// The note without its DC: what the pedestal is heard against.
+					std::vector<double> note0(plain.size());
+					for (std::size_t sample = 0; sample < plain.size(); ++sample) note0[sample] = plain[sample] - pedestal[sample];
+					const auto noteBand = band(note0), pedestalBand = band(pedestal), residualBand = band(residual);
+					const auto energy = [](const std::vector<double>& x, int start)
+					{
+						double sum {};
+						for (int sample = start; sample < start + window; ++sample) sum += x[static_cast<std::size_t>(sample)] * x[static_cast<std::size_t>(sample)];
+						return sum;
+					};
+					const auto db = [](double ratio) { return juce::String(10.0 * std::log10(ratio + 1.0e-300), 0); };
+					const auto report = [&](int start)
+					{
+						const auto noteInBand = energy(noteBand, start), noteAll = energy(note0, start);
+						return db(energy(pedestalBand, start) / noteInBand) + ", " + db(energy(pedestalBand, start) / noteAll) + "; "
+							+ db(energy(residualBand, start) / noteInBand) + ", " + db(energy(residualBand, start) / noteAll);
+					};
+					std::cout << envelope.name << " | " << note << " | " << signedDb(reading.ratio) << " | " << report(0) << " | "
+						<< report(releaseAt) << " | " << juce::String(replicaError, 9) << "\n";
+				}
+		}
+}
+
+// Development measurement, hidden: is the Ladder / SVF / K35 DC a property of the saturation, or a numerical bias?
+// Each bare filter (K35 before its output blocker) from rest, fed a band-limited saw x (note 45, 0.7) and then -x:
+// an odd-symmetric implementation gives DC(-x) = -DC(x) and y(-x) = -y(x). Then the level: at input x 0.1 and x 0.01
+// the DC of a saturation product should fall about 40 dB per decade (the cubic term), a bias would not.
+TEST_CASE("Mono Ladder, SVF and K35 DC polarity and level", "[.][mono-dc-polarity]")
+{
+	constexpr int samples = 72'000;
+	const auto frequency = noteHz(45);
+	const auto saw = bandLimitedSaw(45, samples, 0.7f);
+	const auto run = [&](int type, float resonance, float drive, float gain)
+	{
+		auto input = saw;
+		for (auto& value : input) value *= gain;
+		return renderBareFilter(static_cast<vekt::mono::FilterType>(type), 2'000.0f, resonance, drive, input);
+	};
+	for (const auto type : { 0, 1, 2 })
+	{
+		std::cout << "\n" << (type == 0 ? "Ladder" : type == 1 ? "SVF" : "K35 (raw)")
+			<< ", 2 kHz | Res | Drive | DC(x) / DC(-x) re RMS dB | max |y(x) + y(-x)| re peak dB | DC at input x 0.1 / x 0.01 (Drive 0)\n";
+		for (const auto resonance : { 0.5f, 0.9f })
+			for (const auto drive : { 0.0f, 12.0f, 24.0f })
+			{
+				const auto positive = run(type, resonance, drive, 1.0f), negative = run(type, resonance, drive, -1.0f);
+				double mismatch {}, peak {};
+				for (std::size_t n = 0; n < positive.size(); ++n)
+				{
+					mismatch = std::max(mismatch, static_cast<double>(std::abs(positive[n] + negative[n])));
+					peak = std::max(peak, static_cast<double>(std::abs(positive[n])));
+				}
+				std::cout << juce::String(100.0f * resonance, 0) << " % | +" << drive << " | "
+					<< signedDb(readDc(positive, frequency, 24'000, samples).ratio) << " / " << signedDb(readDc(negative, frequency, 24'000, samples).ratio)
+					<< " | " << juce::String(20.0 * std::log10(mismatch / peak + 1.0e-300), 1);
+				if (drive == 0.0f)
+					std::cout << " | " << signedDb(readDc(run(type, resonance, 0.0f, 0.1f), frequency, 24'000, samples).ratio) << " / "
+						<< signedDb(readDc(run(type, resonance, 0.0f, 0.01f), frequency, 24'000, samples).ratio);
+				std::cout << "\n";
+			}
+	}
+}
+
+// Development measurement, hidden: short notes against a 5 Hz blocker. Ladder, Res 90 %, 2 kHz, +24 dB (the worst
+// held case), 5 ms attack and 5 ms release, notes of 20 / 50 / 100 / 500 ms. In the 50 ms from note off, in the
+// thump band: the DC pedestal unblocked, and what a blocker at 5 Hz (and, for comparison, 10 and 20 Hz) leaves of the
+// DC step, re the note's own energy in that band / re the note's whole energy (dB). The pedestal uses the settled mean;
+// the filter's own DC settles within a few ms at 2 kHz.
+TEST_CASE("Mono Ladder output DC on short notes", "[.][mono-dc-short]")
+{
+	constexpr int samples = 48'000, window = 2'400;
+	std::cout << "\nLadder +24 dB, Res 90 %, 2 kHz, 5 ms / 5 ms | note | length | unblocked | 5 Hz | 10 Hz | 20 Hz\n";
+	for (const auto note : { 45, 69, 81 })
+	{
+		auto settings = measurementVoice(vekt::mono::FilterType::ladder, 2'000.0f, 0.9f, 24.0f);
+		settings.ampAttack = 0.0005f;
+		const auto preAmp = unblockedFilterOutput(renderHeldVoice(settings, note, samples), voiceAmplitude(settings, samples));
+		std::vector<float> steady(preAmp.begin() + 24'000, preAmp.end());
+		const auto reading = readDc(steady, noteHz(note), 0, 24'000);
+		const auto mean = reading.ratio * reading.rms;
+		for (const auto lengthMs : { 20, 50, 100, 500 })
+		{
+			const auto releaseAt = lengthMs * 48;
+			settings.ampAttack = 0.005f;
+			settings.ampRelease = 0.005f;
+			const auto amplitude = voiceAmplitude(settings, samples, releaseAt);
+			const auto band = [note](const std::vector<double>& x)
+			{
+				const auto pole = [](double hz) { return std::exp(-2.0 * std::numbers::pi * hz / 48'000.0); };
+				const auto high = pole(20.0), low = pole(0.5 * noteHz(note));
+				std::vector<double> y(x.size());
+				double h1x {}, h1y {}, h2x {}, h2y {}, l1 {}, l2 {};
+				for (std::size_t n = 0; n < x.size(); ++n)
+				{
+					h1y = x[n] - h1x + high * h1y; h1x = x[n];
+					h2y = h1y - h2x + high * h2y; h2x = h1y;
+					l1 = h2y + low * (l1 - h2y);
+					l2 = l1 + low * (l2 - l1);
+					y[n] = l2;
+				}
+				return y;
+			};
+			std::vector<double> note0(preAmp.size()), pedestal(preAmp.size());
+			for (std::size_t n = 0; n < preAmp.size(); ++n)
+			{
+				pedestal[n] = mean * amplitude[n];
+				note0[n] = (preAmp[n] - mean) * amplitude[n];
+			}
+			const auto energy = [&](const std::vector<double>& x)
+			{
+				double sum {};
+				for (int n = releaseAt; n < releaseAt + window; ++n) sum += x[static_cast<std::size_t>(n)] * x[static_cast<std::size_t>(n)];
+				return sum;
+			};
+			const auto noteBand = energy(band(note0)), noteAll = energy(note0);
+			const auto describe = [&](const std::vector<double>& x)
+			{
+				const auto inBand = energy(band(x));
+				return juce::String(10.0 * std::log10(inBand / noteBand + 1.0e-300), 0) + " / " + juce::String(10.0 * std::log10(inBand / noteAll + 1.0e-300), 0);
+			};
+			std::cout << note << " | " << lengthMs << " ms | " << describe(pedestal);
+			for (const auto cutoff : { 5.0, 10.0, 20.0 })
+			{
+				vekt::dsp::DcBlocker<double> blocker;
+				blocker.prepare(48'000.0, cutoff);
+				std::vector<double> left(preAmp.size());
+				for (std::size_t n = 0; n < preAmp.size(); ++n) left[n] = blocker.processSample(n == 0 ? 0.0 : mean) * amplitude[n];
+				std::cout << " | " << describe(left);
+			}
+			std::cout << "\n";
+		}
+	}
+}
+
+TEST_CASE("Mono filter-output DC blocker keeps the low end", "[mono][filter][filter-type][dc]")
+{
+	// First order at 5 Hz (ADR 0008): about -3 dB there and within 0.3 dB from 20 Hz up, at the base and at the 8x rate.
+	for (const auto sampleRate : { 48'000.0, 384'000.0 })
+	{
+		const auto gainAt = [sampleRate](double frequency)
+		{
+			vekt::dsp::DcBlocker<double> blocker;
+			blocker.prepare(sampleRate, vekt::mono::filterOutputDcBlockerHz);
+			const auto period = sampleRate / frequency;
+			double peak {};
+			for (long sample = 0; sample < static_cast<long>(10.0 * sampleRate); ++sample)
+			{
+				const auto y = blocker.processSample(std::sin(2.0 * std::numbers::pi * static_cast<double>(sample) / period));
+				if (sample > static_cast<long>(8.0 * sampleRate)) peak = std::max(peak, std::abs(y));
+			}
+			return 20.0 * std::log10(peak);
+		};
+		INFO("rate " << sampleRate);
+		CHECK(gainAt(20.0) > -0.3);
+		CHECK(std::abs(gainAt(5.0) + 3.0) < 0.2);
+	}
+}
+
+TEST_CASE("Mono removes every filter's DC at the filter output", "[mono][filter][filter-type][dc]")
+{
+	// A driven saw into each filter's stress case: the bare filter generates tens of dB of DC (its saturation on a
+	// waveform without half-wave symmetry), and the held voice's settled output carries none of it.
+	struct Case { vekt::mono::FilterType type; float cutoff, resonance; double bareAbove; };
+	for (const auto& [type, cutoff, resonance, bareAbove] : { Case { vekt::mono::FilterType::ladder, 300.0f, 0.9f, -15.0 },
+		Case { vekt::mono::FilterType::svf, 300.0f, 0.5f, -35.0 }, Case { vekt::mono::FilterType::korg35, 2'000.0f, 0.9f, -40.0 } })
+	{
+		constexpr int samples = 72'000;
+		const auto bare = readDc(renderBareFilter(type, cutoff, resonance, 24.0f, bandLimitedSaw(45, samples, 0.7f)), noteHz(45), 24'000, samples);
+		const auto voice = readDc(renderHeldVoice(measurementVoice(type, cutoff, resonance, 24.0f), 45, samples), noteHz(45), 48'000, samples);
+		const auto db = [](double ratio) { return 20.0 * std::log10(std::abs(ratio) + 1.0e-300); };
+		INFO("type " << static_cast<int>(type) << ": bare filter DC " << db(bare.ratio) << " dB re RMS, voice " << db(voice.ratio) << " dB");
+		CHECK(db(bare.ratio) > bareAbove);
+		CHECK(db(voice.ratio) < -80.0);
+	}
+}
+
+TEST_CASE("Mono raw pulse keeps its DC into the filter and none at the voice output", "[mono][filter][filter-type][dc][width]")
+{
+	// WidthDcPolicy::raw is deliberate: a narrow pulse keeps its mean, which biases the filter's saturation. The voice
+	// removes DC only after the filter, so the filter's nonlinear response to the bias stays materially different (the
+	// settled raw and zero-centred outputs differ) while neither output carries DC.
+	constexpr int samples = 72'000;
+	const auto db = [](double ratio) { return 20.0 * std::log10(std::abs(ratio) + 1.0e-300); };
+	const auto pulse = bandLimitedSaw(45, samples, 1.0f, 25.0f, 3.0f);
+	CHECK(db(readDc(pulse, noteHz(45), 4'800, samples).ratio) > -8.0);
+	auto input = pulse;
+	for (auto& value : input) value *= 0.7f;
+	CHECK(db(readDc(renderBareFilter(vekt::mono::FilterType::ladder, 1'000.0f, 0.5f, 12.0f, input), noteHz(45), 24'000, samples).ratio) > -15.0);
+	auto settings = measurementVoice(vekt::mono::FilterType::ladder, 1'000.0f, 0.5f, 12.0f);
+	settings.morph[0] = 3.0f;
+	settings.pulseWidth[0] = 25.0f;
+	const auto raw = renderHeldVoice(settings, 45, samples);
+	settings.widthDcPolicy = vekt::mono::WidthDcPolicy::zeroCentered;
+	const auto centred = renderHeldVoice(settings, 45, samples);
+	const auto rawDc = readDc(raw, noteHz(45), 48'000, samples), centredDc = readDc(centred, noteHz(45), 48'000, samples);
+	double difference {};
+	for (int sample = 48'000; sample < samples; ++sample)
+		difference += std::pow(static_cast<double>(raw[static_cast<std::size_t>(sample)] - centred[static_cast<std::size_t>(sample)]), 2.0);
+	const auto differenceDb = 10.0 * std::log10(difference / (samples - 48'000)) - 20.0 * std::log10(rawDc.rms);
+	INFO("voice DC raw " << db(rawDc.ratio) << " dB, zero-centred " << db(centredDc.ratio) << " dB; raw - centred " << differenceDb << " dB re RMS");
+	CHECK(db(rawDc.ratio) < -80.0);
+	CHECK(db(centredDc.ratio) < -80.0);
+	CHECK(differenceDb > -30.0);
+}
+
+TEST_CASE("Mono filter-output DC blocker has mostly settled by the end of a 100 ms note", "[mono][filter][filter-type][dc]")
+{
+	// The blocker's time constant is 32 ms, so the DC step at note on is only partly removed on very short notes (20 ms
+	// notes keep most of it: a known limit, characterised by [mono-dc-short]). By 100 ms, when a fast release would expose
+	// it, it is at least 20 dB down. Worst held case: Ladder, +24 dB, Res 90 %, 2 kHz, note 69, 0.5 ms attack.
+	constexpr int samples = 48'000;
+	auto settings = measurementVoice(vekt::mono::FilterType::ladder, 2'000.0f, 0.9f, 24.0f);
+	settings.ampAttack = 0.0005f;
+	const auto output = renderHeldVoice(settings, 69, samples);
+	const auto amplitude = voiceAmplitude(settings, samples);
+	const auto unblocked = unblockedFilterOutput(output, amplitude);
+	const auto settled = readDc(std::vector<float>(unblocked.begin(), unblocked.end()), noteHz(69), 24'000, samples);
+	const auto dc = settled.ratio * settled.rms;
+	// The blocked filter output over the nine whole periods before 100 ms.
+	const auto window = static_cast<int>(std::round(9.0 * 48'000.0 / noteHz(69)));
+	double sum {};
+	for (int sample = 4'800 - window; sample < 4'800; ++sample)
+		sum += static_cast<double>(output[static_cast<std::size_t>(sample)]) / amplitude[static_cast<std::size_t>(sample)];
+	const auto remainingDb = 20.0 * std::log10(std::abs(sum / window / dc));
+	INFO("DC " << 20.0 * std::log10(std::abs(settled.ratio)) << " dB re RMS unblocked; at 80-100 ms " << remainingDb << " dB of it remains");
+	CHECK(20.0 * std::log10(std::abs(settled.ratio)) > -15.0);
+	CHECK(remainingDb < -20.0);
+}
+
+namespace
+{
+// One voice reused after a natural note end, as the processor does: `first` held for holdSamples, released and rendered
+// until the voice ends (its filters and DC blockers keep their state, as in the processor), gapSamples of the idle voice,
+// then `second` on the same voice for secondSamples. firstOutput holds note 1's rendered samples up to its end.
+struct ReusedVoiceRender
+{
+	std::vector<float> firstOutput, second;
+};
+
+ReusedVoiceRender renderReusedVoice(const vekt::mono::MonoVoiceSettings& first, int firstNote, int holdSamples, int gapSamples,
+	const vekt::mono::MonoVoiceSettings& second, int secondNote, int secondSamples)
+{
+	vekt::mono::MonoVoice voice;
+	voice.prepare(48'000.0, 0x4d6f6e6fu);
+	voice.setPanPosition(0.0f);
+	voice.start(1, firstNote, 0.8f, first, true, false, 1);
+	ReusedVoiceRender render;
+	for (int sample = 0; voice.isActive() && sample < holdSamples + 480'000; ++sample)
+	{
+		if (sample == holdSamples) voice.release(false);
+		float left {}, right {};
+		voice.render(left, right, first, 0.0f);
+		render.firstOutput.push_back(left);
+	}
+	REQUIRE_FALSE(voice.isActive());
+	for (int sample = 0; sample < gapSamples; ++sample)
+	{
+		float left {}, right {};
+		voice.render(left, right, second, 0.0f);
+		REQUIRE(left == 0.0f);
+	}
+	voice.start(1, secondNote, 0.8f, second, true, false, 2);
+	for (int sample = 0; sample < secondSamples; ++sample)
+	{
+		float left {}, right {};
+		voice.render(left, right, second, 0.0f);
+		render.second.push_back(left);
+	}
+	return render;
+}
+
+// The mean of a pre-amp signal over the whole periods in its first 50 ms, re `rms`: the DC step a note starts with.
+double onsetDcRatio(const std::vector<double>& preAmp, double frequency, double rms)
+{
+	const auto periods = std::max(1.0, std::round(0.05 * frequency));
+	const auto window = static_cast<int>(std::round(periods * 48'000.0 / frequency));
+	double sum {};
+	for (int sample = 1; sample <= window; ++sample) sum += preAmp[static_cast<std::size_t>(sample)];
+	return sum / window / rms;
+}
+
+std::vector<double> preAmpOf(const std::vector<float>& output, const std::vector<float>& amplitude)
+{
+	std::vector<double> preAmp(output.size());
+	for (std::size_t sample = 0; sample < output.size(); ++sample)
+		preAmp[sample] = amplitude[sample] > 0.0f ? static_cast<double>(output[sample]) / amplitude[sample] : 0.0;
+	return preAmp;
+}
+}
+
+// Development measurement, hidden: a voice reused after a natural note end keeps its filters' and DC blockers' state.
+// Note 1 (Ladder, +24 dB, Res 90 %, 2 kHz, 5 ms / 300 ms) held 1 s and released until the voice ends; after a gap,
+// note 2 on the same voice. The DC step note 2 starts with (mean over its first 50 ms re its settled RMS, dB), for:
+// a fresh voice without and with the blocker, the reused voice as implemented, the reused voice if only the blocker
+// were reset at note start (its filter state kept), and the reused voice without a blocker; then the reused voice's
+// settled DC (0.5-1 s).
+TEST_CASE("Mono filter-output DC on a reused voice", "[.][mono-dc-reuse]")
+{
+	constexpr int hold = 48'000, samples = 48'000;
+	struct Case { const char* name; int firstNote, secondNote; float secondMorph, secondDrive; };
+	std::cout << "\ncase | gap | fresh unblocked | fresh | reused | reused, blocker reset | reused unblocked | reused settled\n";
+	for (const auto& [name, firstNote, secondNote, secondMorph, secondDrive] : { Case { "same patch, same note", 69, 69, 2.0f, 24.0f },
+		Case { "same patch, 69 -> 45", 69, 45, 2.0f, 24.0f }, Case { "saw +24 -> square +24", 69, 69, 3.0f, 24.0f },
+		Case { "saw +24 -> saw Drive 0", 69, 69, 2.0f, 0.0f } })
+	{
+		const auto first = measurementVoice(vekt::mono::FilterType::ladder, 2'000.0f, 0.9f, 24.0f);
+		auto second = first;
+		second.morph[0] = secondMorph;
+		second.drive = secondDrive;
+		const auto frequency = noteHz(secondNote);
+		const auto amplitude = voiceAmplitude(second, samples);
+		const auto fresh = renderHeldVoice(second, secondNote, samples);
+		const auto freshUnblocked = unblockedFilterOutput(fresh, amplitude);
+		const auto rms = readDc(fresh, frequency, 24'000, samples).rms / amplitude.back();
+		const auto db = [](double ratio) { return signedDb(ratio); };
+		for (const auto gap : { 480, 96'000 })
+		{
+			const auto reused = renderReusedVoice(first, firstNote, hold, gap, second, secondNote, samples);
+			// The reused voice's filter output over both notes' rendered samples, in the order its blocker saw them.
+			auto output = reused.firstOutput;
+			auto amplitudes = voiceAmplitude(first, static_cast<int>(reused.firstOutput.size()), hold);
+			output.insert(output.end(), reused.second.begin(), reused.second.end());
+			amplitudes.insert(amplitudes.end(), amplitude.begin(), amplitude.end());
+			const auto unblocked = unblockedFilterOutput(output, amplitudes);
+			const std::vector<double> secondUnblocked(unblocked.end() - samples, unblocked.end());
+			vekt::dsp::DcBlocker<double> resetBlocker;
+			resetBlocker.prepare(48'000.0, vekt::mono::filterOutputDcBlockerHz);
+			std::vector<double> resetAtNote(secondUnblocked.size());
+			for (std::size_t sample = 0; sample < resetAtNote.size(); ++sample) resetAtNote[sample] = resetBlocker.processSample(secondUnblocked[sample]);
+			std::cout << name << " | " << gap / 48 << " ms | " << db(onsetDcRatio(freshUnblocked, frequency, rms)) << " | "
+				<< db(onsetDcRatio(preAmpOf(fresh, amplitude), frequency, rms)) << " | "
+				<< db(onsetDcRatio(preAmpOf(reused.second, amplitude), frequency, rms)) << " | " << db(onsetDcRatio(resetAtNote, frequency, rms))
+				<< " | " << db(onsetDcRatio(secondUnblocked, frequency, rms)) << " | " << db(readDc(reused.second, frequency, 24'000, samples).ratio) << "\n";
+		}
+	}
+}
+
+TEST_CASE("Mono reused voice starts the same after any idle gap and settles DC-free", "[mono][filter][filter-type][dc]")
+{
+	// An idle voice renders nothing and advances no state, so what a reused voice's blocker and filters carry into the
+	// next note does not depend on how long it was idle; and the next note settles DC-free whatever the last one left.
+	const auto first = measurementVoice(vekt::mono::FilterType::ladder, 2'000.0f, 0.9f, 24.0f);
+	auto second = first;
+	second.drive = 0.0f;
+	const auto shortGap = renderReusedVoice(first, 69, 24'000, 480, second, 69, 48'000);
+	const auto longGap = renderReusedVoice(first, 69, 24'000, 96'000, second, 69, 48'000);
+	REQUIRE(shortGap.second == longGap.second);
+	const auto dc = readDc(shortGap.second, noteHz(69), 24'000, 48'000);
+	INFO("settled DC " << 20.0 * std::log10(std::abs(dc.ratio)) << " dB re RMS");
+	CHECK(20.0 * std::log10(std::abs(dc.ratio)) < -80.0);
 }

@@ -13,9 +13,6 @@ namespace vekt::mono
 // several oscillators near full level drives it further (about L = 1.5 with all three), which is part of the sound.
 inline constexpr double korg35Knee = 2.0;
 
-// The output stage's DC blocker (a first-order high-pass): about -0.26 dB at 20 Hz.
-inline constexpr double korg35DcBlockerHz = 5.0;
-
 // Output trim for Resonance r, (1 + 4 r)^-0.8. Like the untrimmed SVF, K35's passband does not fall with Resonance,
 // while the Ladder's does; this law, measured through the real processor, puts K35 within 0.9 dB of the SVF and
 // within 3 dB of the Ladder below full Resonance at Drive 0 (ADR 0007). It is the SVF's law today, but K35 owns it:

@@ -76,8 +76,9 @@ limiter on a state inside the loop did not reintroduce the SVF's frequency-divis
   Hermite blends (in log 1/Q around 80 %, in rho around 95 %) with harmonic-mean knot slopes, so the map is monotonic
   and C1. Chosen by listening: at 2.2-2.3 the top did not scream enough.
 - **Low-pass only.** Mode and Q Comp do not apply to K35 and are disabled for it rather than given new meanings.
-- **Output stage:** a 5 Hz first-order DC blocker (see Validation, DC), then K35's Resonance trim
-  `korg35OutputTrim`, (1 + 4 r)^-0.8 (see Progress). Both act on the output only; the loop feeds back the limiter
+- **Output stage:** K35's Resonance trim `korg35OutputTrim`, (1 + 4 r)^-0.8 (see Progress), then the voice's
+  filter-output DC blocker, 5 Hz first order (see Validation, DC). Until ADR 0008 the blocker was K35's own, before
+  the trim; it is now common to all three filters. Both act on the output only; the loop feeds back the limiter
   output h(U2). The trim is numerically the SVF's law but K35 owns it, so SVF voicing changes cannot move K35.
 
 ### Rejected: Reactive2P (the first prototype)
@@ -145,7 +146,8 @@ were removed after this record.
   maximum Resonance and better at low cutoffs. No in-filter antialiasing is needed.
 - **DC:** the limiter partly rectifies inputs without half-wave symmetry (a saw): the output mean is -22 to -47 dB
   re its RMS (the SVF: -39 to -76 dB). The real circuit's output is capacitor-coupled (C19); integration adds a
-  DC-blocking high-pass after K35 so the amp envelope cannot turn the offset into thumps.
+  DC-blocking high-pass after K35 so the amp envelope cannot turn the offset into thumps (since ADR 0008, the voice's
+  filter-output blocker, common to all three filters).
 - **Self-oscillation level** (RMS re the played saw through the open filter): at L0 0.5, -1.3 / +4.1 / +7.2 dB for
   rho 2.4 / 2.6 / 3.0; the Ladder is about -13 to -14 dB. With rho capped at 2.40 and entrainment from Drive 0, the
   free oscillator is heard only without input or in its top-of-knob ring.
@@ -164,8 +166,8 @@ were removed after this record.
   Restoring a project saved before K35 existed explicitly resets `filterK35` to off (`setStateInformation`'s
   restore-default list), so a K35-active session never carries K35 into an old project. Factory presets are unedited.
 - **Render path.** The processor branches once per render segment (Ladder batched; SVF or K35 per voice). Each voice
-  keeps four K35 lanes and four DC blockers beside its ladders and SVFs; a switch resets the newly selected filter and
-  uses the existing continuity-offset declick.
+  keeps four K35 lanes beside its ladders and SVFs (and, since ADR 0008, four filter-output DC blockers shared by all
+  three types); a switch resets the newly selected filter and uses the existing continuity-offset declick.
 - **Editor.** `LADDER | SVF | K35` header tabs. K35 sets `filterK35` and keeps `filterType`; Ladder or SVF turns
   `filterK35` off and sets `filterType`: one undo transaction per click, each write a complete host gesture. Mode and
   Q Comp are disabled (not hidden) for K35; Q Comp's visible text is shortened to "Q Comp" to fit.
@@ -237,7 +239,12 @@ above. The development override now offers only K35 (`DevelopmentFilter::korg35`
 - **DC.** At the output stage (the core driven by a band-limited saw, whole periods): -36 dB re RMS before the
   blocker, numerically zero after it; the blocker is -3 dB at 5 Hz and within 0.3 dB from 20 Hz. Found on the way:
   the shipping Ladder and SVF carry more DC than K35 does in a driven patch (about -18 and -23 to -29 dB re RMS at
-  +24 dB); Mono has no DC blocking after them. That is outside this ADR.
+  +24 dB); Mono has no DC blocking after them. That is outside this ADR. *Clarified by ADR 0008:* those figures were
+  taken with the processor's start-up sound, the first factory preset (unison 2x, three detuned oscillators, delayed
+  vibrato), and part of what they show is slow beating: the window means moved by as much as the mean at +24 dB.
+  Controlled single-saw measurements then established a genuine steady offset (plain saw through the processor:
+  Ladder -13 dB, SVF -43 dB at +24 dB; the Ladder down to -9 dB in its worst case), from the filters' saturation. ADR
+  0008 removes DC at one common per-layer filter-output boundary before the amp envelope, K35's blocker included.
 - **Ladder and SVF bit-identical:** the `[mono-dump]` fixtures, now with SVF variants (8 Ladder, 5 SVF renders over
   44.1 / 48 / 96 kHz, 1x / 2x / 8x and Multicore), match a clean build of the previous commit byte for byte.
 - **Regression tests** (quick suite): `filterK35` appended, default off, and `filterType`'s mapping unchanged;
