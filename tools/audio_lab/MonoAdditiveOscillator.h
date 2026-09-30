@@ -161,7 +161,7 @@ private:
 		next = (next + 1) % cache.size();
 		entry.morph = keyMorph;
 		entry.width = keyWidth;
-		const auto blend = monoWidthMorphBlend(keyMorph, vekt::mono::squareSineMorphPower());
+		const auto blend = monoWidthMorphBlend(keyMorph);
 		monoWidthAnalyticAnchorCoefficients(blend.from, keyWidth, entry.coefficients.size(), entry.coefficients.data());
 		if (blend.weight > 0.0)
 		{

@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <array>
-#include <atomic>
 #include <cmath>
 #include <complex>
 #include <cstddef>
@@ -44,50 +43,28 @@ inline constexpr float morphPeriod = 4.0f;
 }
 
 // A spectrally rich anchor can dominate a linear morph long before it is reached. This curve delays its share
-// while keeping the endpoints exact: w(t) = t^p (p - (p - 1) t), with t in [0, 1] the distance from the plainer
-// anchor (t = 1 at the rich one). p = 1 is linear; every p meets the rich anchor with slope 1, so LFO sweeps do
-// not accelerate into it.
-[[nodiscard]] inline double delayedMorphWeight(double t, double power) noexcept
-{
-	// This runs per sample; avoid pow for the powers Morph uses.
-	const auto rise = power == 1.0 ? t : power == 2.0 ? t * t : power == 1.5 ? t * std::sqrt(t) : std::pow(t, power);
-	return rise * (power - (power - 1.0) * t);
-}
-
-// Square-to-sine curve (segment 3-4), still to be chosen by ear. Audio Lab switches it for every Mono instance
-// in the process; it is not saved.
-enum class SquareSineMorphCurve { linear, shaped15, shaped20 };
-inline std::atomic<SquareSineMorphCurve> squareSineMorphCurve { SquareSineMorphCurve::shaped20 };
-
-[[nodiscard]] inline double squareSineMorphPower() noexcept
-{
-	switch (squareSineMorphCurve.load(std::memory_order_relaxed))
-	{
-	case SquareSineMorphCurve::linear: return 1.0;
-	case SquareSineMorphCurve::shaped15: return 1.5;
-	case SquareSineMorphCurve::shaped20: break;
-	}
-	return 2.0;
-}
+// while keeping the endpoints exact: w(t) = 2t^2 - t^3 (37.5% halfway), with t in [0, 1] the distance from the
+// plainer anchor (t = 1 at the rich one). It is the p = 2 member of t^p (p - (p - 1) t); unlike plain t^2 it
+// meets the rich anchor with slope 1, so LFO sweeps do not accelerate into it.
+[[nodiscard]] inline double delayedMorphWeight(double t) noexcept { return t * t * (2.0 - t); }
 
 // Share of the segment's second anchor at a fraction through it. The invariant: the anchor that owns the curve
 // gets w(its distance back from its own end), so a curved second anchor gets w(fraction) and a curved first
 // anchor gets w(1 - fraction), making the blend 1 - w(1 - fraction). Which anchor owns the curve:
 //   0 sine-triangle    linear
-//   1 triangle-saw     the saw (second anchor): w(fraction), p = 2
-//   2 saw-square       the saw (first anchor):  1 - w(1 - fraction), p = 2
-//   3 square-sine      the square (first anchor): 1 - w(1 - fraction), p from the Audio Lab audition
+//   1 triangle-saw     the saw (second anchor): w(fraction)
+//   2 saw-square       the saw (first anchor):  1 - w(1 - fraction)
+//   3 square-sine      the square (first anchor): 1 - w(1 - fraction)
 // Do not simplify 1 - w(1 - fraction) to w(fraction): that delays the second anchor instead, e.g. the sine rather
-// than the square (62.5% square halfway at p = 2 instead of 37.5%). The saw's p = 2 was chosen by ear over
-// linear, p = 1.5 and t^2.
+// than the square (62.5% square halfway instead of 37.5%). The saw's curve was chosen by ear over linear, p = 1.5
+// and t^2; the square's (30 Sep 2026) over linear and p = 1.5, matching the saw.
 [[nodiscard]] inline double morphSegmentBlend(int segment, double fraction) noexcept
 {
 	switch (segment)
 	{
 	case 0: return fraction;
-	case 1: return delayedMorphWeight(fraction, 2.0);
-	case 2: return 1.0 - delayedMorphWeight(1.0 - fraction, 2.0);
-	default: return 1.0 - delayedMorphWeight(1.0 - fraction, squareSineMorphPower());
+	case 1: return delayedMorphWeight(fraction);
+	default: return 1.0 - delayedMorphWeight(1.0 - fraction);
 	}
 }
 

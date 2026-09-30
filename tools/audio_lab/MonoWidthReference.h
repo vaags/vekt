@@ -44,22 +44,21 @@ inline double monoWidthIdealAnchor(int anchor, double phase, double width)
 }
 
 // Cyclic Morph (period 4): the segment, the fraction through it and the second anchor's weight. Sine to
-// triangle is linear; the richer anchor's share is t^p (p - (p - 1) t) elsewhere, p = 2 next to the saw and
-// squareSinePower from the square back to the sine.
+// triangle is linear; elsewhere the richer anchor's share is 2t^2 - t^3 (the saw next to it, the square back to
+// the sine).
 struct MonoWidthMorphBlend
 {
 	int from {}, to {};
 	double weight {};
 };
 
-inline MonoWidthMorphBlend monoWidthMorphBlend(double morph, double squareSinePower = 2.0)
+inline MonoWidthMorphBlend monoWidthMorphBlend(double morph)
 {
 	const auto position = morph - 4.0 * std::floor(morph / 4.0);
 	const auto segment = std::clamp(static_cast<int>(position), 0, 3);
 	const auto fraction = position - segment;
-	const auto delayed = [](double t, double power) { return std::pow(t, power) * (power - (power - 1.0) * t); };
-	const auto weight = segment == 0 ? fraction : segment == 1 ? delayed(fraction, 2.0)
-		: 1.0 - delayed(1.0 - fraction, segment == 2 ? 2.0 : squareSinePower);
+	const auto delayed = [](double t) { return t * t * (2.0 - t); };
+	const auto weight = segment == 0 ? fraction : segment == 1 ? delayed(fraction) : 1.0 - delayed(1.0 - fraction);
 	return { segment, (segment + 1) % 4, weight };
 }
 

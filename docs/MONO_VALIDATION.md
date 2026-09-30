@@ -104,17 +104,15 @@ relative to the fundamental (t = 0 square, 1 sine):
 Linear is gentler at its midpoint than the curved triangle-to-saw segment
 (about -11 dB) but near the sine it leaves the square's odd harmonics about
 -27 dB against an unmasked sine, close to the linear triangle-to-saw failure
-that motivated the saw curve. The level dip is -0.2 dB for every curve. Away
+that motivated the saw curve. The level dip is -0.2 dB for all three curves. Away
 from 50% Width the total overtone energy still falls monotonically, but single
 low harmonics can null mid-segment (the 3rd at 35% Width near t = 0.74); the
 existing sine-to-triangle segment does the same, so this is inherent to
 crossfading anchors that Width warps differently.
 
-**The curve is not chosen yet.** p = 2 is the provisional default for
-consistency with the saw segments; Audio Lab's "Square-sine" selector switches
-linear / p = 1.5 / p = 2 for every Mono instance (process-wide, not saved).
-Audition at several pitches and at 10/20/35/50% Width, then fix the curve and
-remove the selector, as was done for the saw.
+**Decision (30 September 2026): p = 2**, the same `2t^2 - t^3` as the saw
+segments, over linear and p = 1.5. The Audio Lab selector used to compare them
+has been removed, so all three curved segments now share one curve.
 
 Around the cycle: the 10 ms knob ramp runs unwrapped and takes the short way
 round, so crossing the 4-to-0 wrap does not sweep back through saw
