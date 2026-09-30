@@ -38,7 +38,7 @@ void setParameter(vekt::mono::PluginProcessor& processor, const char* identifier
 }
 
 int run(double rate, int blockSize, int voices, int factor, double seconds, bool work, bool transitions, bool cpu, int unison, bool multicore,
-	bool svf)
+	bool svf, bool korg35)
 {
 	if (!vekt::audio_lab::callback_allocation_probe::verify()) return 1;
 	vekt::mono::PluginProcessor processor;
@@ -55,6 +55,7 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 	setParameter(processor, vekt::mono::parameters::filterDrive, 12.0f);
 	setParameter(processor, vekt::mono::parameters::multicore, multicore ? 1.0f : 0.0f);
 	setParameter(processor, vekt::mono::parameters::filterType, svf ? 1.0f : 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterK35, korg35 ? 1.0f : 0.0f);
 	processor.prepareToPlay(rate, blockSize);
 	if (processor.getActiveQuality() != qualityIndex) return 1;
 	juce::AudioBuffer<float> buffer(2, blockSize);
@@ -171,7 +172,7 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 	const auto deadlineUs = blockSize * 1'000'000.0 / rate;
 	const auto p99_9Us = percentile(0.999);
 	std::cout << std::fixed << std::setprecision(3)
-		<< "engine=" << (svf ? "svf" : "coupled")
+		<< "engine=" << (korg35 ? "k35" : svf ? "svf" : "coupled")
 		<< " workload=" << (transitions ? "transitions" : "sustained")
 		<< " transition_callbacks=" << transitionCallbacks
 		<< " rate=" << rate << " block=" << blockSize << " voices=" << voices << " unison=" << unison
@@ -233,7 +234,7 @@ int main(int argc, char** argv)
 {
 	if (argc < 6 || argc > 10)
 	{
-		std::cerr << "Usage: VektMonoProcessorCost rate block_size voices(8|12|16) factor(1|2|4|8) seconds [work|transitions|cpu] [unison=1|2|4] [multicore] [svf]\n";
+		std::cerr << "Usage: VektMonoProcessorCost rate block_size voices(8|12|16) factor(1|2|4|8) seconds [work|transitions|cpu] [unison=1|2|4] [multicore] [svf|k35]\n";
 		return 64;
 	}
 	try
@@ -245,7 +246,7 @@ int main(int argc, char** argv)
 		const auto seconds = std::stod(argv[5]);
 		bool work {}, transitions {}, cpu {};
 		int unison = 1;
-		bool multicore {}, svf {};
+		bool multicore {}, svf {}, korg35 {};
 		for (int index = 6; index < argc; ++index)
 		{
 			const std::string_view option(argv[index]);
@@ -255,6 +256,7 @@ int main(int argc, char** argv)
 			else if (option.starts_with("unison=")) unison = std::stoi(std::string(option.substr(7)));
 			else if (option == "multicore") multicore = true;
 			else if (option == "svf") svf = true;
+			else if (option == "k35") korg35 = true;
 			else return 64;
 		}
 		if (!std::isfinite(rate) || rate < 44'100.0 || rate > 192'000.0
@@ -264,7 +266,8 @@ int main(int argc, char** argv)
 			|| static_cast<int>(work) + static_cast<int>(transitions) + static_cast<int>(cpu) > 1
 			|| (unison != 1 && unison != 2 && unison != 4)) return 64;
 		juce::ScopedJuceInitialiser_GUI juceInitialiser;
-		return run(rate, block, voices, factor, seconds, work, transitions, cpu, unison, multicore, svf);
+		if (svf && korg35) return 64;
+		return run(rate, block, voices, factor, seconds, work, transitions, cpu, unison, multicore, svf, korg35);
 	}
 	catch (const std::exception&) { return 64; }
 }

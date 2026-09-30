@@ -18,6 +18,9 @@ add_library(VektMonoCore STATIC
 	Source/NonlinearTptLadder.cpp
 	Source/NonlinearTptLadder.h
 	Source/NonlinearTptSvf.h
+	Source/NonlinearTptKorg35.h
+	Source/Korg35Response.h
+	Source/SimdLanes.h
 	Source/WidthOscillator.cpp
 	Source/WidthOscillator.h
 	Source/MonoRenderWorkers.cpp

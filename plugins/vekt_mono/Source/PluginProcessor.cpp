@@ -48,12 +48,13 @@ juce::Result migrateLfoPreset(presets::Preset& preset, const juce::AudioProcesso
 }
 // Schema 8 adds the ladder's filter Mode (older presets keep the plain LP ladder); schema 9 added a saturated-taps
 // A/B that schema 11 retires (the saturated taps are the only Notch/HP mix now); schema 10 adds the filter type
-// (Ladder, the only filter earlier presets had). Each added parameter starts at its default.
+// (Ladder, the only filter earlier presets had); schema 12 adds the K35 override (ADR 0007), explicitly off for every
+// older preset. Each other added parameter starts at its default.
 juce::Result migratePreset(presets::Preset& preset, const juce::AudioProcessorValueTreeState& state)
 {
 	if (preset.soundSchemaVersion >= 4 && preset.soundSchemaVersion <= 6)
 		if (const auto result = migrateLfoPreset(preset, state); result.failed()) return result;
-	if (preset.soundSchemaVersion < 7 || preset.soundSchemaVersion > 11) return juce::Result::fail("Unsupported Mono preset sound schema");
+	if (preset.soundSchemaVersion < 7 || preset.soundSchemaVersion > 12) return juce::Result::fail("Unsupported Mono preset sound schema");
 	const auto addDefaults = [&](const auto& identifiers, int version)
 	{
 		for (const auto* identifier : identifiers)
@@ -73,6 +74,16 @@ juce::Result migratePreset(presets::Preset& preset, const juce::AudioProcessorVa
 			return parameter.identifier == "filterSaturatedTaps";
 		}), preset.parameters.end());
 		preset.soundSchemaVersion = 11;
+	}
+	if (preset.soundSchemaVersion == 11)
+	{
+		// Forced off rather than left to the parameter default, so an older preset can never select K35.
+		preset.parameters.erase(std::remove_if(preset.parameters.begin(), preset.parameters.end(), [](const auto& parameter)
+		{
+			return parameter.identifier == parameters::filterK35;
+		}), preset.parameters.end());
+		preset.parameters.push_back({ parameters::filterK35, 0.0f });
+		preset.soundSchemaVersion = 12;
 	}
 	return juce::Result::ok();
 }
@@ -127,6 +138,8 @@ MonoVoiceSettings PluginProcessor::snapshotSettings() const
 	settings.qCompensation = value(parameters::filterQCompensation) >= 0.5f;
 	settings.filterMode = value(parameters::filterMode);
 	settings.filterType = value(parameters::filterType) >= 0.5f ? FilterType::svf : FilterType::ladder;
+	// K35 (ADR 0007) overrides the Ladder/SVF choice, which stays underneath for when it is switched off.
+	if (value(parameters::filterK35) >= 0.5f) settings.filterType = FilterType::korg35;
 	settings.ampAttack = value(parameters::ampAttack);
 	settings.ampDecay = value(parameters::ampDecay);
 	settings.ampSustain = value(parameters::ampSustain) * 0.01f;
@@ -182,11 +195,11 @@ PluginProcessor::PluginProcessor()
 	: AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
 	  parameterState(*this, &undoManager, parameters::stateType, parameters::createLayout()),
 	  stateManager(parameterState, parameters::projectStateType, 3),
-	  presetSession(presetCatalog, { parameters::presetProductIdentifier, "Vekt Mono", 11 }, {
+	  presetSession(presetCatalog, { parameters::presetProductIdentifier, "Vekt Mono", 12 }, {
 		[this](const juce::String& name)
 		{
 			auto preset = presets::PresetSchema::create(parameters::presetProductIdentifier, name, parameterState, parameters::soundParameterIds);
-			preset.soundSchemaVersion = 11;
+			preset.soundSchemaVersion = 12;
 			return preset;
 		},
 		[this](presets::Preset& preset) { return migratePreset(preset, parameterState); },
@@ -382,14 +395,43 @@ void PluginProcessor::renderUnit(int unit) noexcept
 			right[sample] = unitRight;
 		}
 	};
-	if (settings.filterType == FilterType::svf)
+	if (settings.filterType == FilterType::korg35)
+	{
+		renderSamples([&](const auto& beginVoice, float& unitLeft, float& unitRight)
+		{
+			// As the ladder: the unit's voices build their K35 inputs, share one batched solve (tanh vectorized across
+			// up to four lanes), then finish their samples.
+			std::array<NonlinearTptKorg35*, 4> filters {};
+			std::array<const NonlinearTptKorg35Settings*, 4> filterSettings {};
+			std::array<double, 4> filterInputs {}, filterOutputs {};
+			std::array<std::size_t, 4> firstLane {};
+			std::array<bool, 4> sounding {};
+			std::size_t lanes {};
+			for (std::size_t index = 0; index < voiceCount; ++index)
+			{
+				auto& voice = *voices[unitVoices[index]];
+				sounding[index] = beginVoice(voice);
+				if (!sounding[index]) continue;
+				firstLane[index] = lanes;
+				voice.korg35Request(filters.data() + lanes, filterInputs.data() + lanes, filterSettings.data() + lanes);
+				lanes += static_cast<std::size_t>(voice.korg35Lanes());
+			}
+			NonlinearTptKorg35::processLanes(std::span<NonlinearTptKorg35* const>(filters.data(), lanes),
+				std::span<const double>(filterInputs.data(), lanes), std::span(filterOutputs.data(), lanes),
+				std::span<const NonlinearTptKorg35Settings* const>(filterSettings.data(), lanes));
+			for (std::size_t index = 0; index < voiceCount; ++index)
+				if (sounding[index]) voices[unitVoices[index]]->finishKorg35Sample(filterOutputs.data() + firstLane[index], unitLeft, unitRight);
+		});
+		return;
+	}
+	if (settings.filterType != FilterType::ladder)
 	{
 		renderSamples([&](const auto& beginVoice, float& unitLeft, float& unitRight)
 		{
 			for (std::size_t index = 0; index < voiceCount; ++index)
 			{
 				auto& voice = *voices[unitVoices[index]];
-				if (beginVoice(voice)) voice.finishSvfSample(unitLeft, unitRight);
+				if (beginVoice(voice)) voice.finishNonLadderSample(unitLeft, unitRight);
 			}
 		});
 		return;
@@ -738,13 +780,13 @@ juce::Result PluginProcessor::loadAdjacentPreset(bool next)
 }
 juce::Result PluginProcessor::validatePresetSound(const presets::Preset& preset) const
 {
-	return preset.soundSchemaVersion != 11 ? juce::Result::fail("Unsupported Mono preset sound schema")
+	return preset.soundSchemaVersion != 12 ? juce::Result::fail("Unsupported Mono preset sound schema")
 		: presets::PresetSchema::validate(preset, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds);
 }
 juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 {
 	auto prepared = preset;
-	if (prepared.soundSchemaVersion >= 4 && prepared.soundSchemaVersion <= 10)
+	if (prepared.soundSchemaVersion >= 4 && prepared.soundSchemaVersion <= 11)
 		if (const auto result = migratePreset(prepared, parameterState); result.failed()) return result;
 	if (const auto result = validatePresetSound(prepared); result.failed()) return result;
 	undoManager.beginNewTransaction("Load preset: " + preset.name);
@@ -755,7 +797,7 @@ juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 bool PluginProcessor::matchesPresetSound(const presets::Preset& preset) const
 {
 	auto prepared = preset;
-	if (prepared.soundSchemaVersion >= 4 && prepared.soundSchemaVersion <= 10 && migratePreset(prepared, parameterState).failed()) return false;
+	if (prepared.soundSchemaVersion >= 4 && prepared.soundSchemaVersion <= 11 && migratePreset(prepared, parameterState).failed()) return false;
 	return validatePresetSound(prepared).wasOk()
 		&& presets::PresetSchema::matches(prepared, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds);
 }
@@ -787,6 +829,8 @@ void PluginProcessor::setStateInformation(const void* data, int size)
 		restoreDefault(parameters::multicore);
 		for (const auto* identifier : parameters::schema7ParameterIds) restoreDefault(identifier);
 		for (const auto* identifier : parameters::schema8ParameterIds) restoreDefault(identifier);
+		// A project saved before K35 existed never restores into K35 (ADR 0007): the override is explicitly reset.
+		for (const auto* identifier : parameters::schema12ParameterIds) restoreDefault(identifier);
 		for (const auto* identifier : { parameters::heldKeyReturn, parameters::filterQCompensation })
 		{
 			auto* parameter = parameterState.getParameter(identifier);

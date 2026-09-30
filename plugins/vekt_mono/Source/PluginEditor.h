@@ -55,7 +55,7 @@ private:
 	float level {};
 };
 
-// One filter type (Ladder or SVF) in the filter panel's header.
+// One filter type (Ladder, SVF or K35) in the filter panel's header.
 class FilterTypeTab final : public juce::Button
 {
 public:
@@ -115,7 +115,8 @@ private:
 		std::unique_ptr<ComboBoxAttachment>& attachment);
 	void selectLfo(std::size_t index);
 	// Shows the filter type (0 Ladder, 1 SVF): lights its tab and disables the Ladder-only toggles for the SVF.
-	void showFilterType(int type);
+	void refreshFilterType();
+	void selectFilterType(int type);
 	void refreshLfoVisibility();
 
 	struct LfoControls
@@ -166,11 +167,14 @@ private:
 	juce::Label noiseTypeLabel;
 	std::array<ui::RotaryControl, 6> filterControls;
 	std::array<std::unique_ptr<SliderAttachment>, 6> filterAttachments;
-	std::array<FilterTypeTab, 2> filterTypeTabs;
+	std::array<FilterTypeTab, 3> filterTypeTabs;
 	juce::ToggleButton qCompensationButton { "Q Compensation" };
 	std::unique_ptr<ButtonAttachment> qCompensationAttachment;
-	// After the tabs and toggles its callback updates, so it is destroyed before them.
-	std::unique_ptr<juce::ParameterAttachment> filterTypeAttachment;
+	// After the tabs and toggles their callbacks update, so they are destroyed before them.
+	std::unique_ptr<juce::ParameterAttachment> filterTypeAttachment, filterK35Attachment;
+	// The values the attachments last delivered (their callbacks can run before the parameter state's raw values move).
+	int shownFilterType {};
+	bool shownK35 {};
 	std::array<ui::RotaryControl, 5> ampControls;
 	std::array<std::unique_ptr<SliderAttachment>, 5> ampAttachments;
 	std::array<ui::RotaryControl, 5> filterEnvelopeControls;
