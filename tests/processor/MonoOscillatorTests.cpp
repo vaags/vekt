@@ -11,7 +11,6 @@
 #include <cmath>
 #include <complex>
 #include <numbers>
-#include <utility>
 #include <vector>
 
 namespace
@@ -133,18 +132,12 @@ TEST_CASE("Mono oscillator anchors have matching RMS at the saw's level", "[mono
 
 TEST_CASE("Mono oscillator level stays within 1 dB across the whole Morph range", "[mono][oscillator]")
 {
-	using vekt::mono::SquareSineMorphCurve;
-	for (const auto curve : { SquareSineMorphCurve::linear, SquareSineMorphCurve::shaped15, SquareSineMorphCurve::shaped20 })
+	for (int step = 0; step <= 80; ++step)
 	{
-		vekt::mono::squareSineMorphCurve.store(curve);
-		for (int step = 0; step <= 80; ++step)
-		{
-			const auto morph = static_cast<float>(step) * 0.05f;
-			CAPTURE(static_cast<int>(curve), morph);
-			REQUIRE(std::abs(decibels(cycleRms(atMorph(morph)) / targetRms)) < 1.0f);
-		}
+		const auto morph = static_cast<float>(step) * 0.05f;
+		CAPTURE(morph);
+		REQUIRE(std::abs(decibels(cycleRms(atMorph(morph)) / targetRms)) < 1.0f);
 	}
-	vekt::mono::squareSineMorphCurve.store(SquareSineMorphCurve::shaped20);
 }
 
 TEST_CASE("Mono oscillator anchors are the canonical shapes", "[mono][oscillator]")
@@ -400,41 +393,34 @@ TEST_CASE("Mono morph curves delay the richer anchor but meet it at the linear r
 {
 	using vekt::mono::delayedMorphWeight;
 	using vekt::mono::morphSegmentBlend;
-	REQUIRE(delayedMorphWeight(0.25, 2.0) == Catch::Approx(0.109375));
-	REQUIRE(delayedMorphWeight(0.5, 2.0) == Catch::Approx(0.375));
-	REQUIRE(delayedMorphWeight(0.75, 2.0) == Catch::Approx(0.703125));
-	REQUIRE(delayedMorphWeight(0.5, 1.5) == Catch::Approx(std::pow(0.5, 1.5) * 1.25));
-	REQUIRE(delayedMorphWeight(0.5, 1.0) == Catch::Approx(0.5));
-	// Sine to triangle is linear; the saw's share and the square's share are delayed: 37.5% halfway at p = 2.
+	REQUIRE(delayedMorphWeight(0.0) == 0.0);
+	REQUIRE(delayedMorphWeight(0.25) == Catch::Approx(0.109375));
+	REQUIRE(delayedMorphWeight(0.5) == Catch::Approx(0.375));
+	REQUIRE(delayedMorphWeight(0.75) == Catch::Approx(0.703125));
+	REQUIRE(delayedMorphWeight(1.0) == 1.0);
+	// Meets the rich anchor with slope 1, like linear morphing, so LFO sweeps do not speed up there.
+	constexpr double step = 1.0e-4;
+	REQUIRE((1.0 - delayedMorphWeight(1.0 - step)) / step == Catch::Approx(1.0).margin(0.01));
+	// Sine to triangle is linear; the saw's share and the square's share are delayed: 37.5% halfway.
 	REQUIRE(morphSegmentBlend(0, 0.3) == Catch::Approx(0.3));
 	REQUIRE(morphSegmentBlend(1, 0.5) == Catch::Approx(0.375));
 	REQUIRE(morphSegmentBlend(2, 0.5) == Catch::Approx(0.625));
 	REQUIRE(morphSegmentBlend(3, 0.5) == Catch::Approx(0.625));
-	using vekt::mono::SquareSineMorphCurve;
-	for (const auto [curve, power] : { std::pair { SquareSineMorphCurve::linear, 1.0 },
-		std::pair { SquareSineMorphCurve::shaped15, 1.5 }, std::pair { SquareSineMorphCurve::shaped20, 2.0 } })
+	for (int segment = 0; segment <= 3; ++segment)
 	{
-		CAPTURE(power);
-		vekt::mono::squareSineMorphCurve.store(curve);
-		REQUIRE(morphSegmentBlend(3, 0.0) == 0.0);
-		REQUIRE(morphSegmentBlend(3, 1.0) == 1.0);
-		REQUIRE(morphSegmentBlend(3, 0.5) == Catch::Approx(1.0 - delayedMorphWeight(0.5, power)));
-		// Leaves the square at the linear rate for every curve, so sweeps do not jump away from it.
-		constexpr double step = 1.0e-4;
-		REQUIRE(morphSegmentBlend(3, step) / step == Catch::Approx(1.0).margin(0.01));
+		CAPTURE(segment);
+		REQUIRE(morphSegmentBlend(segment, 0.0) == 0.0);
+		REQUIRE(morphSegmentBlend(segment, 1.0) == 1.0);
 		double previous = -1.0;
 		for (int index = 0; index <= 100; ++index)
 		{
-			const auto blend = morphSegmentBlend(3, index / 100.0);
+			const auto blend = morphSegmentBlend(segment, index / 100.0);
 			REQUIRE(blend > previous);
 			previous = blend;
 		}
 	}
-	vekt::mono::squareSineMorphCurve.store(SquareSineMorphCurve::shaped20);
-	// Every p meets the richer anchor with slope 1.
-	constexpr double step = 1.0e-4;
-	for (const auto power : { 1.0, 1.5, 2.0 })
-		REQUIRE((1.0 - delayedMorphWeight(1.0 - step, power)) / step == Catch::Approx(1.0).margin(0.01));
+	// The square is left at the linear rate, so sweeps do not jump away from it.
+	REQUIRE(morphSegmentBlend(3, step) / step == Catch::Approx(1.0).margin(0.01));
 }
 
 TEST_CASE("Mono Morph wraps round its cycle", "[mono][oscillator]")
