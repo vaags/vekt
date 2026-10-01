@@ -309,30 +309,7 @@ TEST_CASE("Mono synced free LFO follows the host song position", "[mono][lfo]")
 	REQUIRE(differenceRms(renderAt(8.5), onBeat) > 1.0e-3f);
 }
 
-TEST_CASE("Mono migrates earlier presets to the current schema with the LFOs at their defaults", "[mono][lfo][preset]")
-{
-	vekt::mono::PluginProcessor processor;
-	vekt::presets::Preset factory;
-	REQUIRE(processor.getPresetSession().library().loadFactoryPreset(0, factory).wasOk());
-	auto schema6 = vekt::presets::PresetSchema::create(parameters::presetProductIdentifier, "Schema 6",
-		processor.getParameters(), parameters::legacySoundParameterIds);
-	schema6.soundSchemaVersion = 6;
-	for (auto preset : { factory, schema6 })
-	{
-		CAPTURE(preset.soundSchemaVersion);
-		setParameter(processor, parameters::lfos[1].filter, 3.0f);
-		setParameter(processor, parameters::lfos[0].amount, 20.0f);
-		REQUIRE(processor.getPresetSession().prepare(preset).wasOk());
-		REQUIRE(preset.soundSchemaVersion == 12);
-		REQUIRE(preset.parameters.size() == parameters::soundParameterIds.size());
-		REQUIRE(vekt::presets::PresetSchema::apply(preset, parameters::presetProductIdentifier,
-			processor.getParameters(), parameters::soundParameterIds).wasOk());
-		REQUIRE(rawValue(processor, parameters::lfos[1].filter) == 0.0f);
-		REQUIRE(rawValue(processor, parameters::lfos[0].amount) == Catch::Approx(100.0f));
-	}
-}
-
-TEST_CASE("Mono LFO settings recall with project state and reset for older projects", "[mono][lfo][state]")
+TEST_CASE("Mono LFO settings recall with project state", "[mono][lfo][state]")
 {
 	vekt::mono::PluginProcessor source;
 	setParameter(source, parameters::lfos[0].pitch[2], 7.0f);
@@ -344,27 +321,6 @@ TEST_CASE("Mono LFO settings recall with project state and reset for older proje
 	restored.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
 	REQUIRE(rawValue(restored, parameters::lfos[0].pitch[2]) == Catch::Approx(7.0f));
 	REQUIRE(rawValue(restored, parameters::lfos[1].mode) == Catch::Approx(2.0f));
-
-	// A project saved before the LFOs existed must not inherit the live LFO settings.
-	auto tree = juce::ValueTree::readFromData(state.getData(), state.getSize());
-	std::function<void(juce::ValueTree)> removeLfoParameters = [&](juce::ValueTree node)
-	{
-		for (int index = node.getNumChildren(); --index >= 0;)
-		{
-			auto child = node.getChild(index);
-			if (child.getProperty("id").toString().startsWith("lfo")) node.removeChild(index, nullptr);
-			else removeLfoParameters(child);
-		}
-	};
-	removeLfoParameters(tree);
-	juce::MemoryOutputStream legacy;
-	tree.writeToStream(legacy);
-	vekt::mono::PluginProcessor live;
-	setParameter(live, parameters::lfos[0].pitch[2], -5.0f);
-	setParameter(live, parameters::lfos[0].amount, 10.0f);
-	live.setStateInformation(legacy.getData(), static_cast<int>(legacy.getDataSize()));
-	REQUIRE(rawValue(live, parameters::lfos[0].pitch[2]) == 0.0f);
-	REQUIRE(rawValue(live, parameters::lfos[0].amount) == Catch::Approx(100.0f));
 }
 
 TEST_CASE("Mono vibrato is silent until the mod wheel or aftertouch is used", "[mono][vibrato]")

@@ -26,11 +26,6 @@ void setParameter(vekt::mono::PluginProcessor& processor, const char* identifier
 	parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
 }
 
-float rawValue(vekt::mono::PluginProcessor& processor, const char* identifier)
-{
-	return processor.getParameters().getRawParameterValue(identifier)->load();
-}
-
 // Holds `note` (or plays nothing if note < 0) for `blocks` 512-sample blocks at 48 kHz; beforeBlock runs before each
 // block, so parameter changes land on block boundaries.
 juce::AudioBuffer<float> hold(vekt::mono::PluginProcessor& processor, int blocks, int note,
@@ -165,33 +160,6 @@ TEST_CASE("Mono filter type is an appended sound parameter that defaults to Ladd
 	REQUIRE(all[all.size() - 2] == parameter);
 	REQUIRE(parameters::soundParameterIds[parameters::soundParameterIds.size() - 2] == parameters::filterType);
 	REQUIRE(parameters::schema10ParameterIds.size() == 1);
-}
-
-TEST_CASE("Mono migrates schema 9 presets to the current schema with the Ladder filter", "[mono][filter][filter-type][preset]")
-{
-	juce::ScopedJuceInitialiser_GUI juceInitializer;
-	vekt::mono::PluginProcessor processor;
-	setParameter(processor, parameters::filterCutoff, 3'210.0f);
-	// Exactly what a schema-9 build saved: every current sound parameter except the filter type and K35, plus the since
-	// retired Saturated Taps.
-	std::vector<const char*> schema9Ids(parameters::soundParameterIds.begin(), parameters::soundParameterIds.end() - 2);
-	auto preset = vekt::presets::PresetSchema::create(parameters::presetProductIdentifier, "Schema 9", processor.getParameters(), schema9Ids);
-	preset.parameters.push_back({ "filterSaturatedTaps", 0.0f });
-	preset.soundSchemaVersion = 9;
-	setParameter(processor, parameters::filterType, 1.0f);
-	REQUIRE(processor.getPresetSession().prepare(preset).wasOk());
-	REQUIRE(preset.soundSchemaVersion == 12);
-	REQUIRE(preset.parameters.size() == parameters::soundParameterIds.size());
-	const auto written = std::find_if(preset.parameters.begin(), preset.parameters.end(), [](const auto& entry)
-	{
-		return entry.identifier == parameters::filterType;
-	});
-	REQUIRE(written != preset.parameters.end());
-	REQUIRE(written->value == 0.0f);
-	REQUIRE(vekt::presets::PresetSchema::apply(preset, parameters::presetProductIdentifier,
-		processor.getParameters(), parameters::soundParameterIds).wasOk());
-	REQUIRE(rawValue(processor, parameters::filterType) == 0.0f);
-	REQUIRE(rawValue(processor, parameters::filterCutoff) == 3'210.0f);
 }
 
 TEST_CASE("Mono SVF renders its own finite sound", "[mono][filter][filter-type]")
@@ -569,67 +537,6 @@ TEST_CASE("Mono K35 is an appended override that defaults off and leaves Filter 
 	type->setValueNotifyingHost(0.0f);
 	REQUIRE(type->getIndex() == 0);
 	REQUIRE(type->convertTo0to1(1.0f) == 1.0f);
-}
-
-TEST_CASE("Mono migrates schema 11 presets to schema 12 with K35 forced off", "[mono][filter][filter-type][k35][preset]")
-{
-	juce::ScopedJuceInitialiser_GUI juceInitializer;
-	vekt::mono::PluginProcessor processor;
-	setParameter(processor, parameters::filterType, 1.0f);
-	// What a schema-11 build saved: every sound parameter but K35, here with the SVF selected.
-	std::vector<const char*> schema11Ids(parameters::soundParameterIds.begin(), parameters::soundParameterIds.end() - 1);
-	for (const auto strayK35 : { false, true })
-	{
-		INFO("stray K35 entry " << strayK35);
-		auto preset = vekt::presets::PresetSchema::create(parameters::presetProductIdentifier, "Schema 11", processor.getParameters(), schema11Ids);
-		preset.soundSchemaVersion = 11;
-		if (strayK35) preset.parameters.push_back({ parameters::filterK35, 1.0f });
-		setParameter(processor, parameters::filterK35, 1.0f); // K35 active when the old preset loads
-		REQUIRE(processor.getPresetSession().prepare(preset).wasOk());
-		REQUIRE(preset.soundSchemaVersion == 12);
-		REQUIRE(preset.parameters.size() == parameters::soundParameterIds.size());
-		REQUIRE(vekt::presets::PresetSchema::apply(preset, parameters::presetProductIdentifier,
-			processor.getParameters(), parameters::soundParameterIds).wasOk());
-		REQUIRE(rawValue(processor, parameters::filterK35) == 0.0f);
-		REQUIRE(rawValue(processor, parameters::filterType) == 1.0f);
-	}
-}
-
-TEST_CASE("Mono restores a pre-K35 project to its own Ladder or SVF even while K35 is active", "[mono][filter][filter-type][k35][state]")
-{
-	juce::ScopedJuceInitialiser_GUI juceInitializer;
-	for (const auto savedType : { 0.0f, 1.0f })
-	{
-		INFO("saved filter type " << savedType);
-		// A project saved before K35 existed: the current state without the filterK35 parameter.
-		vekt::mono::PluginProcessor source;
-		setParameter(source, parameters::filterType, savedType);
-		juce::MemoryBlock saved;
-		source.getStateInformation(saved);
-		auto state = juce::ValueTree::readFromData(saved.getData(), saved.getSize());
-		const auto parameterType = source.getParameters().state.getType();
-		auto parameterTree = state.hasType(parameterType) ? state : state.getChildWithName(parameterType);
-		REQUIRE(parameterTree.isValid());
-		const auto k35 = parameterTree.getChildWithProperty("id", parameters::filterK35);
-		REQUIRE(k35.isValid());
-		parameterTree.removeChild(k35, nullptr);
-		juce::MemoryOutputStream stream;
-		state.writeToStream(stream);
-		// Loaded into a processor whose K35 is on and whose Filter Type differs.
-		vekt::mono::PluginProcessor target;
-		setParameter(target, parameters::filterK35, 1.0f);
-		setParameter(target, parameters::filterType, 1.0f - savedType);
-		target.setStateInformation(stream.getData(), static_cast<int>(stream.getDataSize()));
-		REQUIRE(rawValue(target, parameters::filterK35) == 0.0f);
-		REQUIRE(rawValue(target, parameters::filterType) == savedType);
-	}
-	// A project saved with K35 on restores it.
-	vekt::mono::PluginProcessor source, target;
-	setParameter(source, parameters::filterK35, 1.0f);
-	juce::MemoryBlock saved;
-	source.getStateInformation(saved);
-	target.setStateInformation(saved.getData(), static_cast<int>(saved.getSize()));
-	REQUIRE(rawValue(target, parameters::filterK35) == 1.0f);
 }
 
 TEST_CASE("Mono K35 renders its own sound; Filter Type under it is inaudible and revealed when K35 turns off", "[mono][filter][filter-type][k35]")

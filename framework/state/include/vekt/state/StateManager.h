@@ -38,9 +38,6 @@ public:
     bool restoreState(const juce::ValueTree& serializedState)
     {
         auto candidate = serializedState.createCopy();
-        if (candidate.hasType(parameterState.state.getType()))
-            candidate = wrapLegacyParameterState(candidate);
-
         if (!candidate.hasType(rootType))
             return false;
 
@@ -82,22 +79,8 @@ public:
 
     inline static const juce::Identifier metadataType { "ProjectMetadata" };
     inline static const juce::Identifier schemaVersionProperty { "schemaVersion" };
-    inline static const juce::Identifier legacyVersionProperty { "stateVersion" };
 
 private:
-    [[nodiscard]] juce::ValueTree wrapLegacyParameterState(juce::ValueTree legacyState) const
-    {
-        const auto legacyVersion = static_cast<int>(
-            legacyState.getProperty(legacyVersionProperty, 1));
-        legacyState.removeProperty(legacyVersionProperty, nullptr);
-
-        juce::ValueTree root(rootType);
-        root.setProperty(schemaVersionProperty, legacyVersion, nullptr);
-        root.addChild(legacyState, -1, nullptr);
-        root.addChild(juce::ValueTree(metadataType), -1, nullptr);
-        return root;
-    }
-
     juce::AudioProcessorValueTreeState& parameterState;
     juce::Identifier rootType;
     int currentVersion;

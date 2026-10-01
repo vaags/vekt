@@ -165,6 +165,8 @@ were removed after this record.
   older preset explicitly forces `filterK35` off (any stray entry is replaced), rather than relying on the default.
   Restoring a project saved before K35 existed explicitly resets `filterK35` to off (`setStateInformation`'s
   restore-default list), so a K35-active session never carries K35 into an old project. Factory presets are unedited.
+  *1 October 2026:* superseded pre-release. Factory presets are now stored at schema 12, and the preset migrations and
+  pre-K35 project reset are removed (no older presets or projects exist).
 - **Render path.** The processor branches once per render segment (Ladder batched; SVF or K35 per voice). Each voice
   keeps four K35 lanes beside its ladders and SVFs (and, since ADR 0008, four filter-output DC blockers shared by all
   three types); a switch resets the newly selected filter and uses the existing continuity-offset declick.

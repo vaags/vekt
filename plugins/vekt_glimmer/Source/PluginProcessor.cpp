@@ -374,20 +374,8 @@ void PluginProcessor::getStateInformation(juce::MemoryBlock& destination)
 
 void PluginProcessor::setStateInformation(const void* data, int size)
 {
-	if (auto restored = juce::ValueTree::readFromData(data, static_cast<size_t>(size)); restored.isValid())
+	if (const auto restored = juce::ValueTree::readFromData(data, static_cast<size_t>(size)); restored.isValid())
 	{
-		auto sound = restored.hasType(parameters::stateType) ? restored : restored.getChildWithName(parameters::stateType);
-		if (sound.isValid())
-			for (const auto* identifier : { parameters::cabinetModel, parameters::brake, parameters::stereoWidth,
-				parameters::manualSpeedEnabled, parameters::speedPosition })
-				if (!sound.getChildWithProperty("id", identifier).isValid())
-				{
-					auto* parameter = parameterState.getParameter(identifier);
-					juce::ValueTree value("PARAM");
-					value.setProperty("id", identifier, nullptr);
-					value.setProperty("value", parameter->convertFrom0to1(parameter->getDefaultValue()), nullptr);
-					sound.appendChild(value, nullptr);
-				}
 		if (stateManager.restoreState(restored))
 		{
 			for (const auto* identifier : { parameters::brake, parameters::manualSpeedEnabled, parameters::autoGain, parameters::bypass })

@@ -3,7 +3,7 @@
   "schemaVersion": 2,
   "id": "mono-lead-aurora",
   "product": "com.vekt.mono",
-  "soundSchemaVersion": 7,
+  "soundSchemaVersion": 12,
   "name": "Aurora Lead",
   "tags": [
     "Lead",
@@ -121,6 +121,11 @@
     "lfo2Spread": 0,
     "vibratoRate": 5.2,
     "vibratoShape": 0,
-    "vibratoDepth": 35
+    "vibratoDepth": 35,
+    "filterMode": -1,
+    "lfo1FilterMode": 0,
+    "lfo2FilterMode": 0,
+    "filterType": 0,
+    "filterK35": 0
   }
 }

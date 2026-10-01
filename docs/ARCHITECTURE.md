@@ -2,8 +2,7 @@
 
 Mono quality scope as of 27 September 2026: selectable and planned modes end
 at 8x (1x/2x/4x/8x). Historical 16x/32x offline references remain diagnostic,
-not selectable quality modes. Stored 16x project states are rejected, not
-silently mapped to 8x.
+not selectable quality modes.
 
 ## Dependency Direction
 
@@ -138,6 +137,13 @@ separate versioned schemas. Products with a published compatibility boundary use
 explicit migrations for supported older schemas. A product that explicitly remains
 pre-release may instead reject obsolete schemas while breaking changes are expected;
 that policy must be documented by the product and loads must remain all-or-nothing.
+
+All products are pre-release (1 October 2026): no older project or preset
+format is supported. Factory presets are stored at each product's current sound
+schema, and there are no project or preset sound migrations. Parameters missing
+from a project take their defaults (APVTS). The frozen state, parameter and
+audio fixtures in `tests/fixtures` (see its README) start the compatibility
+record; they become binding at the first release.
 
 Quality settings and editor geometry belong to project state, not sound presets.
 Host automation owns its history; local undo covers UI gestures and preset loads.

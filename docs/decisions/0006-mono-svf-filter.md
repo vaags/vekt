@@ -214,7 +214,8 @@ topology is not run. A `Q/fc`-scaled crossfade is investigated only if
 listening in the hostile cases (low cutoff, high resonance, sustained bass)
 finds a real problem.
 
-**State.** `filterType` is added in sound schema 10; older presets migrate to
+**State.** (*1 October 2026:* preset migrations removed pre-release; factory presets are stored at the current
+schema.) `filterType` is added in sound schema 10; older presets migrate to
 Ladder.
 
 ### Gain policy

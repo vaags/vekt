@@ -10,7 +10,8 @@ production-integration permission flag, mandatory legacy rollback, or second
 deletion sign-off remains. Preserve dated comparisons as historical evidence.
 No 1x-only or mixed-engine release is approved. Supported presets and project
 filter values are accepted and reinterpreted by coupled, without any promise
-of identical sound; stored 16x (index 4) project state is still rejected.
+of identical sound. (The rejection of stored 16x project state was removed on
+1 October 2026 with the other pre-release legacy paths; no such state exists.)
 
 **Release gate (open):** Test actual normal Release VST3/Standalone artifacts
 in a host for preset and project loading, older normalized quality snapshots,
@@ -45,9 +46,8 @@ The 27 September Mono scope revision removes 16x from selectable and planned
 quality. Earlier offline-16x host/export-blocking gates below are historical,
 not requirements for the retained 1x/2x/4x/8x paths. This is a product decision
 motivated by CPU concern, not a measured CPU conclusion from the short probes.
-Stored 16x project states are rejected in full rather than silently recalled at
-8x; users should check older projects because the host state API cannot report
-the rejection. Remaining quality and host gates still apply.
+Stored 16x project states were rejected in full until 1 October 2026, when the
+rejection was removed as pre-release legacy handling. Remaining quality and host gates still apply.
 Step 2 reference engineering is in progress: a 48 kHz, two-bin filtered
 probe is complete, but other rates, frequencies, modulation and reference
 error budgets remain open.

@@ -17,79 +17,6 @@ namespace vekt::mono
 {
 namespace
 {
-juce::Result migrateContourPreset(presets::Preset& preset)
-{
-	if (preset.soundSchemaVersion == 6) return juce::Result::ok();
-	if (preset.soundSchemaVersion == 4)
-		preset.parameters.push_back({ parameters::notePriority, 0.0f });
-	else if (preset.soundSchemaVersion == 5)
-	{
-		preset.parameters.erase(std::remove_if(preset.parameters.begin(), preset.parameters.end(), [](const auto& parameter)
-		{
-			return parameter.identifier == "contourCurve" || parameter.identifier == "releasePolicy";
-		}), preset.parameters.end());
-	}
-	else return juce::Result::fail("Unsupported Mono preset sound schema");
-	preset.soundSchemaVersion = 6;
-	return juce::Result::ok();
-}
-// Schema 7 adds the LFOs and vibrato. Older presets get every new parameter at its default: no LFO depth, and a
-// vibrato that stays silent until the mod wheel or aftertouch is used.
-juce::Result migrateLfoPreset(presets::Preset& preset, const juce::AudioProcessorValueTreeState& state)
-{
-	if (preset.soundSchemaVersion == 4 || preset.soundSchemaVersion == 5)
-		if (const auto result = migrateContourPreset(preset); result.failed()) return result;
-	if (preset.soundSchemaVersion != 6) return juce::Result::fail("Unsupported Mono preset sound schema");
-	for (const auto* identifier : parameters::schema7ParameterIds)
-	{
-		const auto* parameter = state.getParameter(identifier);
-		preset.parameters.push_back({ identifier, parameter->convertFrom0to1(parameter->getDefaultValue()) });
-	}
-	preset.soundSchemaVersion = 7;
-	return juce::Result::ok();
-}
-// Schema 8 adds the ladder's filter Mode (older presets keep the plain LP ladder); schema 9 added a saturated-taps
-// A/B that schema 11 retires (the saturated taps are the only Notch/HP mix now); schema 10 adds the filter type
-// (Ladder, the only filter earlier presets had); schema 12 adds the K35 override (ADR 0007), explicitly off for every
-// older preset. Each other added parameter starts at its default.
-juce::Result migratePreset(presets::Preset& preset, const juce::AudioProcessorValueTreeState& state)
-{
-	if (preset.soundSchemaVersion >= 4 && preset.soundSchemaVersion <= 6)
-		if (const auto result = migrateLfoPreset(preset, state); result.failed()) return result;
-	if (preset.soundSchemaVersion < 7 || preset.soundSchemaVersion > 12) return juce::Result::fail("Unsupported Mono preset sound schema");
-	const auto addDefaults = [&](const auto& identifiers, int version)
-	{
-		for (const auto* identifier : identifiers)
-		{
-			const auto* parameter = state.getParameter(identifier);
-			preset.parameters.push_back({ identifier, parameter->convertFrom0to1(parameter->getDefaultValue()) });
-		}
-		preset.soundSchemaVersion = version;
-	};
-	if (preset.soundSchemaVersion == 7) addDefaults(parameters::schema8ParameterIds, 8);
-	if (preset.soundSchemaVersion == 8) preset.soundSchemaVersion = 9;
-	if (preset.soundSchemaVersion == 9) addDefaults(parameters::schema10ParameterIds, 10);
-	if (preset.soundSchemaVersion == 10)
-	{
-		preset.parameters.erase(std::remove_if(preset.parameters.begin(), preset.parameters.end(), [](const auto& parameter)
-		{
-			return parameter.identifier == "filterSaturatedTaps";
-		}), preset.parameters.end());
-		preset.soundSchemaVersion = 11;
-	}
-	if (preset.soundSchemaVersion == 11)
-	{
-		// Forced off rather than left to the parameter default, so an older preset can never select K35.
-		preset.parameters.erase(std::remove_if(preset.parameters.begin(), preset.parameters.end(), [](const auto& parameter)
-		{
-			return parameter.identifier == parameters::filterK35;
-		}), preset.parameters.end());
-		preset.parameters.push_back({ parameters::filterK35, 0.0f });
-		preset.soundSchemaVersion = 12;
-	}
-	return juce::Result::ok();
-}
-
 int choiceToVoiceCount(float value) noexcept
 {
 	constexpr std::array counts { 2, 4, 8, 12, 16 };
@@ -210,7 +137,10 @@ PluginProcessor::PluginProcessor()
 			preset.soundSchemaVersion = 12;
 			return preset;
 		},
-		[this](presets::Preset& preset) { return migratePreset(preset, parameterState); },
+		[](presets::Preset& preset)
+		{
+			return preset.soundSchemaVersion == 12 ? juce::Result::ok() : juce::Result::fail("Unsupported Mono preset sound schema");
+		},
 		[this](const presets::Preset& preset) { return validatePresetSound(preset); },
 		[this](const presets::Preset& preset) { return applyPreset(preset); },
 		[this](const presets::Preset& preset) { return matchesPresetSound(preset); } })
@@ -858,21 +788,16 @@ juce::Result PluginProcessor::validatePresetSound(const presets::Preset& preset)
 }
 juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 {
-	auto prepared = preset;
-	if (prepared.soundSchemaVersion >= 4 && prepared.soundSchemaVersion <= 11)
-		if (const auto result = migratePreset(prepared, parameterState); result.failed()) return result;
-	if (const auto result = validatePresetSound(prepared); result.failed()) return result;
+	if (const auto result = validatePresetSound(preset); result.failed()) return result;
 	undoManager.beginNewTransaction("Load preset: " + preset.name);
-	const auto result = presets::PresetSchema::apply(prepared, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds, &undoManager);
+	const auto result = presets::PresetSchema::apply(preset, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds, &undoManager);
 	if (result.wasOk()) pendingPresetReset.store(true);
 	return result;
 }
 bool PluginProcessor::matchesPresetSound(const presets::Preset& preset) const
 {
-	auto prepared = preset;
-	if (prepared.soundSchemaVersion >= 4 && prepared.soundSchemaVersion <= 11 && migratePreset(prepared, parameterState).failed()) return false;
-	return validatePresetSound(prepared).wasOk()
-		&& presets::PresetSchema::matches(prepared, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds);
+	return validatePresetSound(preset).wasOk()
+		&& presets::PresetSchema::matches(preset, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds);
 }
 void PluginProcessor::getStateInformation(juce::MemoryBlock& destination)
 {
@@ -883,27 +808,8 @@ void PluginProcessor::setStateInformation(const void* data, int size)
 {
 	if (size <= 0 || data == nullptr) return;
 	const auto state = juce::ValueTree::readFromData(data, static_cast<size_t>(size));
-	// Reject obsolete 16x projects before APVTS can clamp choice index 4 to 8x.
-	// Leave the entire live state unchanged rather than silently altering the sound.
-	const auto parameterTree = state.hasType(parameterState.state.getType())
-		? state : state.getChildWithName(parameterState.state.getType());
-	const auto savedQuality = parameterTree.getChildWithProperty("id", parameters::quality);
-	if (savedQuality.isValid() && static_cast<double>(savedQuality.getProperty("value")) >= 4.0) return;
 	if (state.isValid() && stateManager.restoreState(state))
 	{
-		// Parameters added after a project was saved take their defaults rather than keeping the live value.
-		const auto restoreDefault = [&](const char* identifier)
-		{
-			if (parameterTree.getChildWithProperty("id", identifier).isValid()) return;
-			auto* parameter = parameterState.getParameter(identifier);
-			parameter->setValueNotifyingHost(parameter->getDefaultValue());
-		};
-		restoreDefault(parameters::notePriority);
-		restoreDefault(parameters::multicore);
-		for (const auto* identifier : parameters::schema7ParameterIds) restoreDefault(identifier);
-		for (const auto* identifier : parameters::schema8ParameterIds) restoreDefault(identifier);
-		// A project saved before K35 existed never restores into K35 (ADR 0007): the override is explicitly reset.
-		for (const auto* identifier : parameters::schema12ParameterIds) restoreDefault(identifier);
 		for (const auto* identifier : { parameters::heldKeyReturn, parameters::filterQCompensation })
 		{
 			auto* parameter = parameterState.getParameter(identifier);

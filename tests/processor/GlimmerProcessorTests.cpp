@@ -299,26 +299,6 @@ TEST_CASE("Glimmer Brake stops both rotors without bypassing the cabinet", "[gli
 	REQUIRE(processor.getParameters().getRawParameterValue(parameters::manualSpeedEnabled)->load() > 0.5f);
 }
 
-TEST_CASE("Glimmer legacy project restores additive defaults in a modified instance", "[glimmer][processor][state]")
-{
-	using namespace vekt::glimmer;
-	PluginProcessor processor;
-	auto legacy = processor.getParameters().copyState();
-	for (const auto* identifier : { parameters::cabinetModel, parameters::brake, parameters::stereoWidth,
-		parameters::manualSpeedEnabled, parameters::speedPosition })
-		legacy.removeChild(legacy.getChildWithProperty("id", identifier), nullptr);
-	setParameter(processor, parameters::cabinetModel, 2);
-	setParameter(processor, parameters::brake, 1);
-	setParameter(processor, parameters::stereoWidth, 0);
-	juce::MemoryBlock state;
-	juce::MemoryOutputStream stream(state, false);
-	legacy.writeToStream(stream);
-	processor.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
-	REQUIRE(processor.getParameters().getRawParameterValue(parameters::cabinetModel)->load() == Catch::Approx(0));
-	REQUIRE(processor.getParameters().getRawParameterValue(parameters::brake)->load() == Catch::Approx(0));
-	REQUIRE(processor.getParameters().getRawParameterValue(parameters::stereoWidth)->load() == Catch::Approx(100));
-}
-
 TEST_CASE("Glimmer live bypass crossfades then returns exact raw input", "[glimmer][processor][bypass]")
 {
 	using namespace vekt::glimmer;

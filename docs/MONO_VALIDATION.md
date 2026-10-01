@@ -1008,8 +1008,8 @@ quality and both planned candidate playback/offline ranges end at 8x
 (1x/2x/4x/8x). Previously proposed offline 16x, host export blocking and
 16x acceptance/listening requirements in historical sections below are
 superseded. 16x/32x offline reference calculations remain diagnostic tools,
-not selectable product modes. Stored 16x (index 4) project states are rejected
-without changing live state, not silently mapped to 8x; indices 0–3 are stable.
+not selectable product modes. Indices 0–3 are stable. (Stored 16x project states
+were rejected until 1 October 2026; that pre-release legacy path is removed.)
 This product change responds to CPU concern, **not** a measured CPU verdict
 from short diagnostic probes. The remaining modes still need validation.
 

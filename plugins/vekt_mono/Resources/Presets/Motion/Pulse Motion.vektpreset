@@ -3,7 +3,7 @@
   "schemaVersion": 2,
   "id": "mono-motion-pulse",
   "product": "com.vekt.mono",
-  "soundSchemaVersion": 7,
+  "soundSchemaVersion": 12,
   "name": "Pulse Motion",
   "tags": [
     "Motion",
@@ -121,6 +121,11 @@
     "lfo2Spread": 0,
     "vibratoRate": 5.5,
     "vibratoShape": 0,
-    "vibratoDepth": 50
+    "vibratoDepth": 50,
+    "filterMode": -1,
+    "lfo1FilterMode": 0,
+    "lfo2FilterMode": 0,
+    "filterType": 0,
+    "filterK35": 0
   }
 }

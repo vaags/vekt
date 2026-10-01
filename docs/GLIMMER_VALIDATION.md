@@ -108,7 +108,7 @@ I/O, but includes OS interruptions; it is not a real-time scheduling guarantee.
 - `GlimmerProcessorTests` verifies finite stereo output across every speed mode
   and APVTS project-state restoration, quality profile selection, latency-aligned
   bypass and bypass transitions, linear half-Mix behavior, measured dry impulse
-  timing, model request transitions, Brake, legacy project defaults and extreme
+  timing, model request transitions, Brake and extreme
   settings at 44.1/48/96/192 kHz with Off/IIR/FIR oversampling.
 - Preset cases cover all five new sound parameters and rejection atomicity.
 - Factory tests cover all six documents, immutable host program count,

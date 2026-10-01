@@ -294,47 +294,6 @@ TEST_CASE("Mono filter Mode defaults to LP, names its landmarks and recalls with
 	REQUIRE(processor.getParameters().getRawParameterValue(vekt::mono::parameters::filterMode)->load() == Catch::Approx(0.25f).margin(1.0e-3));
 }
 
-TEST_CASE("Mono loads schema 8-10 presets and drops the retired Saturated Taps", "[mono][processor][preset][ladder-mode]")
-{
-	namespace parameters = vekt::mono::parameters;
-	juce::ScopedJuceInitialiser_GUI juceInitializer;
-	vekt::mono::PluginProcessor processor;
-	setParameter(processor, parameters::filterMode, 0.4f);
-	setParameter(processor, parameters::lfos[0].filterMode, 30.0f);
-	// What each build saved: schema 8 had neither filterSaturatedTaps nor the filter type, 9 added the first, 10 the second;
-	// none had K35 (schema 12).
-	const auto isIn = [](const auto& identifiers, const char* identifier)
-	{ return std::find(identifiers.begin(), identifiers.end(), identifier) != identifiers.end(); };
-	std::vector<const char*> withoutType, withoutK35;
-	for (const auto* identifier : parameters::soundParameterIds)
-	{
-		if (isIn(parameters::schema12ParameterIds, identifier)) continue;
-		withoutK35.push_back(identifier);
-		if (!isIn(parameters::schema10ParameterIds, identifier)) withoutType.push_back(identifier);
-	}
-	for (const auto schema : { 8, 9, 10 })
-	{
-		INFO("schema " << schema);
-		auto preset = vekt::presets::PresetSchema::create(parameters::presetProductIdentifier, "Old", processor.getParameters(),
-			schema == 10 ? std::span<const char* const>(withoutK35) : std::span<const char* const>(withoutType));
-		if (schema >= 9) preset.parameters.push_back({ "filterSaturatedTaps", 1.0f });
-		preset.soundSchemaVersion = schema;
-		setParameter(processor, parameters::filterMode, -1.0f);
-		REQUIRE(processor.getPresetSession().prepare(preset).wasOk());
-		REQUIRE(preset.soundSchemaVersion == 12);
-		REQUIRE(preset.parameters.size() == parameters::soundParameterIds.size());
-		REQUIRE(std::none_of(preset.parameters.begin(), preset.parameters.end(), [](const auto& entry)
-		{
-			return entry.identifier == "filterSaturatedTaps";
-		}));
-		REQUIRE(vekt::presets::PresetSchema::apply(preset, parameters::presetProductIdentifier,
-			processor.getParameters(), parameters::soundParameterIds).wasOk());
-		REQUIRE(processor.getParameters().getRawParameterValue(parameters::filterMode)->load() == Catch::Approx(0.4f).margin(1.0e-3));
-		REQUIRE(processor.getParameters().getRawParameterValue(parameters::lfos[0].filterMode)->load() == Catch::Approx(30.0f).margin(1.0e-3));
-	}
-	REQUIRE(processor.getParameters().getParameter("filterSaturatedTaps") == nullptr);
-}
-
 TEST_CASE("Mono filter Mode sweeps smoothly and changes the held sound", "[mono][processor][filter][ladder-mode]")
 {
 	juce::ScopedJuceInitialiser_GUI juceInitializer;
@@ -1691,40 +1650,6 @@ TEST_CASE("Mono recalls project states without retired contour controls", "[mono
 	REQUIRE(restored.getParameters().getParameter("releasePolicy") == nullptr);
 }
 
-TEST_CASE("Mono rejects stored 16x quality instead of silently recalling 8x", "[mono][processor][state][quality]")
-{
-	vekt::mono::PluginProcessor source;
-	juce::MemoryBlock data;
-	source.getStateInformation(data);
-	const auto original = juce::ValueTree::readFromData(data.getData(), data.getSize());
-	REQUIRE(original.isValid());
-	for (const auto legacyRoot : { false, true })
-	for (int index = 0; index <= 4; ++index)
-	{
-		auto state = legacyRoot ? original.getChildWithName(source.getParameters().state.getType()).createCopy()
-			: original.createCopy();
-		if (legacyRoot) state.setProperty(vekt::state::StateManager::legacyVersionProperty, 3, nullptr);
-		auto parameters = legacyRoot ? state : state.getChildWithName(source.getParameters().state.getType());
-		auto quality = parameters.getChildWithProperty("id", vekt::mono::parameters::quality);
-		REQUIRE(quality.isValid());
-		quality.setProperty("value", index, nullptr);
-		juce::MemoryBlock serialized;
-		juce::MemoryOutputStream stream(serialized, false);
-		state.writeToStream(stream);
-		vekt::mono::PluginProcessor restored;
-		setParameter(restored, vekt::mono::parameters::filterCutoff, 4'321.0f);
-		setParameter(restored, vekt::mono::parameters::quality, 2.0f);
-		restored.setStateInformation(serialized.getData(), static_cast<int>(serialized.getSize()));
-		const auto* choice = dynamic_cast<juce::AudioParameterChoice*>(
-			restored.getParameters().getParameter(vekt::mono::parameters::quality));
-		REQUIRE(choice != nullptr);
-		INFO("stored quality index=" << index << ", legacy root=" << legacyRoot);
-		REQUIRE(choice->getIndex() == (index == 4 ? 2 : index));
-		REQUIRE(restored.getParameters().getRawParameterValue(vekt::mono::parameters::filterCutoff)->load()
-			== Catch::Approx(index == 4 ? 4'321.0f : 5'200.0f));
-	}
-}
-
 TEST_CASE("Mono rejects obsolete pre-alpha project schemas without changing live state", "[mono][processor][state]")
 {
 	vekt::mono::PluginProcessor source;
@@ -1784,7 +1709,6 @@ TEST_CASE("Mono factory presets load with their stored values, including LFO set
 {
 	vekt::mono::PluginProcessor processor;
 	const auto& catalog = processor.getPresetSession().library();
-	int withLfoSettings {};
 	for (std::size_t index = 0; index < catalog.factoryPresetCount(); ++index)
 	{
 		vekt::presets::Preset preset;
@@ -1792,13 +1716,8 @@ TEST_CASE("Mono factory presets load with their stored values, including LFO set
 		CAPTURE(preset.name);
 		processor.setCurrentProgram(static_cast<int>(index));
 		REQUIRE(processor.getCurrentProgram() == static_cast<int>(index));
-		if (preset.soundSchemaVersion < 7) continue;
-		++withLfoSettings;
-		// Schema-7 and later files carry every sound parameter of their schema; each must exist and land unchanged.
-		REQUIRE(preset.parameters.size() == vekt::mono::parameters::soundParameterIds.size()
-			- (preset.soundSchemaVersion <= 7 ? vekt::mono::parameters::schema8ParameterIds.size() : 0)
-			- (preset.soundSchemaVersion <= 9 ? vekt::mono::parameters::schema10ParameterIds.size() : 0)
-			- (preset.soundSchemaVersion <= 11 ? vekt::mono::parameters::schema12ParameterIds.size() : 0));
+		// Every file carries every sound parameter; each must exist and land unchanged.
+		REQUIRE(preset.parameters.size() == vekt::mono::parameters::soundParameterIds.size());
 		for (const auto& parameter : preset.parameters)
 		{
 			CAPTURE(parameter.identifier);
@@ -1807,7 +1726,6 @@ TEST_CASE("Mono factory presets load with their stored values, including LFO set
 			REQUIRE(value->load() == Catch::Approx(parameter.value).margin(1.0e-3));
 		}
 	}
-	REQUIRE(withLfoSettings == 13);
 }
 
 TEST_CASE("Mono factory presets are not marked modified right after loading", "[mono][processor][preset]")
@@ -1871,8 +1789,7 @@ TEST_CASE("Mono factory presets use diverse oscillator and mixer designs", "[mon
 	{
 		vekt::presets::Preset preset;
 		REQUIRE(catalog.loadFactoryPreset(index, preset).wasOk());
-		// Presets voiced before the LFOs are schema 4; the ones given LFO settings are schema 7, or 9 with a filter Mode.
-		REQUIRE((preset.soundSchemaVersion == 4 || preset.soundSchemaVersion == 7 || preset.soundSchemaVersion == 11));
+		REQUIRE(preset.soundSchemaVersion == 12);
 		const auto value = [&preset](const char* identifier)
 		{
 			const auto found = std::find_if(preset.parameters.begin(), preset.parameters.end(), [identifier](const auto& parameter)
@@ -1897,15 +1814,6 @@ TEST_CASE("Mono factory presets use diverse oscillator and mixer designs", "[mon
 		noiseLevels.insert(value(vekt::mono::parameters::noiseLevel));
 		voicePans.insert(value(vekt::mono::parameters::voiceWidth));
 		REQUIRE(value(vekt::mono::parameters::filterQCompensation) == Catch::Approx(0.0f));
-	}
-	// Factory presets from before the filter Mode load as the plain LP ladder.
-	for (std::size_t index = 0; index < catalog.factoryPresetCount(); ++index)
-	{
-		vekt::presets::Preset preset;
-		REQUIRE(catalog.loadFactoryPreset(index, preset).wasOk());
-		if (preset.soundSchemaVersion >= 8) continue;
-		processor.setCurrentProgram(static_cast<int>(index));
-		REQUIRE(processor.getParameters().getRawParameterValue(vekt::mono::parameters::filterMode)->load() == Catch::Approx(-1.0f));
 	}
 	REQUIRE(oscillatorShapes.size() >= 20);
 	REQUIRE(oscillatorTunings.size() >= 20);
@@ -1932,41 +1840,6 @@ TEST_CASE("Mono rejects obsolete pre-alpha preset schemas without mutation", "[m
 		REQUIRE(processor.getParameters().getRawParameterValue(vekt::mono::parameters::filterCutoff)->load() == Catch::Approx(4'321.0f));
 	}
 	REQUIRE(processor.getPresetSession().prepare(current).wasOk());
-}
-
-TEST_CASE("Mono migrates schema 4 and 5 presets to analog independent ADSR", "[mono][processor][preset][contour]")
-{
-	vekt::mono::PluginProcessor processor;
-	// A factory preset still stored at schema 4 (some were upgraded to 7 when they gained LFO settings).
-	const auto& library = processor.getPresetSession().library();
-	vekt::presets::Preset factory;
-	for (std::size_t index = 0; index < library.factoryPresetCount(); ++index)
-		if (library.loadFactoryPreset(index, factory).wasOk() && factory.soundSchemaVersion == 4) break;
-	REQUIRE(factory.soundSchemaVersion == 4);
-	for (const auto schema : { 4, 5 })
-	{
-		auto preset = factory;
-		if (schema == 5)
-		{
-			preset.soundSchemaVersion = 5;
-			preset.parameters.push_back({ vekt::mono::parameters::notePriority, 1.0f });
-			preset.parameters.push_back({ "contourCurve", 0.0f });
-			preset.parameters.push_back({ "releasePolicy", 2.0f });
-		}
-		const auto previousAmp = std::find_if(preset.parameters.begin(), preset.parameters.end(), [](const auto& p) { return p.identifier == vekt::mono::parameters::ampRelease; })->value;
-		const auto previousFilter = std::find_if(preset.parameters.begin(), preset.parameters.end(), [](const auto& p) { return p.identifier == vekt::mono::parameters::filterRelease; })->value;
-		REQUIRE(processor.getPresetSession().prepare(preset).wasOk());
-		REQUIRE(preset.soundSchemaVersion == 12);
-		REQUIRE(vekt::presets::PresetSchema::apply(preset, vekt::mono::parameters::presetProductIdentifier,
-			processor.getParameters(), vekt::mono::parameters::soundParameterIds).wasOk());
-		REQUIRE(processor.getParameters().getRawParameterValue(vekt::mono::parameters::ampRelease)->load() == Catch::Approx(previousAmp).margin(0.0001f));
-		REQUIRE(processor.getParameters().getRawParameterValue(vekt::mono::parameters::filterRelease)->load() == Catch::Approx(previousFilter).margin(0.0001f));
-		REQUIRE(processor.getParameters().getRawParameterValue(vekt::mono::parameters::notePriority)->load() == Catch::Approx(schema == 5 ? 1.0f : 0.0f));
-		REQUIRE(std::none_of(preset.parameters.begin(), preset.parameters.end(), [](const auto& p)
-		{
-			return p.identifier == "contourCurve" || p.identifier == "releasePolicy";
-		}));
-	}
 }
 
 TEST_CASE("Mono preset changes stop voices from the previous patch", "[mono][processor][preset]")

@@ -3,7 +3,7 @@
   "schemaVersion": 2,
   "id": "mono-pad-quartet",
   "product": "com.vekt.mono",
-  "soundSchemaVersion": 11,
+  "soundSchemaVersion": 12,
   "name": "Quartet Pad",
   "tags": [
     "Pad",
@@ -125,6 +125,7 @@
     "filterMode": -0.3,
     "lfo1FilterMode": 35,
     "lfo2FilterMode": 0,
-    "filterType": 0
+    "filterType": 0,
+    "filterK35": 0
   }
 }
