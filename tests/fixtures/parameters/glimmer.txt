@@ -1,0 +1,24 @@
+inputGain	v1	float	range=-24:24	interval=0.01	skew=1	default=0	automatable
+preampDrive	v1	float	range=0:36	interval=0.01	skew=1	default=0	automatable
+hornDrumBalance	v1	float	range=-100:100	interval=0.01	skew=1	default=0	automatable
+micAngle	v1	float	range=0:360	interval=0.01	skew=1	default=0	automatable
+micDistance	v1	float	range=0.3:3	interval=0.001	skew=1	default=1	automatable
+slowSpeed	v1	float	range=20:120	interval=0.01	skew=1	default=48	automatable
+fastSpeed	v1	float	range=180:600	interval=0.01	skew=1	default=400	automatable
+accelerationTime	v1	float	range=0.1:15	interval=0.01	skew=0.4	default=2	automatable
+decelerationTime	v1	float	range=0.1:20	interval=0.01	skew=0.4	default=4	automatable
+hornTone	v1	float	range=-12:12	interval=0.01	skew=1	default=0	automatable
+drumTone	v1	float	range=-12:12	interval=0.01	skew=1	default=0	automatable
+speedMode	v1	choice	Slow|Fast|Auto	default=0	automatable
+sensitivity	v1	float	range=0:100	interval=0.01	skew=1	default=50	automatable
+autoGain	v1	bool	default=0	automatable
+bypass	v1	bool	default=0	automatable
+mix	v1	float	range=0:100	interval=0.01	skew=1	default=100	automatable
+outputGain	v1	float	range=-24:24	interval=0.01	skew=1	default=0	automatable
+trackingOversampling	v1	choice	Off|2x IIR|4x IIR|2x FIR|4x FIR|8x FIR|16x FIR	default=2	fixed
+offlineOversampling	v1	choice	Off|2x FIR|4x FIR|8x FIR|16x FIR|2x IIR|4x IIR	default=4	fixed
+cabinetModel	v2	choice	Classic|Drum|Wide	default=0	automatable
+brake	v2	bool	default=0	automatable
+stereoWidth	v2	float	range=0:200	interval=0.01	skew=1	default=100	automatable
+manualSpeedEnabled	v2	bool	default=0	automatable
+speedPosition	v2	float	range=0:100	interval=0.01	skew=1	default=0	automatable

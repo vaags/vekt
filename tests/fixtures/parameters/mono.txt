@@ -1,0 +1,119 @@
+voiceCount	v1	choice	2|4|8|12|16	default=2	fixed
+performanceMode	v1	choice	Poly|Mono|Mono Legato	default=0	automatable
+quality	v1	choice	1x|2x|4x|8x	default=0	fixed
+multicore	v1	choice	Off|On	default=0	fixed
+unison	v1	choice	1x|2x|4x	default=0	automatable
+unisonDetune	v1	float	range=0:50	interval=0.01	skew=1	default=15	automatable
+unisonSpread	v1	float	range=0:100	interval=0.01	skew=1	default=0	automatable
+voiceWidth	v1	float	range=0:100	interval=0.01	skew=1	default=0	automatable
+drift	v1	float	range=0:100	interval=0.01	skew=1	default=0	automatable
+glideMode	v1	choice	Off|Always|Legato	default=0	automatable
+glideTime	v1	float	range=0:5	interval=0.001	skew=0.35	default=0	automatable
+pitchBendRange	v1	int	range=1:24	interval=1	skew=1	default=2	automatable
+calibration	v1	float	range=-100:100	interval=0.01	skew=1	default=0	automatable
+masterOutput	v1	float	range=-24:12	interval=0.01	skew=1	default=0	automatable
+osc1Range	v1	choice	16'|8'|4'|2'|1'	default=1	automatable
+osc1Semitone	v1	int	range=-24:24	interval=1	skew=1	default=0	automatable
+osc1Fine	v1	float	range=-100:100	interval=0.01	skew=1	default=0	automatable
+osc1Level	v1	float	range=0:100	interval=0.01	skew=1	default=100	automatable
+osc1Morph	v1	float	range=0:4	interval=0.001	skew=1	default=2	automatable
+osc1PulseWidth	v1	float	range=5:95	interval=0.01	skew=1	default=50	automatable
+osc2Range	v1	choice	16'|8'|4'|2'|1'	default=1	automatable
+osc2Semitone	v1	int	range=-24:24	interval=1	skew=1	default=0	automatable
+osc2Fine	v1	float	range=-100:100	interval=0.01	skew=1	default=0	automatable
+osc2Level	v1	float	range=0:100	interval=0.01	skew=1	default=0	automatable
+osc2Morph	v1	float	range=0:4	interval=0.001	skew=1	default=2	automatable
+osc2PulseWidth	v1	float	range=5:95	interval=0.01	skew=1	default=50	automatable
+osc3Range	v1	choice	16'|8'|4'|2'|1'	default=1	automatable
+osc3Semitone	v1	int	range=-24:24	interval=1	skew=1	default=0	automatable
+osc3Fine	v1	float	range=-100:100	interval=0.01	skew=1	default=0	automatable
+osc3Level	v1	float	range=0:100	interval=0.01	skew=1	default=0	automatable
+osc3Morph	v1	float	range=0:4	interval=0.001	skew=1	default=2	automatable
+osc3PulseWidth	v1	float	range=5:95	interval=0.01	skew=1	default=50	automatable
+noiseType	v1	choice	Off|White|Pink	default=0	automatable
+noiseLevel	v1	float	range=0:100	interval=0.01	skew=1	default=0	automatable
+filterCutoff	v1	float	range=5:20000	interval=0.01	skew=0.25	default=1000	automatable
+filterResonance	v1	float	range=0:100	interval=0.01	skew=1	default=10	automatable
+filterKeyTracking	v1	float	range=0:100	interval=0.01	skew=1	default=50	automatable
+filterEnvelopeAmount	v1	float	range=0:100	interval=0.01	skew=1	default=50	automatable
+filterDrive	v1	float	range=0:24	interval=0.01	skew=1	default=0	automatable
+ampAttack	v1	float	range=0.0005:10	interval=0.0001	skew=0.35	default=0.005	automatable
+ampDecay	v1	float	range=0.005:20	interval=0.0001	skew=0.35	default=0.25	automatable
+ampRelease	v1	float	range=0.005:20	interval=0.0001	skew=0.35	default=0.3	automatable
+filterAttack	v1	float	range=0.0005:10	interval=0.0001	skew=0.35	default=0.005	automatable
+filterDecay	v1	float	range=0.005:20	interval=0.0001	skew=0.35	default=0.5	automatable
+filterRelease	v1	float	range=0.005:20	interval=0.0001	skew=0.35	default=0.4	automatable
+ampSustain	v1	float	range=0:100	interval=0.01	skew=1	default=75	automatable
+filterSustain	v1	float	range=0:100	interval=0.01	skew=1	default=25	automatable
+ampVelocity	v1	float	range=0:100	interval=0.01	skew=1	default=50	automatable
+filterVelocity	v1	float	range=0:100	interval=0.01	skew=1	default=50	automatable
+osc1Octave	v1	int	range=-2:2	interval=1	skew=1	default=0	automatable
+osc2Octave	v1	int	range=-2:2	interval=1	skew=1	default=0	automatable
+osc3Octave	v1	int	range=-2:2	interval=1	skew=1	default=0	automatable
+heldKeyReturn	v1	bool	default=1	automatable
+filterQCompensation	v1	bool	default=0	automatable
+notePriority	v1	choice	Last|Low	default=0	automatable
+lfo1Rate	v1	float	range=0.01:50	interval=0	skew=0.1767388	default=2	automatable
+lfo1Sync	v1	bool	default=0	automatable
+lfo1Division	v1	choice	1/1|1/1 D|1/1 T|1/2|1/2 D|1/2 T|1/4|1/4 D|1/4 T|1/8|1/8 D|1/8 T|1/16|1/16 D|1/16 T	default=6	automatable
+lfo1Shape	v1	choice	Sine|Triangle|Saw Up|Saw Down|Square|Smooth Random	default=0	automatable
+lfo1Polarity	v1	choice	Bipolar|Unipolar	default=0	automatable
+lfo1Mode	v1	choice	Free|Retrigger|One Shot	default=0	automatable
+lfo1Phase	v1	float	range=0:360	interval=0.1	skew=1	default=0	automatable
+lfo1Delay	v1	float	range=0:10	interval=0.0001	skew=0.35	default=0	automatable
+lfo1Fade	v1	float	range=0:10	interval=0.0001	skew=0.35	default=0	automatable
+lfo1Amount	v1	float	range=0:100	interval=0.01	skew=1	default=100	automatable
+lfo1Osc1Pitch	v1	float	range=-24:24	interval=0	skew=0.35 symmetric	default=0	automatable
+lfo1Osc1Morph	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+lfo1Osc1Width	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+lfo1Osc1Level	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+lfo1Osc2Pitch	v1	float	range=-24:24	interval=0	skew=0.35 symmetric	default=0	automatable
+lfo1Osc2Morph	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+lfo1Osc2Width	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+lfo1Osc2Level	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+lfo1Osc3Pitch	v1	float	range=-24:24	interval=0	skew=0.35 symmetric	default=0	automatable
+lfo1Osc3Morph	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+lfo1Osc3Width	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+lfo1Osc3Level	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+lfo1Filter	v1	float	range=-6:6	interval=0	skew=0.5 symmetric	default=0	automatable
+lfo1Amp	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+lfo1Drive	v1	float	range=-24:24	interval=0	skew=1 symmetric	default=0	automatable
+lfo1Noise	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+lfo1Detune	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+lfo1Spread	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+lfo2Rate	v1	float	range=0.01:50	interval=0	skew=0.1767388	default=2	automatable
+lfo2Sync	v1	bool	default=0	automatable
+lfo2Division	v1	choice	1/1|1/1 D|1/1 T|1/2|1/2 D|1/2 T|1/4|1/4 D|1/4 T|1/8|1/8 D|1/8 T|1/16|1/16 D|1/16 T	default=6	automatable
+lfo2Shape	v1	choice	Sine|Triangle|Saw Up|Saw Down|Square|Smooth Random	default=0	automatable
+lfo2Polarity	v1	choice	Bipolar|Unipolar	default=0	automatable
+lfo2Mode	v1	choice	Free|Retrigger|One Shot	default=0	automatable
+lfo2Phase	v1	float	range=0:360	interval=0.1	skew=1	default=0	automatable
+lfo2Delay	v1	float	range=0:10	interval=0.0001	skew=0.35	default=0	automatable
+lfo2Fade	v1	float	range=0:10	interval=0.0001	skew=0.35	default=0	automatable
+lfo2Amount	v1	float	range=0:100	interval=0.01	skew=1	default=100	automatable
+lfo2Osc1Pitch	v1	float	range=-24:24	interval=0	skew=0.35 symmetric	default=0	automatable
+lfo2Osc1Morph	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+lfo2Osc1Width	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+lfo2Osc1Level	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+lfo2Osc2Pitch	v1	float	range=-24:24	interval=0	skew=0.35 symmetric	default=0	automatable
+lfo2Osc2Morph	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+lfo2Osc2Width	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+lfo2Osc2Level	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+lfo2Osc3Pitch	v1	float	range=-24:24	interval=0	skew=0.35 symmetric	default=0	automatable
+lfo2Osc3Morph	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+lfo2Osc3Width	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+lfo2Osc3Level	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+lfo2Filter	v1	float	range=-6:6	interval=0	skew=0.5 symmetric	default=0	automatable
+lfo2Amp	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+lfo2Drive	v1	float	range=-24:24	interval=0	skew=1 symmetric	default=0	automatable
+lfo2Noise	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+lfo2Detune	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+lfo2Spread	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+vibratoRate	v1	float	range=0.1:12	interval=0	skew=0.6213436	default=5.5	automatable
+vibratoShape	v1	choice	Sine|Triangle	default=0	automatable
+vibratoDepth	v1	float	range=0:100	interval=0.1	skew=1	default=50	automatable
+filterMode	v1	float	range=-1:1	interval=0.001	skew=1	default=-1	automatable
+lfo1FilterMode	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+lfo2FilterMode	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
+filterType	v1	choice	Ladder|SVF	default=0	automatable
+filterK35	v1	bool	default=0	automatable

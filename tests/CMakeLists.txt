@@ -53,7 +53,10 @@ add_executable(vekt_dsp_tests
     ui/StereoMeterBallisticsTests.cpp
     ui/LevelMeterTests.cpp
     ui/OscilloscopeTests.cpp
-    ui/RotaryControlTests.cpp)
+    ui/RotaryControlTests.cpp
+	compat/StateFixtureTests.cpp
+	compat/ReferenceRenderTests.cpp
+	compat/ParameterManifestTests.cpp)
 
 target_link_libraries(vekt_dsp_tests PRIVATE
     vekt::dsp
@@ -72,6 +75,11 @@ if(APPLE AND CMAKE_GENERATOR STREQUAL "Xcode")
         COMMENT "Ad-hoc signing vekt_dsp_tests for local execution"
         VERBATIM)
 endif()
+
+# Compatibility fixtures live in the source tree; failing renders are written to the build tree.
+target_compile_definitions(vekt_dsp_tests PRIVATE
+	VEKT_COMPAT_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
+	VEKT_COMPAT_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/compat-actual")
 
 include(Catch)
 catch_discover_tests(vekt_dsp_tests ADD_TAGS_AS_LABELS)

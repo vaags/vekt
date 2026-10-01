@@ -1,0 +1,24 @@
+inputGain	v1	float	range=-24:24	interval=0.01	skew=1	default=0	automatable
+drive	v1	float	range=0:36	interval=0.01	skew=1	default=6	automatable
+tone	v1	float	range=-6:6	interval=0.01	skew=1	default=0	automatable
+bias	v1	float	range=-1:1	interval=0.001	skew=1	default=0	automatable
+autoGain	v1	bool	default=0	automatable
+bypass	v1	bool	default=0	automatable
+mix	v1	float	range=0:100	interval=0.01	skew=1	default=100	automatable
+outputGain	v1	float	range=-24:24	interval=0.01	skew=1	default=0	automatable
+lowBandMix	v1	float	range=0:100	interval=0.01	skew=1	default=100	automatable
+midBandMix	v1	float	range=0:100	interval=0.01	skew=1	default=100	automatable
+highBandMix	v1	float	range=0:100	interval=0.01	skew=1	default=100	automatable
+lowMidCutoffHz	v1	float	range=40:2000	interval=0.01	skew=0.35	default=250	automatable
+midHighCutoffHz	v1	float	range=500:16000	interval=0.01	skew=0.35	default=2500	automatable
+mode	v1	choice	Saturation|Overdrive|Distortion|Circuit Fuzz|Gated Fuzz	default=0	automatable
+shape	v1	float	range=0:1	interval=0.001	skew=1	default=0.5	automatable
+dynamics	v1	float	range=0:1	interval=0.001	skew=1	default=0.5	automatable
+texture	v1	float	range=0:1	interval=0.001	skew=1	default=0.5	automatable
+stageEnabledSaturation	v1	bool	default=1	automatable
+stageEnabledOverdrive	v1	bool	default=0	automatable
+stageEnabledDistortion	v1	bool	default=0	automatable
+stageEnabledCircuitFuzz	v1	bool	default=0	automatable
+stageEnabledGatedFuzz	v1	bool	default=0	automatable
+trackingOversampling	v1	choice	Off|2x IIR|4x IIR|2x FIR|4x FIR|8x FIR|16x FIR	default=2	fixed
+offlineOversampling	v1	choice	Off|2x FIR|4x FIR|8x FIR|16x FIR|2x IIR|4x IIR	default=4	fixed

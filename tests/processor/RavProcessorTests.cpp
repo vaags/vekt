@@ -371,6 +371,33 @@ TEST_CASE("Rav processor state round trips parameters", "[processor][state]")
 	REQUIRE(static_cast<int>(restoredMetadata.getProperty("editorWidth")) == 900);
 }
 
+TEST_CASE("Rav projects restore parameters they predate to defaults", "[processor][state]")
+{
+	// APVTS::replaceState provides this today; the test keeps it true if parameter state moves off APVTS.
+	vekt::rav::PluginProcessor source;
+	setParameter(source, vekt::rav::parameters::tone, -3.0f);
+	juce::MemoryBlock saved;
+	source.getStateInformation(saved);
+	const auto xml = juce::AudioProcessor::getXmlFromBinary(saved.getData(), static_cast<int>(saved.getSize()));
+	REQUIRE(xml != nullptr);
+	auto projectState = juce::ValueTree::fromXml(*xml);
+	auto parameters = projectState.getChildWithName(vekt::rav::parameters::stateType);
+	for (const auto* identifier : { vekt::rav::parameters::drive, vekt::rav::parameters::stageEnabledGatedFuzz })
+		parameters.removeChild(parameters.getChildWithProperty("id", identifier), nullptr);
+	juce::MemoryBlock olderProject;
+	juce::AudioProcessor::copyXmlToBinary(*projectState.createXml(), olderProject);
+
+	vekt::rav::PluginProcessor restored;
+	setParameter(restored, vekt::rav::parameters::drive, 30.0f);
+	setParameter(restored, vekt::rav::parameters::stageEnabledGatedFuzz, 1.0f);
+	restored.setStateInformation(olderProject.getData(), static_cast<int>(olderProject.getSize()));
+
+	const auto value = [&](const char* identifier) { return restored.getParameters().getRawParameterValue(identifier)->load(); };
+	REQUIRE(value(vekt::rav::parameters::tone) == Catch::Approx(-3.0f));
+	REQUIRE(value(vekt::rav::parameters::drive) == Catch::Approx(6.0f));
+	REQUIRE(value(vekt::rav::parameters::stageEnabledGatedFuzz) == Catch::Approx(0.0f));
+}
+
 TEST_CASE("Rav processor bypass preserves reported latency across transitions", "[processor][bypass]")
 {
 	constexpr auto blockSize = 128;
