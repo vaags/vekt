@@ -15,6 +15,7 @@ add_executable(vekt_dsp_tests
 	dsp/RavPostStageTests.cpp
     dsp/OversamplingBankTests.cpp
 	 dsp/StereoPeakMeterTests.cpp
+	dsp/ScopeTapTests.cpp
     presets/PresetTests.cpp
     presets/FrameworkPresetTests.cpp
 	presets/GlimmerPresetTests.cpp
@@ -51,6 +52,7 @@ add_executable(vekt_dsp_tests
     dsp/TanhStageTests.cpp
     ui/StereoMeterBallisticsTests.cpp
     ui/LevelMeterTests.cpp
+    ui/OscilloscopeTests.cpp
     ui/RotaryControlTests.cpp)
 
 target_link_libraries(vekt_dsp_tests PRIVATE

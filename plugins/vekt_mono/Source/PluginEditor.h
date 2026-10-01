@@ -5,6 +5,7 @@
 #include "LfoDestinations.h"
 #include "Lfo.h"
 #include <vekt/ui/LevelMeter.h>
+#include <vekt/ui/Oscilloscope.h>
 #include <vekt/ui/Panel.h>
 #include <vekt/ui/PresetNavigation.h>
 #include <vekt/ui/RotaryControl.h>
@@ -219,7 +220,8 @@ private:
 	std::array<ui::RotaryControl, 5> voiceControls;
 	std::array<std::unique_ptr<SliderAttachment>, 5> voiceAttachments;
 	juce::Slider outputFader;
-	ui::LevelMeter outputMeter { "OUT", juce::Colour::fromRGB(227, 156, 75), ui::LevelMeter::Orientation::vertical };
+	ui::LevelMeter outputMeter { "OUT", juce::Colour::fromRGB(227, 156, 75), ui::LevelMeter::Orientation::horizontal };
+	ui::Oscilloscope outputScope { pluginProcessor.getOutputScope() };
 	std::unique_ptr<SliderAttachment> outputAttachment;
 	juce::ComboBox voiceCountBox, performanceModeBox, qualityBox, unisonBox, noiseBox, glideBox, priorityBox, multicoreBox;
 	juce::ToggleButton heldKeyReturnButton { "Held return" };

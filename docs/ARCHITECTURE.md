@@ -41,6 +41,13 @@ RAV and Glimmer consume the same `vekt::ui` controls:
   UI refresh. Pending parameter edits are also flushed before a new preset-load
   transaction so rapid loads preserve a consistent undo/redo baseline.
 
+- `Oscilloscope` draws a processor-owned `vekt::dsp::ScopeTap` (wait-free
+  stereo ring the audio thread fills after output gain) and refreshes itself
+  per display frame via `VBlankAttachment`, skipping repaints while nothing
+  new or only silence arrives. `findScopeTrigger` (in `ScopeTap.h`) picks the
+  newest rising zero crossing with hysteresis, so the trigger is testable
+  without a display.
+
 - `RotaryControl::setModulation` shows where modulation can take a knob as a
   `ModulationRing`: a thin arc in its own lane outside the value ring, mapped
   through the slider's range and skew (wrapped on endless controls; past

@@ -313,6 +313,7 @@ PluginProcessor::SvfWorkSnapshot PluginProcessor::svfWorkSnapshot() const noexce
 void PluginProcessor::prepareToPlay(double newSampleRate, int maximumBlockSize)
 {
 	sampleRateHz = newSampleRate;
+	outputScope.prepare(newSampleRate);
 	// The display timeline restarts with the count (DisplayTimeline sees it go back).
 	renderedSamples = 0;
 	preparedBlockSize = std::max(maximumBlockSize, 1);
@@ -523,6 +524,7 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
 	}
 	render(buffer, position, buffer.getNumSamples() - position);
 	outputMeter.publish(buffer);
+	outputScope.publish(buffer);
 	const MonoVoice* newest {};
 	for (const auto& voice : voices)
 		if (voice->isActive() && (newest == nullptr || voice->getAge() > newest->getAge())) newest = voice.get();

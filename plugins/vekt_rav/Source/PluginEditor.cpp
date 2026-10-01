@@ -143,7 +143,8 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 	for (auto* component : { static_cast<juce::Component*>(&autoGainButton), static_cast<juce::Component*>(&bypassButton),
 		static_cast<juce::Component*>(&qualityLabel), static_cast<juce::Component*>(&inputMeter),
 		static_cast<juce::Component*>(&outputMeter), static_cast<juce::Component*>(&inputFader),
-		static_cast<juce::Component*>(&outputFader), static_cast<juce::Component*>(&meterLabel) })
+		static_cast<juce::Component*>(&outputFader), static_cast<juce::Component*>(&meterLabel),
+		static_cast<juce::Component*>(&outputScope) })
 		outputPanel.addAndMakeVisible(*component);
 	inputLabel.setText("Input", juce::dontSendNotification);
 	outputLabel.setText("Output", juce::dontSendNotification);
@@ -333,7 +334,8 @@ void PluginEditor::resized()
 	qualityLabel.setBounds(outputContent.withY(outputContent.getBottom() - 28).withHeight(28));
 	autoGainButton.setBounds(outputContent.withY(outputContent.getBottom() - 72).withHeight(36)
 		.withSizeKeepingCentre(132, 36));
-	const auto strips = outputContent.withTrimmedBottom(88);
+	outputScope.setBounds(outputContent.withHeight(120));
+	const auto strips = outputContent.withTrimmedTop(136).withTrimmedBottom(88);
 	const auto stripWidth = strips.getWidth() / 2;
 	const auto inputStrip = strips.withWidth(stripWidth);
 	const auto outputStrip = inputStrip.translated(stripWidth, 0);

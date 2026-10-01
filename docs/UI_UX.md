@@ -37,6 +37,12 @@ Preset workflows are specified separately in [PRESET_UX.md](PRESET_UX.md).
 - Input and Output labels sit above matched channel strips. Fader travel and
   meter bounds align, with editable gains below and Auto Gain beneath both strips.
   Meter references are dBFS; they are not a scale for the adjacent gain fader.
+- Every product's I/O panel shows an oscilloscope of the plugin output after
+  output gain: left and right traces over 25 ms, full height at 0 dBFS (the
+  meters' reference), triggered on rising zero crossings so periodic signals
+  stand still. RAV places it above the channel strips, Glimmer beside its
+  meters; Mono, whose I/O panel is narrow, stacks scope, a horizontal meter and
+  a horizontal Master Output fader.
 - Tracking and Offline quality selectors open in an anchored Settings panel.
   Active quality and pending changes remain visible in the I/O strip.
 - Scale the logical canvas uniformly. Do not scale font sizes independently with

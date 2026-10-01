@@ -3,6 +3,7 @@
 #include <vekt/mono/Parameters.h>
 #include <vekt/dsp/DisplayHistory.h>
 #include <vekt/dsp/OversamplingBank.h>
+#include <vekt/dsp/ScopeTap.h>
 #include <vekt/dsp/StereoPeakMeter.h>
 #include <vekt/presets/FilePresetRepository.h>
 #include <vekt/presets/PresetCatalog.h>
@@ -81,6 +82,8 @@ public:
 	};
 	[[nodiscard]] SvfWorkSnapshot svfWorkSnapshot() const noexcept;
 	[[nodiscard]] std::array<float, 2> consumeOutputPeaks() noexcept { return outputMeter.consumePeaks(); }
+	// The output after Master Output, for the editor's oscilloscope.
+	[[nodiscard]] const dsp::ScopeTap& getOutputScope() const noexcept { return outputScope; }
 	// Latest output of each LFO on the most recently started sounding voice; 0 while silent. For display only.
 	[[nodiscard]] float getLfoDisplayValue(std::size_t index) const noexcept { return lfoDisplayValues[index].load(std::memory_order_relaxed); }
 	// Whether a voice is sounding, so getLfoDisplayValue's 0 can be told apart from silence. For display only.
@@ -152,6 +155,7 @@ private:
 	double transportBpm { 120.0 };
 	std::optional<double> transportPpq;
 	dsp::StereoPeakMeter outputMeter;
+	dsp::ScopeTap outputScope;
 	std::atomic<bool> pendingPresetReset {};
 	int activeVoiceCount { 8 };
 	int activeQuality {};

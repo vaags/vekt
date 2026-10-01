@@ -4,6 +4,7 @@
 
 #include <vekt/ui/LevelMeter.h>
 #include <vekt/ui/ModeButton.h>
+#include <vekt/ui/Oscilloscope.h>
 #include <vekt/ui/PresetNavigation.h>
 #include <vekt/ui/UndoRedoControls.h>
 #include <vekt/ui/Panel.h>
@@ -69,6 +70,7 @@ private:
 	juce::ToggleButton autoGainButton { "Auto gain" };
 	ui::LevelMeter inputMeter { "IN", juce::Colour::fromRGB(91, 162, 150), ui::LevelMeter::Orientation::vertical };
 	ui::LevelMeter outputMeter { "OUT", juce::Colour::fromRGB(227, 156, 75), ui::LevelMeter::Orientation::vertical };
+	ui::Oscilloscope outputScope { pluginProcessor.getOutputScope() };
 	std::unique_ptr<ComboBoxAttachment> speedModeAttachment;
 	std::unique_ptr<ComboBoxAttachment> trackingQualityAttachment;
 	std::unique_ptr<ComboBoxAttachment> offlineQualityAttachment;

@@ -131,12 +131,13 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	qualityLabel.setJustificationType(juce::Justification::centred);
 	for (auto* component : { static_cast<juce::Component*>(&inputFader), static_cast<juce::Component*>(&outputFader),
 		static_cast<juce::Component*>(&bypassButton), static_cast<juce::Component*>(&autoGainButton),
-		static_cast<juce::Component*>(&inputMeter), static_cast<juce::Component*>(&outputMeter) })
+		static_cast<juce::Component*>(&inputMeter), static_cast<juce::Component*>(&outputMeter),
+		static_cast<juce::Component*>(&outputScope) })
 		ioPanel.addAndMakeVisible(*component);
 	for (auto* fader : { &inputFader, &outputFader })
 	{
 		fader->setSliderStyle(juce::Slider::LinearVertical);
-		fader->setTextBoxStyle(juce::Slider::TextBoxBelow, false, 76, 24);
+		fader->setTextBoxStyle(juce::Slider::TextBoxBelow, false, 64, 24);
 		fader->setDoubleClickReturnValue(true, 0.0);
 		fader->setColour(juce::Slider::trackColourId, juce::Colour::fromRGB(91, 162, 150));
 	}
@@ -250,10 +251,11 @@ void PluginEditor::resized()
 	widthSlider.setBounds(66, 190, 274, 30);
 	for (std::size_t index = 0; index < toneControls.size(); ++index)
 		toneControls[index].setBounds(10 + static_cast<int>(index) * 174, 48, 166, 176);
-	inputFader.setBounds(26, 38, 96, 138);
-	outputFader.setBounds(140, 38, 96, 138);
-	inputMeter.setBounds(254, 42, 30, 130);
-	outputMeter.setBounds(298, 42, 30, 130);
+	inputFader.setBounds(14, 38, 64, 138);
+	inputMeter.setBounds(80, 42, 30, 130);
+	outputFader.setBounds(118, 38, 64, 138);
+	outputMeter.setBounds(184, 42, 30, 130);
+	outputScope.setBounds(228, 42, 112, 130);
 	bypassButton.setBounds(28, 184, 104, 26);
 	autoGainButton.setBounds(146, 184, 116, 26);
 	trackingQualityBox.setBounds(18, 226, 152, 24);

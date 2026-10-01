@@ -97,6 +97,7 @@ void PluginProcessor::prepareToPlay(double newSampleRate, int newMaximumBlockSiz
 {
 	sampleRateHz = newSampleRate;
 	maximumBlockSize = std::max(newMaximumBlockSize, 1);
+	outputScope.prepare(sampleRateHz);
 	const juce::dsp::ProcessSpec spec { sampleRateHz, static_cast<juce::uint32>(maximumBlockSize), 2 };
 	oversampling.prepare(static_cast<std::size_t>(maximumBlockSize));
 	requestedTrackingOversampling.store(trackingOversamplingParameter->load());
@@ -176,6 +177,7 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
 	inputMeter.publish(buffer);
 	process(buffer, bypassParameter->load() >= 0.5f);
 	outputMeter.publish(buffer);
+	outputScope.publish(buffer);
 }
 
 void PluginProcessor::processBlockBypassed(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
@@ -185,6 +187,7 @@ void PluginProcessor::processBlockBypassed(juce::AudioBuffer<float>& buffer, juc
 	inputMeter.publish(buffer);
 	process(buffer, true);
 	outputMeter.publish(buffer);
+	outputScope.publish(buffer);
 }
 
 void PluginProcessor::process(juce::AudioBuffer<float>& buffer, bool bypassed)

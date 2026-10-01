@@ -10,6 +10,7 @@
 #include <vekt/dsp/LatencyAlignedBypass.h>
 #include <vekt/dsp/LatencyAlignedMixer.h>
 #include <vekt/dsp/OversamplingBank.h>
+#include <vekt/dsp/ScopeTap.h>
 #include <vekt/dsp/StereoPeakMeter.h>
 #include <vekt/presets/FilePresetRepository.h>
 #include <vekt/presets/PresetCatalog.h>
@@ -65,6 +66,8 @@ public:
 
 	[[nodiscard]] std::array<float, 2> consumeInputPeaks() noexcept;
 	[[nodiscard]] std::array<float, 2> consumeOutputPeaks() noexcept;
+	// The output after gain, for the editor's oscilloscope.
+	[[nodiscard]] const dsp::ScopeTap& getOutputScope() const noexcept { return outputScope; }
 	[[nodiscard]] juce::AudioProcessorValueTreeState& getParameters() noexcept { return parameterState; }
 	[[nodiscard]] juce::UndoManager& getUndoManager() noexcept { return undoManager; }
 	[[nodiscard]] bool isAutoTargetFast() const noexcept { return autoTargetFast.load(); }
@@ -148,6 +151,7 @@ private:
 	dsp::LatencyAlignedMixer<float> dryWetMixer;
 	dsp::StereoPeakMeter inputMeter;
 	dsp::StereoPeakMeter outputMeter;
+	dsp::ScopeTap outputScope;
 	juce::AudioBuffer<float> referenceBuffer;
 	juce::AudioBuffer<float> bypassBuffer;
 	double sampleRateHz { 48'000.0 };

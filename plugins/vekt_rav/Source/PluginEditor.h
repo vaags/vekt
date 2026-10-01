@@ -4,6 +4,7 @@
 
 #include <vekt/ui/LevelMeter.h>
 #include <vekt/ui/ModeButton.h>
+#include <vekt/ui/Oscilloscope.h>
 #include <vekt/ui/PresetNavigation.h>
 #include <vekt/ui/UndoRedoControls.h>
 #include <vekt/ui/Panel.h>
@@ -81,6 +82,7 @@ private:
 	std::array<std::unique_ptr<SliderAttachment>, 2> cutoffAttachments;
 	ui::LevelMeter inputMeter { "IN", juce::Colour::fromRGB(91, 162, 150), ui::LevelMeter::Orientation::vertical };
 	ui::LevelMeter outputMeter { "OUT", juce::Colour::fromRGB(227, 156, 75), ui::LevelMeter::Orientation::vertical };
+	ui::Oscilloscope outputScope { pluginProcessor.getOutputScope() };
 	juce::Slider inputFader;
 	juce::Slider outputFader;
 	std::unique_ptr<SliderAttachment> inputFaderAttachment;

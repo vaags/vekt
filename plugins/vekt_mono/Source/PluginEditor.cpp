@@ -196,11 +196,13 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	const std::array voiceNames { "Detune", "Uni Spread", "Voice Pan", "Glide Time", "Drift" };
 	const std::array voiceIds { parameters::unisonDetune, parameters::unisonSpread, parameters::voiceWidth, parameters::glideTime, parameters::drift };
 	for (std::size_t index = 0; index < voiceControls.size(); ++index) addRotary(voicePanel, voiceControls[index], voiceNames[index], voiceIds[index], voiceAttachments[index]);
-	for (auto* component : { static_cast<juce::Component*>(&outputFader), static_cast<juce::Component*>(&outputMeter) })
+	for (auto* component : { static_cast<juce::Component*>(&outputScope), static_cast<juce::Component*>(&outputMeter),
+		static_cast<juce::Component*>(&outputFader) })
 		ioPanel.addAndMakeVisible(*component);
 	outputFader.setName("Master Output");
-	outputFader.setSliderStyle(juce::Slider::LinearVertical);
-	outputFader.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 76, 24);
+	// Horizontal, beneath the scope and meter: the panel is too narrow for all three side by side.
+	outputFader.setSliderStyle(juce::Slider::LinearHorizontal);
+	outputFader.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 76, 20);
 	outputFader.setTextValueSuffix(" dB");
 	outputFader.setDoubleClickReturnValue(true, 0.0);
 	outputAttachment = std::make_unique<SliderAttachment>(pluginProcessor.getParameters(), parameters::masterOutput, outputFader);
@@ -516,8 +518,9 @@ void PluginEditor::resized()
 	for (std::size_t index = 0; index < filterEnvelopeControls.size(); ++index) filterEnvelopeControls[index].setBounds(6 + static_cast<int>(index) * 67, 38, 65, 140);
 	for (std::size_t index = 0; index < voiceControls.size(); ++index) voiceControls[index].setBounds(6 + static_cast<int>(index) * 67, 32, 65, 136);
 	noiseTypeLabel.setBounds(12, 38, 96, 18); noiseBox.setBounds(12, 58, 96, 28); noiseLevelControl.setBounds(116, 32, 65, 136);
-	outputFader.setBounds(12, 34, 76, 132);
-	outputMeter.setBounds(100, 38, 36, 104);
+	outputScope.setBounds(12, 36, 123, 66);
+	outputMeter.setBounds(12, 106, 123, 18);
+	outputFader.setBounds(12, 128, 123, 44);
 	voiceCountBox.setBounds(12, 58, 154, 28); performanceModeBox.setBounds(184, 58, 154, 28); qualityBox.setBounds(12, 116, 154, 28); unisonBox.setBounds(184, 116, 154, 28); glideBox.setBounds(12, 174, 154, 28); multicoreBox.setBounds(184, 174, 154, 28);
 	lfoPanel.setBounds(1116, 68, 348, 380);
 	vibratoPanel.setBounds(1116, 464, 348, 216);

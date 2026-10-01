@@ -80,6 +80,28 @@ vekt::ui::RotaryControl* findRotary(juce::Component& parent, const juce::String&
 	return nullptr;
 }
 
+// Each product shows its output waveform in the I/O panel, clear of the other I/O controls.
+void checkOutputScope(juce::Component& content, int minimumWidth, int minimumHeight)
+{
+	juce::Component* ioPanel = nullptr;
+	for (auto* child : content.getChildren())
+		if (child->getName() == "I/O") ioPanel = child;
+	REQUIRE(ioPanel != nullptr);
+	vekt::ui::Oscilloscope* scope = nullptr;
+	for (auto* child : ioPanel->getChildren())
+		if (auto* candidate = dynamic_cast<vekt::ui::Oscilloscope*>(child)) scope = candidate;
+	REQUIRE(scope != nullptr);
+	REQUIRE(scope->isVisible());
+	REQUIRE(scope->getWidth() >= minimumWidth);
+	REQUIRE(scope->getHeight() >= minimumHeight);
+	for (auto* sibling : ioPanel->getChildren())
+		if (sibling != scope && sibling->isVisible())
+		{
+			INFO("Overlaps " << sibling->getName().toStdString());
+			REQUIRE_FALSE(sibling->getBounds().intersects(scope->getBounds()));
+		}
+}
+
 void checkMeterBounds(juce::Component& content, int minimumWidth)
 {
 	for (const auto* name : { "IN", "OUT" })
@@ -106,6 +128,7 @@ TEST_CASE("Rav editor keeps its controls within the 16:10 canvas", "[processor][
 		editor.setSize(width, width * 10 / 16);
 		checkVisibleBounds(editor.getContent());
 		checkMeterBounds(editor.getContent(), 32);
+		checkOutputScope(editor.getContent(), 200, 100);
 	}
 	const auto find = [&](const juce::String& name) -> juce::Component&
 	{
@@ -258,6 +281,7 @@ TEST_CASE("Mono editor presents symmetric oscillator controls without overlap", 
 		editor.setSize(juce::roundToInt(editor.getLogicalWidth() * scale), juce::roundToInt(editor.getLogicalHeight() * scale));
 		checkVisibleBounds(editor.getContent());
 	}
+	checkOutputScope(editor.getContent(), 120, 60);
 	auto& ioPanel = find("I/O");
 	auto* outputMeter = findMeter(ioPanel, "OUT");
 	REQUIRE(outputMeter != nullptr);
@@ -710,6 +734,7 @@ TEST_CASE("Glimmer editor keeps stereo meters within its canvas", "[processor][u
 		editor.setSize(width, width * 10 / 16);
 		checkVisibleBounds(editor.getContent());
 		checkMeterBounds(editor.getContent(), 28);
+		checkOutputScope(editor.getContent(), 100, 100);
 	}
 	for (auto* panel : editor.getContent().getChildren())
 		if (dynamic_cast<vekt::ui::Panel*>(panel) != nullptr)

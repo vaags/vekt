@@ -11,6 +11,7 @@
 #include <vekt/dsp/LatencyAlignedMixer.h>
 #include <vekt/dsp/MatchedToneStage.h>
 #include <vekt/dsp/OversamplingBank.h>
+#include <vekt/dsp/ScopeTap.h>
 #include <vekt/dsp/StereoPeakMeter.h>
 #include <vekt/dsp/TanhStage.h>
 #include <vekt/dsp/ThreeBandCrossover.h>
@@ -83,6 +84,8 @@ public:
 	[[nodiscard]] presets::PresetSession& getPresetSession() noexcept { return presetSession; }
 	[[nodiscard]] std::array<float, 2> consumeInputPeaks() noexcept;
 	[[nodiscard]] std::array<float, 2> consumeOutputPeaks() noexcept;
+	// The output after gain, for the editor's oscilloscope.
+	[[nodiscard]] const dsp::ScopeTap& getOutputScope() const noexcept { return outputScope; }
 	[[nodiscard]] juce::AudioProcessorValueTreeState& getParameters() noexcept;
 	[[nodiscard]] juce::UndoManager& getUndoManager() noexcept;
 	[[nodiscard]] juce::ValueTree& getProjectMetadata() noexcept;
@@ -164,6 +167,7 @@ private:
 	std::array<std::array<dsp::ControlTransition<float>, RavStageChain::stageCount>, 3> stageEnableSmoothers;
 	dsp::StereoPeakMeter inputMeter;
 	dsp::StereoPeakMeter outputMeter;
+	dsp::ScopeTap outputScope;
 	juce::dsp::Gain<float> inputGain;
 	juce::dsp::Gain<float> outputGain;
 	juce::AudioBuffer<float> bypassScratch;

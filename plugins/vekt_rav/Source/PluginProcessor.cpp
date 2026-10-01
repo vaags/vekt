@@ -109,6 +109,7 @@ PluginProcessor::~PluginProcessor()
 void PluginProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
 {
 	preparedSampleRate = sampleRate;
+	outputScope.prepare(sampleRate);
 	const juce::dsp::ProcessSpec specification {
 		sampleRate,
 		static_cast<juce::uint32>(maximumBlockSize),
@@ -202,6 +203,7 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
 	inputMeter.publish(buffer);
 	processPreparedBlocks(buffer, midi, bypassParameter->load() >= 0.5f);
 	outputMeter.publish(buffer);
+	outputScope.publish(buffer);
 }
 
 void PluginProcessor::processBlockBypassed(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
@@ -212,6 +214,7 @@ void PluginProcessor::processBlockBypassed(juce::AudioBuffer<float>& buffer, juc
 	inputMeter.publish(buffer);
 	processPreparedBlocks(buffer, midi, true);
 	outputMeter.publish(buffer);
+	outputScope.publish(buffer);
 }
 
 void PluginProcessor::processPreparedBlocks(
