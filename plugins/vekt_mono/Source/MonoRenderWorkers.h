@@ -58,7 +58,7 @@ public:
 	// Runs job(context, unit) for every unit in [0, units) and returns when all have finished.
 	void run(int units, Job job, void* context) noexcept;
 
-	// Performance cores minus one (the audio thread's), capped at three helpers.
+	// Performance cores minus one (the audio thread's), capped at seven helpers.
 	[[nodiscard]] static int defaultThreadCount() noexcept;
 
 private:

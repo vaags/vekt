@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <array>
+#include <limits>
 
 namespace vekt::mono
 {
@@ -319,10 +320,10 @@ void PluginProcessor::prepareToPlay(double newSampleRate, int maximumBlockSize)
 	helperSampleRate.store(newSampleRate);
 	oversampling.prepare(static_cast<std::size_t>(preparedBlockSize));
 	// Segment buffers at the highest internal rate (8x), so no allocation happens while rendering.
-	unitStride = static_cast<std::size_t>(preparedBlockSize) * 8;
-	lfoPositionBuffer.assign(2 * unitStride, 0.0);
-	vibratoBuffer.assign(unitStride, 0.0f);
-	unitBuffer.assign(voices.size() * 2 * unitStride, 0.0f);
+	voiceStride = static_cast<std::size_t>(preparedBlockSize) * 8;
+	lfoPositionBuffer.assign(2 * voiceStride, 0.0);
+	vibratoBuffer.assign(voiceStride, 0.0f);
+	voiceBuffer.assign(voices.size() * 2 * voiceStride, 0.0f);
 	if (value(parameters::multicore) >= 0.5f) ensureRenderWorkers();
 	for (auto& clock : lfoClocks) clock->reset();
 	vibratoClock->reset();
@@ -373,18 +374,19 @@ void PluginProcessor::configureQuality(int quality)
 	setLatencySamples(oversampling.getActiveLatencySamples());
 }
 
-void PluginProcessor::renderUnitJob(void* processor, int unit) noexcept
+void PluginProcessor::renderJobCallback(void* processor, int job) noexcept
 {
-	static_cast<PluginProcessor*>(processor)->renderUnit(unit);
+	static_cast<PluginProcessor*>(processor)->renderJob(job);
 }
 
-void PluginProcessor::renderUnit(int unit) noexcept
+void PluginProcessor::renderJob(int job) noexcept
 {
 	const auto& settings = *segment.settings;
-	const auto& unitVoices = segment.unitVoices[static_cast<std::size_t>(unit)];
-	const auto voiceCount = static_cast<std::size_t>(segment.unitVoiceCount[static_cast<std::size_t>(unit)]);
-	auto* left = unitBuffer.data() + static_cast<std::size_t>(2 * unit) * unitStride;
-	auto* right = left + unitStride;
+	const auto& jobVoices = segment.jobVoices[static_cast<std::size_t>(job)];
+	const auto voiceCount = static_cast<std::size_t>(segment.jobVoiceCount[static_cast<std::size_t>(job)]);
+	std::array<float*, 4> output {}; // each voice's left samples, its right one stride later
+	for (std::size_t index = 0; index < voiceCount; ++index)
+		output[index] = voiceBuffer.data() + static_cast<std::size_t>(2 * jobVoices[index]) * voiceStride;
 	// The filter type is fixed for the segment: choose the per-sample filter step once, not per sample.
 	const auto renderSamples = [&](auto&& filterVoices)
 	{
@@ -399,17 +401,21 @@ void PluginProcessor::renderUnit(int unit) noexcept
 				return voice.beginSample(settings, pitchBendByChannel[channelIndex], lfoPositions, vibrato,
 					segment.channelControl[channelIndex]);
 			};
-			float unitLeft {}, unitRight {};
-			filterVoices(beginVoice, unitLeft, unitRight);
-			left[sample] = unitLeft;
-			right[sample] = unitRight;
+			// Each voice adds one sample to its own (zeroed) pair; a silent voice leaves zeros, which mixing ignores.
+			std::array<float, 4> voiceLeft {}, voiceRight {};
+			filterVoices(beginVoice, voiceLeft, voiceRight);
+			for (std::size_t index = 0; index < voiceCount; ++index)
+			{
+				output[index][sample] = voiceLeft[index];
+				output[index][voiceStride + static_cast<std::size_t>(sample)] = voiceRight[index];
+			}
 		}
 	};
 	if (settings.filterType == FilterType::korg35)
 	{
-		renderSamples([&](const auto& beginVoice, float& unitLeft, float& unitRight)
+		renderSamples([&](const auto& beginVoice, auto& voiceLeft, auto& voiceRight)
 		{
-			// As the ladder: the unit's voices build their K35 inputs, share one batched solve (tanh vectorized across
+			// As the ladder: the job's voices build their K35 inputs, share one batched solve (tanh vectorized across
 			// up to four lanes), then finish their samples.
 			std::array<NonlinearTptKorg35*, 4> filters {};
 			std::array<const NonlinearTptKorg35Settings*, 4> filterSettings {};
@@ -419,7 +425,7 @@ void PluginProcessor::renderUnit(int unit) noexcept
 			std::size_t lanes {};
 			for (std::size_t index = 0; index < voiceCount; ++index)
 			{
-				auto& voice = *voices[unitVoices[index]];
+				auto& voice = *voices[jobVoices[index]];
 				sounding[index] = beginVoice(voice);
 				if (!sounding[index]) continue;
 				firstLane[index] = lanes;
@@ -430,25 +436,26 @@ void PluginProcessor::renderUnit(int unit) noexcept
 				std::span<const double>(filterInputs.data(), lanes), std::span(filterOutputs.data(), lanes),
 				std::span<const NonlinearTptKorg35Settings* const>(filterSettings.data(), lanes));
 			for (std::size_t index = 0; index < voiceCount; ++index)
-				if (sounding[index]) voices[unitVoices[index]]->finishKorg35Sample(filterOutputs.data() + firstLane[index], unitLeft, unitRight);
+				if (sounding[index])
+					voices[jobVoices[index]]->finishKorg35Sample(filterOutputs.data() + firstLane[index], voiceLeft[index], voiceRight[index]);
 		});
 		return;
 	}
 	if (settings.filterType != FilterType::ladder)
 	{
-		renderSamples([&](const auto& beginVoice, float& unitLeft, float& unitRight)
+		renderSamples([&](const auto& beginVoice, auto& voiceLeft, auto& voiceRight)
 		{
 			for (std::size_t index = 0; index < voiceCount; ++index)
 			{
-				auto& voice = *voices[unitVoices[index]];
-				if (beginVoice(voice)) voice.finishNonLadderSample(unitLeft, unitRight);
+				auto& voice = *voices[jobVoices[index]];
+				if (beginVoice(voice)) voice.finishNonLadderSample(voiceLeft[index], voiceRight[index]);
 			}
 		});
 		return;
 	}
-	renderSamples([&](const auto& beginVoice, float& unitLeft, float& unitRight)
+	renderSamples([&](const auto& beginVoice, auto& voiceLeft, auto& voiceRight)
 	{
-		// The unit's voices build their ladder inputs, share one batched solve (tanh vectorized across up to four
+		// The job's voices build their ladder inputs, share one batched solve (tanh vectorized across up to four
 		// lanes), then finish their samples.
 		std::array<NonlinearTptLadder*, 4> ladders {};
 		std::array<const NonlinearTptLadderSettings*, 4> ladderSettings {};
@@ -458,7 +465,7 @@ void PluginProcessor::renderUnit(int unit) noexcept
 		std::size_t lanes {};
 		for (std::size_t index = 0; index < voiceCount; ++index)
 		{
-			auto& voice = *voices[unitVoices[index]];
+			auto& voice = *voices[jobVoices[index]];
 			sounding[index] = beginVoice(voice);
 			if (!sounding[index]) continue;
 			firstLane[index] = lanes;
@@ -469,7 +476,7 @@ void PluginProcessor::renderUnit(int unit) noexcept
 			std::span<const float>(ladderInputs.data(), lanes), std::span(ladderOutputs.data(), lanes),
 			std::span<const NonlinearTptLadderSettings* const>(ladderSettings.data(), lanes));
 		for (std::size_t index = 0; index < voiceCount; ++index)
-			if (sounding[index]) voices[unitVoices[index]]->finishSample(ladderOutputs.data() + firstLane[index], unitLeft, unitRight);
+			if (sounding[index]) voices[jobVoices[index]]->finishSample(ladderOutputs.data() + firstLane[index], voiceLeft[index], voiceRight[index]);
 	});
 }
 
@@ -728,36 +735,76 @@ void PluginProcessor::render(juce::AudioBuffer<float>& buffer, int start, int co
 		for (auto& clock : lfoClocks) clock->advance();
 		vibratoClock->advance();
 	}
-	// Work units: sounding voices in voice order, four ladder lanes each (four, two or one voice at unison 1, 2
-	// or 4). Notes only start at segment boundaries, so the units are fixed for the segment. The grouping and
-	// the summing order below do not depend on threads, so Multicore on and off render identical samples.
+	// Units: sounding voices in voice order, four filter lanes each (four, two or one voice at unison 1, 2 or 4).
+	// Notes only start at segment boundaries, so the units are fixed for the segment. Units fix the summing order
+	// below; they do not depend on threads, and a voice renders the same bits in any job (the batched solves
+	// share only tanh, which is per lane), so Multicore on and off render identical samples.
 	segment.settings = &settings;
 	segment.channelControl = channelControl;
 	segment.samples = samples;
-	segment.units = 0;
-	const auto voicesPerUnit = std::max(1, 4 / std::max(1, settings.unison));
-	for (std::size_t index = 0; index < voices.size(); ++index)
+	const auto lanesPerVoice = std::clamp(settings.unison, 1, 4);
+	const auto groupVoices = [this](int voicesPerGroup, RenderSegment::VoiceGroups& groups, std::array<int, 16>& groupVoiceCount)
 	{
-		if (!voices[index]->isActive()) continue;
-		if (segment.units == 0 || segment.unitVoiceCount[static_cast<std::size_t>(segment.units - 1)] == voicesPerUnit)
-			segment.unitVoiceCount[static_cast<std::size_t>(segment.units++)] = 0;
-		auto& unitSize = segment.unitVoiceCount[static_cast<std::size_t>(segment.units - 1)];
-		segment.unitVoices[static_cast<std::size_t>(segment.units - 1)][static_cast<std::size_t>(unitSize++)] = static_cast<std::uint8_t>(index);
-	}
-	// Threads only pay off with at least two units and enough samples to amortize waking the helpers.
+		auto groupCount = 0;
+		for (std::size_t index = 0; index < voices.size(); ++index)
+		{
+			if (!voices[index]->isActive()) continue;
+			if (groupCount == 0 || groupVoiceCount[static_cast<std::size_t>(groupCount - 1)] == voicesPerGroup)
+				groupVoiceCount[static_cast<std::size_t>(groupCount++)] = 0;
+			auto& groupSize = groupVoiceCount[static_cast<std::size_t>(groupCount - 1)];
+			groups[static_cast<std::size_t>(groupCount - 1)][static_cast<std::size_t>(groupSize++)] = static_cast<std::uint8_t>(index);
+		}
+		return groupCount;
+	};
+	segment.units = groupVoices(4 / lanesPerVoice, segment.unitVoices, segment.unitVoiceCount);
+	// Threads only pay off with enough samples to amortize waking the helpers.
 	auto* workers = renderWorkers.load(std::memory_order_acquire);
-	if (workers != nullptr && value(parameters::multicore) >= 0.5f && segment.units >= 2 && samples >= 32)
-		workers->run(segment.units, &PluginProcessor::renderUnitJob, this);
+	const auto threads = workers != nullptr && value(parameters::multicore) >= 0.5f && samples >= 32 ? workers->threads() + 1 : 1;
+	segment.jobs = segment.units;
+	segment.jobVoices = segment.unitVoices;
+	segment.jobVoiceCount = segment.unitVoiceCount;
+	if (threads > 1 && segment.units < threads && lanesPerVoice < 4)
+	{
+		// Fewer units than threads: render in smaller jobs. A smaller batched solve costs more per lane but less in
+		// total, so pick the job size with the shortest estimated wall time (rounds of jobs across the threads).
+		// Relative cost of a job of 4, 2 and 1 filter lanes: 16 ladder voices at 1x and 4x (VektMonoProcessorCost).
+		constexpr std::array<std::pair<int, float>, 3> jobCosts { { { 4, 1.0f }, { 2, 0.53f }, { 1, 0.30f } } };
+		const auto sounding = static_cast<int>(std::count_if(voices.begin(), voices.end(), [](const auto& voice) { return voice->isActive(); }));
+		auto bestLanes = 4;
+		auto bestTime = std::numeric_limits<float>::max();
+		for (const auto& [lanes, cost] : jobCosts)
+		{
+			if (lanes < lanesPerVoice) continue;
+			const auto voicesPerJob = lanes / lanesPerVoice;
+			const auto jobs = (sounding + voicesPerJob - 1) / voicesPerJob;
+			const auto time = static_cast<float>((jobs + threads - 1) / threads) * cost;
+			if (time < bestTime)
+			{
+				bestLanes = lanes;
+				bestTime = time;
+			}
+		}
+		if (bestLanes < 4) segment.jobs = groupVoices(bestLanes / lanesPerVoice, segment.jobVoices, segment.jobVoiceCount);
+	}
+	if (threads > 1 && segment.jobs >= 2)
+		workers->run(segment.jobs, &PluginProcessor::renderJobCallback, this);
 	else
-		for (int unit = 0; unit < segment.units; ++unit) renderUnit(unit);
+		for (int job = 0; job < segment.jobs; ++job) renderJob(job);
 	for (int sample = 0; sample < samples; ++sample)
 	{
 		float left {}, right {};
 		for (int unit = 0; unit < segment.units; ++unit)
 		{
-			const auto* unitSamples = unitBuffer.data() + static_cast<std::size_t>(2 * unit) * unitStride;
-			left += unitSamples[sample];
-			right += unitSamples[unitStride + static_cast<std::size_t>(sample)];
+			float unitLeft {}, unitRight {};
+			for (int index = 0; index < segment.unitVoiceCount[static_cast<std::size_t>(unit)]; ++index)
+			{
+				const auto voice = segment.unitVoices[static_cast<std::size_t>(unit)][static_cast<std::size_t>(index)];
+				const auto* voiceSamples = voiceBuffer.data() + static_cast<std::size_t>(2 * voice) * voiceStride;
+				unitLeft += voiceSamples[sample];
+				unitRight += voiceSamples[voiceStride + static_cast<std::size_t>(sample)];
+			}
+			left += unitLeft;
+			right += unitRight;
 		}
 		renderBlock.setSample(0, sample, left * outputGain);
 		renderBlock.setSample(1, sample, right * outputGain);

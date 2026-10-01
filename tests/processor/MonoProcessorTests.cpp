@@ -2563,15 +2563,20 @@ TEST_CASE("Mono handles duplicate notes and channel panic messages without stuck
 
 TEST_CASE("Mono Multicore renders exactly the same samples as single-threaded rendering", "[mono][processor][multicore]")
 {
-	// Work units and their summing order do not depend on threads, so switching Multicore must not change a
-	// single sample: 16 voices, every unison setting, 1x and 2x, notes ending inside blocks and LFO movement.
+	// Work units and their summing order do not depend on threads, and a voice renders the same bits in any job,
+	// so switching Multicore must not change a single sample: every filter type, 1 to 16 voices (fewer units than
+	// threads splits them into smaller jobs), every unison setting, 1x and 2x, notes ending inside blocks and LFO
+	// movement.
+	for (const auto filter : { 0, 1, 2 }) // Ladder, SVF, K35
 	for (const auto unison : { 0.0f, 1.0f, 2.0f })
 		for (const auto quality : { 0.0f, 1.0f })
 		{
-			CAPTURE(unison, quality);
+			CAPTURE(filter, unison, quality);
 			vekt::mono::PluginProcessor single, multi;
 			for (auto* processor : { &single, &multi })
 			{
+				setParameter(*processor, vekt::mono::parameters::filterType, filter == 1 ? 1.0f : 0.0f);
+				setParameter(*processor, vekt::mono::parameters::filterK35, filter == 2 ? 1.0f : 0.0f);
 				setParameter(*processor, vekt::mono::parameters::voiceCount, 4.0f); // 16 voices
 				setParameter(*processor, vekt::mono::parameters::unison, unison);
 				setParameter(*processor, vekt::mono::parameters::quality, quality);

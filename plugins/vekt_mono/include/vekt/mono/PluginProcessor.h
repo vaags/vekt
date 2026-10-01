@@ -106,9 +106,9 @@ private:
 	void releaseSustainedNotes(int channel);
 	void resetPlayingState();
 	void render(juce::AudioBuffer<float>& buffer, int startSample, int numberOfSamples);
-	// Renders one work unit (a group of voices sharing the batched ladder solve) over the current segment.
-	void renderUnit(int unit) noexcept;
-	static void renderUnitJob(void* processor, int unit) noexcept;
+	// Renders one job's voices (sharing one batched filter solve) over the current segment, each into its own buffer.
+	void renderJob(int job) noexcept;
+	static void renderJobCallback(void* processor, int job) noexcept;
 	void parameterChanged(const juce::String& identifier, float newValue) override;
 	void handleAsyncUpdate() override;
 	void ensureRenderWorkers();
@@ -170,18 +170,21 @@ private:
 	std::unique_ptr<WorkgroupMailbox> workgroupMailbox;
 	juce::AudioWorkgroup stagedWorkgroup;
 	bool workgroupStaged {};
-	// One render segment's shared inputs, precomputed so work units render independently.
+	// One render segment's shared inputs, precomputed so jobs render independently. Units fix the summing order
+	// (sounding voices in voice order, four filter lanes per unit); jobs split the same voices for rendering,
+	// into smaller groups when Multicore has more threads than units. A voice renders the same bits in any job.
 	struct RenderSegment
 	{
+		using VoiceGroups = std::array<std::array<std::uint8_t, 4>, 16>;
 		const MonoVoiceSettings* settings {};
 		std::array<float, 16> channelControl {};
-		int samples {}, units {};
-		std::array<std::array<std::uint8_t, 4>, 16> unitVoices {};
-		std::array<int, 16> unitVoiceCount {};
+		int samples {}, units {}, jobs {};
+		VoiceGroups unitVoices {}, jobVoices {};
+		std::array<int, 16> unitVoiceCount {}, jobVoiceCount {};
 	} segment;
-	std::size_t unitStride {};
+	std::size_t voiceStride {};
 	std::vector<double> lfoPositionBuffer; // two per sample
-	std::vector<float> vibratoBuffer, unitBuffer; // unitBuffer: [unit][left, right][sample]
+	std::vector<float> vibratoBuffer, voiceBuffer; // voiceBuffer: [voice][left, right][sample]
 	int preparedBlockSize { 1 };
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginProcessor)
 };

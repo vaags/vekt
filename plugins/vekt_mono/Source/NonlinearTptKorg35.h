@@ -223,9 +223,9 @@ public:
 	}
 
 	// Several filters at once, each with its own input, output and settings (e.g. every sounding voice's unison layers):
-	// lanes are grouped four, then two, at a time and their Newton solves share a vector tanh (Apple simd; about 2 ulp
-	// from libm, as in the ladder's batched solve); a single remaining lane, or any lane in linear mode, uses process.
-	// Every lane keeps its own solve, convergence and diagnostics. Filters must not repeat.
+	// lanes are grouped four, then two, then one at a time and their Newton solves share a vector tanh (Apple simd; about
+	// 2 ulp from libm, as in the ladder's batched solve, and the same bits for a lane however lanes are grouped); a lane
+	// in linear mode uses process. Every lane keeps its own solve, convergence and diagnostics. Filters must not repeat.
 	static void processLanes(std::span<NonlinearTptKorg35* const> filters, std::span<const double> inputs, std::span<double> outputs,
 		std::span<const NonlinearTptKorg35Settings* const> settings) noexcept
 	{
@@ -248,6 +248,11 @@ public:
 			{
 				processGroup<2>(filters.subspan(lane, 2), inputs.subspan(lane, 2), outputs.subspan(lane, 2), settings.subspan(lane, 2));
 				lane += 2;
+			}
+			else if (!settings[lane]->linear)
+			{
+				processGroup<1>(filters.subspan(lane, 1), inputs.subspan(lane, 1), outputs.subspan(lane, 1), settings.subspan(lane, 1));
+				++lane;
 			}
 			else
 			{

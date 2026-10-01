@@ -42,14 +42,15 @@ public:
 	// Production solve of the four implicit stage equations.
 	[[nodiscard]] float processCoupled(float input, const NonlinearTptLadderSettings& settings) noexcept;
 	// Solves several ladders that share settings (e.g. one voice's unison layers) in lockstep. Each ladder keeps
-	// its own convergence, line search and diagnostics exactly as processCoupled; for two or four ladders prepared
-	// at the same sample rate, tanh is evaluated as a vector (Apple simd), which differs from libm by about 2 ulp.
-	// Any other count, or ladders prepared at different rates, use processCoupled per ladder.
+	// its own convergence, line search and diagnostics exactly as processCoupled, but tanh is evaluated as a vector
+	// (Apple simd), which differs from libm by about 2 ulp and gives each lane the same bits however many ladders
+	// are solved together.
 	static void processCoupled(std::span<NonlinearTptLadder> ladders, std::span<const float> inputs,
 		std::span<float> outputs, const NonlinearTptLadderSettings& settings) noexcept;
 	// The same batched solve for ladders that each have their own settings (e.g. different voices): lanes are
-	// grouped four, then two, at a time; a single remaining lane uses processCoupled. Every lane keeps its own
-	// convergence and diagnostics; only tanh is shared across lanes. Ladders must not repeat.
+	// grouped four, then two, then one at a time (ladders at different sample rates are not grouped). Every lane
+	// keeps its own convergence and diagnostics; only tanh is shared across lanes, and a lane's output does not
+	// depend on the grouping. Ladders must not repeat.
 	static void processCoupled(std::span<NonlinearTptLadder* const> ladders, std::span<const float> inputs,
 		std::span<float> outputs, std::span<const NonlinearTptLadderSettings* const> settings) noexcept;
 	// Development-only bounded integration variant. Prepare at the rate of the

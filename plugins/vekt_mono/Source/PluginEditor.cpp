@@ -215,7 +215,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	addChoice(performancePanel, unisonBox, { "1x", "2x", "4x" }, parameters::unison, unisonAttachment);
 	addChoice(performancePanel, glideBox, { "Off", "Always", "Legato" }, parameters::glideMode, glideAttachment);
 	addChoice(performancePanel, multicoreBox, { "Off", "On" }, parameters::multicore, multicoreAttachment);
-	multicoreBox.setTooltip("Render voices on up to three extra CPU cores as well. Helps with many voices or unison; the sound is identical either way. Leave off if your host already spreads tracks across cores.");
+	multicoreBox.setTooltip("Render voices on up to seven extra CPU cores (one fewer than your performance cores). Helps from a few voices up, most with high Quality or unison; the sound is identical either way. Leave off if your host already spreads tracks across cores.");
 	const std::array performanceNames { "Voice count", "Mode", "Quality", "Unison", "Glide", "Multicore" };
 	for (std::size_t index = 0; index < performanceLabels.size(); ++index)
 	{

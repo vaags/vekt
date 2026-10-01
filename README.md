@@ -59,6 +59,9 @@ Audio Lab:
 ./scripts/run-audio-lab.sh
 ```
 
+It builds Release, so real-time load matches the plugins; pass `--debug` for an
+unoptimized build with assertions (about 9x slower DSP, so expect dropouts).
+
 To run the full test suite before launching the lab:
 
 ```sh

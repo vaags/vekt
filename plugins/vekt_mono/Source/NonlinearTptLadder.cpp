@@ -1,16 +1,13 @@
 #include "NonlinearTptLadder.h"
 #include "LadderPoleMix.h"
 #include "LadderResonance.h"
+#include "SimdLanes.h"
 
 #include <algorithm>
 #include <bit>
 #include <cmath>
 #include <limits>
 #include <numbers>
-
-#if defined(__APPLE__)
-#include <simd/simd.h>
-#endif
 
 namespace vekt::mono
 {
@@ -28,27 +25,6 @@ constexpr double signalLimit = 24.0;
 
 template <std::size_t Lanes>
 using LaneValues = std::array<double, Lanes>;
-
-// tanh of every lane at once. Apple's vector tanh is about 2.4x faster than scalar libm and within ~2 ulp of it.
-template <std::size_t Lanes>
-[[nodiscard]] LaneValues<Lanes> tanhLanes(const LaneValues<Lanes>& values) noexcept
-{
-#if defined(__APPLE__)
-	if constexpr (Lanes == 2)
-	{
-		const auto result = simd::tanh(simd_double2 { values[0], values[1] });
-		return { result[0], result[1] };
-	}
-	else if constexpr (Lanes == 4)
-	{
-		const auto result = simd::tanh(simd_double4 { values[0], values[1], values[2], values[3] });
-		return { result[0], result[1], result[2], result[3] };
-	}
-#endif
-	LaneValues<Lanes> result {};
-	for (std::size_t lane = 0; lane < Lanes; ++lane) result[lane] = std::tanh(values[lane]);
-	return result;
-}
 
 [[nodiscard]] double sechSquared(double value) noexcept
 {
@@ -431,11 +407,7 @@ void NonlinearTptLadder::processCoupled(std::span<NonlinearTptLadder* const> lad
 		const auto remaining = ladders.size() - lane;
 		if (remaining >= 4 && sameRate(lane, 4)) batch(std::integral_constant<std::size_t, 4> {});
 		else if (remaining >= 2 && sameRate(lane, 2)) batch(std::integral_constant<std::size_t, 2> {});
-		else
-		{
-			outputs[lane] = ladders[lane]->processCoupled(inputs[lane], *settings[lane]);
-			++lane;
-		}
+		else batch(std::integral_constant<std::size_t, 1> {});
 	}
 }
 
@@ -443,7 +415,8 @@ template <std::size_t Lanes>
 void NonlinearTptLadder::processCoupledLanes(const std::array<NonlinearTptLadder*, Lanes>& ladders, const float* inputs,
 	float* outputs, const std::array<const NonlinearTptLadderSettings*, Lanes>& settings) noexcept
 {
-	// Mirrors processCoupled lane by lane; only tanh is shared across lanes.
+	// Mirrors processCoupled lane by lane; only tanh is shared across lanes (and is the vector kernel even for one
+	// lane, so a lane's result does not depend on how lanes are grouped).
 	constexpr int maximumCoupledIterations = 16;
 	constexpr int maximumLineSearchSteps = 10;
 	using Stages = std::array<double, 4>;
@@ -482,14 +455,18 @@ void NonlinearTptLadder::processCoupledLanes(const std::array<NonlinearTptLadder
 	const auto evaluatePoints = [&](const std::array<Stages, Lanes>& values)
 	{
 		Points points;
-		LaneValues<Lanes> arguments {};
-		for (std::size_t lane = 0; lane < Lanes; ++lane) arguments[lane] = excitation[lane] - k[lane] * values[lane][3];
-		points.inputTanh = tanhLanes<Lanes>(arguments);
-		for (std::size_t stage = 0; stage < 4; ++stage)
+		// All five tanh of every lane (feedback input, then the four stages) in as few vector calls as possible.
+		SimdLaneValues<5 * Lanes> arguments {};
+		for (std::size_t lane = 0; lane < Lanes; ++lane)
 		{
-			for (std::size_t lane = 0; lane < Lanes; ++lane) arguments[lane] = values[lane][stage];
-			const auto stageTanh = tanhLanes<Lanes>(arguments);
-			for (std::size_t lane = 0; lane < Lanes; ++lane) points.stageTanh[lane][stage] = stageTanh[lane];
+			arguments[5 * lane] = excitation[lane] - k[lane] * values[lane][3];
+			for (std::size_t stage = 0; stage < 4; ++stage) arguments[5 * lane + 1 + stage] = values[lane][stage];
+		}
+		const auto tanhValues = tanhSimdLanes<5 * Lanes>(arguments);
+		for (std::size_t lane = 0; lane < Lanes; ++lane)
+		{
+			points.inputTanh[lane] = tanhValues[5 * lane];
+			for (std::size_t stage = 0; stage < 4; ++stage) points.stageTanh[lane][stage] = tanhValues[5 * lane + 1 + stage];
 		}
 		for (std::size_t lane = 0; lane < Lanes; ++lane)
 		{

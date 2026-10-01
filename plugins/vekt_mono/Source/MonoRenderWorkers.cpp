@@ -97,6 +97,6 @@ int MonoRenderWorkers::defaultThreadCount() noexcept
 	if (sysctlbyname("hw.perflevel0.physicalcpu", &performanceCores, &size, nullptr, 0) != 0) performanceCores = 0;
 #endif
 	if (performanceCores <= 0) performanceCores = juce::SystemStats::getNumPhysicalCpus();
-	return std::clamp(performanceCores - 1, 0, 3);
+	return std::clamp(performanceCores - 1, 0, 7);
 }
 }
