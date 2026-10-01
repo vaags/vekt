@@ -186,8 +186,8 @@ SVF in ordinary patches. It passed.
 Circuit character left out of the first model on purpose, and engineering left for later. Each is an A/B against the
 accepted symmetric K35, kept only if it adds musical character; K35 is "Vekt K35", not a component-level MS-20.
 
-- **Asymmetry** (Stinchcombe section 4): tried and rejected (see Progress: two rounds, then no audible difference
-  in the A/B). Not to be revisited without a new reason.
+- **Asymmetry** (Stinchcombe section 4): tried and rejected, then revisited at its most favourable settings and closed
+  (see Progress): audible in no case.
 - **Signal-dependent cutoff and resonance:** the transistor resistors' dependence on signal level.
 - **A circuit-specific diode law** in place of the tanh transition of h (optional: h already has the x58-to-unity
   slope that matters).
@@ -339,3 +339,13 @@ block:
 | unison 4, 4x | 17878 us | 15225 us | 16259 us |
 
 K35 is now level with the Ladder at unison 1 and cheaper with unison.
+
+**Asymmetry closed (1 October 2026).** Revisited in case the first A/B's settings (saw, sweeps, the self-oscillating
+top) had hidden it. Dynamic (previous-sample, as before) was re-rendered outside the filter at the settings most
+favourable to it: low square and 25 % pulse notes (41-55 Hz, alternating edges), a fixed cutoff well above them (2 and
+3 kHz), Resonance 88-95 % (long rings, below self-oscillation), Drive 0 / +6, with a saw as negative control and an
+offset-matched symmetric control. Every sample differs, but little: the level-matched difference from Off is -34 to
+-36 dB for the squares, -31 dB for the saw and -27 dB for the pulse at 200 % (-40 / -37 / -33 dB at 100 %), concentrated
+in the same frequencies as the resonant ringing that masks it. In a blind A/B (dynamic 200 % against the control) the
+pairs were indistinguishable. The mechanism is real but inaudible in this filter: closed, not to be revisited. (The
+revisit's temporary render test was removed with it.)
