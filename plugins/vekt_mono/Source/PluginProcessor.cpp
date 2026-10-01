@@ -1,6 +1,7 @@
 #include <vekt/mono/PluginProcessor.h>
 
 #include "FactoryPresets.h"
+#include "LfoDestinations.h"
 #include "MonoVoice.h"
 #include "MonoRenderWorkers.h"
 #include "PluginEditor.h"
@@ -171,22 +172,28 @@ MonoVoiceSettings PluginProcessor::snapshotSettings() const
 		lfo.source.delaySeconds = value(ids.delay);
 		lfo.source.fadeSeconds = value(ids.fade);
 		lfo.source.drift = settings.drift * 0.01f;
-		// Convert each depth to its destination's own units, scaled by the master Amount.
+		// Convert each depth to its destination's own units, scaled by the master Amount. The editor's modulation
+		// rings use the same table.
 		const auto amount = value(ids.amount) * 0.01f;
+		const auto depthIds = ids.depths();
+		const auto offset = [&](std::size_t destination)
+		{
+			return amount * value(depthIds[destination]) * lfoDestinations[destination].offsetPerDepth;
+		};
 		for (std::size_t oscillator = 0; oscillator < 3; ++oscillator)
 		{
-			lfo.pitch[oscillator] = amount * value(ids.pitch[oscillator]);
-			lfo.morph[oscillator] = amount * value(ids.morph[oscillator]) * 0.04f; // 100% = one full turn of the Morph cycle
-			lfo.width[oscillator] = amount * value(ids.width[oscillator]) * 0.45f;
-			lfo.level[oscillator] = amount * value(ids.level[oscillator]) * 0.01f;
+			lfo.pitch[oscillator] = offset(lfo_depth::pitch + oscillator);
+			lfo.morph[oscillator] = offset(lfo_depth::morph + oscillator);
+			lfo.width[oscillator] = offset(lfo_depth::width + oscillator);
+			lfo.level[oscillator] = offset(lfo_depth::level + oscillator);
 		}
-		lfo.filter = amount * value(ids.filter);
-		lfo.amp = amount * value(ids.amp) * 0.01f;
-		lfo.drive = amount * value(ids.drive);
-		lfo.noise = amount * value(ids.noise) * 0.01f;
-		lfo.detune = amount * value(ids.detune) * 0.5f;
-		lfo.spread = amount * value(ids.spread) * 0.01f;
-		lfo.filterMode = amount * value(ids.filterMode) * 0.02f;
+		lfo.filter = offset(lfo_depth::filter);
+		lfo.amp = offset(lfo_depth::amp);
+		lfo.drive = offset(lfo_depth::drive);
+		lfo.noise = offset(lfo_depth::noise);
+		lfo.detune = offset(lfo_depth::detune);
+		lfo.spread = offset(lfo_depth::spread);
+		lfo.filterMode = offset(lfo_depth::filterMode);
 	}
 	return settings;
 }
@@ -305,6 +312,8 @@ PluginProcessor::SvfWorkSnapshot PluginProcessor::svfWorkSnapshot() const noexce
 void PluginProcessor::prepareToPlay(double newSampleRate, int maximumBlockSize)
 {
 	sampleRateHz = newSampleRate;
+	// The display timeline restarts with the count (DisplayTimeline sees it go back).
+	renderedSamples = 0;
 	preparedBlockSize = std::max(maximumBlockSize, 1);
 	helperBlockSize.store(std::max(preparedBlockSize, 64));
 	helperSampleRate.store(newSampleRate);
@@ -325,6 +334,7 @@ void PluginProcessor::releaseResources()
 {
 	resetPlayingState();
 	soundingVoiceDisplay.store(0, std::memory_order_relaxed);
+	lfoDisplayActive.store(false, std::memory_order_relaxed);
 	outputMeter.reset();
 }
 bool PluginProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const { return layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo(); }
@@ -511,6 +521,16 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
 		if (voice->isActive() && (newest == nullptr || voice->getAge() > newest->getAge())) newest = voice.get();
 	for (std::size_t index = 0; index < lfoDisplayValues.size(); ++index)
 		lfoDisplayValues[index].store(newest != nullptr ? newest->getLfoOutput(index) : 0.0f, std::memory_order_relaxed);
+	lfoDisplayActive.store(newest != nullptr, std::memory_order_relaxed);
+	renderedSamples += static_cast<std::uint64_t>(buffer.getNumSamples());
+	LfoHistory::Frame frame;
+	frame.sample = renderedSamples;
+	frame.sampleRate = sampleRateHz;
+	// Tag by voice so the display does not blend across a change of voice; age + 1 keeps 0 for silence.
+	frame.tag = newest != nullptr ? newest->getAge() + 1 : 0;
+	for (std::size_t index = 0; index < frame.values.size(); ++index)
+		frame.values[index] = newest != nullptr ? newest->getLfoOutput(index) : 0.0f;
+	lfoHistory.publish(frame);
 	auto control = std::max(*std::max_element(modWheelByChannel.begin(), modWheelByChannel.end()),
 		*std::max_element(pressureByChannel.begin(), pressureByChannel.end()));
 	for (const auto& voice : voices) if (voice->isActive()) control = std::max(control, voice->getPolyPressure());
@@ -679,7 +699,11 @@ void PluginProcessor::render(juce::AudioBuffer<float>& buffer, int start, int co
 		return;
 	}
 	const auto settings = snapshotSettings();
-	for (std::size_t index = 0; index < lfoClocks.size(); ++index) lfoClocks[index]->setRate(settings.lfo[index].source.rateHz);
+	for (std::size_t index = 0; index < lfoClocks.size(); ++index)
+	{
+		lfoClocks[index]->setRate(settings.lfo[index].source.rateHz);
+		lfoDisplayRates[index].store(std::clamp(settings.lfo[index].source.rateHz, minimumLfoRateHz, maximumLfoRateHz), std::memory_order_relaxed);
+	}
 	vibratoClock->setRate(value(parameters::vibratoRate));
 	const auto vibratoShape = juce::roundToInt(value(parameters::vibratoShape)) == 1 ? LfoShape::triangle : LfoShape::sine;
 	const auto vibratoDepthSemitones = value(parameters::vibratoDepth) * 0.01f;

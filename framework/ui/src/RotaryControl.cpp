@@ -63,8 +63,13 @@ RotaryControl::RotaryControl()
 	label.setFont(juce::FontOptions(14.0f));
 	label.setJustificationType(juce::Justification::centred);
 	addAndMakeVisible(slider);
+	// The dial redraws under the modulation ring every display frame while the value moves; caching it as an image
+	// makes that a copy (it is re-rendered only when the dial itself changes).
+	slider.setBufferedToImage(true);
 	addAndMakeVisible(valueLabel);
 	addAndMakeVisible(label);
+	// Last, so it draws over the dial without changing the other children's order.
+	addChildComponent(modulationRing);
 	updateValueText();
 }
 
@@ -112,6 +117,8 @@ void RotaryControl::setEndless(bool isEndless, float startAngle)
 
 void RotaryControl::refreshValueText() { updateValueText(); }
 
+void RotaryControl::setModulation(std::optional<ModulationDisplay> display) { modulationRing.setModulation(display); }
+
 juce::Slider& RotaryControl::getSlider() noexcept
 {
 	return slider;
@@ -132,6 +139,7 @@ void RotaryControl::resized()
 	const auto side = std::max(0, std::min({ heightFor(dialSize) - labelHeight - valueHeight,
 		dialBounds.getWidth(), dialBounds.getHeight() }));
 	slider.setBounds(dialBounds.withSizeKeepingCentre(side, side));
+	modulationRing.setBounds(slider.getBounds());
 	valueLabel.setBounds(dialAndValueBounds.withY(dialBounds.getBottom()).withHeight(valueHeight)
 		.withSizeKeepingCentre(std::min(valueWidth, bounds.getWidth()), valueHeight));
 	label.setBounds(bounds.withY(dialAndValueBounds.getBottom()).withHeight(labelHeight));

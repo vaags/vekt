@@ -1,5 +1,9 @@
 #include "PluginEditor.h"
 
+#include "LfoDestinations.h"
+
+#include <vector>
+
 namespace vekt::mono
 {
 namespace
@@ -7,6 +11,44 @@ namespace
 // Grid slot (two rows of four) of each single LFO destination, in depths() order: Filter, Amp, Drive, Noise,
 // Detune, Spread, Filter Mode. Mode sits beside Filter.
 constexpr std::array lfoSingleSlots { 0, 2, 3, 4, 5, 6, 1 };
+}
+
+double lfoPeakTravelPerSecond(const LfoDestination& destination, const juce::NormalisableRange<float>& knob,
+	double base, float offset, LfoPolarity polarity, float rateHz) noexcept
+{
+	LfoReach reach;
+	reach.add(offset, polarity);
+	double share {};
+	if (destination.scale == LfoTargetScale::linear)
+		share = static_cast<double>((reach.highest - reach.lowest) * destination.targetPerOffset / (knob.end - knob.start));
+	else
+	{
+		// Through the knob's skew, over the part of the swing its travel shows.
+		const auto proportion = [&](float at)
+		{
+			return static_cast<double>(knob.convertTo0to1(juce::jlimit(knob.start, knob.end, static_cast<float>(lfoTargetValue(destination, base, at)))));
+		};
+		share = proportion(reach.highest) - proportion(reach.lowest);
+	}
+	return juce::MathConstants<double>::pi * static_cast<double>(rateHz) * std::abs(share);
+}
+
+LfoDot combineLfoDot(std::span<const LfoDotContribution> contributions) noexcept
+{
+	LfoDot dot;
+	for (const auto& lfo : contributions) dot.opacity = std::max(dot.opacity, lfo.opacity);
+	for (const auto& lfo : contributions)
+	{
+		// The share of this LFO the dot follows: as it gets too fast to follow, the band takes over the rest.
+		const auto weight = std::clamp(lfo.opacity, 0.0f, 1.0f);
+		// Output swings over 0..1 about 0.5 when unipolar, -1..1 about 0 when bipolar.
+		const auto unipolar = lfo.polarity == LfoPolarity::unipolar;
+		const auto centre = unipolar ? 0.5f : 0.0f;
+		const auto halfSwing = unipolar ? 0.5f : 1.0f;
+		dot.offset += lfo.offset * (weight * lfo.output + (1.0f - weight) * centre);
+		dot.blurHalfWidth += (1.0f - weight) * std::abs(lfo.offset) * halfSwing;
+	}
+	return dot;
 }
 
 PluginEditor::PluginEditor(PluginProcessor& newProcessor)
@@ -287,6 +329,16 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	selectLfo(0);
 	refreshPresetLabel();
 	resized();
+	// Each LFO destination's knob, found by the parameter it is attached to.
+	std::vector<ui::RotaryControl*> rotaries { &noiseLevelControl };
+	for (auto& control : oscillatorControls) rotaries.push_back(&control);
+	for (auto& control : filterControls) rotaries.push_back(&control);
+	for (auto& control : voiceControls) rotaries.push_back(&control);
+	for (std::size_t destination = 0; destination < lfoTargets.size(); ++destination)
+		if (const auto* target = lfoDestinations[destination].target)
+			for (auto* control : rotaries)
+				if (control->getComponentID() == target) lfoTargets[destination] = control;
+	refreshModulationRings(juce::Time::getMillisecondCounterHiRes() * 0.001);
 	timerCallback();
 	// Fast enough for the LFO activity lights to move smoothly.
 	startTimerHz(30);
@@ -342,9 +394,77 @@ void PluginEditor::refreshLfoVisibility()
 		controls.division.setVisible(shown && synced);
 	}
 }
+void PluginEditor::refreshModulationRings(double nowSeconds)
+{
+	auto& state = pluginProcessor.getParameters();
+	const auto value = [&state](const char* identifier) { return state.getRawParameterValue(identifier)->load(); };
+	// The flag is current; the frame is slightly in the past. Both must agree that a voice sounds.
+	const auto frame = lfoTimeline.advance(pluginProcessor.getLfoHistory(), nowSeconds);
+	const auto sounding = pluginProcessor.isLfoDisplayActive() && frame && frame->tag != 0;
+	// Before the host prepares the processor, assume a typical rate for the sample-rate-dependent cutoff limit.
+	const auto sampleRate = pluginProcessor.getSampleRate() > 0.0 ? pluginProcessor.getSampleRate() : 48'000.0;
+	std::array<LfoReach, 19> reaches {};
+	std::array<std::array<LfoDotContribution, parameters::lfos.size()>, 19> contributions {};
+	std::array<std::size_t, 19> contributionCounts {};
+	for (std::size_t lfo = 0; lfo < parameters::lfos.size(); ++lfo)
+	{
+		const auto& ids = parameters::lfos[lfo];
+		const auto amount = value(ids.amount) * 0.01f;
+		const auto polarity = static_cast<LfoPolarity>(juce::roundToInt(value(ids.polarity)));
+		const auto output = sounding ? frame->values[lfo] : 0.0f;
+		const auto rate = pluginProcessor.getLfoDisplayRate(lfo);
+		const auto depthIds = ids.depths();
+		for (std::size_t destination = 0; destination < reaches.size(); ++destination)
+		{
+			const auto& target = lfoDestinations[destination];
+			const auto offset = amount * value(depthIds[destination]) * target.offsetPerDepth;
+			if (juce::exactlyEqual(offset, 0.0f)) continue;
+			reaches[destination].add(offset, polarity);
+			// Visible while this LFO moves the dot slowly enough on this knob to follow.
+			auto opacity = 1.0f;
+			if (const auto* control = lfoTargets[destination])
+				opacity = control->getModulationRing().dotOpacityForSpeed(lfoPeakTravelPerSecond(target,
+					state.getParameter(target.target)->getNormalisableRange(), value(target.target), offset, polarity, rate));
+			contributions[destination][contributionCounts[destination]++] = { offset, output, polarity, opacity };
+		}
+	}
+	for (std::size_t destination = 0; destination < reaches.size(); ++destination)
+	{
+		auto* control = lfoTargets[destination];
+		if (control == nullptr) continue;
+		const auto& reach = reaches[destination];
+		if (reach.isEmpty())
+		{
+			control->setModulation({});
+			continue;
+		}
+		const auto& target = lfoDestinations[destination];
+		const auto base = static_cast<double>(value(target.target));
+		// What the voice can reach, which for pitch and cutoff extends past the knob; the ring marks that overflow.
+		const auto& knobRange = state.getParameter(target.target)->getNormalisableRange();
+		const auto bounds = lfoTargetBounds(target, knobRange.start, knobRange.end, sampleRate);
+		ui::ModulationDisplay display;
+		display.lowest = bounds.clamp(lfoTargetValue(target, base, reach.lowest));
+		display.highest = bounds.clamp(lfoTargetValue(target, base, reach.highest));
+		const auto dot = combineLfoDot(std::span(contributions[destination].data(), contributionCounts[destination]));
+		// Per-voice drift can carry the output slightly past full scale; keep the dot and band on the arc.
+		const auto onArc = [&](float offset)
+		{
+			return bounds.clamp(lfoTargetValue(target, base, std::clamp(offset, reach.lowest, reach.highest)));
+		};
+		if (sounding && dot.opacity > 0.0f)
+		{
+			display.current = onArc(dot.offset);
+			display.currentOpacity = dot.opacity;
+		}
+		if (sounding && dot.blurHalfWidth > 0.0f)
+			display.blur = ui::ModulationDisplay::Band { onArc(dot.offset - dot.blurHalfWidth), onArc(dot.offset + dot.blurHalfWidth) };
+		control->setModulation(display);
+	}
+}
 void PluginEditor::addRotary(ui::Panel& panel, ui::RotaryControl& control, const char* name, const char* identifier, std::unique_ptr<SliderAttachment>& attachment)
 {
-	control.setLabel(name); panel.addAndMakeVisible(control); attachment = std::make_unique<SliderAttachment>(pluginProcessor.getParameters(), identifier, control.getSlider());
+	control.setLabel(name); control.setComponentID(identifier); panel.addAndMakeVisible(control); attachment = std::make_unique<SliderAttachment>(pluginProcessor.getParameters(), identifier, control.getSlider());
 	// The attachment installs the parameter's text formatting; refresh the readout, which was set before it.
 	control.refreshValueText();
 }
@@ -377,7 +497,8 @@ void PluginEditor::refreshPresetLabel()
 void PluginEditor::paint(juce::Graphics& graphics) { graphics.fillAll(juce::Colour::fromRGB(20, 24, 28)); }
 void PluginEditor::resized()
 {
-	ScalableEditor::resized(); auto& content = getContent(); title.setBounds(20, 16, 220, 40); presetNavigation.setBounds(260, 16, 320, 40); historyControls.setBounds(600, 16, 120, 40); status.setBounds(740, 16, editorWidth - 760, 40); presetBrowser.setBounds(content.getLocalBounds().reduced(20));
+	ScalableEditor::resized(); auto& content = getContent(); title.setBounds(20, 16, 220, 40); presetNavigation.setBounds(260, 16, 320, 40); historyControls.setBounds(600, 16, 120, 40); status.setBounds(740, 16, editorWidth - 760, 40);
+	presetBrowser.setBounds(content.getLocalBounds().reduced(20));
 	// Columns match the ADSR/Performance row below: 348 px panels with 16 px gaps.
 	for (std::size_t index = 0; index < oscillatorPanels.size(); ++index) oscillatorPanels[index].setBounds(20 + static_cast<int>(index) * 364, 68, 348, 184);
 	filterPanel.setBounds(20, 268, 348, 180); voicePanel.setBounds(384, 268, 347, 180); noisePanel.setBounds(747, 268, 190, 180); ioPanel.setBounds(953, 268, 147, 180); ampPanel.setBounds(20, 464, 348, 216); filterEnvelopePanel.setBounds(384, 464, 348, 216); performancePanel.setBounds(748, 464, 352, 216);

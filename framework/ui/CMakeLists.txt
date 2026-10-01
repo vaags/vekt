@@ -1,5 +1,6 @@
 add_library(vekt_ui STATIC
 	src/LevelMeter.cpp
+	src/ModulationRing.cpp
 	src/Panel.cpp
 	src/RotaryControl.cpp
 	src/ScalableEditor.cpp

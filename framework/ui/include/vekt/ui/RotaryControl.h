@@ -1,6 +1,10 @@
 #pragma once
 
+#include <vekt/ui/ModulationRing.h>
+
 #include <juce_gui_basics/juce_gui_basics.h>
+
+#include <optional>
 
 namespace vekt::ui
 {
@@ -37,6 +41,9 @@ public:
 	// amount. Dragging or scrolling past either end wraps round to the other end.
 	void setEndless(bool isEndless, float startAngle = 0.0f);
 	void refreshValueText();
+	// Shows where modulation can take the value (empty hides it); the pointer and readout keep the base value.
+	void setModulation(std::optional<ModulationDisplay> display);
+	[[nodiscard]] const ModulationRing& getModulationRing() const noexcept { return modulationRing; }
 	[[nodiscard]] juce::Slider& getSlider() noexcept;
 	void resized() override;
 
@@ -44,6 +51,7 @@ private:
 	void updateValueText();
 
 	juce::Slider slider;
+	ModulationRing modulationRing { slider };
 	juce::Label valueLabel;
 	juce::Label label;
 	Size dialSize = Size::standard;

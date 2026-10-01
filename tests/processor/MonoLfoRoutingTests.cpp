@@ -424,3 +424,28 @@ TEST_CASE("Mono reset all controllers returns the vibrato controls to rest", "[m
 	processor.processBlock(block, reset);
 	REQUIRE(processor.getVibratoControlDisplay() == 0.0f);
 }
+
+TEST_CASE("Mono publishes whether an LFO display value is live and each LFO's rate", "[mono][processor][lfo][modulation]")
+{
+	vekt::mono::PluginProcessor processor;
+	initializeRichPatch(processor);
+	setParameter(processor, parameters::lfos[0].rate, 3.0f);
+	setParameter(processor, parameters::lfos[1].sync, 1.0f);
+	REQUIRE_FALSE(processor.isLfoDisplayActive());
+	processor.prepareToPlay(48'000.0, 512);
+	juce::AudioBuffer<float> buffer(2, 512);
+	juce::MidiBuffer silence;
+	processor.processBlock(buffer, silence);
+	// Silence is told apart from an LFO sitting at zero.
+	REQUIRE_FALSE(processor.isLfoDisplayActive());
+	REQUIRE(processor.getLfoDisplayRate(0) == Catch::Approx(3.0f));
+	// Synced at the default 1/4 and, without a host, 120 BPM: two cycles a second.
+	REQUIRE(processor.getLfoDisplayRate(1) == Catch::Approx(2.0f));
+
+	juce::MidiBuffer note;
+	note.addEvent(juce::MidiMessage::noteOn(1, 57, 0.8f), 0);
+	processor.processBlock(buffer, note);
+	REQUIRE(processor.isLfoDisplayActive());
+	processor.releaseResources();
+	REQUIRE_FALSE(processor.isLfoDisplayActive());
+}

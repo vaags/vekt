@@ -1,6 +1,9 @@
 #pragma once
 
 #include <vekt/mono/PluginProcessor.h>
+
+#include "LfoDestinations.h"
+#include "Lfo.h"
 #include <vekt/ui/LevelMeter.h>
 #include <vekt/ui/Panel.h>
 #include <vekt/ui/PresetNavigation.h>
@@ -13,6 +16,7 @@
 #include <algorithm>
 #include <array>
 #include <memory>
+#include <span>
 
 namespace vekt::mono
 {
@@ -92,6 +96,32 @@ private:
 	float level {};
 };
 
+// How fast one LFO at most moves a destination's dot, as a share of the knob's travel per second: pi x rate x its
+// swing, a sine's peak speed, which other continuous shapes do not much exceed (a triangle's is 2 x rate x swing; saw
+// and square edges are jumps, not motion). The dot's visibility follows this speed (ModulationRing::dotOpacityForSpeed),
+// so a deep slow LFO and a shallow fast one can both keep their dot.
+[[nodiscard]] double lfoPeakTravelPerSecond(const LfoDestination& destination, const juce::NormalisableRange<float>& knob,
+	double base, float offset, LfoPolarity polarity, float rateHz) noexcept;
+
+// One LFO's part in a destination's live dot: its offset at full output, its current output, polarity and opacity.
+struct LfoDotContribution
+{
+	float offset {}, output {};
+	LfoPolarity polarity { LfoPolarity::bipolar };
+	float opacity { 1.0f };
+};
+struct LfoDot
+{
+	// The dot's offset, its opacity, and the half-width of the blur band around it, all in destination units.
+	float offset {}, opacity {}, blurHalfWidth {};
+};
+// Combines the LFOs reaching one destination into the dot and its blur band. The dot is as clear as its slowest LFO
+// allows. Each LFO moves it by the share it can be followed (its opacity); for the rest it stands at the centre of its
+// swing and widens the band by that share of its swing instead, so the value heard always lies within the band. The
+// two cross-fade: as an LFO speeds up, the band grows as its dot fades, never leaving neither. Beside a slow LFO, a
+// fast one shows as a band riding on the slow dot; LFOs all too fast to follow leave only a band over their range.
+[[nodiscard]] LfoDot combineLfoDot(std::span<const LfoDotContribution> contributions) noexcept;
+
 class PluginEditor final : public ui::ScalableEditor, private juce::Timer
 {
 public:
@@ -102,6 +132,11 @@ public:
 	~PluginEditor() override;
 	void paint(juce::Graphics&) override;
 	void resized() override;
+	// Shows each LFO destination's reachable range on its knob, from the depths, Amounts and polarities, with a dot
+	// at the newest sounding voice's live value. Runs every display frame while the editor shows, with the frame's
+	// presentation time; the LFO values come from a short, self-adjusting delay back, so they move smoothly whatever
+	// the host's block size.
+	void refreshModulationRings(double nowSeconds);
 
 private:
 	using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
@@ -160,6 +195,8 @@ private:
 	// Column headers (Pitch, Morph, Width, Level), oscillator rows, then the seven single destinations.
 	std::array<juce::Label, 14> lfoDestinationLabels;
 	std::size_t selectedLfo {};
+	// The knob each LFO destination moves, in depths() order; nullptr where no knob shows it (Amp).
+	std::array<ui::RotaryControl*, 19> lfoTargets {};
 	std::array<ui::RotaryControl, 15> oscillatorControls;
 	std::array<std::unique_ptr<SliderAttachment>, 15> oscillatorAttachments;
 	ui::RotaryControl noiseLevelControl;
@@ -190,5 +227,8 @@ private:
 	juce::Label activeVoicesLabel;
 	std::unique_ptr<ComboBoxAttachment> voiceCountAttachment, performanceModeAttachment, qualityAttachment, unisonAttachment, noiseAttachment, glideAttachment, priorityAttachment, multicoreAttachment;
 	std::unique_ptr<ButtonAttachment> heldKeyReturnAttachment;
+	dsp::DisplayTimeline<2> lfoTimeline;
+	// Moves the modulation dots once per display frame while the editor is showing. Last, so it stops first.
+	juce::VBlankAttachment modulationRefresh { this, [this](double frameSeconds) { refreshModulationRings(frameSeconds); } };
 };
 }

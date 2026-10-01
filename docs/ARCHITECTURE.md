@@ -41,6 +41,38 @@ RAV and Glimmer consume the same `vekt::ui` controls:
   UI refresh. Pending parameter edits are also flushed before a new preset-load
   transaction so rapid loads preserve a consistent undo/redo baseline.
 
+- `RotaryControl::setModulation` shows where modulation can take a knob as a
+  `ModulationRing`: a thin arc in its own lane outside the value ring, mapped
+  through the slider's range and skew (wrapped on endless controls; past
+  either end of a bounded travel it draws an overflow mark). Products supply
+  the range in parameter units, already limited to what the processor reaches;
+  the pointer and readout keep the base value. Mono derives ranges and limits
+  from `LfoDestinations.h`, the same table its processor uses to scale LFO
+  depths, and cutoff limits from `FilterLimits.h`, which the voice uses too, so
+  display and sound cannot drift.
+  The live dot is computed in the editor from the processor's published LFO
+  outputs, a sounding-voice flag and effective rates, and is refreshed per
+  display frame by a `VBlankAttachment`. The outputs travel through
+  `vekt::dsp::DisplayHistory` (wait-free, one frame per block stamped with its
+  sample position) and `DisplayTimeline`, which shows them a short,
+  self-adjusting delay back, interpolated between blocks, so motion stays
+  smooth whatever the host's block size, burst pattern or display refresh
+  rate. The delay covers the longest recent publishing gap (capped at 250 ms)
+  and changes gradually. Hosts that render ahead of playback make the display
+  lead the sound by that amount; no plugin-side clock can see it.
+- The timeline lives in the framework with Mono as its only consumer, an
+  exception to the two-consumer rule: it is part of the reusable modulation
+  display (any product animating a live dot needs it), which was built for
+  reuse from the start. Its requirement was measured in a simulated 60 fps
+  display: showing each block's latest value instead, frame-to-frame steps
+  vary by 32 % at 512-sample blocks, and at 1024 samples 22 % of frames freeze
+  (61 % at 2048 or with bursty hosts, with steps up to 2.6x); with the
+  timeline they vary by under 1.5 % and never freeze.
+- The dot's handover to the blur band assumes 60 drawn frames per second, what
+  JUCE delivers on macOS even on 120 Hz displays. Where frames are drawn faster
+  the handover is conservative (the dot gives way sooner than it must), not
+  wrong.
+
 These controls are independent of product IDs and DSP. Both editors keep their
 own composition/layout and refresh the shared controls on their existing UI timer.
 

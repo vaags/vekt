@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vekt/mono/Parameters.h>
+#include <vekt/dsp/DisplayHistory.h>
 #include <vekt/dsp/OversamplingBank.h>
 #include <vekt/dsp/StereoPeakMeter.h>
 #include <vekt/presets/FilePresetRepository.h>
@@ -82,6 +83,14 @@ public:
 	[[nodiscard]] std::array<float, 2> consumeOutputPeaks() noexcept { return outputMeter.consumePeaks(); }
 	// Latest output of each LFO on the most recently started sounding voice; 0 while silent. For display only.
 	[[nodiscard]] float getLfoDisplayValue(std::size_t index) const noexcept { return lfoDisplayValues[index].load(std::memory_order_relaxed); }
+	// Whether a voice is sounding, so getLfoDisplayValue's 0 can be told apart from silence. For display only.
+	[[nodiscard]] bool isLfoDisplayActive() const noexcept { return lfoDisplayActive.load(std::memory_order_relaxed); }
+	// Both LFOs' outputs on the newest sounding voice at the end of every block, stamped with the block's sample
+	// position, for smooth display animation; a frame's tag is 0 while nothing sounds. Read from the message thread only.
+	using LfoHistory = dsp::DisplayHistory<2>;
+	[[nodiscard]] LfoHistory& getLfoHistory() noexcept { return lfoHistory; }
+	// Each LFO's effective rate in Hz (tempo-synced rates follow the host tempo). For display only.
+	[[nodiscard]] float getLfoDisplayRate(std::size_t index) const noexcept { return lfoDisplayRates[index].load(std::memory_order_relaxed); }
 	// Sounding voices (including release tails) after the latest block. Safe from any thread; for display.
 	[[nodiscard]] int getSoundingVoiceDisplay() const noexcept { return soundingVoiceDisplay.load(std::memory_order_relaxed); }
 	// Highest mod wheel or aftertouch amount currently applied (0..1). For display only.
@@ -132,7 +141,10 @@ private:
 	std::array<std::vector<HeldNote>, 16> heldNotesByChannel;
 	dsp::OversamplingBank<float> oversampling { 2 };
 	std::array<std::unique_ptr<LfoClock>, 2> lfoClocks;
-	std::array<std::atomic<float>, 2> lfoDisplayValues {};
+	std::array<std::atomic<float>, 2> lfoDisplayValues {}, lfoDisplayRates {};
+	std::atomic<bool> lfoDisplayActive {};
+	LfoHistory lfoHistory;
+	std::uint64_t renderedSamples {}; // since prepareToPlay, the timeline of lfoHistory
 	std::unique_ptr<LfoClock> vibratoClock;
 	std::array<float, 16> modWheelByChannel {}, pressureByChannel {};
 	std::atomic<float> vibratoControlDisplay {};

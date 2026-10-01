@@ -1,5 +1,7 @@
 #include <vekt/ui/VektLookAndFeel.h>
 
+#include <vekt/ui/ModulationRing.h>
+
 namespace vekt::ui
 {
 namespace
@@ -50,6 +52,8 @@ VektLookAndFeel::VektLookAndFeel()
 	setColour(juce::Slider::rotarySliderFillColourId, juce::Colour::fromRGB(227, 156, 75));
 	setColour(juce::Slider::rotarySliderOutlineColourId, juce::Colour::fromRGB(66, 72, 76));
 	setColour(juce::Slider::thumbColourId, juce::Colour::fromRGB(244, 228, 193));
+	// Modulation ranges: distinct from the orange accent and the filter group's teal.
+	setColour(ModulationRing::modulationColourId, juce::Colour::fromRGB(160, 144, 236));
 	setColour(juce::ToggleButton::textColourId, juce::Colour::fromRGB(214, 218, 218));
 	setColour(juce::ComboBox::backgroundColourId, juce::Colour::fromRGB(30, 34, 36));
 	setColour(juce::ComboBox::outlineColourId, juce::Colour::fromRGB(72, 78, 80));
@@ -91,13 +95,14 @@ void VektLookAndFeel::drawRotarySlider(juce::Graphics& graphics, int x, int y, i
 	const auto drawableBounds = juce::Rectangle<float>(
 		static_cast<float>(x), static_cast<float>(y),
 		static_cast<float>(width), static_cast<float>(height));
-	const auto dialSide = std::min(drawableBounds.getWidth(), drawableBounds.getHeight());
 	const auto waveformGuide = static_cast<bool>(slider.getProperties()["waveformGuide"]);
 	// Knob geometry depends only on the RotaryControl size. Waveform guides use the
 	// spare corners of the square slider canvas and must not make the knob smaller.
-	const auto bounds = drawableBounds.withSizeKeepingCentre(dialSide, dialSide).reduced(8.0f);
-	const auto radius = std::min(bounds.getWidth(), bounds.getHeight()) * 0.5f;
-	const auto centre = bounds.getCentre();
+	const auto geometry = rotaryGeometry(drawableBounds);
+	const auto dialSide = geometry.dialSide;
+	const auto radius = geometry.radius;
+	const auto centre = geometry.centre;
+	const auto bounds = juce::Rectangle<float>(2.0f * radius, 2.0f * radius).withCentre(centre);
 	const auto bipolar = static_cast<bool>(slider.getProperties()["bipolar"]);
 	const auto endless = static_cast<bool>(slider.getProperties()["endless"]);
 	const auto opacity = slider.isEnabled() ? 1.0f : 0.45f;
@@ -154,10 +159,11 @@ void VektLookAndFeel::drawRotarySlider(juce::Graphics& graphics, int x, int y, i
 	{
 		const auto zeroProportion = static_cast<float>(juce::jlimit(0.0, 1.0, slider.valueToProportionOfLength(0.0)));
 		const auto zeroAngle = startAngle + zeroProportion * (endAngle - startAngle);
-		graphics.setColour(juce::Colour::fromRGB(116, 128, 132).withMultipliedAlpha(opacity));
-		graphics.drawLine(juce::Line<float>(pointOnRadius(radius + 4.0f, zeroAngle), pointOnRadius(radius + 7.0f, zeroAngle)), 1.5f);
 		if (std::abs(angle - zeroAngle) > 0.01f)
 			strokeArc(zeroAngle, angle, fillColour);
+		// The tick crosses the ring, over the fill, rather than standing outside it: outside is the modulation lane.
+		graphics.setColour(juce::Colour::fromRGB(116, 128, 132).withMultipliedAlpha(opacity));
+		graphics.drawLine(juce::Line<float>(pointOnRadius(radius - 3.0f, zeroAngle), pointOnRadius(radius + 4.0f, zeroAngle)), 1.5f);
 	}
 	else if (position > 0.0f)
 	{

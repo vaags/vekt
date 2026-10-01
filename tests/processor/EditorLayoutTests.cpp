@@ -5,7 +5,9 @@
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <cmath>
 #include <cstdlib>
+#include <vector>
 
 namespace
 {
@@ -58,6 +60,13 @@ void writeSnapshot(juce::Component& editor, const char* path)
 	REQUIRE(stream.truncate().wasOk());
 	REQUIRE(juce::PNGImageFormat().writeImageToStream(image, stream));
 }
+
+// The dot shows the LFO a few milliseconds back (DisplayTimeline), so it is compared with the latest output within
+// this much: the most a 1 Hz LFO moves in about 30 ms.
+constexpr auto displayedLfoTolerance = 0.2;
+// The LFO output a Cutoff dot implies, for a depth in octaves around a base cutoff.
+double cutoffDotOutput(double cutoff, double base, double octaves) { return std::log2(cutoff / base) / octaves; }
+constexpr auto blockSeconds = 512.0 / 48'000.0;
 
 vekt::ui::RotaryControl* findRotary(juce::Component& parent, const juce::String& name)
 {
@@ -932,4 +941,436 @@ TEST_CASE("Rotary numeric entry preserves precision and supports undo", "[ui]")
 	juce::ignoreUnused(processor.getParameters().copyState());
 	REQUIRE(processor.getUndoManager().undo());
 	REQUIRE(cutoff->getSlider().getValue() == original);
+}
+
+TEST_CASE("Mono knobs show the range their LFO depths reach", "[mono][processor][ui][lfo][modulation]")
+{
+	namespace parameters = vekt::mono::parameters;
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	vekt::mono::PluginProcessor processor;
+	const auto set = [&](const char* identifier, float value)
+	{
+		auto* parameter = processor.getParameters().getParameter(identifier);
+		parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
+	};
+	for (auto* parameter : processor.juce::AudioProcessor::getParameters())
+		parameter->setValueNotifyingHost(parameter->getDefaultValue());
+	{
+		vekt::mono::PluginEditor editor(processor);
+		for (const auto* name : { "Cutoff", "Osc 1 Morph", "Detune" })
+		{
+			INFO(name);
+			auto* rotary = findRotary(editor.getContent(), name);
+			REQUIRE(rotary != nullptr);
+			REQUIRE_FALSE(rotary->getModulationRing().getModulation().has_value());
+		}
+	}
+
+	set(parameters::filterCutoff, 1'000.0f);
+	// LFO 1 bipolar at full Amount: one octave each way.
+	set(parameters::lfos[0].filter, 1.0f);
+	// LFO 2 unipolar at half Amount, pulling down: a further half octave below only.
+	set(parameters::lfos[1].polarity, 1.0f);
+	set(parameters::lfos[1].amount, 50.0f);
+	set(parameters::lfos[1].filter, -1.0f);
+	set(parameters::osc2Morph, 1.0f);
+	set(parameters::lfos[0].morph[1], 10.0f);
+	set(parameters::osc1Morph, 2.0f);
+	set(parameters::lfos[1].morph[0], 100.0f);
+	set(parameters::unisonDetune, 15.0f);
+	set(parameters::lfos[0].detune, 20.0f);
+	set(parameters::lfos[0].amp, 50.0f);
+	vekt::mono::PluginEditor editor(processor);
+	const auto modulation = [&](const char* name)
+	{
+		auto* rotary = findRotary(editor.getContent(), name);
+		REQUIRE(rotary != nullptr);
+		return rotary->getModulationRing().getModulation();
+	};
+	const auto cutoff = modulation("Cutoff");
+	REQUIRE(cutoff.has_value());
+	REQUIRE(cutoff->lowest == Catch::Approx(1'000.0 * std::exp2(-1.5)).epsilon(1.0e-4));
+	REQUIRE(cutoff->highest == Catch::Approx(2'000.0).epsilon(1.0e-4));
+	// 10 % Morph depth is 0.4 of the 0..4 cycle each way.
+	const auto morph = modulation("Osc 2 Morph");
+	REQUIRE(morph.has_value());
+	REQUIRE(morph->lowest == Catch::Approx(0.6));
+	REQUIRE(morph->highest == Catch::Approx(1.4));
+	// 100 % depth at half Amount, unipolar, is half a turn upwards.
+	const auto halfTurn = modulation("Osc 1 Morph");
+	REQUIRE(halfTurn.has_value());
+	REQUIRE(halfTurn->lowest == Catch::Approx(2.0));
+	REQUIRE(halfTurn->highest == Catch::Approx(4.0));
+	// Detune depth 20 % is +/-10 ct.
+	const auto detune = modulation("Detune");
+	REQUIRE(detune.has_value());
+	REQUIRE(detune->lowest == Catch::Approx(5.0));
+	REQUIRE(detune->highest == Catch::Approx(25.0));
+	// Unmodulated knobs keep no ring.
+	REQUIRE_FALSE(modulation("Resonance").has_value());
+	REQUIRE_FALSE(modulation("Osc 3 Morph").has_value());
+	if (const auto* path = std::getenv("VEKT_MONO_SNAPSHOT"))
+	{
+		editor.resized();
+		writeSnapshot(editor, path);
+	}
+}
+
+TEST_CASE("Mono modulation dots follow the live LFO and fade when they move too fast to follow", "[mono][processor][ui][lfo][modulation]")
+{
+	namespace parameters = vekt::mono::parameters;
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	// Peak speed is pi x rate x swing, as a share of the knob's travel: a +/-50 % level swing covers the whole knob.
+	const auto& level = vekt::mono::lfoDestinations[vekt::mono::lfo_depth::level];
+	const juce::NormalisableRange<float> percent { 0.0f, 100.0f };
+	REQUIRE(vekt::mono::lfoPeakTravelPerSecond(level, percent, 50.0, 0.5f, vekt::mono::LfoPolarity::bipolar, 2.0f)
+		== Catch::Approx(2.0 * juce::MathConstants<double>::pi));
+	REQUIRE(vekt::mono::lfoPeakTravelPerSecond(level, percent, 50.0, -0.5f, vekt::mono::LfoPolarity::unipolar, 2.0f)
+		== Catch::Approx(juce::MathConstants<double>::pi));
+
+	vekt::mono::PluginProcessor processor;
+	const auto set = [&](const char* identifier, float value)
+	{
+		auto* parameter = processor.getParameters().getParameter(identifier);
+		parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
+	};
+	for (auto* parameter : processor.juce::AudioProcessor::getParameters())
+		parameter->setValueNotifyingHost(parameter->getDefaultValue());
+	set(parameters::filterCutoff, 1'000.0f);
+	set(parameters::lfos[0].filter, 1.0f);
+	set(parameters::lfos[0].rate, 1.0f);
+	set(parameters::ampSustain, 100.0f);
+	const auto cutoffModulation = [&]
+	{
+		vekt::mono::PluginEditor editor(processor);
+		auto* rotary = findRotary(editor.getContent(), "Cutoff");
+		REQUIRE(rotary != nullptr);
+		return rotary->getModulationRing().getModulation();
+	};
+	// Silent: the range shows without a dot.
+	auto modulation = cutoffModulation();
+	REQUIRE(modulation.has_value());
+	REQUIRE_FALSE(modulation->current.has_value());
+
+	processor.prepareToPlay(48'000.0, 512);
+	juce::AudioBuffer<float> buffer(2, 512);
+	juce::MidiBuffer note;
+	note.addEvent(juce::MidiMessage::noteOn(1, 57, 0.8f), 0);
+	processor.processBlock(buffer, note);
+	juce::MidiBuffer none;
+	for (int block = 0; block < 20; ++block) processor.processBlock(buffer, none);
+	const auto output = processor.getLfoDisplayValue(0);
+	REQUIRE(std::abs(output) > 0.1f);
+	modulation = cutoffModulation();
+	REQUIRE(modulation->current.has_value());
+	REQUIRE(cutoffDotOutput(*modulation->current, 1'000.0, 1.0) == Catch::Approx(output).margin(displayedLfoTolerance));
+	REQUIRE(modulation->currentOpacity == Catch::Approx(1.0f));
+
+	// What counts is how fast the dot moves, not the rate alone. A one-octave sweep is a small part of Cutoff's
+	// travel, so even at 15 Hz its dot stays, at full size and brightness.
+	set(parameters::lfos[0].rate, 15.0f);
+	processor.processBlock(buffer, none);
+	REQUIRE(cutoffModulation()->currentOpacity == Catch::Approx(1.0f));
+	// A four-octave sweep covers most of it: full at 3 Hz, handing over at 5 Hz, gone at 10.
+	set(parameters::lfos[0].filter, 4.0f);
+	set(parameters::lfos[0].rate, 3.0f);
+	processor.processBlock(buffer, none);
+	REQUIRE(cutoffModulation()->currentOpacity == Catch::Approx(1.0f));
+	set(parameters::lfos[0].rate, 5.0f);
+	processor.processBlock(buffer, none);
+	const auto handingOver = cutoffModulation();
+	const auto fading = handingOver->currentOpacity;
+	REQUIRE(fading > 0.0f);
+	REQUIRE(fading < 1.0f);
+	// Even alone, the LFO's band is already growing while its dot fades: never a moment with neither.
+	REQUIRE(handingOver->blur.has_value());
+	// The same rate with a deeper sweep moves the dot faster, so it hands over further.
+	set(parameters::lfos[0].filter, 5.0f);
+	processor.processBlock(buffer, none);
+	modulation = cutoffModulation();
+	REQUIRE(modulation->current.has_value());
+	REQUIRE(modulation->currentOpacity < fading);
+	set(parameters::lfos[0].filter, 4.0f);
+	set(parameters::lfos[0].rate, 10.0f);
+	processor.processBlock(buffer, none);
+	modulation = cutoffModulation();
+	REQUIRE(modulation.has_value());
+	REQUIRE_FALSE(modulation->current.has_value());
+	if (const auto* path = std::getenv("VEKT_MONO_SNAPSHOT"))
+	{
+		set(parameters::lfos[0].rate, 1.0f);
+		processor.processBlock(buffer, none);
+		vekt::mono::PluginEditor editor(processor);
+		editor.resized();
+		writeSnapshot(editor, path);
+	}
+	processor.releaseResources();
+}
+
+TEST_CASE("Mono modulation overflows the knob only where the voice does", "[mono][processor][ui][lfo][modulation]")
+{
+	namespace parameters = vekt::mono::parameters;
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	vekt::mono::PluginProcessor processor;
+	const auto set = [&](const char* identifier, float value)
+	{
+		auto* parameter = processor.getParameters().getParameter(identifier);
+		parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
+	};
+	for (auto* parameter : processor.juce::AudioProcessor::getParameters())
+		parameter->setValueNotifyingHost(parameter->getDefaultValue());
+	// Pitch is unbounded: at Octave +2 an upward unipolar LFO keeps raising it, an octave past the knob here.
+	set(parameters::osc1Octave, 2.0f);
+	set(parameters::lfos[0].polarity, 1.0f);
+	set(parameters::lfos[0].pitch[0], 12.0f);
+	// Cutoff reaches past 20 kHz (an octave up from 18 kHz, unipolar), but only to the voice's own limit (0.45 x 48 kHz).
+	set(parameters::filterCutoff, 18'000.0f);
+	set(parameters::lfos[0].filter, 1.0f);
+	// Level stops at 100 %, exactly where the knob does.
+	set(parameters::osc2Level, 100.0f);
+	set(parameters::lfos[0].level[1], 50.0f);
+	set(parameters::lfos[0].rate, 1.0f);
+	set(parameters::ampSustain, 100.0f);
+	processor.setRateAndBufferSizeDetails(48'000.0, 512);
+	processor.prepareToPlay(48'000.0, 512);
+	juce::AudioBuffer<float> buffer(2, 512);
+	juce::MidiBuffer note;
+	note.addEvent(juce::MidiMessage::noteOn(1, 57, 0.8f), 0);
+	processor.processBlock(buffer, note);
+	juce::MidiBuffer none;
+	// A quarter cycle: the unipolar LFO near its peak.
+	for (int block = 0; block < 23; ++block) processor.processBlock(buffer, none);
+	REQUIRE(processor.getLfoDisplayValue(0) > 0.9f);
+
+	vekt::mono::PluginEditor editor(processor);
+	const auto ring = [&](const char* name) -> const vekt::ui::ModulationRing&
+	{
+		auto* rotary = findRotary(editor.getContent(), name);
+		REQUIRE(rotary != nullptr);
+		return rotary->getModulationRing();
+	};
+	const auto& pitch = ring("Osc 1 Octave");
+	REQUIRE(pitch.getModulation()->lowest == Catch::Approx(2.0));
+	REQUIRE(pitch.getModulation()->highest == Catch::Approx(3.0));
+	REQUIRE(pitch.overflow().above);
+	REQUIRE(pitch.isCurrentBeyondTravel());
+	REQUIRE(*pitch.getModulation()->current > 2.9);
+
+	const auto& cutoff = ring("Cutoff");
+	REQUIRE(cutoff.getModulation()->lowest == Catch::Approx(18'000.0));
+	REQUIRE(cutoff.getModulation()->highest == Catch::Approx(21'600.0));
+	REQUIRE(cutoff.overflow().above);
+	REQUIRE_FALSE(cutoff.overflow().below);
+
+	const auto& level = ring("Osc 2 Level");
+	REQUIRE(level.getModulation()->highest == Catch::Approx(100.0));
+	REQUIRE_FALSE(level.overflow().above);
+	REQUIRE_FALSE(level.isCurrentBeyondTravel());
+	if (const auto* path = std::getenv("VEKT_MONO_SNAPSHOT"))
+	{
+		editor.resized();
+		writeSnapshot(editor, path);
+	}
+	processor.releaseResources();
+}
+
+TEST_CASE("Mono modulation dots keep moving in an open editor", "[mono][processor][ui][lfo][modulation]")
+{
+	namespace parameters = vekt::mono::parameters;
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	vekt::mono::PluginProcessor processor;
+	const auto set = [&](const char* identifier, float value)
+	{
+		auto* parameter = processor.getParameters().getParameter(identifier);
+		parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
+	};
+	for (auto* parameter : processor.juce::AudioProcessor::getParameters())
+		parameter->setValueNotifyingHost(parameter->getDefaultValue());
+	set(parameters::filterCutoff, 1'000.0f);
+	set(parameters::lfos[0].filter, 1.0f);
+	set(parameters::lfos[0].rate, 1.0f);
+	set(parameters::ampSustain, 100.0f);
+	vekt::mono::PluginEditor editor(processor);
+	auto* cutoff = findRotary(editor.getContent(), "Cutoff");
+	REQUIRE(cutoff != nullptr);
+	const auto& ring = cutoff->getModulationRing();
+	REQUIRE_FALSE(ring.getModulation()->current.has_value());
+
+	processor.prepareToPlay(48'000.0, 512);
+	juce::AudioBuffer<float> buffer(2, 512);
+	juce::MidiBuffer note;
+	note.addEvent(juce::MidiMessage::noteOn(1, 57, 0.8f), 0);
+	processor.processBlock(buffer, note);
+	juce::MidiBuffer none;
+	// A display frame per block, as a 94 Hz display would show 512-sample blocks at 48 kHz.
+	auto now = 100.0;
+	std::vector<double> positions;
+	for (int frame = 0; frame < 4; ++frame)
+	{
+		for (int block = 0; block < 8; ++block)
+		{
+			processor.processBlock(buffer, none);
+			editor.refreshModulationRings(now += blockSeconds);
+		}
+		REQUIRE(ring.getModulation()->current.has_value());
+		REQUIRE(cutoffDotOutput(*ring.getModulation()->current, 1'000.0, 1.0)
+			== Catch::Approx(processor.getLfoDisplayValue(0)).margin(displayedLfoTolerance));
+		positions.push_back(*ring.getModulation()->current);
+	}
+	for (std::size_t frame = 1; frame < positions.size(); ++frame) REQUIRE(positions[frame] != Catch::Approx(positions[frame - 1]));
+
+	// A depth change reaches the same editor's ring, and stopping hides the dot.
+	set(parameters::lfos[0].filter, 2.0f);
+	editor.refreshModulationRings(now += blockSeconds);
+	REQUIRE(ring.getModulation()->highest == Catch::Approx(4'000.0));
+	processor.releaseResources();
+	editor.refreshModulationRings(now += blockSeconds);
+	REQUIRE_FALSE(ring.getModulation()->current.has_value());
+}
+
+TEST_CASE("Mono modulation dots follow the slow LFOs when a fast one shares the knob", "[mono][processor][ui][lfo][modulation]")
+{
+	using vekt::mono::LfoDotContribution;
+	using vekt::mono::LfoPolarity;
+	const auto combine = [](std::initializer_list<LfoDotContribution> lfos)
+	{
+		const std::vector<LfoDotContribution> list(lfos);
+		return vekt::mono::combineLfoDot(list);
+	};
+	REQUIRE(combine({}).opacity == Catch::Approx(0.0f));
+	// A followable LFO moves the dot fully. Half-way through its handover it moves the dot half as far, and the band
+	// covers the other half of its swing: the band grows as the dot fades, never leaving neither.
+	auto dot = combine({ { 2.0f, 0.5f, LfoPolarity::bipolar, 1.0f } });
+	REQUIRE(dot.offset == Catch::Approx(1.0f));
+	REQUIRE(dot.blurHalfWidth == Catch::Approx(0.0f));
+	dot = combine({ { 2.0f, 0.5f, LfoPolarity::bipolar, 0.5f } });
+	REQUIRE(dot.offset == Catch::Approx(0.5f));
+	REQUIRE(dot.opacity == Catch::Approx(0.5f));
+	REQUIRE(dot.blurHalfWidth == Catch::Approx(1.0f));
+	REQUIRE(combine({ { 2.0f, 0.5f, LfoPolarity::bipolar, 0.0f } }).opacity == Catch::Approx(0.0f));
+	// Beside a slow LFO, a fast one sits at the centre of its swing: zero when bipolar, half its offset when unipolar.
+	dot = combine({ { 1.0f, 0.8f, LfoPolarity::bipolar, 1.0f }, { 3.0f, -0.9f, LfoPolarity::bipolar, 0.0f } });
+	REQUIRE(dot.offset == Catch::Approx(0.8f));
+	REQUIRE(dot.opacity == Catch::Approx(1.0f));
+	dot = combine({ { 1.0f, 0.8f, LfoPolarity::bipolar, 1.0f }, { 2.0f, 0.9f, LfoPolarity::unipolar, 0.0f } });
+	REQUIRE(dot.offset == Catch::Approx(1.8f));
+	// Part-way through their handovers each counts by its own share; the dot is as clear as the slower one.
+	dot = combine({ { 1.0f, 0.8f, LfoPolarity::bipolar, 0.5f }, { 2.0f, 0.5f, LfoPolarity::bipolar, 0.25f } });
+	REQUIRE(dot.offset == Catch::Approx(0.5f * 0.8f + 0.25f * 2.0f * 0.5f));
+	REQUIRE(dot.blurHalfWidth == Catch::Approx(0.5f * 1.0f + 0.75f * 2.0f));
+	REQUIRE(dot.opacity == Catch::Approx(0.5f));
+
+	namespace parameters = vekt::mono::parameters;
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	vekt::mono::PluginProcessor processor;
+	const auto set = [&](const char* identifier, float value)
+	{
+		auto* parameter = processor.getParameters().getParameter(identifier);
+		parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
+	};
+	for (auto* parameter : processor.juce::AudioProcessor::getParameters())
+		parameter->setValueNotifyingHost(parameter->getDefaultValue());
+	// A slow sweep and a fast bipolar wobble on Cutoff.
+	set(parameters::filterCutoff, 1'000.0f);
+	set(parameters::lfos[0].filter, 1.0f);
+	set(parameters::lfos[0].rate, 0.5f);
+	set(parameters::lfos[1].filter, 2.0f);
+	set(parameters::lfos[1].rate, 50.0f);
+	set(parameters::ampSustain, 100.0f);
+	// The same pair on a compact oscillator knob, for the snapshot.
+	set(parameters::lfos[0].width[0], 40.0f);
+	set(parameters::lfos[1].width[0], 20.0f);
+	vekt::mono::PluginEditor editor(processor);
+	processor.prepareToPlay(48'000.0, 512);
+	juce::AudioBuffer<float> buffer(2, 512);
+	juce::MidiBuffer note;
+	note.addEvent(juce::MidiMessage::noteOn(1, 57, 0.8f), 0);
+	processor.processBlock(buffer, note);
+	juce::MidiBuffer none;
+	auto now = 100.0;
+	for (int block = 0; block < 20; ++block)
+	{
+		processor.processBlock(buffer, none);
+		editor.refreshModulationRings(now += blockSeconds);
+	}
+	auto* cutoff = findRotary(editor.getContent(), "Cutoff");
+	REQUIRE(cutoff != nullptr);
+	const auto& modulation = *cutoff->getModulationRing().getModulation();
+	// The arc still spans both; the dot is fully visible and shows only the slow sweep.
+	REQUIRE(modulation.lowest == Catch::Approx(1'000.0 * std::exp2(-3.0)).epsilon(1.0e-4));
+	REQUIRE(modulation.highest == Catch::Approx(1'000.0 * std::exp2(3.0)).epsilon(1.0e-4));
+	REQUIRE(modulation.current.has_value());
+	REQUIRE(modulation.currentOpacity == Catch::Approx(1.0f));
+	REQUIRE(cutoffDotOutput(*modulation.current, 1'000.0, 1.0) == Catch::Approx(processor.getLfoDisplayValue(0)).margin(displayedLfoTolerance));
+	// The fast wobble is a blur band of its two-octave swing either side of the dot, containing what is heard (up to
+	// the few milliseconds the display shows the slow LFO behind).
+	REQUIRE(modulation.blur.has_value());
+	REQUIRE(modulation.blur->lowest == Catch::Approx(*modulation.current * std::exp2(-2.0)).epsilon(1.0e-4));
+	REQUIRE(modulation.blur->highest == Catch::Approx(*modulation.current * std::exp2(2.0)).epsilon(1.0e-4));
+	const auto heard = 1'000.0 * std::exp2(static_cast<double>(processor.getLfoDisplayValue(0)) + 2.0 * static_cast<double>(processor.getLfoDisplayValue(1)));
+	REQUIRE(heard >= modulation.blur->lowest * std::exp2(-displayedLfoTolerance));
+	REQUIRE(heard <= modulation.blur->highest * std::exp2(displayedLfoTolerance));
+	if (const auto* path = std::getenv("VEKT_MONO_SNAPSHOT"))
+	{
+		editor.resized();
+		writeSnapshot(editor, path);
+	}
+
+	// Alone, a fast LFO leaves no dot, only a band over its whole range: moving, unlike a depth with nothing playing.
+	set(parameters::lfos[0].filter, 0.0f);
+	editor.refreshModulationRings(now += blockSeconds);
+	const auto& alone = *cutoff->getModulationRing().getModulation();
+	REQUIRE_FALSE(alone.current.has_value());
+	REQUIRE(alone.blur.has_value());
+	REQUIRE(alone.blur->lowest == Catch::Approx(alone.lowest));
+	REQUIRE(alone.blur->highest == Catch::Approx(alone.highest));
+	// A slow LFO alone needs no band; silence shows neither.
+	set(parameters::lfos[0].filter, 1.0f);
+	set(parameters::lfos[1].filter, 0.0f);
+	editor.refreshModulationRings(now += blockSeconds);
+	REQUIRE_FALSE(cutoff->getModulationRing().getModulation()->blur.has_value());
+	processor.releaseResources();
+	set(parameters::lfos[1].filter, 2.0f);
+	editor.refreshModulationRings(now += blockSeconds);
+	REQUIRE_FALSE(cutoff->getModulationRing().getModulation()->blur.has_value());
+	REQUIRE_FALSE(cutoff->getModulationRing().getModulation()->current.has_value());
+}
+
+TEST_CASE("Mono modulation blur bands always contain the value heard", "[mono][ui][lfo][modulation]")
+{
+	using vekt::mono::LfoDotContribution;
+	using vekt::mono::LfoPolarity;
+	const auto combine = [](std::initializer_list<LfoDotContribution> lfos)
+	{
+		const std::vector<LfoDotContribution> list(lfos);
+		return vekt::mono::combineLfoDot(list);
+	};
+	// A followable LFO needs no band; a fast one beside a slow one adds its swing: all of it bipolar, half unipolar.
+	REQUIRE(combine({ { 2.0f, 0.5f, LfoPolarity::bipolar, 1.0f } }).blurHalfWidth == Catch::Approx(0.0f));
+	REQUIRE(combine({ { 1.0f, 0.8f, LfoPolarity::bipolar, 1.0f }, { -3.0f, 0.2f, LfoPolarity::bipolar, 0.0f } }).blurHalfWidth == Catch::Approx(3.0f));
+	REQUIRE(combine({ { 1.0f, 0.8f, LfoPolarity::bipolar, 1.0f }, { 2.0f, 0.2f, LfoPolarity::unipolar, 0.0f } }).blurHalfWidth == Catch::Approx(1.0f));
+	// All too fast: no dot, and a band over the whole reach (here 0..2 for a unipolar +2).
+	const auto fast = combine({ { 2.0f, 0.9f, LfoPolarity::unipolar, 0.0f } });
+	REQUIRE(fast.opacity == Catch::Approx(0.0f));
+	REQUIRE(fast.offset - fast.blurHalfWidth == Catch::Approx(0.0f));
+	REQUIRE(fast.offset + fast.blurHalfWidth == Catch::Approx(2.0f));
+
+	// Whatever the outputs, rates and polarities, the heard offset lies within the band.
+	juce::Random random(7);
+	for (int trial = 0; trial < 2'000; ++trial)
+	{
+		std::array<LfoDotContribution, 2> lfos {};
+		auto heard = 0.0f;
+		for (auto& lfo : lfos)
+		{
+			lfo.polarity = random.nextBool() ? LfoPolarity::unipolar : LfoPolarity::bipolar;
+			lfo.offset = random.nextFloat() * 8.0f - 4.0f;
+			lfo.output = lfo.polarity == LfoPolarity::unipolar ? random.nextFloat() : random.nextFloat() * 2.0f - 1.0f;
+			lfo.opacity = random.nextBool() ? 1.0f : random.nextFloat();
+			heard += lfo.offset * lfo.output;
+		}
+		const auto dot = vekt::mono::combineLfoDot(lfos);
+		INFO("Trial " << trial);
+		REQUIRE(std::abs(heard - dot.offset) <= dot.blurHalfWidth + 1.0e-5f);
+	}
 }

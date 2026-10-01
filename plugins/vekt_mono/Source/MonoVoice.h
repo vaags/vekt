@@ -7,6 +7,7 @@
 #include "NonlinearTptLadder.h"
 #include "WidthOscillator.h"
 #include "ContourEnvelope.h"
+#include "FilterLimits.h"
 #include "Lfo.h"
 
 #include <vekt/dsp/DcBlocker.h>
@@ -665,7 +666,7 @@ private:
 	{
 		// Cutoff reaches 5 Hz so a closed 2-pole SVF silences bass notes too (ADR 0006); modulation may take it one
 		// octave further, to 2.5 Hz.
-		const auto cutoffTarget = std::log2(juce::jlimit(2.5f, 32'000.0f, settings.cutoff));
+		const auto cutoffTarget = std::log2(juce::jlimit(minimumCutoffHz, absoluteMaximumCutoffHz, settings.cutoff));
 		// Feedback gain k already makes the input tap inert at zero resonance.
 		const auto compensationTarget = settings.qCompensation ? 0.5f : 0.0f;
 		if (!filterControlsInitialized)
@@ -694,8 +695,7 @@ private:
 		const auto contourOctaves = settings.envelopeAmount * envelopeValue * maximumContourOctaves;
 		const auto velocityResponse = velocityCurve;
 		const auto velocityOctaves = -settings.filterVelocity * (1.0f - velocityResponse) * maximumVelocityOctaves;
-		const auto maximumCutoff = std::min(32'000.0f, sampleRate * 0.45f);
-		const auto cutoff = juce::jlimit(2.5f, maximumCutoff,
+		const auto cutoff = juce::jlimit(minimumCutoffHz, maximumCutoffHz(sampleRate),
 			baseCutoff * std::exp2(keyOctaves + contourOctaves + velocityOctaves + lfoOctaves));
 		return { cutoff, resonanceAmount, driveDb, false, inputCompensation, mode };
 	}

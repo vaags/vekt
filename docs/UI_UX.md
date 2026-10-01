@@ -85,6 +85,34 @@ Preset workflows are specified separately in [PRESET_UX.md](PRESET_UX.md).
   and reports invalid input without changing the existing value.
 - Begin and end JUCE parameter gestures around pointer or keyboard edits. APVTS
   attachments remain the source of truth for automatable controls.
+- A modulated control shows its reachable range as a thin arc in the
+  `modulation` colour, in a lane outside the value ring. The range covers the
+  base value plus modulation only (not envelopes or key tracking), follows each
+  source's polarity and master amount, and shows what the processor reaches:
+  it stops where the processor stops and wraps on endless controls. Where the
+  processor carries modulation past the end of the knob's travel (Mono's pitch
+  and cutoff), the arc ends at the travel with a faint tail beyond it, and a
+  live dot past the end is pinned there and drawn hollow. Modulation never
+  moves the pointer or the value readout.
+- While a voice sounds, a dot on the arc shows the live modulated value (the
+  newest voice's), at full size and brightness. Behind it, a short afterglow
+  (dot-wide, fading from the dot's brightness to nothing, at most five dot
+  widths) covers its path since the last drawn frame, so fast motion does not
+  strobe into a row of dots, without reading as an object of its own. The dot
+  hides in silence and hands over to the arc and blur band only once it would
+  move 15 to 25 % of the knob's travel per frame, and quickly, so it never
+  lingers as a faded (seemingly shrunken) dot. Speed is judged from the
+  source's rate and depth on that knob, so a deep slow sweep and a shallow
+  fast one both keep their dot.
+  Motion the dot cannot follow is shown as a blur band: a thicker, brighter stretch of the arc around the dot
+  covering that swing, so the value heard always lies within the band. When
+  several sources share a control, the dot is as clear as the slowest allows
+  and follows it; faster ones widen the band instead, so a slow sweep stays
+  visible beside a fast wobble. Dot and band cross-fade per source: as a source
+  speeds past the handover, the band grows over its swing while its dot fades,
+  so there is never a moment with neither. A lone fast source ends with the
+  band over its whole range and no dot, distinct from an idle arc while nothing
+  sounds.
 - Context menus provide reset and direct value entry. Product-specific actions
   may be added only when they are meaningful for that parameter.
 
@@ -183,7 +211,8 @@ retain APVTS attachments/gestures and stable bounds during state changes.
 
 ## Motion and transient surfaces
 
-- Motion explains state changes; it is not ambient decoration. Prefer short
+- Motion explains state changes; it is not ambient decoration. Live
+  modulation dots are the exception: they show sound state as it changes. Prefer short
   fades or position transitions under 180 ms and avoid spring or looping motion.
 - Menus, tooltips, dialogs, and advanced panels remain within editor bounds at
   every supported size and Retina scale.
