@@ -82,12 +82,13 @@ so aggressive mode behavior remains visible.
 
 ### Circuit-model comparison workflow
 
-`--model` selects the development comparison seam: `legacy`, `behavioral`,
+`--model` selects the development comparison seam: `production` (what Rav
+ships; the default), `behavioral`,
 `overdrive-circuit`, or `fuzz-circuit`. The seam is deliberately excluded from
 APVTS, plugin state, and presets. `fuzz-circuit` is the implemented experimental
 candidate and reports `active_model: "fuzz-circuit"` when an active Fuzz stage
 uses it. The behavioral and overdrive-circuit placeholders report
-`active_model: "legacy"`; this makes baseline reports reproducible without
+`active_model: "production"`; this makes baseline reports reproducible without
 changing saved sounds.
 
 Use `--stages` as a four-character enable mask in Saturation, Overdrive,
@@ -103,9 +104,9 @@ Run performance comparisons in Release mode:
 cmake --preset audio-lab-release
 cmake --build --preset audio-lab-release --target VektRavRender
 build/audio-lab-release/tools/audio_lab/VektRavRender \
-  --model legacy --source two-tone --profile tracking --quality 2 --mode 3 \
+  --model production --source two-tone --profile tracking --quality 2 --mode 3 \
   --stages 0001 --block-size 32 --warmup 0.2 --seconds 5 \
-  --report /tmp/rav-fuzz-legacy.json
+  --report /tmp/rav-fuzz-production.json
 ```
 
 The report contains left/right RMS, peak, and DC, plus mean and maximum measured

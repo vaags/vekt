@@ -60,7 +60,6 @@ inline constexpr auto filterDrive = "filterDrive";
 inline constexpr auto filterQCompensation = "filterQCompensation";
 inline constexpr auto filterMode = "filterMode";
 inline constexpr auto filterType = "filterType";
-inline constexpr auto filterK35 = "filterK35";
 inline constexpr auto ampAttack = "ampAttack";
 inline constexpr auto ampDecay = "ampDecay";
 inline constexpr auto ampSustain = "ampSustain";
@@ -80,9 +79,9 @@ struct LfoParameterIds
 	const char* mode; const char* phase; const char* delay; const char* fade; const char* amount;
 	std::array<const char*, 3> pitch, morph, width, level;
 	const char* filter; const char* amp; const char* drive; const char* noise; const char* detune; const char* spread;
-	const char* filterMode; // sound schema 8
+	const char* filterMode;
 
-	// The schema-7 parameters, in their saved order; filterMode is listed with the schema-8 parameters.
+	// Every parameter but filterMode, which is listed with the filter's other shape parameters.
 	[[nodiscard]] constexpr std::array<const char*, 28> all() const noexcept
 	{
 		return { rate, sync, division, shape, polarity, mode, phase, delay, fade, amount,
@@ -113,7 +112,8 @@ inline constexpr auto vibratoShape = "vibratoShape";
 inline constexpr auto vibratoDepth = "vibratoDepth";
 inline constexpr std::array vibratoParameterIds { vibratoRate, vibratoShape, vibratoDepth };
 
-inline constexpr std::array legacySoundParameterIds {
+// Performance, oscillators, mixer, filter and envelopes.
+inline constexpr std::array coreSoundParameterIds {
 	performanceMode, heldKeyReturn, unison, unisonDetune, unisonSpread, voiceWidth, glideMode, glideTime,
 	pitchBendRange, calibration, drift, masterOutput,
 	osc1Range, osc2Range, osc3Range, osc1Semitone, osc2Semitone, osc3Semitone,
@@ -125,8 +125,8 @@ inline constexpr std::array legacySoundParameterIds {
 	filterAttack, filterDecay, filterSustain, filterRelease, ampVelocity, filterVelocity, filterQCompensation,
 	notePriority };
 
-// Parameters added in sound schema 7: both LFOs and the performance vibrato.
-inline constexpr auto schema7ParameterIds = []
+// Both LFOs, except their filterMode depths, and the performance vibrato.
+inline constexpr auto modulationParameterIds = []
 {
 	std::array<const char*, 2 * 28 + vibratoParameterIds.size()> ids {};
 	std::size_t next {};
@@ -136,25 +136,16 @@ inline constexpr auto schema7ParameterIds = []
 	return ids;
 }();
 
-// Parameters added in sound schema 8: the ladder's LP-Notch-HP Mode and its LFO depths.
-inline constexpr std::array schema8ParameterIds { filterMode, lfos[0].filterMode, lfos[1].filterMode };
-// Sound schema 9 added a saturated-taps A/B (filterSaturatedTaps); schema 11 retired it, the saturated taps being
-// the only Notch/HP mix since. Parameters added in sound schema 10: the Ladder/SVF filter type (ADR 0006).
-inline constexpr std::array schema10ParameterIds { filterType };
-// Parameters added in sound schema 12: the K35 filter (ADR 0007), an override on top of the Ladder/SVF filter type so
-// that filterType's two choices, and host automation of them, keep their exact normalised mapping.
-inline constexpr std::array schema12ParameterIds { filterK35 };
+// The filter's LP-Notch-HP Mode and its LFO depths, and its Ladder/SVF/K35 type.
+inline constexpr std::array filterShapeParameterIds { filterMode, lfos[0].filterMode, lfos[1].filterMode, filterType };
 
 inline constexpr auto soundParameterIds = []
 {
-	std::array<const char*, legacySoundParameterIds.size() + schema7ParameterIds.size() + schema8ParameterIds.size()
-		+ schema10ParameterIds.size() + schema12ParameterIds.size()> ids {};
+	std::array<const char*, coreSoundParameterIds.size() + modulationParameterIds.size() + filterShapeParameterIds.size()> ids {};
 	std::size_t next {};
-	for (const auto* identifier : legacySoundParameterIds) ids[next++] = identifier;
-	for (const auto* identifier : schema7ParameterIds) ids[next++] = identifier;
-	for (const auto* identifier : schema8ParameterIds) ids[next++] = identifier;
-	for (const auto* identifier : schema10ParameterIds) ids[next++] = identifier;
-	for (const auto* identifier : schema12ParameterIds) ids[next++] = identifier;
+	for (const auto* identifier : coreSoundParameterIds) ids[next++] = identifier;
+	for (const auto* identifier : modulationParameterIds) ids[next++] = identifier;
+	for (const auto* identifier : filterShapeParameterIds) ids[next++] = identifier;
 	return ids;
 }();
 

@@ -7,6 +7,12 @@ Accepted (30 September 2026, after the real-synth audition). The K35 core (`Nonl
 `LADDER | SVF | K35` in the editor; see Progress). This symmetric reduced model is the baseline; the refinements
 under Deferred are experiments against it, kept only if they materially improve the sound.
 
+*Revised 1 October 2026 (pre-release):* K35 is now the third choice of `filterType` (Ladder, SVF, K35) and the
+`filterK35` override is removed. The override existed only to keep `filterType`'s two-choice automation mapping
+for existing sessions, and none exist before release. A tab click now sets `filterType` alone; switching away from
+K35 no longer returns to a Ladder/SVF choice kept underneath. The K35 sound is unchanged (the `mono/k35` reference
+render matches). Sections below that describe `filterK35`, the override and its tests are historical.
+
 ## Context
 
 Mono has a four-pole nonlinear ladder (ADR 0005) and a two-pole nonlinear SVF in the OTA/SEM family (ADR 0006). A

@@ -115,5 +115,4 @@ vibratoDepth	v1	float	range=0:100	interval=0.1	skew=1	default=50	automatable
 filterMode	v1	float	range=-1:1	interval=0.001	skew=1	default=-1	automatable
 lfo1FilterMode	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
 lfo2FilterMode	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
-filterType	v1	choice	Ladder|SVF	default=0	automatable
-filterK35	v1	bool	default=0	automatable
+filterType	v1	choice	Ladder|SVF|K35	default=0	automatable

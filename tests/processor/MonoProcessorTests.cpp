@@ -1625,31 +1625,6 @@ TEST_CASE("Mono preserves APVTS project state", "[mono][processor]")
 	REQUIRE(restored.getParameters().getRawParameterValue(vekt::mono::parameters::filterCutoff)->load() == Catch::Approx(2'345.0f));
 }
 
-TEST_CASE("Mono recalls project states without retired contour controls", "[mono][processor][contour][state]")
-{
-	vekt::mono::PluginProcessor source;
-	juce::MemoryBlock data;
-	source.getStateInformation(data);
-	auto state = juce::ValueTree::readFromData(data.getData(), data.getSize());
-	auto parameters = state.getChildWithName(source.getParameters().state.getType());
-	parameters.removeChild(parameters.getChildWithProperty("id", vekt::mono::parameters::notePriority), nullptr);
-	for (const auto* identifier : { "contourCurve", "releasePolicy" })
-	{
-		juce::ValueTree retired("PARAM");
-		retired.setProperty("id", identifier, nullptr);
-		retired.setProperty("value", 1, nullptr);
-		parameters.addChild(retired, -1, nullptr);
-	}
-	juce::MemoryBlock legacy;
-	juce::MemoryOutputStream stream(legacy, false);
-	state.writeToStream(stream);
-	vekt::mono::PluginProcessor restored;
-	restored.setStateInformation(legacy.getData(), static_cast<int>(legacy.getSize()));
-	REQUIRE(restored.getParameters().getRawParameterValue(vekt::mono::parameters::notePriority)->load() == Catch::Approx(0.0f));
-	REQUIRE(restored.getParameters().getParameter("contourCurve") == nullptr);
-	REQUIRE(restored.getParameters().getParameter("releasePolicy") == nullptr);
-}
-
 TEST_CASE("Mono rejects obsolete pre-alpha project schemas without changing live state", "[mono][processor][state]")
 {
 	vekt::mono::PluginProcessor source;
@@ -2448,8 +2423,7 @@ TEST_CASE("Mono Multicore renders exactly the same samples as single-threaded re
 			vekt::mono::PluginProcessor single, multi;
 			for (auto* processor : { &single, &multi })
 			{
-				setParameter(*processor, vekt::mono::parameters::filterType, filter == 1 ? 1.0f : 0.0f);
-				setParameter(*processor, vekt::mono::parameters::filterK35, filter == 2 ? 1.0f : 0.0f);
+				setParameter(*processor, vekt::mono::parameters::filterType, static_cast<float>(filter));
 				setParameter(*processor, vekt::mono::parameters::voiceCount, 4.0f); // 16 voices
 				setParameter(*processor, vekt::mono::parameters::unison, unison);
 				setParameter(*processor, vekt::mono::parameters::quality, quality);

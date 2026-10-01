@@ -156,7 +156,7 @@ private:
 	dsp::LatencyAlignedMixer<float> dryWetMixer;
 	dsp::MatchedToneStage<float> toneStage;
 	RavStageChain stageChain;
-	std::atomic<RavProcessingModel> developmentProcessingModel { RavProcessingModel::legacy };
+	std::atomic<RavProcessingModel> developmentProcessingModel { RavProcessingModel::production };
 	std::array<std::array<std::array<RavModeStage, RavStageChain::stageCount>, 2>, 3> bandStages;
 	dsp::ThreeBandCrossover<float> crossover;
 	std::array<juce::AudioBuffer<float>, 3> bandBuffers;

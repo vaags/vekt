@@ -74,39 +74,33 @@ juce::Result PresetJsonCodec::decode(const juce::String& json, Preset& destinati
 		|| !parameterValues.isObject())
 		return juce::Result::fail("Preset JSON has invalid field types");
 
+	if (static_cast<int>(schemaVersion) != PresetDocument::version)
+		return juce::Result::fail("Unsupported preset document version");
+
+	const auto id = root->getProperty("id");
+	const auto soundVersion = root->getProperty("soundSchemaVersion");
+	const auto tags = root->getProperty("tags");
+	const auto soundState = root->getProperty("soundState");
+	if (root->getProperty("format").toString() != PresetDocument::format
+		|| !id.isString() || !soundVersion.isInt() || !tags.isArray()
+		|| (!soundState.isVoid() && !soundState.isObject()))
+		return juce::Result::fail("Invalid Vekt preset envelope");
+
 	Preset preset;
 	preset.schemaVersion = static_cast<int>(schemaVersion);
 	preset.productIdentifier = product.toString();
 	preset.name = name.toString();
-	if (preset.schemaVersion == 1)
+	preset.identifier = id.toString();
+	preset.soundSchemaVersion = static_cast<int>(soundVersion);
+	for (const auto& tag : *tags.getArray())
 	{
-		// Legacy IDs are deterministic for embedded factories. Repositories qualify
-		// them by location until the first successful write persists a UUID.
-		preset.identifier = "legacy:" + preset.productIdentifier + ":" + preset.name;
-		preset.schemaVersion = PresetDocument::version;
+		if (!tag.isString() || tag.toString().trim().isEmpty())
+			return juce::Result::fail("Preset tags must be non-empty strings");
+		preset.tags.add(tag.toString());
 	}
-	else
-	{
-		const auto id = root->getProperty("id");
-		const auto soundVersion = root->getProperty("soundSchemaVersion");
-		const auto tags = root->getProperty("tags");
-		const auto soundState = root->getProperty("soundState");
-		if (root->getProperty("format").toString() != PresetDocument::format
-			|| !id.isString() || !soundVersion.isInt() || !tags.isArray()
-			|| (!soundState.isVoid() && !soundState.isObject()))
-			return juce::Result::fail("Invalid Vekt preset envelope");
-		preset.identifier = id.toString();
-		preset.soundSchemaVersion = static_cast<int>(soundVersion);
-		for (const auto& tag : *tags.getArray())
-		{
-			if (!tag.isString() || tag.toString().trim().isEmpty())
-				return juce::Result::fail("Preset tags must be non-empty strings");
-			preset.tags.add(tag.toString());
-		}
-		preset.tags = normaliseTags(preset.tags);
-		if (soundState.isObject())
-			preset.soundState = soundState.getDynamicObject()->getProperties();
-	}
+	preset.tags = normaliseTags(preset.tags);
+	if (soundState.isObject())
+		preset.soundState = soundState.getDynamicObject()->getProperties();
 	for (const auto& property : parameterValues.getDynamicObject()->getProperties())
 	{
 		const auto& value = property.value;
@@ -122,8 +116,6 @@ juce::Result PresetJsonCodec::decode(const juce::String& json, Preset& destinati
 			return juce::Result::fail("Preset metadata must be an object");
 		preset.metadata = metadata.getDynamicObject()->getProperties();
 	}
-	if (static_cast<int>(schemaVersion) == 1 && preset.metadata["category"].isString())
-		preset.tags = normaliseTags({ preset.metadata["category"].toString() });
 
 	if (const auto result = PresetDocument::validate(preset); result.failed())
 		return result;

@@ -75,7 +75,7 @@ const std::vector<RenderCase>& renderCases()
 			{ "mono", "ladder-4x", { { mono::quality, 2.0f } } },
 			{ "mono", "ladder-8x", { { mono::quality, 3.0f } } },
 			{ "mono", "svf-bandpass", { { mono::filterType, 1.0f }, { mono::filterMode, 0.0f }, { mono::filterResonance, 50.0f } } },
-			{ "mono", "k35", { { mono::filterK35, 1.0f }, { mono::filterResonance, 60.0f } } },
+			{ "mono", "k35", { { mono::filterType, 2.0f }, { mono::filterResonance, 60.0f } } },
 			{ "mono", "unison-noise-lfo", { { mono::unison, 2.0f }, { mono::noiseType, 2.0f }, { mono::noiseLevel, 30.0f },
 				{ mono::lfos[0].rate, 6.0f }, { mono::lfos[0].pitch[0], 2.0f } } },
 			{ "mono", "legato-glide", { { mono::performanceMode, 2.0f }, { mono::glideMode, 1.0f }, { mono::glideTime, 0.05f } } },

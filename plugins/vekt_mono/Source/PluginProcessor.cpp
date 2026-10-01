@@ -66,9 +66,8 @@ MonoVoiceSettings PluginProcessor::snapshotSettings() const
 	settings.drive = value(parameters::filterDrive);
 	settings.qCompensation = value(parameters::filterQCompensation) >= 0.5f;
 	settings.filterMode = value(parameters::filterMode);
-	settings.filterType = value(parameters::filterType) >= 0.5f ? FilterType::svf : FilterType::ladder;
-	// K35 (ADR 0007) overrides the Ladder/SVF choice, which stays underneath for when it is switched off.
-	if (value(parameters::filterK35) >= 0.5f) settings.filterType = FilterType::korg35;
+	constexpr std::array filterTypes { FilterType::ladder, FilterType::svf, FilterType::korg35 }; // the choices' order
+	settings.filterType = filterTypes[static_cast<std::size_t>(juce::jlimit(0, 2, juce::roundToInt(value(parameters::filterType))))];
 	settings.ampAttack = value(parameters::ampAttack);
 	settings.ampDecay = value(parameters::ampDecay);
 	settings.ampSustain = value(parameters::ampSustain) * 0.01f;

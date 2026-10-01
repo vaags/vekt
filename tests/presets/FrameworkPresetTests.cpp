@@ -101,17 +101,14 @@ TEST_CASE("Global preset format round trips independent product schemas", "[pres
 	}
 }
 
-TEST_CASE("Legacy global documents migrate without a plugin dependency", "[presets][framework]")
+TEST_CASE("Preset documents from before version 2 are rejected without changing the destination", "[presets][framework]")
 {
 	vekt::presets::Preset preset;
+	preset.identifier = "unchanged";
 	REQUIRE(vekt::presets::PresetJsonCodec::decode(
-		R"({"schemaVersion":1,"product":"test.old","name":"Old","parameters":{"amount":0.5},"metadata":{"category":"Warm"}})", preset).wasOk());
-	REQUIRE(preset.schemaVersion == 2);
-	REQUIRE(preset.soundSchemaVersion == 1);
-	REQUIRE(preset.tags.contains("Warm"));
-	const auto id = preset.identifier;
+		R"({"schemaVersion":1,"product":"test.old","name":"Old","parameters":{"amount":0.5}})", preset).failed());
 	REQUIRE(vekt::presets::PresetJsonCodec::decode("{}", preset).failed());
-	REQUIRE(preset.identifier == id);
+	REQUIRE(preset.identifier == "unchanged");
 }
 
 TEST_CASE("Folder repositories retain identity and reject unsafe locations", "[presets][framework]")
@@ -228,23 +225,6 @@ TEST_CASE("Ambiguous preset identities are unavailable instead of loading the wr
 	REQUIRE(catalog.entries()[0].error.isNotEmpty());
 	vekt::presets::Preset output;
 	REQUIRE(catalog.load(0, output).failed());
-}
-
-TEST_CASE("Managed legacy moves retain identity after a second move", "[presets][framework]")
-{
-	Directory directory;
-	REQUIRE(directory.root.createDirectory().wasOk());
-	REQUIRE(directory.root.getChildFile("Old.vektpreset").replaceWithText(
-		R"({"schemaVersion":1,"product":"test.old","name":"Old","parameters":{"gain":0.5}})"));
-	vekt::presets::FilePresetRepository repository(directory.root);
-	vekt::presets::Preset before, after;
-	REQUIRE(repository.load("Old", before).wasOk());
-	REQUIRE(repository.move("Old", "Folder/New").wasOk());
-	REQUIRE(repository.move("Folder/New", "Final").wasOk());
-	REQUIRE(repository.load("Final", after).wasOk());
-	REQUIRE(after.identifier == before.identifier);
-	REQUIRE(after.folder.isEmpty());
-	REQUIRE(after.name == "Final");
 }
 
 TEST_CASE("Selection restore preserves live sound without requiring the library file", "[presets][framework]")

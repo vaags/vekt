@@ -27,17 +27,6 @@ TEST_CASE("Mono exposes only independent amp and filter release controls", "[mon
 	REQUIRE(processor.getParameters().getParameter(vekt::mono::parameters::filterRelease) != nullptr);
 }
 
-TEST_CASE("Mono quality choices retain legacy indices and expose oversampling factors", "[mono][parameters][quality]")
-{
-	vekt::mono::PluginProcessor processor;
-	const auto* parameter = dynamic_cast<juce::AudioParameterChoice*>(
-		processor.getParameters().getParameter(vekt::mono::parameters::quality));
-	REQUIRE(parameter != nullptr);
-	REQUIRE(parameter->choices == juce::StringArray { "1x", "2x", "4x", "8x" });
-	REQUIRE(parameter->getIndex() == 0); // 1x by default
-	REQUIRE_FALSE(parameter->isAutomatable());
-}
-
 TEST_CASE("Mono oscillator tuning exposes musical octave and cents ranges", "[mono][parameters]")
 {
 	vekt::mono::PluginProcessor processor;

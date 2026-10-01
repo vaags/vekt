@@ -102,10 +102,10 @@ TEST_CASE("Invalid preset documents do not partially change parameters", "[prese
 
 	vekt::presets::Preset malformedPreset;
 	REQUIRE(vekt::presets::PresetJsonCodec::decode(
-		R"({"schemaVersion":1,"product":"com.vekt.rav","name":"Malformed","parameters":{"drive":"loud"}})",
+		R"({"format":"vekt.preset","schemaVersion":2,"id":"malformed","product":"com.vekt.rav","soundSchemaVersion":4,"name":"Malformed","tags":[],"parameters":{"drive":"loud"}})",
 		malformedPreset).failed());
 	REQUIRE(vekt::presets::PresetJsonCodec::decode(
-		R"({"schemaVersion":1,"product":"com.vekt.rav","name":"Malformed","parameters":{"drive":true}})",
+		R"({"format":"vekt.preset","schemaVersion":2,"id":"malformed","product":"com.vekt.rav","soundSchemaVersion":4,"name":"Malformed","tags":[],"parameters":{"drive":true}})",
 		malformedPreset).failed());
 	REQUIRE(getParameter(processor, vekt::rav::parameters::drive) == Catch::Approx(6.0f));
 }

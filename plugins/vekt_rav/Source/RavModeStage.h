@@ -29,7 +29,7 @@ inline constexpr std::size_t ravModeCount { 5 };
 // comparison seam for candidate algorithms without changing saved Rav sessions.
 enum class RavProcessingModel
 {
-	legacy,
+	production, // what Rav ships; the others are development candidates
 	behavioralCandidate,
 	overdriveCircuitCandidate,
 	fuzzCircuitCandidate
@@ -215,7 +215,7 @@ private:
 	}
 
 	RavMode mode { RavMode::saturation };
-	RavProcessingModel processingModel { RavProcessingModel::legacy };
+	RavProcessingModel processingModel { RavProcessingModel::production };
 	inline static constexpr float referenceProcessingRateHz { 192'000.0f };
 	float sampleRateHz { 48'000.0f };
 	float stateRateScale { referenceProcessingRateHz / sampleRateHz };

@@ -10,8 +10,7 @@
 
 namespace vekt::mono
 {
-// Anchor gains shared with the legacy renderer: every anchor's fundamental is +sin(2 pi phase) and
-// every anchor has the saw's RMS (1/sqrt 3) at neutral Width.
+// Anchor gains: every anchor's fundamental is +sin(2 pi phase) and has the saw's RMS (1/sqrt 3) at neutral Width.
 inline constexpr double widthSineGain = 0.81649658;  // sqrt(2/3)
 inline constexpr double widthPulseGain = 0.57735027; // 1/sqrt 3
 

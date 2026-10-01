@@ -54,8 +54,7 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 	setParameter(processor, vekt::mono::parameters::filterResonance, 85.0f);
 	setParameter(processor, vekt::mono::parameters::filterDrive, 12.0f);
 	setParameter(processor, vekt::mono::parameters::multicore, multicore ? 1.0f : 0.0f);
-	setParameter(processor, vekt::mono::parameters::filterType, svf ? 1.0f : 0.0f);
-	setParameter(processor, vekt::mono::parameters::filterK35, korg35 ? 1.0f : 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterType, korg35 ? 2.0f : svf ? 1.0f : 0.0f);
 	processor.prepareToPlay(rate, blockSize);
 	if (processor.getActiveQuality() != qualityIndex) return 1;
 	juce::AudioBuffer<float> buffer(2, blockSize);

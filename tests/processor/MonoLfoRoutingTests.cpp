@@ -163,8 +163,8 @@ public:
 TEST_CASE("Mono LFO parameters are sound parameters that default to no modulation", "[mono][lfo][parameters]")
 {
 	vekt::mono::PluginProcessor processor;
-	REQUIRE(parameters::soundParameterIds.size() == parameters::legacySoundParameterIds.size() + 56 + parameters::vibratoParameterIds.size()
-		+ parameters::schema8ParameterIds.size() + parameters::schema10ParameterIds.size() + parameters::schema12ParameterIds.size());
+	REQUIRE(parameters::soundParameterIds.size() == parameters::coreSoundParameterIds.size() + 56 + parameters::vibratoParameterIds.size()
+		+ parameters::filterShapeParameterIds.size());
 	for (const auto& lfo : parameters::lfos)
 	{
 		const auto ids = lfo.all();

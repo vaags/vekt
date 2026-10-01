@@ -65,7 +65,7 @@ TEST_CASE("Rav mode stage modes produce different textures", "[dsp][rav]")
 		}
 }
 
-TEST_CASE("Rav mode stage unimplemented candidate selections preserve Legacy rendering", "[dsp][rav][baseline]")
+TEST_CASE("Rav mode stage unimplemented candidate selections preserve production rendering", "[dsp][rav][baseline]")
 {
 	auto render = [](vekt::rav::RavProcessingModel model)
 	{
@@ -80,13 +80,13 @@ TEST_CASE("Rav mode stage unimplemented candidate selections preserve Legacy ren
 		return samples;
 	};
 
-	const auto legacy = render(vekt::rav::RavProcessingModel::legacy);
+	const auto production = render(vekt::rav::RavProcessingModel::production);
 	for (const auto candidate : { vekt::rav::RavProcessingModel::behavioralCandidate,
 		vekt::rav::RavProcessingModel::overdriveCircuitCandidate })
 	{
 		const auto selected = render(candidate);
-		for (std::size_t sample = 0; sample < legacy.size(); ++sample)
-			REQUIRE(selected[sample] == Catch::Approx(legacy[sample]).margin(1.0e-7f));
+		for (std::size_t sample = 0; sample < production.size(); ++sample)
+			REQUIRE(selected[sample] == Catch::Approx(production[sample]).margin(1.0e-7f));
 	}
 }
 

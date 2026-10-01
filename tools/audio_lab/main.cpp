@@ -50,7 +50,7 @@ struct Options final
 	std::array<bool, 4> stageEnabled { true, false, false, false };
 	vekt::rav::RavStageChain::Order stageOrder { vekt::rav::RavMode::saturation,
 		vekt::rav::RavMode::overdrive, vekt::rav::RavMode::distortion, vekt::rav::RavMode::circuitFuzz };
-	vekt::rav::RavProcessingModel model { vekt::rav::RavProcessingModel::legacy };
+	vekt::rav::RavProcessingModel model { vekt::rav::RavProcessingModel::production };
 	std::uint32_t seed { 0x6d2b79f5u };
 	juce::String inputPath;
 	juce::String reportPath;
@@ -116,7 +116,7 @@ struct ChannelMeasurements final
 
 [[nodiscard]] bool parseProcessingModel(std::string_view value, vekt::rav::RavProcessingModel& destination)
 {
-	if (value == "legacy") destination = vekt::rav::RavProcessingModel::legacy;
+	if (value == "production") destination = vekt::rav::RavProcessingModel::production;
 	else if (value == "behavioral") destination = vekt::rav::RavProcessingModel::behavioralCandidate;
 	else if (value == "overdrive-circuit") destination = vekt::rav::RavProcessingModel::overdriveCircuitCandidate;
 	else if (value == "fuzz-circuit") destination = vekt::rav::RavProcessingModel::fuzzCircuitCandidate;
@@ -222,7 +222,7 @@ struct ChannelMeasurements final
 {
 	switch (model)
 	{
-		case vekt::rav::RavProcessingModel::legacy: return "legacy";
+		case vekt::rav::RavProcessingModel::production: return "production";
 		case vekt::rav::RavProcessingModel::behavioralCandidate: return "behavioral";
 		case vekt::rav::RavProcessingModel::overdriveCircuitCandidate: return "overdrive-circuit";
 		case vekt::rav::RavProcessingModel::fuzzCircuitCandidate: return "fuzz-circuit";
@@ -237,7 +237,7 @@ struct ChannelMeasurements final
 	const auto fuzzIsActive = compatibilityMode ? options.mode == 3 : options.stageEnabled[3];
 	if (options.model == vekt::rav::RavProcessingModel::fuzzCircuitCandidate && fuzzIsActive)
 		return "fuzz-circuit";
-	return "legacy";
+	return "production";
 }
 
 [[nodiscard]] std::optional<InputFile> loadInputFile(const juce::String& path, juce::String& error)
@@ -574,7 +574,7 @@ int main(int argc, char** argv)
 	if (!parseOptions(argc, argv, options))
 	{
 		std::cerr << "Usage: VektRavRender [--product rav|glimmer] [--rack rav,glimmer|glimmer,rav] [--source sine|sawtooth|sweep|impulse|noise|kick|unison|two-tone] "
-					 "[--input path] [--model legacy|behavioral|overdrive-circuit|fuzz-circuit] "
+					 "[--input path] [--model production|behavioral|overdrive-circuit|fuzz-circuit] "
 					 "[--profile tracking|offline] [--quality 0-6] [--sample-rate Hz] [--block-size samples] "
 					 "[--seconds duration] [--warmup duration] [--frequency Hz] [--mode 0-3] "
 					 "[--drive dB] [--bias value] [--shape value] [--dynamics value] [--texture value] "

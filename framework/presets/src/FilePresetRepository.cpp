@@ -67,14 +67,11 @@ juce::Result FilePresetRepository::load(
 	if (file.getSize() > 4 * 1024 * 1024)
 		return juce::Result::fail("Preset exceeds the 4 MB size limit");
 	const auto json = file.loadFileAsString();
-	const auto legacyDocument = static_cast<int>(juce::JSON::parse(json).getProperty("schemaVersion", 0)) == 1;
 	if (const auto result = PresetJsonCodec::decode(json, destination); result.failed())
 		return result;
 	// The repository location is authoritative after an external file rename.
 	destination.name = name.fromLastOccurrenceOf("/", false, false);
 	destination.folder = name.containsChar('/') ? name.upToLastOccurrenceOf("/", false, false) : juce::String {};
-	if (legacyDocument)
-		destination.identifier = "legacy:" + destination.productIdentifier + ":" + name;
 	return juce::Result::ok();
 }
 
@@ -191,10 +188,9 @@ juce::Result FilePresetRepository::move(const juce::String& source, const juce::
 	if (!fileFor(source).existsAsFile()) return juce::Result::fail("Preset no longer exists");
 	if (const auto result = fileFor(destination).getParentDirectory().createDirectory(); result.failed())
 		return result;
-	// Persist legacy identity before moving so subsequent scans retain it.
+	// Rewritten rather than renamed so the document's name and folder follow it; its id is kept.
 	Preset preset;
 	if (const auto result = load(source, preset); result.failed()) return result;
-	// Preserve the reference, including legacy references, across managed moves.
 	preset.name = destination.fromLastOccurrenceOf("/", false, false);
 	preset.folder = destination.containsChar('/') ? destination.upToLastOccurrenceOf("/", false, false) : juce::String {};
 	if (const auto result = save(preset); result.failed()) return result;

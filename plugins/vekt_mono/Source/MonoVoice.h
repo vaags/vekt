@@ -73,8 +73,7 @@ inline constexpr std::size_t lfoCount = 2;
 // anchor's frozen-Width mean, zeroCentered removes it.
 enum class WidthDcPolicy { raw, zeroCentered };
 
-// The filter topology: Ladder (ADR 0005), SVF (ADR 0006) or K35 (ADR 0007). The processor derives it per render
-// segment from filterType (Ladder/SVF) and the filterK35 override.
+// The filter topology: Ladder (ADR 0005), SVF (ADR 0006) or K35 (ADR 0007), read per render segment from filterType.
 enum class FilterType { ladder, svf, korg35 };
 
 

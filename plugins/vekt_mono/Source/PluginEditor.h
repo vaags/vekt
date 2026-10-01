@@ -209,10 +209,9 @@ private:
 	juce::ToggleButton qCompensationButton { "Q Compensation" };
 	std::unique_ptr<ButtonAttachment> qCompensationAttachment;
 	// After the tabs and toggles their callbacks update, so they are destroyed before them.
-	std::unique_ptr<juce::ParameterAttachment> filterTypeAttachment, filterK35Attachment;
-	// The values the attachments last delivered (their callbacks can run before the parameter state's raw values move).
+	std::unique_ptr<juce::ParameterAttachment> filterTypeAttachment;
+	// The value the attachment last delivered (its callback can run before the parameter state's raw value moves).
 	int shownFilterType {};
-	bool shownK35 {};
 	std::array<ui::RotaryControl, 5> ampControls;
 	std::array<std::unique_ptr<SliderAttachment>, 5> ampAttachments;
 	std::array<ui::RotaryControl, 5> filterEnvelopeControls;

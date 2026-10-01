@@ -125,7 +125,6 @@
     "filterMode": -1,
     "lfo1FilterMode": 0,
     "lfo2FilterMode": 0,
-    "filterType": 0,
-    "filterK35": 0
+    "filterType": 0
   }
 }

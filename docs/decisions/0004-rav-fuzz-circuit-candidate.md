@@ -6,7 +6,7 @@ Experimental
 
 ## Context
 
-Rav's Legacy Fuzz mode uses an envelope-controlled starvation value, a smooth
+Rav's production Fuzz mode (`RavProcessingModel::production`) uses an envelope-controlled starvation value, a smooth
 gate, and a hard clipper. It is stable and intentionally characterful, but its
 interactions are hand-designed rather than based on coupled circuit state.
 
@@ -18,8 +18,8 @@ input-dependent unbounded work.
 
 `RavProcessingModel::fuzzCircuitCandidate` selects `RavFuzzCircuit` only when
 the active Rav mode is Fuzz. It is a development-only selection: it is not an
-APVTS parameter and is not serialized in presets or host state. Legacy remains
-the production default.
+APVTS parameter and is not serialized in presets or host state. The production
+model remains the default.
 
 The candidate is a fixed-cost, transistor-inspired two-stage topology, not a
 component-identical emulation of a named pedal:
@@ -60,7 +60,7 @@ Control mapping is intentionally bounded:
 
 - The candidate has three state values per stage instance and a bounded number
   of elementary operations per sample.
-- It responds differently from Legacy Fuzz and therefore cannot replace it
+- It responds differently from the production Fuzz and therefore cannot replace it
   without listening, CPU, aliasing, and compatibility approval.
 - The existing oversampling paths remain active. Circuit-informed state does
   not eliminate nonlinear aliasing.
@@ -75,6 +75,6 @@ Control mapping is intentionally bounded:
 - Rate-consistent coupling and recovery behavior.
 - No processing-thread allocation or unbounded iteration.
 - A level-matched listening advantage or a clearly useful new character over
-  Legacy Fuzz, measured with the same multiband context and oversampling path.
+  the production Fuzz, measured with the same multiband context and oversampling path.
 - Acceptable Release performance at 32-sample buffers with the candidate in all
   three bands and both channels.

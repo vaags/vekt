@@ -130,8 +130,7 @@ TEST_CASE("Mono dumps filter fixture renders", "[.][mono-dump]")
 		vekt::mono::PluginProcessor processor;
 		setParameter(processor, parameters::quality, static_cast<float>(quality));
 		setParameter(processor, parameters::multicore, multicore ? 1.0f : 0.0f);
-		setParameter(processor, parameters::filterType, svf ? 1.0f : 0.0f);
-		setParameter(processor, parameters::filterK35, k35 ? 1.0f : 0.0f);
+		setParameter(processor, parameters::filterType, k35 ? 2.0f : svf ? 1.0f : 0.0f);
 		applyFixture(processor, fixture);
 		processor.prepareToPlay(sampleRate, 512);
 		const auto render = playChord(processor, 48 * 512);
@@ -147,19 +146,13 @@ TEST_CASE("Mono dumps filter fixture renders", "[.][mono-dump]")
 	}
 }
 
-TEST_CASE("Mono filter type is an appended sound parameter that defaults to Ladder", "[mono][filter][filter-type][parameters]")
+TEST_CASE("Mono filter type offers Ladder, SVF and K35 and defaults to Ladder", "[mono][filter][filter-type][parameters]")
 {
 	vekt::mono::PluginProcessor processor;
 	auto* parameter = dynamic_cast<juce::AudioParameterChoice*>(processor.getParameters().getParameter(parameters::filterType));
 	REQUIRE(parameter != nullptr);
-	REQUIRE(parameter->choices == juce::StringArray { "Ladder", "SVF" });
+	REQUIRE(parameter->choices == juce::StringArray { "Ladder", "SVF", "K35" });
 	REQUIRE(parameter->getIndex() == 0);
-	// Registered after every earlier parameter (only K35, schema 12, follows it), so existing host automation indices
-	// do not move.
-	const auto& all = processor.getParameters().processor.getParameters();
-	REQUIRE(all[all.size() - 2] == parameter);
-	REQUIRE(parameters::soundParameterIds[parameters::soundParameterIds.size() - 2] == parameters::filterType);
-	REQUIRE(parameters::schema10ParameterIds.size() == 1);
 }
 
 TEST_CASE("Mono SVF renders its own finite sound", "[mono][filter][filter-type]")
@@ -515,87 +508,49 @@ TEST_CASE("Mono K35 switches at a sensible level at Drive 0", "[mono][filter][fi
 		}
 }
 
-// K35 (ADR 0007): an appended override on top of the Ladder/SVF filter type.
-TEST_CASE("Mono K35 is an appended override that defaults off and leaves Filter Type's mapping unchanged", "[mono][filter][filter-type][k35][parameters]")
+TEST_CASE("Mono K35 renders its own sound", "[mono][filter][filter-type][k35]")
 {
-	vekt::mono::PluginProcessor processor;
-	auto* k35 = dynamic_cast<juce::AudioParameterBool*>(processor.getParameters().getParameter(parameters::filterK35));
-	REQUIRE(k35 != nullptr);
-	REQUIRE_FALSE(k35->get());
-	REQUIRE(static_cast<juce::AudioProcessorParameter*>(k35)->getDefaultValue() < 0.5f);
-	const auto& all = processor.getParameters().processor.getParameters();
-	REQUIRE(all.getLast() == k35);
-	REQUIRE(parameters::soundParameterIds.back() == parameters::filterK35);
-	REQUIRE(parameters::schema12ParameterIds.size() == 1);
-	// Host automation of Filter Type keeps its exact two-state normalised mapping.
-	auto* type = dynamic_cast<juce::AudioParameterChoice*>(processor.getParameters().getParameter(parameters::filterType));
-	REQUIRE(type != nullptr);
-	REQUIRE(type->choices == juce::StringArray { "Ladder", "SVF" });
-	REQUIRE(static_cast<juce::AudioProcessorParameter*>(type)->getNumSteps() == 2);
-	type->setValueNotifyingHost(1.0f);
-	REQUIRE(type->getIndex() == 1);
-	type->setValueNotifyingHost(0.0f);
-	REQUIRE(type->getIndex() == 0);
-	REQUIRE(type->convertTo0to1(1.0f) == 1.0f);
-}
-
-TEST_CASE("Mono K35 renders its own sound; Filter Type under it is inaudible and revealed when K35 turns off", "[mono][filter][filter-type][k35]")
-{
-	const auto render = [](float k35, float type, int typeChangeBlock = -1, int k35OffBlock = -1)
+	const auto render = [](float type)
 	{
 		vekt::mono::PluginProcessor processor;
-		setParameter(processor, parameters::filterK35, k35);
 		setParameter(processor, parameters::filterType, type);
 		setParameter(processor, parameters::filterResonance, 80.0f);
 		processor.prepareToPlay(48'000.0, 512);
-		return hold(processor, 32, 45, [&](int block)
-		{
-			if (block == typeChangeBlock) setParameter(processor, parameters::filterType, 1.0f);
-			if (block == k35OffBlock) setParameter(processor, parameters::filterK35, 0.0f);
-		});
+		return hold(processor, 32, 45, [](int) {});
 	};
-	const auto k35 = render(1.0f, 0.0f), ladder = render(0.0f, 0.0f), svf = render(0.0f, 1.0f);
+	const auto k35 = render(2.0f), ladder = render(0.0f), svf = render(1.0f);
 	const auto samples = k35.getNumSamples();
 	for (int channel = 0; channel < 2; ++channel)
 		for (int sample = 0; sample < samples; ++sample) REQUIRE(std::isfinite(k35.getSample(channel, sample)));
 	REQUIRE(k35.getRMSLevel(0, 0, samples) > 0.01f);
 	REQUIRE_FALSE(identical(k35, ladder));
 	REQUIRE_FALSE(identical(k35, svf));
-	// Under K35 the Filter Type makes no difference at all, set from the start or automated mid-note.
-	REQUIRE(identical(render(1.0f, 1.0f), k35));
-	REQUIRE(identical(render(1.0f, 0.0f, 8), k35));
-	// Filter Type automated to SVF under K35, then K35 off: exactly as if SVF had been underneath all along.
-	REQUIRE(identical(render(1.0f, 0.0f, 8, 16), render(1.0f, 1.0f, -1, 16)));
-	// And that is the SVF, not the Ladder: switching K35 off from Ladder underneath sounds different.
-	REQUIRE_FALSE(identical(render(1.0f, 0.0f, -1, 16), render(1.0f, 1.0f, -1, 16)));
 }
 
 TEST_CASE("Mono K35 switches under a held note without a click", "[mono][filter][filter-type][k35]")
 {
-	// Ladder or SVF underneath, K35 on and then back off: each switch declicks like a Filter Type change.
-	for (const auto type : { 0.0f, 1.0f })
-		for (const auto [from, to] : { std::pair { 0.0f, 1.0f }, std::pair { 1.0f, 0.0f } })
+	// From Ladder or SVF to K35 and back: each switch declicks like any other Filter Type change.
+	for (const auto [from, to] : { std::pair { 0.0f, 2.0f }, std::pair { 2.0f, 0.0f }, std::pair { 1.0f, 2.0f }, std::pair { 2.0f, 1.0f } })
+	{
+		INFO("filter type " << from << " -> " << to);
+		vekt::mono::PluginProcessor processor;
+		setParameter(processor, parameters::filterType, from);
+		setParameter(processor, parameters::filterCutoff, 1'500.0f);
+		setParameter(processor, parameters::filterResonance, 30.0f);
+		processor.prepareToPlay(48'000.0, 512);
+		constexpr int switchBlock = 24;
+		const auto output = hold(processor, 48, 45, [&processor, to](int block)
 		{
-			INFO("filter type " << type << ", K35 " << from << " -> " << to);
-			vekt::mono::PluginProcessor processor;
-			setParameter(processor, parameters::filterType, type);
-			setParameter(processor, parameters::filterK35, from);
-			setParameter(processor, parameters::filterCutoff, 1'500.0f);
-			setParameter(processor, parameters::filterResonance, 30.0f);
-			processor.prepareToPlay(48'000.0, 512);
-			constexpr int switchBlock = 24;
-			const auto output = hold(processor, 48, 45, [&processor, to](int block)
-			{
-				if (block == switchBlock) setParameter(processor, parameters::filterK35, to);
-			});
-			constexpr auto switchSample = switchBlock * 512;
-			const auto steady = std::max(largestStep(output, switchSample - 4'096, switchSample),
-				largestStep(output, switchSample + 4'096, switchSample + 8'192));
-			const auto atSwitch = largestStep(output, switchSample - 1, switchSample + 256);
-			INFO("steady " << steady << ", at switch " << atSwitch);
-			REQUIRE(steady > 0.0f);
-			REQUIRE(atSwitch <= 1.25f * steady);
-		}
+			if (block == switchBlock) setParameter(processor, parameters::filterType, to);
+		});
+		constexpr auto switchSample = switchBlock * 512;
+		const auto steady = std::max(largestStep(output, switchSample - 4'096, switchSample),
+			largestStep(output, switchSample + 4'096, switchSample + 8'192));
+		const auto atSwitch = largestStep(output, switchSample - 1, switchSample + 256);
+		INFO("steady " << steady << ", at switch " << atSwitch);
+		REQUIRE(steady > 0.0f);
+		REQUIRE(atSwitch <= 1.25f * steady);
+	}
 }
 
 TEST_CASE("Mono K35 stays finite under hostile modulation through the processor", "[mono][filter][filter-type][k35]")
@@ -607,7 +562,7 @@ TEST_CASE("Mono K35 stays finite under hostile modulation through the processor"
 			vekt::mono::PluginProcessor processor;
 			setParameter(processor, parameters::quality, quality);
 			setParameter(processor, parameters::multicore, multicore);
-			setParameter(processor, parameters::filterK35, 1.0f);
+			setParameter(processor, parameters::filterType, 2.0f);
 			setParameter(processor, parameters::filterResonance, 100.0f);
 			setParameter(processor, parameters::filterDrive, 24.0f);
 			setParameter(processor, parameters::unison, 2.0f);
