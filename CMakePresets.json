@@ -99,6 +99,9 @@
       "configurePreset": "dev",
       "output": {
         "outputOnFailure": true
+      },
+      "execution": {
+        "jobs": 10
       }
     },
     {
