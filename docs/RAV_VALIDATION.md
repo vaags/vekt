@@ -80,20 +80,12 @@ and warmup-excluded processing time. `--spectrum-size` adds a Hann-windowed FFT
 peak report. Peaks above 0 dBFS are intentionally reported rather than limited
 so aggressive mode behavior remains visible.
 
-### Circuit-model comparison workflow
+### Mode and stage selection
 
-`--model` selects the development comparison seam: `production` (what Rav
-ships; the default), `behavioral`,
-`overdrive-circuit`, or `fuzz-circuit`. The seam is deliberately excluded from
-APVTS, plugin state, and presets. `fuzz-circuit` is the implemented experimental
-candidate and reports `active_model: "fuzz-circuit"` when an active Fuzz stage
-uses it. The behavioral and overdrive-circuit placeholders report
-`active_model: "production"`; this makes baseline reports reproducible without
-changing saved sounds.
-
-Use `--stages` as a four-character enable mask in Saturation, Overdrive,
-Distortion, Fuzz order (for example, `0011`), and `--stage-order` with a
-permutation such as `3,1,0,2`. `--input path` reads a mono or stereo file into
+Use `--stages` as a five-character enable mask in Saturation, Overdrive,
+Distortion, Circuit Fuzz, Gated Fuzz order (for example, `00110`), and
+`--stage-order` with a permutation such as `3,1,0,2,4`. `--mode` takes 0–4 in
+the same order. `--input path` reads a mono or stereo file into
 memory and loops it deterministically. Its source sample rate must equal
 `--sample-rate`; the renderer intentionally does not resample comparison input.
 `--input-gain` applies the plugin's existing input-gain parameter.
@@ -104,9 +96,9 @@ Run performance comparisons in Release mode:
 cmake --preset audio-lab-release
 cmake --build --preset audio-lab-release --target VektRavRender
 build/audio-lab-release/tools/audio_lab/VektRavRender \
-  --model production --source two-tone --profile tracking --quality 2 --mode 3 \
-  --stages 0001 --block-size 32 --warmup 0.2 --seconds 5 \
-  --report /tmp/rav-fuzz-production.json
+  --source two-tone --profile tracking --quality 2 --mode 3 \
+  --stages 00010 --block-size 32 --warmup 0.2 --seconds 5 \
+  --report /tmp/rav-circuit-fuzz.json
 ```
 
 The report contains left/right RMS, peak, and DC, plus mean and maximum measured

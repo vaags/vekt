@@ -47,10 +47,10 @@ struct Options final
 	float highBandMix { 100.0f };
 	float inputGainDb {};
 	bool autoGain {};
-	std::array<bool, 4> stageEnabled { true, false, false, false };
-	vekt::rav::RavStageChain::Order stageOrder { vekt::rav::RavMode::saturation,
-		vekt::rav::RavMode::overdrive, vekt::rav::RavMode::distortion, vekt::rav::RavMode::circuitFuzz };
-	vekt::rav::RavProcessingModel model { vekt::rav::RavProcessingModel::production };
+	using StageMask = std::array<bool, vekt::rav::RavStageChain::stageCount>;
+	StageMask stageEnabled { true }; // Saturation only: the single-mode setup, where --mode picks the mode
+	vekt::rav::RavStageChain::Order stageOrder { vekt::rav::RavMode::saturation, vekt::rav::RavMode::overdrive,
+		vekt::rav::RavMode::distortion, vekt::rav::RavMode::circuitFuzz, vekt::rav::RavMode::gatedFuzz };
 	std::uint32_t seed { 0x6d2b79f5u };
 	juce::String inputPath;
 	juce::String reportPath;
@@ -95,7 +95,7 @@ struct ChannelMeasurements final
 	return true;
 }
 
-[[nodiscard]] bool parseStageEnablement(std::string_view value, std::array<bool, 4>& destination)
+[[nodiscard]] bool parseStageEnablement(std::string_view value, Options::StageMask& destination)
 {
 	if (value.size() != destination.size())
 		return false;
@@ -108,20 +108,17 @@ struct ChannelMeasurements final
 	return true;
 }
 
+[[nodiscard]] juce::String stageMaskText(const Options::StageMask& mask)
+{
+	juce::String text;
+	for (const auto enabled : mask) text << (enabled ? "1" : "0");
+	return text;
+}
+
 [[nodiscard]] bool parseStageOrder(std::string_view value, vekt::rav::RavStageChain::Order& destination)
 {
 	return vekt::rav::RavStageChain::deserialise(
 		juce::String(value.data(), value.size()), destination);
-}
-
-[[nodiscard]] bool parseProcessingModel(std::string_view value, vekt::rav::RavProcessingModel& destination)
-{
-	if (value == "production") destination = vekt::rav::RavProcessingModel::production;
-	else if (value == "behavioral") destination = vekt::rav::RavProcessingModel::behavioralCandidate;
-	else if (value == "overdrive-circuit") destination = vekt::rav::RavProcessingModel::overdriveCircuitCandidate;
-	else if (value == "fuzz-circuit") destination = vekt::rav::RavProcessingModel::fuzzCircuitCandidate;
-	else return false;
-	return true;
 }
 
 [[nodiscard]] bool parseOptions(int argc, char** argv, Options& options)
@@ -164,7 +161,7 @@ struct ChannelMeasurements final
 			else if (valueFor(index, argc, argv, "--seconds", value)) options.seconds = std::stod(value);
 			else if (valueFor(index, argc, argv, "--warmup", value)) options.warmupSeconds = std::stod(value);
 			else if (valueFor(index, argc, argv, "--frequency", value)) options.frequencyHz = std::stod(value);
-			else if (valueFor(index, argc, argv, "--mode", value)) options.mode = std::clamp(std::stoi(value), 0, 3);
+			else if (valueFor(index, argc, argv, "--mode", value)) options.mode = std::clamp(std::stoi(value), 0, static_cast<int>(vekt::rav::ravModeCount) - 1);
 			else if (valueFor(index, argc, argv, "--quality", value)) options.qualityIndex = std::clamp(std::stoi(value), 0, 6);
 			else if (valueFor(index, argc, argv, "--spectrum-size", value)) options.spectrumSize = std::stoi(value);
 			else if (valueFor(index, argc, argv, "--profile", value))
@@ -192,10 +189,6 @@ struct ChannelMeasurements final
 			{
 				if (!parseStageOrder(value, options.stageOrder)) return false;
 			}
-			else if (valueFor(index, argc, argv, "--model", value))
-			{
-				if (!parseProcessingModel(value, options.model)) return false;
-			}
 			else if (valueFor(index, argc, argv, "--seed", value)) options.seed = static_cast<std::uint32_t>(std::stoul(value));
 			else if (valueFor(index, argc, argv, "--input", value)) options.inputPath = value;
 			else if (valueFor(index, argc, argv, "--report", value)) options.reportPath = value;
@@ -216,28 +209,6 @@ struct ChannelMeasurements final
 		&& options.warmupSeconds >= 0.0 && options.frequencyHz > 0.0
 		&& (options.spectrumSize == 0 || (options.spectrumSize > 1
 			&& std::has_single_bit(static_cast<unsigned int>(options.spectrumSize))));
-}
-
-[[nodiscard]] juce::String modelName(vekt::rav::RavProcessingModel model)
-{
-	switch (model)
-	{
-		case vekt::rav::RavProcessingModel::production: return "production";
-		case vekt::rav::RavProcessingModel::behavioralCandidate: return "behavioral";
-		case vekt::rav::RavProcessingModel::overdriveCircuitCandidate: return "overdrive-circuit";
-		case vekt::rav::RavProcessingModel::fuzzCircuitCandidate: return "fuzz-circuit";
-	}
-	return {};
-}
-
-[[nodiscard]] juce::String activeModelName(const Options& options)
-{
-	const auto compatibilityMode = options.stageEnabled[0]
-		&& !options.stageEnabled[1] && !options.stageEnabled[2] && !options.stageEnabled[3];
-	const auto fuzzIsActive = compatibilityMode ? options.mode == 3 : options.stageEnabled[3];
-	if (options.model == vekt::rav::RavProcessingModel::fuzzCircuitCandidate && fuzzIsActive)
-		return "fuzz-circuit";
-	return "production";
 }
 
 [[nodiscard]] std::optional<InputFile> loadInputFile(const juce::String& path, juce::String& error)
@@ -574,12 +545,12 @@ int main(int argc, char** argv)
 	if (!parseOptions(argc, argv, options))
 	{
 		std::cerr << "Usage: VektRavRender [--product rav|glimmer] [--rack rav,glimmer|glimmer,rav] [--source sine|sawtooth|sweep|impulse|noise|kick|unison|two-tone] "
-					 "[--input path] [--model production|behavioral|overdrive-circuit|fuzz-circuit] "
+					 "[--input path] "
 					 "[--profile tracking|offline] [--quality 0-6] [--sample-rate Hz] [--block-size samples] "
-					 "[--seconds duration] [--warmup duration] [--frequency Hz] [--mode 0-3] "
+					 "[--seconds duration] [--warmup duration] [--frequency Hz] [--mode 0-4] "
 					 "[--drive dB] [--bias value] [--shape value] [--dynamics value] [--texture value] "
 					 "[--tone dB] [--mix percent] [--low-mix percent] [--mid-mix percent] "
-					 "[--high-mix percent] [--input-gain dB] [--stages 0000-1111] [--stage-order 0,1,2,3] "
+					 "[--high-mix percent] [--input-gain dB] [--stages 00000-11111] [--stage-order 0,1,2,3,4] "
 					 "[--auto-gain] [--seed value] [--report path] [--wav path] [--param glimmer.id=value]\n";
 		return 64;
 	}
@@ -605,7 +576,6 @@ int main(int argc, char** argv)
 		return renderRack(options, inputFile);
 
 	vekt::rav::PluginProcessor processor;
-	processor.setDevelopmentProcessingModel(options.model);
 	for (std::size_t index = 0; index < options.stageEnabled.size(); ++index)
 		setParameter(processor, vekt::rav::parameters::stageEnabledIds[index],
 			options.stageEnabled[index] ? 1.0f : 0.0f);
@@ -767,13 +737,7 @@ int main(int argc, char** argv)
 			"  \"frequency_hz\": " + juce::String(options.frequencyHz) + ",\n"
 			"  \"seed\": " + juce::String(static_cast<juce::int64>(options.seed)) + ",\n"
 			"  \"mode\": " + juce::String(options.mode) + ",\n"
-			"  \"requested_model\": " + juce::JSON::toString(modelName(options.model)) + ",\n"
-			"  \"active_model\": " + juce::JSON::toString(activeModelName(options)) + ",\n"
-			"  \"stage_enabled\": " + juce::JSON::toString(
-				juce::String(options.stageEnabled[0] ? "1" : "0")
-					+ (options.stageEnabled[1] ? "1" : "0")
-					+ (options.stageEnabled[2] ? "1" : "0")
-					+ (options.stageEnabled[3] ? "1" : "0")) + ",\n"
+			"  \"stage_enabled\": " + juce::JSON::toString(stageMaskText(options.stageEnabled)) + ",\n"
 			"  \"stage_order\": " + juce::JSON::toString(vekt::rav::RavStageChain::serialise(options.stageOrder)) + ",\n"
 			"  \"profile\": " + juce::JSON::toString(options.offlineProfile ? "offline" : "tracking") + ",\n"
 			"  \"requested_quality_index\": " + juce::String(options.qualityIndex) + ",\n"

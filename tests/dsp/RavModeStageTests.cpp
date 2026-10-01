@@ -65,31 +65,6 @@ TEST_CASE("Rav mode stage modes produce different textures", "[dsp][rav]")
 		}
 }
 
-TEST_CASE("Rav mode stage unimplemented candidate selections preserve production rendering", "[dsp][rav][baseline]")
-{
-	auto render = [](vekt::rav::RavProcessingModel model)
-	{
-		vekt::rav::RavModeStage stage;
-		stage.setProcessingModel(model);
-		stage.prepare(192'000.0);
-		stage.setParameters(vekt::rav::RavMode::gatedFuzz, 30.0f, -0.2f, 0.7f, 0.4f, 0.8f, 3.0f);
-		std::array<float, 256> samples {};
-		for (std::size_t sample = 0; sample < samples.size(); ++sample)
-			samples[sample] = 0.25f * std::sin(static_cast<float>(sample) * 0.13f);
-		stage.process(samples);
-		return samples;
-	};
-
-	const auto production = render(vekt::rav::RavProcessingModel::production);
-	for (const auto candidate : { vekt::rav::RavProcessingModel::behavioralCandidate,
-		vekt::rav::RavProcessingModel::overdriveCircuitCandidate })
-	{
-		const auto selected = render(candidate);
-		for (std::size_t sample = 0; sample < production.size(); ++sample)
-			REQUIRE(selected[sample] == Catch::Approx(production[sample]).margin(1.0e-7f));
-	}
-}
-
 TEST_CASE("Rav Circuit Fuzz is finite and deterministic", "[dsp][rav][circuit-fuzz]")
 {
 	auto render = [](double sampleRate)

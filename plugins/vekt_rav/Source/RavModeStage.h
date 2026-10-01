@@ -25,28 +25,9 @@ enum class RavMode
 
 inline constexpr std::size_t ravModeCount { 5 };
 
-// This is intentionally not an APVTS parameter. It provides a development-only
-// comparison seam for candidate algorithms without changing saved Rav sessions.
-enum class RavProcessingModel
-{
-	production, // what Rav ships; the others are development candidates
-	behavioralCandidate,
-	overdriveCircuitCandidate,
-	fuzzCircuitCandidate
-};
-
 class RavModeStage final
 {
 public:
-	void setProcessingModel(RavProcessingModel newModel) noexcept
-	{
-		if (processingModel == newModel)
-			return;
-		processingModel = newModel;
-		fuzzCircuit.reset();
-	}
-	[[nodiscard]] RavProcessingModel getProcessingModel() const noexcept { return processingModel; }
-
 	void prepare(double processingSampleRate) noexcept
 	{
 		sampleRateHz = static_cast<float>(processingSampleRate);
@@ -215,7 +196,6 @@ private:
 	}
 
 	RavMode mode { RavMode::saturation };
-	RavProcessingModel processingModel { RavProcessingModel::production };
 	inline static constexpr float referenceProcessingRateHz { 192'000.0f };
 	float sampleRateHz { 48'000.0f };
 	float stateRateScale { referenceProcessingRateHz / sampleRateHz };

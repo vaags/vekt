@@ -326,7 +326,6 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 			for (auto channel = 0; channel < 2; ++channel)
 			{
 				auto& stage = bandStages[band][static_cast<std::size_t>(channel)][modeIndex];
-				stage.setProcessingModel(developmentProcessingModel.load(std::memory_order_relaxed));
 				stage.setArtifactSafePolicy(mode == RavMode::circuitFuzz
 					|| mode == RavMode::gatedFuzz);
 				stage.setParameters(mode, driveParameter->load(), biasParameter->load(),
@@ -707,16 +706,6 @@ bool PluginProcessor::reorderStage(std::size_t index, int delta) noexcept
 		return true;
 	}
 	return false;
-}
-
-void PluginProcessor::setDevelopmentProcessingModel(RavProcessingModel model) noexcept
-{
-	developmentProcessingModel.store(model, std::memory_order_relaxed);
-}
-
-RavProcessingModel PluginProcessor::getDevelopmentProcessingModel() const noexcept
-{
-	return developmentProcessingModel.load(std::memory_order_relaxed);
 }
 
 void PluginProcessor::restoreCurrentProgramFromMetadata()

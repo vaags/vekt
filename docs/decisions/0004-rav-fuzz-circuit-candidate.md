@@ -2,7 +2,12 @@
 
 ## Status
 
-Experimental
+Accepted (19 September 2026, recorded 1 October 2026). The candidate shipped as
+its own mode, Circuit Fuzz, beside the original envelope-starved fuzz, now Gated
+Fuzz, rather than replacing it. Both are ordinary Rav modes and stages, so the
+development model switch (`RavProcessingModel`, Audio Lab `--model`) became a
+no-op and was removed on 1 October 2026. The text below describes the candidate
+stage and is historical.
 
 ## Context
 
