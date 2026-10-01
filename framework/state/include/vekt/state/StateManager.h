@@ -2,68 +2,90 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
-#include <functional>
+#include <cmath>
 #include <utility>
 
 namespace vekt::state
 {
+// Host project state as a UTF-8 JSON document the products own, readable without JUCE:
+//
+//   { "format": "vekt.project", "product": "com.vekt.rav", "schemaVersion": 1,
+//     "parameters": { "<id>": <plain value>, ... }, "metadata": { "<key>": <any JSON value>, ... } }
+//
+// Parameters restore through APVTS::replaceState, so parameters missing from a project take their defaults.
+// Restoring is all-or-nothing: a document that is not exactly this product's current schema changes nothing.
 class StateManager final
 {
 public:
-    using Migration = std::function<bool(juce::ValueTree&, int)>;
-
-    StateManager(
-        juce::AudioProcessorValueTreeState& parameters,
-        juce::Identifier projectStateType,
-        int currentSchemaVersion,
-        Migration migration = {})
+    StateManager(juce::AudioProcessorValueTreeState& parameters, juce::String productIdentifier, int currentSchemaVersion)
         : parameterState(parameters),
-          rootType(std::move(projectStateType)),
+          product(std::move(productIdentifier)),
           currentVersion(currentSchemaVersion),
-          migrate(std::move(migration)),
           metadata(metadataType)
     {
         jassert(currentVersion > 0);
     }
 
-    [[nodiscard]] juce::ValueTree createState() const
+    void save(juce::MemoryBlock& destination) const
     {
-        juce::ValueTree root(rootType);
-        root.setProperty(schemaVersionProperty, currentVersion, nullptr);
-        root.addChild(parameterState.copyState(), -1, nullptr);
-        root.addChild(metadata.createCopy(), -1, nullptr);
-        return root;
-    }
+        auto parameters = std::make_unique<juce::DynamicObject>();
+        for (const auto& parameter : parameterState.copyState())
+            if (parameter.hasProperty(idProperty))
+                parameters->setProperty(parameter[idProperty].toString(), static_cast<double>(parameter[valueProperty]));
 
-    bool restoreState(const juce::ValueTree& serializedState)
-    {
-        auto candidate = serializedState.createCopy();
-        if (!candidate.hasType(rootType))
-            return false;
-
-        auto version = static_cast<int>(candidate.getProperty(schemaVersionProperty, 0));
-        if (version <= 0 || version > currentVersion)
-            return false;
-
-        while (version < currentVersion)
+        auto properties = std::make_unique<juce::DynamicObject>();
+        for (auto index = 0; index < metadata.getNumProperties(); ++index)
         {
-            if (!migrate || !migrate(candidate, version))
-                return false;
-
-            ++version;
-            candidate.setProperty(schemaVersionProperty, version, nullptr);
+            const auto name = metadata.getPropertyName(index);
+            properties->setProperty(name, metadata[name]);
         }
 
-        const auto parameters = candidate.getChildWithName(parameterState.state.getType());
-        if (!parameters.isValid())
+        auto root = std::make_unique<juce::DynamicObject>();
+        root->setProperty("format", format);
+        root->setProperty("product", product);
+        root->setProperty("schemaVersion", currentVersion);
+        root->setProperty("parameters", juce::var(parameters.release()));
+        root->setProperty("metadata", juce::var(properties.release()));
+        const auto text = juce::JSON::toString(juce::var(root.release()),
+            juce::JSON::FormatOptions {}.withSpacing(juce::JSON::Spacing::multiLine).withEncoding(juce::JSON::Encoding::utf8));
+        destination.replaceAll(text.toRawUTF8(), text.getNumBytesAsUTF8());
+    }
+
+    [[nodiscard]] bool restore(const void* data, int size)
+    {
+        if (data == nullptr || size <= 0)
+            return false;
+        juce::var parsed;
+        if (juce::JSON::parse(juce::String::fromUTF8(static_cast<const char*>(data), size), parsed).failed())
+            return false;
+        const auto* root = parsed.getDynamicObject();
+        if (root == nullptr || root->getProperty("format").toString() != format
+            || root->getProperty("product").toString() != product)
+            return false;
+        if (const auto version = root->getProperty("schemaVersion"); !version.isInt() || static_cast<int>(version) != currentVersion)
             return false;
 
-        const auto restoredMetadata = candidate.getChildWithName(metadataType);
-        parameterState.replaceState(parameters.createCopy());
-        const auto metadataSource = restoredMetadata.isValid()
-            ? restoredMetadata.createCopy()
-            : juce::ValueTree(metadataType);
-        metadata.copyPropertiesAndChildrenFrom(metadataSource, nullptr);
+        const auto parameters = root->getProperty("parameters");
+        const auto properties = root->getProperty("metadata");
+        if (!parameters.isObject() || !(properties.isVoid() || properties.isObject()))
+            return false;
+
+        // Everything is checked before live state changes.
+        juce::ValueTree restored(parameterState.state.getType());
+        for (const auto& [identifier, value] : parameters.getDynamicObject()->getProperties())
+        {
+            // JSON overflow (1e999) parses as infinity, which APVTS would clamp or keep and saving would turn into null.
+            if ((!value.isInt() && !value.isInt64() && !value.isDouble()) || !std::isfinite(static_cast<double>(value)))
+                return false;
+            restored.appendChild(juce::ValueTree(parameterType, { { idProperty, identifier.toString() },
+                { valueProperty, static_cast<double>(value) } }), nullptr);
+        }
+
+        parameterState.replaceState(restored);
+        metadata.removeAllProperties(nullptr);
+        if (properties.isObject())
+            for (const auto& [name, value] : properties.getDynamicObject()->getProperties())
+                metadata.setProperty(name, value, nullptr);
         return true;
     }
 
@@ -77,14 +99,18 @@ public:
         return metadata;
     }
 
+    inline static constexpr auto format = "vekt.project";
     inline static const juce::Identifier metadataType { "ProjectMetadata" };
-    inline static const juce::Identifier schemaVersionProperty { "schemaVersion" };
 
 private:
+    // How APVTS stores each parameter in its tree.
+    inline static const juce::Identifier parameterType { "PARAM" };
+    inline static const juce::Identifier idProperty { "id" };
+    inline static const juce::Identifier valueProperty { "value" };
+
     juce::AudioProcessorValueTreeState& parameterState;
-    juce::Identifier rootType;
+    juce::String product;
     int currentVersion;
-    Migration migrate;
     juce::ValueTree metadata;
 };
 }

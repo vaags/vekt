@@ -133,7 +133,10 @@ modulation and cabinet filter phase are not compensated away. See
 
 Published parameter IDs, manufacturer codes, plugin codes, and bundle IDs are
 immutable. Parameter IDs use JUCE version hints. Project and preset state use
-separate versioned schemas. Products with a published compatibility boundary use
+separate versioned schemas, both JSON documents the products own rather than JUCE
+formats: host project state is a `vekt.project` document (parameters by ID,
+project metadata including the preset selection; see `StateManager.h`), so it can
+be read without JUCE. Products with a published compatibility boundary use
 explicit migrations for supported older schemas. A product that explicitly remains
 pre-release may instead reject obsolete schemas while breaking changes are expected;
 that policy must be documented by the product and loads must remain all-or-nothing.

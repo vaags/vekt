@@ -107,25 +107,25 @@ public:
 	[[nodiscard]] PresetOrigin origin() const noexcept { return loadedOrigin; }
 	// Project metadata stores the comparison baseline, never substitutes for the
 	// project's live sound. Restoring does not read files or apply parameters.
-	[[nodiscard]] juce::String selectionState() const
+	// A JSON value, { "origin": "factory" | "user", "preset": <the preset document> }, or void with no selection.
+	[[nodiscard]] juce::var selectionState() const
 	{
 		if (!snapshot) return {};
 		juce::String json;
 		if (PresetJsonCodec::encode(*snapshot, json).failed()) return {};
 		auto object = std::make_unique<juce::DynamicObject>();
 		object->setProperty("origin", loadedOrigin == PresetOrigin::factory ? "factory" : "user");
-		object->setProperty("preset", json);
-		return juce::JSON::toString(juce::var(object.release()));
+		object->setProperty("preset", juce::JSON::parse(json));
+		return juce::var(object.release());
 	}
-	[[nodiscard]] juce::Result restoreSelection(const juce::String& state)
+	[[nodiscard]] juce::Result restoreSelection(const juce::var& state)
 	{
-		if (state.isEmpty()) { clear(); return juce::Result::ok(); }
-		const auto parsed = juce::JSON::parse(state);
-		const auto originName = parsed.getProperty("origin", {}).toString();
-		if (originName != "factory" && originName != "user")
+		if (state.isVoid()) { clear(); return juce::Result::ok(); }
+		const auto originName = state.getProperty("origin", {}).toString();
+		if ((originName != "factory" && originName != "user") || !state.getProperty("preset", {}).isObject())
 			return juce::Result::fail("Invalid saved preset selection");
 		Preset preset;
-		if (const auto result = PresetJsonCodec::decode(parsed.getProperty("preset", {}).toString(), preset); result.failed()) return result;
+		if (const auto result = PresetJsonCodec::decode(juce::JSON::toString(state.getProperty("preset", {})), preset); result.failed()) return result;
 		if (const auto result = prepare(preset); result.failed()) return result;
 		adopt(preset, originName == "factory" ? PresetOrigin::factory : PresetOrigin::user);
 		return juce::Result::ok();

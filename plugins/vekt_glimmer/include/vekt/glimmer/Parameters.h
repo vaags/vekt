@@ -34,7 +34,6 @@ inline constexpr auto manualSpeedEnabled = "manualSpeedEnabled";
 inline constexpr auto speedPosition = "speedPosition";
 
 inline constexpr auto stateType = "VektGlimmerState";
-inline constexpr auto projectStateType = "VektGlimmerProjectState";
 inline constexpr auto presetProductIdentifier = "com.vekt.glimmer";
 inline constexpr auto currentFactoryPreset = "currentFactoryPreset";
 

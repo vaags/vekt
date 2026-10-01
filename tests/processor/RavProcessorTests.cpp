@@ -343,13 +343,15 @@ TEST_CASE("Rav processor state round trips parameters", "[processor][state]")
 
 	juce::MemoryBlock state;
 	source.getStateInformation(state);
-	const auto xml = juce::AudioProcessor::getXmlFromBinary(
-		state.getData(), static_cast<int>(state.getSize()));
-	REQUIRE(xml != nullptr);
-	const auto projectState = juce::ValueTree::fromXml(*xml);
-	REQUIRE(projectState.hasType(vekt::rav::parameters::projectStateType));
-	REQUIRE(projectState.getChildWithName(vekt::rav::parameters::stateType).isValid());
-	REQUIRE(projectState.getChildWithName(vekt::state::StateManager::metadataType).isValid());
+	// A JSON document of the product's own format, readable without JUCE.
+	juce::var project;
+	REQUIRE(juce::JSON::parse(juce::String::fromUTF8(static_cast<const char*>(state.getData()), static_cast<int>(state.getSize())),
+		project).wasOk());
+	REQUIRE(project["format"].toString() == vekt::state::StateManager::format);
+	REQUIRE(project["product"].toString() == vekt::rav::parameters::presetProductIdentifier);
+	REQUIRE(static_cast<int>(project["schemaVersion"]) == 1);
+	REQUIRE(static_cast<double>(project["parameters"][vekt::rav::parameters::drive]) == Catch::Approx(18.0));
+	REQUIRE(static_cast<int>(project["metadata"]["editorWidth"]) == 900);
 	restored.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
 
 	const auto* restoredDrive = restored.getParameters().getRawParameterValue(
@@ -378,14 +380,13 @@ TEST_CASE("Rav projects restore parameters they predate to defaults", "[processo
 	setParameter(source, vekt::rav::parameters::tone, -3.0f);
 	juce::MemoryBlock saved;
 	source.getStateInformation(saved);
-	const auto xml = juce::AudioProcessor::getXmlFromBinary(saved.getData(), static_cast<int>(saved.getSize()));
-	REQUIRE(xml != nullptr);
-	auto projectState = juce::ValueTree::fromXml(*xml);
-	auto parameters = projectState.getChildWithName(vekt::rav::parameters::stateType);
+	juce::var project;
+	REQUIRE(juce::JSON::parse(juce::String::fromUTF8(static_cast<const char*>(saved.getData()), static_cast<int>(saved.getSize())),
+		project).wasOk());
 	for (const auto* identifier : { vekt::rav::parameters::drive, vekt::rav::parameters::stageEnabledGatedFuzz })
-		parameters.removeChild(parameters.getChildWithProperty("id", identifier), nullptr);
-	juce::MemoryBlock olderProject;
-	juce::AudioProcessor::copyXmlToBinary(*projectState.createXml(), olderProject);
+		project["parameters"].getDynamicObject()->removeProperty(identifier);
+	const auto olderText = juce::JSON::toString(project);
+	const juce::MemoryBlock olderProject(olderText.toRawUTF8(), olderText.getNumBytesAsUTF8());
 
 	vekt::rav::PluginProcessor restored;
 	setParameter(restored, vekt::rav::parameters::drive, 30.0f);

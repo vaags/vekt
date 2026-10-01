@@ -40,7 +40,6 @@ inline constexpr std::array stageEnabledIds {
 };
 
 inline constexpr auto stateType = "VektRavState";
-inline constexpr auto projectStateType = "VektRavProjectState";
 inline constexpr auto presetProductIdentifier = "com.vekt.rav";
 inline constexpr auto currentFactoryPreset = "currentFactoryPreset";
 inline constexpr std::array soundParameterIds {

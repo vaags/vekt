@@ -16,6 +16,7 @@
 #include <bit>
 #include <cmath>
 #include <cstdint>
+#include <functional>
 #include <numbers>
 #include <memory>
 #include <set>
@@ -1625,32 +1626,67 @@ TEST_CASE("Mono preserves APVTS project state", "[mono][processor]")
 	REQUIRE(restored.getParameters().getRawParameterValue(vekt::mono::parameters::filterCutoff)->load() == Catch::Approx(2'345.0f));
 }
 
-TEST_CASE("Mono rejects obsolete pre-alpha project schemas without changing live state", "[mono][processor][state]")
+TEST_CASE("Mono rejects project states that are not exactly its current format without changing live state", "[mono][processor][state]")
 {
 	vekt::mono::PluginProcessor source;
-	juce::MemoryBlock currentState;
-	source.getStateInformation(currentState);
-	for (const auto obsoleteSchema : { 1, 2 })
+	juce::MemoryBlock current;
+	source.getStateInformation(current);
+	const auto bytesOf = [](const juce::String& text) { return juce::MemoryBlock(text.toRawUTF8(), text.getNumBytesAsUTF8()); };
+	// The saved document with one change.
+	const auto changed = [&current, &bytesOf](const std::function<void(juce::DynamicObject&)>& change)
 	{
-		auto obsoleteState = juce::ValueTree::readFromData(currentState.getData(), currentState.getSize());
-		REQUIRE(obsoleteState.isValid());
-		obsoleteState.setProperty(vekt::state::StateManager::schemaVersionProperty, obsoleteSchema, nullptr);
-		juce::MemoryBlock obsoleteData;
-		juce::MemoryOutputStream stream(obsoleteData, false);
-		obsoleteState.writeToStream(stream);
-
+		juce::var project;
+		REQUIRE(juce::JSON::parse(juce::String::fromUTF8(static_cast<const char*>(current.getData()),
+			static_cast<int>(current.getSize())), project).wasOk());
+		change(*project.getDynamicObject());
+		return bytesOf(juce::JSON::toString(project));
+	};
+	const auto set = [](const char* key, juce::var value) { return [=](juce::DynamicObject& project) { project.setProperty(key, value); }; };
+	// A parameter written as a number too large for a double, which JSON parsers read as infinity.
+	const auto overflowing = [&changed](const char* identifier)
+	{
+		const auto withMarker = changed([identifier](juce::DynamicObject& project)
+			{ project.getProperty("parameters").getDynamicObject()->setProperty(identifier, 123456.5); });
+		const auto text = juce::String::fromUTF8(static_cast<const char*>(withMarker.getData()), static_cast<int>(withMarker.getSize()));
+		REQUIRE(text.contains("123456.5"));
+		const auto replaced = text.replace("123456.5", "1e999");
+		return juce::MemoryBlock(replaced.toRawUTF8(), replaced.getNumBytesAsUTF8());
+	};
+	juce::MemoryBlock valueTree; // what a JUCE ValueTree project looked like
+	{
+		juce::MemoryOutputStream stream(valueTree, false);
+		source.getParameters().copyState().writeToStream(stream);
+	}
+	const std::vector<std::pair<const char*, juce::MemoryBlock>> rejected {
+		{ "schema 0", changed(set("schemaVersion", 0)) },
+		{ "schema 2", changed(set("schemaVersion", 2)) },
+		{ "other format", changed(set("format", "vekt.preset")) },
+		{ "other product", changed(set("product", "com.vekt.rav")) },
+		{ "text parameter value", changed([](juce::DynamicObject& project)
+			{ project.getProperty("parameters").getDynamicObject()->setProperty(vekt::mono::parameters::filterCutoff, "high"); }) },
+		{ "metadata not an object", changed(set("metadata", 5)) },
+		{ "overflowing parameter value", overflowing(vekt::mono::parameters::filterCutoff) },
+		{ "overflowing unknown parameter value", overflowing("unknownParameter") },
+		{ "not JSON", bytesOf("{") },
+		{ "JUCE ValueTree", valueTree } };
+	for (const auto& [name, data] : rejected)
+	{
+		INFO(name);
 		vekt::mono::PluginProcessor restored;
 		setParameter(restored, vekt::mono::parameters::filterCutoff, 4'321.0f);
 		setParameter(restored, vekt::mono::parameters::heldKeyReturn, 0.0f);
 		setParameter(restored, vekt::mono::parameters::filterQCompensation, 1.0f);
-		restored.setStateInformation(obsoleteData.getData(), static_cast<int>(obsoleteData.getSize()));
-		INFO("obsolete project schema=" << obsoleteSchema);
+		restored.setStateInformation(data.getData(), static_cast<int>(data.getSize()));
 		REQUIRE(restored.getParameters().getRawParameterValue(vekt::mono::parameters::filterCutoff)->load() == Catch::Approx(4'321.0f));
 		REQUIRE(restored.getParameters().getRawParameterValue(vekt::mono::parameters::heldKeyReturn)->load() == Catch::Approx(0.0f));
 		REQUIRE(restored.getParameters().getRawParameterValue(vekt::mono::parameters::filterQCompensation)->load() == Catch::Approx(1.0f));
 	}
+	// The unchanged document restores.
+	vekt::mono::PluginProcessor restored;
+	setParameter(restored, vekt::mono::parameters::filterCutoff, 4'321.0f);
+	restored.setStateInformation(current.getData(), static_cast<int>(current.getSize()));
+	REQUIRE(restored.getParameters().getRawParameterValue(vekt::mono::parameters::filterCutoff)->load() != Catch::Approx(4'321.0f));
 }
-
 TEST_CASE("Mono voice count changes cut active notes immediately", "[mono][processor]")
 {
 	vekt::mono::PluginProcessor processor;

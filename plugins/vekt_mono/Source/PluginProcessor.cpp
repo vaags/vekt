@@ -128,7 +128,7 @@ MonoVoiceSettings PluginProcessor::snapshotSettings() const
 PluginProcessor::PluginProcessor()
 	: AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
 	  parameterState(*this, &undoManager, parameters::stateType, parameters::createLayout()),
-	  stateManager(parameterState, parameters::projectStateType, 3),
+	  stateManager(parameterState, parameters::presetProductIdentifier, 1),
 	  presetSession(presetCatalog, { parameters::presetProductIdentifier, "Vekt Mono", 12 }, {
 		[this](const juce::String& name)
 		{
@@ -801,13 +801,11 @@ bool PluginProcessor::matchesPresetSound(const presets::Preset& preset) const
 void PluginProcessor::getStateInformation(juce::MemoryBlock& destination)
 {
 	stateManager.getMetadata().setProperty("vektPresetSelection", presetSession.selectionState(), nullptr);
-	juce::MemoryOutputStream stream(destination, false); stateManager.createState().writeToStream(stream);
+	stateManager.save(destination);
 }
 void PluginProcessor::setStateInformation(const void* data, int size)
 {
-	if (size <= 0 || data == nullptr) return;
-	const auto state = juce::ValueTree::readFromData(data, static_cast<size_t>(size));
-	if (state.isValid() && stateManager.restoreState(state))
+	if (stateManager.restore(data, size))
 	{
 		for (const auto* identifier : { parameters::heldKeyReturn, parameters::filterQCompensation })
 		{
@@ -818,7 +816,7 @@ void PluginProcessor::setStateInformation(const void* data, int size)
 		}
 		presetSession.clear();
 		if (stateManager.getMetadata().hasProperty("vektPresetSelection"))
-			juce::ignoreUnused(presetSession.restoreSelection(stateManager.getMetadata().getProperty("vektPresetSelection").toString()));
+			juce::ignoreUnused(presetSession.restoreSelection(stateManager.getMetadata().getProperty("vektPresetSelection")));
 	}
 }
 }

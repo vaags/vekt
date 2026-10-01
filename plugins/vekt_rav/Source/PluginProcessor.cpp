@@ -19,7 +19,7 @@ PluginProcessor::PluginProcessor()
 						 .withInput("Input", juce::AudioChannelSet::stereo(), true)
 						 .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
 	  parameterState(*this, &undoManager, parameters::stateType, parameters::createLayout()),
-	  stateManager(parameterState, parameters::projectStateType, 2),
+	  stateManager(parameterState, parameters::presetProductIdentifier, 1),
 	  presetSession(presetCatalog, { parameters::presetProductIdentifier, "Vekt Rav", 4 }, {
 		[this](const juce::String& name) { return createPreset(name); },
 		[](presets::Preset& preset) { return migratePresetSound(preset); },
@@ -425,19 +425,12 @@ void PluginProcessor::getStateInformation(juce::MemoryBlock& destination)
 {
 	stageChain.writeMetadata(stateManager.getMetadata());
 	stateManager.getMetadata().setProperty("vektPresetSelection", presetSession.selectionState(), nullptr);
-	const auto state = stateManager.createState();
-	if (const auto xml = state.createXml())
-		copyXmlToBinary(*xml, destination);
+	stateManager.save(destination);
 }
 
 void PluginProcessor::setStateInformation(const void* data, int size)
 {
-	const auto xml = getXmlFromBinary(data, size);
-	if (xml == nullptr)
-		return;
-
-	auto state = juce::ValueTree::fromXml(*xml);
-	if (stateManager.restoreState(state))
+	if (stateManager.restore(data, size))
 	{
 		stageChain = RavStageChain::readMetadata(stateManager.getMetadata());
 		restoreCurrentProgramFromMetadata();
@@ -445,7 +438,7 @@ void PluginProcessor::setStateInformation(const void* data, int size)
 		{
 			presetSession.clear();
 			juce::ignoreUnused(presetSession.restoreSelection(
-				stateManager.getMetadata().getProperty("vektPresetSelection").toString()));
+				stateManager.getMetadata().getProperty("vektPresetSelection")));
 		}
 	}
 }

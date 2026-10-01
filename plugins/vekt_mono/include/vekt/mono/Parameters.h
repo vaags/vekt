@@ -7,7 +7,6 @@
 namespace vekt::mono::parameters
 {
 inline constexpr auto stateType = "VektMonoParameters";
-inline constexpr auto projectStateType = "VektMonoProject";
 inline constexpr auto presetProductIdentifier = "com.vekt.mono";
 
 inline constexpr auto voiceCount = "voiceCount";
