@@ -3,7 +3,8 @@ set(vekt_juce_modules
     juce::juce_audio_formats
     juce::juce_dsp)
 
-add_library(vekt_juce_runtime STATIC Runtime.cpp)
+# Only tests and the audio lab link it; plugins compile the modules into their own shared code.
+add_library(vekt_juce_runtime STATIC EXCLUDE_FROM_ALL Runtime.cpp)
 add_library(vekt::juce_runtime ALIAS vekt_juce_runtime)
 target_link_libraries(vekt_juce_runtime PRIVATE
     ${vekt_juce_modules}
