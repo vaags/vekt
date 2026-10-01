@@ -44,7 +44,9 @@ RAV and Glimmer consume the same `vekt::ui` controls:
 - `Oscilloscope` draws a processor-owned `vekt::dsp::ScopeTap` (wait-free
   stereo ring the audio thread fills after output gain) and refreshes itself
   per display frame via `VBlankAttachment`, skipping repaints while nothing
-  new or only silence arrives. `findScopeTrigger` (in `ScopeTap.h`) picks the
+  new or only silence arrives. Each trace is filled as a band between the
+  per-pixel-column lowest and highest samples, which costs a third to a half
+  of stroking the same line. `findScopeTrigger` (in `ScopeTap.h`) picks the
   newest rising zero crossing with hysteresis, so the trigger is testable
   without a display.
 

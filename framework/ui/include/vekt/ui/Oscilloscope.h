@@ -26,9 +26,13 @@ public:
 	void paint(juce::Graphics&) override;
 
 private:
+	void drawTrace(juce::Graphics&, juce::Rectangle<float> plot, std::span<const float> samples, juce::Colour);
+
 	const dsp::ScopeTap& source;
 	double windowSeconds;
 	std::vector<float> left, right, trigger;
+	// drawTrace's bottom edge, kept to avoid allocating per frame.
+	std::vector<float> bottoms;
 	std::size_t windowLength {}, windowStart {};
 	std::uint64_t lastWritten {};
 	bool shownSilent { true };

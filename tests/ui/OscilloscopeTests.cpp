@@ -34,14 +34,15 @@ TEST_CASE("Oscilloscope shows a triggered window of the tap's newest output", "[
 	REQUIRE(std::abs(left.front()) < 0.05f);
 	REQUIRE(left[1] > left.front());
 	REQUIRE(juce::exactlyEqual(right.front(), -left.front() * 0.5f));
-	// Paints without a display.
+	// Paints without a display; the snapshot is opt-in, for visual review.
 	juce::Image image(juce::Image::ARGB, 120, 80, true);
 	juce::Graphics graphics(image);
 	scope.paint(graphics);
 	if (const auto* path = std::getenv("VEKT_SCOPE_SNAPSHOT"))
 	{
-		juce::File(juce::String(path)).deleteFile();
-		juce::FileOutputStream stream { juce::File(juce::String(path)) };
+		const juce::File file { juce::String(path) };
+		file.deleteFile();
+		juce::FileOutputStream stream { file };
 		REQUIRE(juce::PNGImageFormat().writeImageToStream(scope.createComponentSnapshot(scope.getLocalBounds(), true, 4.0f), stream));
 	}
 }
