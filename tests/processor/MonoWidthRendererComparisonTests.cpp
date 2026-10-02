@@ -22,6 +22,9 @@
 #include <tuple>
 #include <vector>
 
+// The longest comparisons of the audio-lab Width prototypes (table, kernel and knot research, not the shipped
+// oscillator) are hidden measurements, run on request in the optimised build (2 October 2026; they took 1-3.5 min each
+// in Debug and set the full suite's wall time): build/dev-opt/tests/vekt_dsp_tests "[width][comparison]".
 namespace
 {
 constexpr int hostRate = 48'000;
@@ -220,7 +223,7 @@ TEST_CASE("Mono Width event locations and one-sided derivatives match the ideal 
 }
 
 TEST_CASE("Mono Width offline long windowed sinc event residual convergence",
-	"[mono][oscillator][width][comparison][slow]")
+	"[.][mono][oscillator][width][comparison]")
 {
 	constexpr std::array radii { 8, 16, 32, 64 };
 	std::array<vekt::audio_lab::MonoWidthLongResidual, 4> kernels {
@@ -293,7 +296,7 @@ TEST_CASE("Mono Width Fourier table reconstructs its source coefficients and ban
 }
 
 TEST_CASE("Mono Width offline Fourier table spacing size and phase interpolation sweep",
-	"[mono][oscillator][width][comparison][slow]")
+	"[.][mono][oscillator][width][comparison]")
 {
 	using Table = vekt::audio_lab::MonoWidthTablePrototype;
 	const auto low = 37.0 * hostRate / fftSize, high = 151.0 * hostRate / fftSize;
@@ -361,7 +364,7 @@ TEST_CASE("Mono Width offline Fourier table spacing size and phase interpolation
 }
 
 TEST_CASE("Mono Width offline Fourier table higher Width density and interpolation diagnostic",
-	"[mono][oscillator][width][comparison][slow]")
+	"[.][mono][oscillator][width][comparison]")
 {
 	using Table = vekt::audio_lab::MonoWidthTablePrototype;
 	const auto low = 37.0 * hostRate / fftSize, high = 151.0 * hostRate / fftSize;
@@ -518,7 +521,7 @@ TEST_CASE("Mono Width mirror identity holds for Fourier coefficients and half-wi
 }
 
 TEST_CASE("Mono Width adaptive knot coefficient and playback diagnostic",
-	"[mono][oscillator][width][comparison][slow]")
+	"[.][mono][oscillator][width][comparison]")
 {
 	using vekt::audio_lab::MonoWidthAdaptiveKnots;
 	using Table = vekt::audio_lab::MonoWidthTablePrototype;
@@ -659,7 +662,7 @@ TEST_CASE("Mono Width table worst square partials and neutral Width against Four
 }
 
 TEST_CASE("Mono Width offline fixed 65 frames Width interpolation order comparison",
-	"[mono][oscillator][width][comparison][slow]")
+	"[.][mono][oscillator][width][comparison]")
 {
 	using Table = vekt::audio_lab::MonoWidthTablePrototype;
 	const auto low = 37.0 * hostRate / fftSize, high = 151.0 * hostRate / fftSize;
@@ -967,7 +970,7 @@ TEST_CASE("Mono Width guarded band transitions matched host-rate playback",
 }
 
 TEST_CASE("Mono Width per-harmonic guard policy and one-harmonic bank",
-	"[mono][oscillator][width][comparison][slow]")
+	"[.][mono][oscillator][width][comparison]")
 {
 	using Table = vekt::audio_lab::MonoWidthTablePrototype;
 	constexpr double guard = 0.9, start = 0.8;
@@ -1160,7 +1163,7 @@ TEST_CASE("Mono Width grouped level model matches the table bank spectrum and pl
 }
 
 TEST_CASE("Mono Width grouped pitch-level full-range static sweep",
-	"[mono][oscillator][width][comparison][slow]")
+	"[.][mono][oscillator][width][comparison]")
 {
 	// A 2048-sample table holds at most H1023, so the bank's first level is
 	// H1023 and pitches below 0.9 * Nyquist / 1023 are reported separately.

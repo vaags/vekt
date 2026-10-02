@@ -46,6 +46,8 @@ Surface specification/code conflicts rather than silently changing a contract.
 - Use the check-selection matrix in the development workflow. Product tags are
   incomplete, especially Rav and editor cases; inspect actual selected tests.
 - Reject zero-test selections. Cover shared consumers and relevant slow tests.
+- Keep new tests within the time budgets and test-cost rules of the development
+  workflow; run slow tests and measurement sweeps in the optimised `dev-opt` build.
 - Use Release for performance evidence. Renders and pluginval do not replace
   measured audio assertions, visual checks, listening, or host acceptance.
 - Report exact commands and `PASS`, `FAIL`, or `SKIP` with reasons. A required

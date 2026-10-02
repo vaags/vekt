@@ -55,8 +55,10 @@ double measuredGain(double frequency, double cutoff, double feedback, double sam
 	NonlinearTptLadderHighPass filter;
 	filter.prepare(sampleRate);
 	const auto settings = highPassSettings(cutoff, feedback, 0.0, linear);
-	const auto settle = static_cast<long>(0.5 * sampleRate);
-	const auto periods = std::max(8.0, std::floor(0.25 * frequency));
+	// The slowest decay measured here (k = 3.6) has a time constant of about 6 ms: 0.1 s settles it below 1e-7. The window
+	// holds whole periods, so the projection needs no longer one.
+	const auto settle = static_cast<long>(0.1 * sampleRate);
+	const auto periods = std::max(8.0, std::floor(0.05 * frequency));
 	const auto window = static_cast<long>(std::lround(periods * sampleRate / frequency));
 	double inPhase {}, quadrature {};
 	for (long sample = 0; sample < settle + window; ++sample)
@@ -92,21 +94,20 @@ struct KWeighting
 };
 }
 
-TEST_CASE("Mono high-pass ladder is the low-pass ladder's mirror at small signals", "[mono][filter][ladder-hp][slow]")
+TEST_CASE("Mono high-pass ladder is the low-pass ladder's mirror at small signals", "[mono][filter][ladder-hp]")
 {
-	// Exact for the linear reference; within 0.05 dB at 1e-4 for the non-linear filter.
-	for (const auto hostRate : hostRates)
-		for (const auto factor : { 1, 8 })
-			for (const auto feedback : { 0.0, 2.0, 3.6 })
-				for (const auto ratio : { 0.125, 0.5, 1.0, 2.0, 8.0 })
-				{
-					const auto sampleRate = hostRate * factor;
-					const auto cutoff = 1'000.0, frequency = ratio * cutoff;
-					const auto expected = 20.0 * std::log10(analyticGain(frequency, cutoff, feedback, sampleRate));
-					INFO("rate " << sampleRate << ", k " << feedback << ", f / fc " << ratio << ": expected " << expected << " dB");
-					CHECK(std::abs(20.0 * std::log10(measuredGain(frequency, cutoff, feedback, sampleRate, 1.0, true)) - expected) < 0.01);
-					CHECK(std::abs(20.0 * std::log10(measuredGain(frequency, cutoff, feedback, sampleRate, 1.0e-4, false)) - expected) < 0.05);
-				}
+	// Exact for the linear reference; within 0.05 dB at 1e-4 for the non-linear filter. The rate enters only through the
+	// prewarped tan(pi fc / fs), so the lowest internal rate, 48 kHz and the highest (192 kHz at 8x) cover it.
+	for (const auto sampleRate : { 44'100.0, 48'000.0, 8.0 * 192'000.0 })
+		for (const auto feedback : { 0.0, 2.0, 3.6 })
+			for (const auto ratio : { 0.125, 0.5, 1.0, 2.0, 8.0 })
+			{
+				const auto cutoff = 1'000.0, frequency = ratio * cutoff;
+				const auto expected = 20.0 * std::log10(analyticGain(frequency, cutoff, feedback, sampleRate));
+				INFO("rate " << sampleRate << ", k " << feedback << ", f / fc " << ratio << ": expected " << expected << " dB");
+				CHECK(std::abs(20.0 * std::log10(measuredGain(frequency, cutoff, feedback, sampleRate, 1.0, true)) - expected) < 0.01);
+				CHECK(std::abs(20.0 * std::log10(measuredGain(frequency, cutoff, feedback, sampleRate, 1.0e-4, false)) - expected) < 0.05);
+			}
 }
 
 TEST_CASE("Mono high-pass ladder has no solver failures under hostile rendering", "[mono][filter][ladder-hp]")

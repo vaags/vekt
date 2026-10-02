@@ -1696,45 +1696,51 @@ TEST_CASE("Mono Ladder level against Resonance at each Mode", "[.][mono-ladder-r
 
 TEST_CASE("Mono Ladder high-pass keeps running under Mode modulation", "[mono][filter][filter-type][ladder-hp]")
 {
-	// A square LFO on Mode (smoothed for 1 ms only) through the startup preset's held note. At depth 55 % Mode clamps at
-	// -1 for each LP half-cycle (a sixth of a second); at 49.95 % it stops at -0.999 and never reaches LP (at exactly
-	// 50 % the smoothed LFO stalls a hair short of -1). The renders differ only in the Mode transition's shape, about
-	// -15 dB re the signal in the loudest 5 ms, while the high-pass ladder runs through both. Resetting it at LP and
-	// restarting it as Mode left, even primed, rang against the warm filter: -10 to +5 dB at cutoffs 100 / 250 / 1,000 Hz
-	// (+0.9 / +1.1 / -10.3 / +0.2 dB at the four points here), so it never rests while an LFO reaches Mode (ADR 0009).
+	// A 3 Hz square LFO on Mode (smoothed for 1 ms only) through a voice. At depth 1.1 Mode clamps at -1 for each LP
+	// half-cycle (a sixth of a second); at 0.999 it never reaches LP. The renders differ only in the Mode transition's
+	// shape while the high-pass ladder runs through both: -33 / -25 dB re the signal in the loudest 5 ms. Resetting it at LP
+	// and restarting it as Mode left, even primed, rang against the warm filter at +0.5 / -2.1 dB here, so it never rests while
+	// an LFO reaches Mode (ADR 0009). 0.5 s per render, all measured (one and a half LFO cycles).
+	constexpr double sampleRate = 48'000.0;
+	constexpr int length = 24'000;
 	const auto render = [](float cutoff, float resonance, float depth)
 	{
-		vekt::mono::PluginProcessor processor;
-		setParameter(processor, parameters::filterMode, 0.0f);
-		setParameter(processor, parameters::filterCutoff, cutoff);
-		setParameter(processor, parameters::filterResonance, resonance);
-		setParameter(processor, parameters::lfos[0].shape, 4.0f);
-		setParameter(processor, parameters::lfos[0].rate, 3.0f);
-		setParameter(processor, parameters::lfos[0].filterMode, depth);
-		processor.prepareToPlay(48'000.0, 512);
-		return hold(processor, 188, 48);
-	};
-	for (const auto cutoff : { 100.0f, 1'000.0f })
-		for (const auto resonance : { 90.0f, 100.0f })
+		auto settings = measurementVoice(vekt::mono::FilterType::ladder, cutoff, resonance, 0.0f, 0.0f);
+		settings.lfo[0].source.shape = vekt::mono::LfoShape::square;
+		settings.lfo[0].source.mode = vekt::mono::LfoMode::retrigger; // Free follows the processor's clock, absent here
+		settings.lfo[0].source.rateHz = 3.0f;
+		settings.lfo[0].filterMode = depth;
+		vekt::mono::MonoVoice voice;
+		voice.prepare(sampleRate, 0x4d6f6e6fu);
+		voice.start(1, 48, 0.8f, settings, true, false, 1);
+		std::vector<float> output(length);
+		for (auto& sample : output)
 		{
-			const auto clamped = render(cutoff, resonance, 55.0f), unclamped = render(cutoff, resonance, 49.95f);
-			const auto start = clamped.getNumSamples() - 72'000;
-			double signal {}, loudestDifference {};
-			for (int window = start; window + 240 <= clamped.getNumSamples(); window += 240)
-			{
-				double difference {};
-				for (int sample = window; sample < window + 240; ++sample)
-				{
-					const auto delta = static_cast<double>(clamped.getSample(0, sample) - unclamped.getSample(0, sample));
-					difference += delta * delta;
-					signal += static_cast<double>(unclamped.getSample(0, sample)) * unclamped.getSample(0, sample);
-				}
-				loudestDifference = std::max(loudestDifference, difference / 240.0);
-			}
-			const auto ratio = 10.0 * std::log10(loudestDifference / (signal / 72'000.0) + 1.0e-30);
-			INFO("cutoff " << cutoff << ", Resonance " << resonance << ": loudest 5 ms of the difference " << ratio << " dB re the signal");
-			CHECK(ratio < -12.0);
+			float right {};
+			voice.render(sample, right, settings, 0.0f);
 		}
+		return output;
+	};
+	for (const auto [cutoff, resonance] : { std::pair { 100.0f, 0.9f }, std::pair { 1'000.0f, 1.0f } })
+	{
+		const auto clamped = render(cutoff, resonance, 1.1f), unclamped = render(cutoff, resonance, 0.999f);
+		double signal {}, loudestDifference {};
+		for (int window = 0; window + 240 <= length; window += 240)
+		{
+			double difference {};
+			for (int sample = window; sample < window + 240; ++sample)
+			{
+				const auto index = static_cast<std::size_t>(sample);
+				const auto delta = static_cast<double>(clamped[index] - unclamped[index]);
+				difference += delta * delta;
+				signal += static_cast<double>(unclamped[index]) * unclamped[index];
+			}
+			loudestDifference = std::max(loudestDifference, difference / 240.0);
+		}
+		const auto ratio = 10.0 * std::log10(loudestDifference / (signal / length) + 1.0e-30);
+		INFO("cutoff " << cutoff << ", Resonance " << resonance << ": loudest 5 ms of the difference " << ratio << " dB re the signal");
+		CHECK(ratio < -12.0);
+	}
 }
 
 TEST_CASE("Mono Ladder high-pass rests only at unmodulated LP", "[mono][filter][filter-type][ladder-hp]")
@@ -1759,20 +1765,22 @@ TEST_CASE("Mono Ladder high-pass rests only at unmodulated LP", "[mono][filter][
 		const auto afterRest = renderFor(voice, settings, 1.1);
 		CHECK(afterRest >= 47'000u);
 		CHECK(afterRest <= 48'000u);
-		CHECK(renderFor(voice, settings, 0.5) == afterRest);
+		CHECK(renderFor(voice, settings, 0.1) == afterRest);
 		settings.filterMode = 0.5f;
 		CHECK(renderFor(voice, settings, 0.1) == afterRest + 4'800u);
 	}
 	{
-		// A 0.25 Hz square LFO holds Mode at LP for two seconds per cycle.
+		// A 0.4 Hz square LFO starting on its low half holds Mode at LP for the first 1.25 s, past the rest time.
 		auto settings = measurementVoice(vekt::mono::FilterType::ladder, 1'000.0f, 0.5f, 0.0f, 0.0f);
 		settings.lfo[0].source.shape = vekt::mono::LfoShape::square;
-		settings.lfo[0].source.rateHz = 0.25f;
+		settings.lfo[0].source.mode = vekt::mono::LfoMode::retrigger; // Free follows the processor's clock, absent here
+		settings.lfo[0].source.phase = 0.5f;
+		settings.lfo[0].source.rateHz = 0.4f;
 		settings.lfo[0].filterMode = 1.1f;
 		vekt::mono::MonoVoice voice;
 		voice.prepare(sampleRate, 0x4d6f6e6fu);
 		voice.start(1, 48, 0.8f, settings, true, false, 1);
-		CHECK(renderFor(voice, settings, 6.0) == 288'000u);
+		CHECK(renderFor(voice, settings, 1.2) == 57'600u);
 	}
 }
 

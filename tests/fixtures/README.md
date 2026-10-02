@@ -42,7 +42,9 @@ removed line fails the test. Order is not pinned, because JUCE addresses paramet
 0.2 s reference renders of the cases in `tests/compat/ReferenceRenderTests.cpp`. A fixed sweep
 plus noise for the effects, and a fixed two-note phrase for Mono, at 48 kHz in 256-sample blocks.
 The tolerance is a peak error of 2e-5 (about -94 dBFS). A failing case writes its render to
-`build/dev/tests/compat-actual/` so it can be compared by ear.
+`build/dev/tests/compat-actual/` so it can be compared by ear. The references belong to the Debug
+(`dev`) build: optimised builds round differently, and Rav's nonlinear chains amplify that to about
+-57 dBFS at 16x FIR oversampling (2 October 2026), so `dev-opt` does not run them.
 
 - A deliberate sound change is accepted by recapturing with
   `build/dev/tests/vekt_dsp_tests "[.capture-references]"` and reviewing the WAV diff. Capture

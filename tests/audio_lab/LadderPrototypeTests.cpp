@@ -2110,7 +2110,7 @@ TEST_CASE("One-times default candidate audits coherent bins against unfiltered r
 					for (std::size_t path = 0; path < bins.size(); ++path)
 						for (auto& bin : bins[path]) bin.add(output[path]);
 			}
-			std::array<double, 3> fundamentals {};
+			std::array<double, std::tuple_size_v<decltype(bins)>> fundamentals {}; // candidates, then both references
 			for (std::size_t path = 0; path < bins.size(); ++path)
 			{
 				fundamentals[path] = bins[path][6].peakAmplitude();

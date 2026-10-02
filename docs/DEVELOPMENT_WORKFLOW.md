@@ -114,6 +114,38 @@ preset, not a configure preset; it excludes `[slow]`. `release` and
 `audio-lab-release` disable tests. Serialize builds using the same build tree;
 check for a running watcher before starting another build.
 
+`dev-opt` (`RelWithDebInfo`, `build/dev-opt`) builds the same tests optimised:
+they run 2-8x faster, about 5x typically (2 October 2026), so use it for slow
+tests, hidden measurement tags and repeated sweeps (`./scripts/test.sh --opt
+[--quick]`, or `ctest --preset dev-opt`). Its test presets exclude the reference
+renders: those are captured from and compared in the Debug build, and Rav's
+nonlinear chains amplify optimised rounding to about -57 dBFS at 16x FIR. Keep
+`dev` for debugging and assertions, and for the reference renders.
+
+### Test Cost
+
+`scripts/test.sh` writes a JUnit report and runs `scripts/check-test-budget.sh`:
+in a parallel `dev` run an always-run test must finish within 3 s and a `[slow]`
+one within 60 s, unless `tests/test-time-budget.txt` allows more with a reason.
+The suite's wall time is its longest test, and parallel load slows each test by
+up to 3x, so these budgets are tight on purpose. When writing a test:
+
+- Render at the lowest rate and length that exercise the behaviour. A rate
+  sweep covers the extremes (lowest internal rate, 48 kHz, highest internal
+  rate) unless the behaviour differs in between.
+- Size settling and windows from the physics: decay time constants or cutoff
+  periods with a stated margin, and whole periods for a coherent projection,
+  not round seconds.
+- Remove whatever delays the condition under test: a startup preset's LFO delay
+  and fade, Drift, or a Free LFO's processor clock in a voice-level test (use
+  Retrigger with a start phase).
+- Check that the test fails without the change (temporarily revert or patch the
+  code), and keep the margin between the two outcomes visible in the comment.
+- Put audition renders and measurement sweeps behind a hidden `[.]` tag, a
+  necessary long assertion behind `[slow]`, and run them in `dev-opt`.
+- For Release timing gates, screen with a 10 s run before the required 30 s runs,
+  and run them alone: parallel work invalidates timing.
+
 `zsh scripts/build-dev.sh` builds all nine supported development wrappers.
 `zsh scripts/build-au.sh [--release]` builds all three AUv2 components with the
 existing Ninja presets, without installing plugins. Xcode remains optional.
