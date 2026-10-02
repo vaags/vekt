@@ -17,6 +17,7 @@
 #include <cmath>
 #include <cstdint>
 #include <functional>
+#include <limits>
 #include <numbers>
 #include <memory>
 #include <set>
@@ -1318,7 +1319,21 @@ TEST_CASE("Mono Ladder self-oscillates at maximum emphasis", "[mono][processor][
 			// A delay-free nonlinear ladder does not spontaneously leave an exact
 			// zero state. Excite it once, then observe the unforced ringdown.
 			setParameter(processor, vekt::mono::parameters::noiseLevel, 0.0f);
-			for (int block = 0; block < 24; ++block) renderBlock(processor, buffer);
+			// A steady single tone, not merely a dominant one: two oscillations of similar size would beat, so the
+			// per-block (~43-93 ms) RMS and peak over the second half of the observation must not move.
+			float minimumBlockRms { std::numeric_limits<float>::max() }, maximumBlockRms {};
+			float minimumBlockPeak { std::numeric_limits<float>::max() }, maximumBlockPeak {};
+			for (int block = 0; block < 24; ++block)
+			{
+				renderBlock(processor, buffer);
+				if (block < 12) continue;
+				const auto blockRms = rms(buffer);
+				const auto blockPeak = buffer.getMagnitude(0, 0, buffer.getNumSamples());
+				minimumBlockRms = std::min(minimumBlockRms, blockRms);
+				maximumBlockRms = std::max(maximumBlockRms, blockRms);
+				minimumBlockPeak = std::min(minimumBlockPeak, blockPeak);
+				maximumBlockPeak = std::max(maximumBlockPeak, blockPeak);
+			}
 			const auto settledRms = rms(buffer);
 			const auto selfOscPowerRms = stereoPowerRms(buffer);
 			const auto [frequency, magnitude] = dominantFrequency(buffer, cutoff * 0.9f, cutoff * 1.1f, sampleRate);
@@ -1326,7 +1341,10 @@ TEST_CASE("Mono Ladder self-oscillates at maximum emphasis", "[mono][processor][
 			const auto thirdHarmonic = sinusoidMagnitude(buffer, frequency * 3.0f, sampleRate);
 			INFO("quality=" << quality << ", sample rate=" << sampleRate << ", cutoff=" << cutoff << ", fundamental=" << frequency
 				<< " Hz / " << magnitude << ", second=" << secondHarmonic << ", third=" << thirdHarmonic
-				<< ", left RMS=" << settledRms << ", stereo power RMS=" << selfOscPowerRms);
+				<< ", left RMS=" << settledRms << ", stereo power RMS=" << selfOscPowerRms
+				<< ", block RMS " << minimumBlockRms << ".." << maximumBlockRms << ", block peak " << minimumBlockPeak << ".." << maximumBlockPeak);
+			REQUIRE(maximumBlockRms < minimumBlockRms * 1.03f);   // 0.26 dB
+			REQUIRE(maximumBlockPeak < minimumBlockPeak * 1.03f);
 			REQUIRE(selfOscPowerRms > 0.1f);
 			REQUIRE(settledRms < 1.0f);
 			REQUIRE(frequency == Catch::Approx(cutoff).margin(cutoff * 0.03f));
