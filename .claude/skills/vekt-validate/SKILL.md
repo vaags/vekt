@@ -40,9 +40,10 @@ the command reference; do not invent another build or reporting system.
 6. For a required pluginval check, locate the tool on PATH or at
    `/Applications/pluginval.app/Contents/MacOS/pluginval`, check the actual
    matching built bundle as a directory, and run strictness 10. Do not silently
-   validate an older installed artifact. The current release script hardcodes
-   Rav's AU identity; it cannot certify matching Glimmer/Mono AU validation.
-   Keep AUv3 registration, host smoke tests, signing and distribution separate.
+   validate an older installed artifact. The product-aware release script checks
+   matching installed AUv2 contents and the effect/instrument tuple before
+   registered AU validators; on-disk checks do not prove host-loaded identity.
+   Keep registration, host smoke tests, signing and distribution separate.
 7. If a required tool, artifact, threshold, graphical session, or manual
    listening/host observation is missing, mark its gate SKIP with a reason.
    Do not install tools/plugins, clear caches, register extensions, change

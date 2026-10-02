@@ -236,4 +236,4 @@ retain APVTS attachments/gestures and stable bounds during state changes.
   text, overlap, layout shift, inaccessible controls, or out-of-bounds popups.
 - Exercise mouse, keyboard, VoiceOver, automation, undo/redo, host bypass,
   deferred quality changes, preset modification state, and editor reopen/restore
-  in Standalone, VST3, and AUv3 hosts.
+  in Standalone, VST3, and AUv2 hosts.

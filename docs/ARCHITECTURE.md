@@ -144,7 +144,9 @@ that policy must be documented by the product and loads must remain all-or-nothi
 All products are pre-release (1 October 2026): no older project or preset
 format is supported. Factory presets are stored at each product's current sound
 schema, and there are no project or preset sound migrations. Parameters missing
-from a project take their defaults (APVTS). The frozen state, parameter and
+from a project take their defaults (APVTS). A restore leaves every boolean at its
+exact saved or default value even after fractional VST3 automation; `StateManager`
+owns this, so products add no per-parameter fixups (2 October 2026). The frozen state, parameter and
 audio fixtures in `tests/fixtures` (see its README) start the compatibility
 record; they become binding at the first release.
 
@@ -155,7 +157,7 @@ Preset documents are UTF-8 JSON with product and schema identity. Each
 product supplies an explicit sound-parameter allowlist; missing, unknown,
 non-numeric, and out-of-range values reject the entire load before mutation.
 Repositories only perform message-thread file I/O and receive their storage root
-from the product, allowing VST3 and AUv3 containers to choose appropriate paths.
+from the product; the reusable layer does not infer host sandbox policy.
 `PresetCatalog` combines factory documents with an optional user repository.
 `PresetSession` owns loaded identity, comparison snapshots and common workflows;
 products provide capture/validate/apply/migrate/match adapters. `vekt::preset_ui`
@@ -166,16 +168,18 @@ codec, and exposed as an immutable bank through the host program API. The
 selected factory name is persisted in project metadata. User presets remain a
 separate mutable editor-facing source, are listed in natural sort order, and
 cannot shadow a case-insensitively matching factory name.
-Desktop user presets resolve beneath `~/Library/Audio/Presets/Vekt/Vekt
-Rav`. AUv3 callers must provide an app-group identifier; failure to resolve
-its container is reported and never falls back to desktop storage.
+Standalone, VST3, and AUv2 user presets resolve beneath
+`~/Library/Audio/Presets/Vekt/<product name>` (`Vekt Rav`, `Vekt Glimmer`, or
+`Vekt Mono`). File-access failures must remain visible; a shared desktop path
+does not establish sandbox access in every host. Validate save/load and native
+choosers in actual hosts before making that claim.
 
 ## Validation
 
 Each DSP primitive receives focused tests before integration. The release gates
 will additionally include allocation checks, FFT alias measurements, latency and
 null tests, state migration tests, pluginval strictness 10, `auval`, and host
-smoke tests for VST3 and AUv3.
+smoke tests for VST3 and AUv2.
 
 Shared editor behavior and validation criteria are defined in
 [`UI_UX.md`](UI_UX.md); preset-specific interaction rules are defined in

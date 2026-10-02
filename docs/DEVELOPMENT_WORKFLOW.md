@@ -96,11 +96,11 @@ This is one exact-name example, not a general Glimmer acceptance gate. Choose
 the actual nearby cases for the change. Use names or verified labels; include
 shared and untagged cases. Record the executed test count.
 
-| Product | Standalone target | VST3 target | Offline renderer |
-| --- | --- | --- | --- |
-| Rav | `VektRav_Standalone` | `VektRav_VST3` | `VektRavRender --product rav` |
-| Glimmer | `VektGlimmer_Standalone` | `VektGlimmer_VST3` | `VektRavRender --product glimmer` |
-| Mono | `VektMono_Standalone` | `VektMono_VST3` | `VektMonoRender --fixture <name>` |
+| Product | Standalone target | VST3 target | AUv2 target | Offline renderer |
+| --- | --- | --- | --- | --- |
+| Rav | `VektRav_Standalone` | `VektRav_VST3` | `VektRav_AU` | `VektRavRender --product rav` |
+| Glimmer | `VektGlimmer_Standalone` | `VektGlimmer_VST3` | `VektGlimmer_AU` | `VektRavRender --product glimmer` |
+| Mono | `VektMono_Standalone` | `VektMono_VST3` | `VektMono_AU` | `VektMonoRender --fixture <name>` |
 
 Build only required wrappers, for example:
 
@@ -113,6 +113,10 @@ Use `./scripts/test.sh --quick` for broader fast regression and
 preset, not a configure preset; it excludes `[slow]`. `release` and
 `audio-lab-release` disable tests. Serialize builds using the same build tree;
 check for a running watcher before starting another build.
+
+`zsh scripts/build-dev.sh` builds all nine supported development wrappers.
+`zsh scripts/build-au.sh [--release]` builds all three AUv2 components with the
+existing Ninja presets, without installing plugins. Xcode remains optional.
 
 ### Audio Evidence
 
@@ -160,14 +164,11 @@ executable at `/Applications/pluginval.app/Contents/MacOS/pluginval`. Check
 bundles as directories. Identify the exact product, configuration, revision,
 and path; an old installed bundle is not evidence for a new build.
 
-`scripts/validate-release.sh` forwards to
-`packaging/macos/validate-plugins.sh`, which requires pluginval on PATH and
-hardcodes `auval -v aufx Ravv Vekt`. Do not use it to claim matching Mono or
-Glimmer AU validation. AUv3 requires full Xcode; build with the `xcode`
-configure preset and `xcode-debug` or `xcode-release` build preset, using the
-matching `<ProductTarget>_AUv3` target. Registration, app-group setup, host smoke
-tests, signature integrity, trusted distribution, and notarization are distinct
-gates. A compiled extension or passing VST3 test does not establish them.
+`zsh scripts/validate-release.sh <rav|glimmer|mono> [vst3-path au-component-path]`
+defaults to that product's Release artifacts. Follow the
+[macOS release gates](../packaging/macos/README.md) for matching installed AU
+components, runtime validators, manual host checks, and distribution approvals.
+Builds or VST3 success do not establish AUv2 behavior or sandbox preset access.
 
 ## Evidence and Completion
 

@@ -3,8 +3,8 @@
 #include "PluginEditor.h"
 
 #include "FactoryPresets.h"
-#include "UserPresetPaths.h"
 
+#include <vekt/presets/PresetPaths.h>
 #include <vekt/presets/PresetSchema.h>
 #include <vekt/presets/PresetJsonCodec.h>
 
@@ -90,14 +90,9 @@ PluginProcessor::PluginProcessor()
 	requestedOfflineOversampling.store(offlineOversamplingParameter->load());
 	parameterState.addParameterListener(parameters::trackingOversampling, this);
 	parameterState.addParameterListener(parameters::offlineOversampling, this);
-	if (wrapperType == wrapperType_VST3 || wrapperType == wrapperType_Standalone)
-		juce::ignoreUnused(configureUserPresetDirectory(UserPresetPaths::desktop()));
-	else if (wrapperType == wrapperType_AudioUnitv3)
-	{
-		juce::File directory;
-		if (UserPresetPaths::auv3AppGroup(VEKT_AUV3_APP_GROUP_ID, directory).wasOk())
-			juce::ignoreUnused(configureUserPresetDirectory(directory));
-	}
+	if (wrapperType == wrapperType_VST3 || wrapperType == wrapperType_Standalone
+		|| wrapperType == wrapperType_AudioUnit)
+		juce::ignoreUnused(configureUserPresetDirectory(presets::PresetPaths::desktop("Vekt Rav")));
 }
 
 PluginProcessor::~PluginProcessor()

@@ -8,8 +8,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(VEKT_BUILD_TESTS "Build Vekt tests" ON)
 option(VEKT_BUILD_AUDIO_LAB "Build the Vekt development audio lab" OFF)
-set(VEKT_AUV3_APP_GROUP_ID "" CACHE STRING
-    "Optional macOS App Group identifier used by the AUv3 preset container")
 set(VEKT_LTO "thin" CACHE STRING "Link-time optimisation in Release builds: thin (default; parallel and cached), full or off")
 set_property(CACHE VEKT_LTO PROPERTY STRINGS full thin off)
 
@@ -33,6 +31,7 @@ elseif(NOT VEKT_LTO STREQUAL "off")
 endif()
 
 include(cmake/VektFactoryPresets.cmake)
+include(cmake/VektPluginSigning.cmake)
 
 add_subdirectory(framework/juce)
 add_subdirectory(framework/dsp)

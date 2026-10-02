@@ -3,8 +3,8 @@
 Vekt is a reusable C++20 framework built on JUCE for developing native audio
 effects and instruments. It provides shared DSP, state, preset, and native
 editor infrastructure, with Rav, Glimmer, and Mono as concrete products built
-on the framework. Current macOS builds target VST3 and Standalone, with Audio
-Unit v3 (AUv3) available through Xcode.
+on the framework. Current macOS builds target VST3, Standalone, and Audio Unit
+v2 (AUv2), using the existing Ninja or Xcode presets.
 
 Keep its existing architecture, pinned JUCE dependency, CMake presets, and
 scripts; do not introduce a parallel plugin framework or WebView UI as part

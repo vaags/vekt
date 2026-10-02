@@ -44,10 +44,7 @@ target_link_libraries(VektMonoCore PUBLIC
 	vekt::presets
 	vekt::preset_ui)
 
-set(vekt_mono_formats Standalone VST3)
-if(CMAKE_GENERATOR STREQUAL "Xcode")
-	list(APPEND vekt_mono_formats AUv3)
-endif()
+set(vekt_mono_formats Standalone VST3 AU)
 
 juce_add_plugin(VektMono
 	VERSION ${PROJECT_VERSION}
@@ -72,3 +69,5 @@ target_link_libraries(VektMono PRIVATE
 	juce::juce_audio_utils
 	juce::juce_audio_formats
 	juce::juce_dsp)
+
+vekt_adhoc_seal_bundle(VektMono_AU)

@@ -12,7 +12,8 @@ namespace vekt::state
 //   { "format": "vekt.project", "product": "com.vekt.rav", "schemaVersion": 1,
 //     "parameters": { "<id>": <plain value>, ... }, "metadata": { "<key>": <any JSON value>, ... } }
 //
-// Parameters restore through APVTS::replaceState, so parameters missing from a project take their defaults.
+// Parameters restore through APVTS::replaceState, so parameters missing from a project take their defaults;
+// booleans then publish their exact restored value, since replaceState keeps an unsnapped host fraction.
 // Restoring is all-or-nothing: a document that is not exactly this product's current schema changes nothing.
 class StateManager final
 {
@@ -82,6 +83,14 @@ public:
         }
 
         parameterState.replaceState(restored);
+        // replaceState skips a parameter whose plain value already matches, but a host can leave a boolean
+        // at an unsnapped fraction (VST3 automation of 0.7 reads back as 0.7, not 1); publish the exact value.
+        // Other parameter types snap in setValue, so only booleans can hold such a fraction.
+        for (auto* processorParameter : parameterState.processor.getParameters())
+            if (auto* parameter = dynamic_cast<juce::RangedAudioParameter*>(processorParameter); parameter != nullptr && parameter->isBoolean())
+                if (const auto* plain = parameterState.getRawParameterValue(parameter->paramID))
+                    if (const auto value = parameter->convertTo0to1(plain->load()); !juce::approximatelyEqual(parameter->getValue(), value))
+                        parameter->setValueNotifyingHost(value);
         metadata.removeAllProperties(nullptr);
         if (properties.isObject())
             for (const auto& [name, value] : properties.getDynamicObject()->getProperties())

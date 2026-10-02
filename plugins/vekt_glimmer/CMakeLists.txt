@@ -27,10 +27,7 @@ target_link_libraries(VektGlimmerCore PUBLIC
 	vekt::presets
 	vekt::preset_ui)
 
-set(vekt_glimmer_formats Standalone VST3)
-if(CMAKE_GENERATOR STREQUAL "Xcode")
-	list(APPEND vekt_glimmer_formats AUv3)
-endif()
+set(vekt_glimmer_formats Standalone VST3 AU)
 
 juce_add_plugin(VektGlimmer
 	VERSION ${PROJECT_VERSION}
@@ -55,3 +52,5 @@ target_link_libraries(VektGlimmer PRIVATE
 	juce::juce_audio_utils
 	juce::juce_audio_formats
 	juce::juce_dsp)
+
+vekt_adhoc_seal_bundle(VektGlimmer_AU)

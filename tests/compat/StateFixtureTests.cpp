@@ -225,6 +225,47 @@ TEST_CASE("The modification patterns move every parameter off its default", "[co
 		}
 }
 
+// VST3 hosts automate booleans with fractional values that JUCE stores unsnapped; a restore of the
+// same logical state must still leave the saved value, not the fractional one, for the host to read.
+TEST_CASE("Project recall restores booleans after fractional host automation for every product", "[compat][state]")
+{
+	for (const auto& product : products())
+	{
+		INFO(product.name);
+		auto processor = product.create();
+		auto booleans = 0;
+		for (auto* parameter : rangedParameters(*processor))
+		{
+			if (!parameter->isBoolean())
+				continue;
+			++booleans;
+			for (const auto value : { 0.0f, 1.0f })
+			{
+				INFO(parameter->paramID << " = " << value);
+				parameter->setValueNotifyingHost(value);
+				juce::MemoryBlock state;
+				processor->getStateInformation(state);
+				parameter->setValueNotifyingHost(value < 0.5f ? 0.280552f : 0.719448f);
+				processor->setStateInformation(state.getData(), static_cast<int>(state.getSize()));
+				CHECK(parameter->getValue() == value);
+			}
+
+			// A project that predates the parameter restores its default the same way.
+			juce::MemoryBlock state;
+			processor->getStateInformation(state);
+			auto document = juce::JSON::parse(state.toString());
+			document["parameters"].getDynamicObject()->removeProperty(parameter->paramID);
+			const auto text = juce::JSON::toString(document);
+			const auto defaultValue = parameter->getDefaultValue();
+			INFO(parameter->paramID << " omitted, default " << defaultValue);
+			parameter->setValueNotifyingHost(defaultValue < 0.5f ? 0.280552f : 0.719448f);
+			processor->setStateInformation(text.toRawUTF8(), static_cast<int>(text.getNumBytesAsUTF8()));
+			CHECK(parameter->getValue() == defaultValue);
+		}
+		REQUIRE(booleans > 0);
+	}
+}
+
 TEST_CASE("The newest frozen project state is chosen by date and capture number", "[compat][state]")
 {
 	REQUIRE(newestFixture({ "2026-10-01.expected", "2026-10-01-2.expected" }).filename() == "2026-10-01-2.expected");

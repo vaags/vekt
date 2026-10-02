@@ -84,6 +84,15 @@ target_compile_definitions(vekt_dsp_tests PRIVATE
 include(Catch)
 catch_discover_tests(vekt_dsp_tests ADD_TAGS_AS_LABELS)
 
+if(APPLE)
+	add_test(NAME "macOS plugin workflow scripts"
+		COMMAND ${CMAKE_COMMAND}
+			-DVEKT_SOURCE_DIR=${PROJECT_SOURCE_DIR}
+			-DVEKT_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}
+			-P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/PluginWorkflowTests.cmake")
+	set_tests_properties("macOS plugin workflow scripts" PROPERTIES LABELS "cmake;scripts")
+endif()
+
 function(add_factory_preset_configure_test name fixtureCase)
     add_test(NAME "Factory preset configure: ${name}"
         COMMAND ${CMAKE_COMMAND}

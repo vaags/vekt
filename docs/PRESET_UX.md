@@ -45,9 +45,10 @@ stored preset, whereas Save As captures the live sound.
 
 ## Storage and file access
 
-- VST3 and Standalone use `~/Library/Audio/Presets/Vekt/Vekt Rav`.
-- AUv3 requires its configured app-group container and must never fall back to
-  desktop storage.
+- VST3, Standalone, and AUv2 use `~/Library/Audio/Presets/Vekt/<product name>`:
+  `Vekt Rav`, `Vekt Glimmer`, or `Vekt Mono`. Each product has a separate library.
+- Actual host sandbox access is a manual gate. Report file-access errors rather
+  than silently selecting another storage location or claiming sandbox safety.
 - File chooser import/export is message-thread-only. Validate imported content
   completely before changing parameters or writing into the user repository.
 

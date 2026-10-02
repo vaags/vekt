@@ -375,13 +375,6 @@ void PluginProcessor::setStateInformation(const void* data, int size)
 {
 	if (!stateManager.restore(data, size))
 		return;
-	for (const auto* identifier : { parameters::brake, parameters::manualSpeedEnabled, parameters::autoGain, parameters::bypass })
-	{
-		auto* parameter = parameterState.getParameter(identifier);
-		const auto value = parameter->convertTo0to1(parameterState.getRawParameterValue(identifier)->load());
-		if (!juce::approximatelyEqual(parameter->getValue(), value))
-			parameter->setValueNotifyingHost(value);
-	}
 	presetSession.clear();
 	if (stateManager.getMetadata().hasProperty("vektPresetSelection"))
 		juce::ignoreUnused(presetSession.restoreSelection(

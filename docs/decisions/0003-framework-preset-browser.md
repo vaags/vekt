@@ -77,7 +77,7 @@ applies sound; project parameters remain authoritative.
 - Rav still uses its existing parameter-only sound schema: stage order and
   stage-enable capture/migration/undo must be addressed before claiming complete
   stage-chain sound recall.
-- VoiceOver, native chooser sandbox behavior, and AUv3/DAW manual validation
+- VoiceOver, native chooser sandbox behavior, and AUv2/DAW manual validation
   remain release gates.
 
 Framework regression fixtures use two different product schemas without Rav

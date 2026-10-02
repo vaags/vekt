@@ -8,7 +8,7 @@ Configure the Debug Ninja preset and run:
 
 ```sh
 cmake --preset dev
-cmake --build --preset dev --target vekt_dsp_tests VektRav_VST3
+cmake --build --preset dev --target vekt_dsp_tests VektRav_VST3 VektRav_AU
 ctest --preset dev --output-on-failure
 ```
 
@@ -53,12 +53,12 @@ Record:
 - Switching quality updates reported latency and preserves bypass alignment.
 - 8x and 16x FIR are available for offline rendering but are not selected for tracking by default.
 
-Host validation remains separate: run `pluginval` at strictness 10, `auval`, and DAW smoke tests in Ableton Live, Logic Pro, and GarageBand after signing the generated bundles.
+Host validation remains separate: run `pluginval` at strictness 10, `auval -v aufx Ravv Vekt`, and DAW smoke tests in Ableton Live, Logic Pro, and GarageBand against the matching installed AUv2 component and VST3 bundle. Signing and installation require separate approval; see [macOS release gates](../packaging/macos/README.md).
 
 ## Development Audio Lab
 
 The first Audio Lab milestone is a deterministic headless renderer. It is
-opt-in and does not modify the production Standalone, VST3, or AUv3 targets.
+opt-in and does not modify the production Standalone, VST3, or AUv2 targets.
 
 Run it with:
 
@@ -112,7 +112,7 @@ phases and are not enabled by this renderer.
 ## Live Audio Lab
 
 The live lab is a separate opt-in application and does not modify the plugin
-Standalone, VST3, or AUv3 targets. Launch it with:
+Standalone, VST3, or AUv2 targets. Launch it with:
 
 ```sh
 ./scripts/run-audio-lab.sh

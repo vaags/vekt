@@ -40,7 +40,7 @@ concrete defects, regressions, and missing tests over stylistic suggestions:
 
 Rav and editor tests do not consistently carry product tags. A product-filtered
 run, successful compile, report generation, or VST3 pluginval pass is not proof
-of full product, sonic, UI, AUv3, or release acceptance. Treat a required skipped
+of full product, sonic, UI, AUv2, or release acceptance. Treat a required skipped
 check as incomplete, never passed. Verify supplied evidence against accessible
 logs when available; do not claim to have executed any check yourself.
 

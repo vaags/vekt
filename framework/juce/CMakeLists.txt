@@ -15,7 +15,6 @@ add_library(vekt::juce_headers ALIAS vekt_juce_headers)
 target_include_directories(vekt_juce_headers INTERFACE
     "${JUCE_MODULES_DIR}")
 target_compile_definitions(vekt_juce_headers INTERFACE
-    VEKT_AUV3_APP_GROUP_ID="${VEKT_AUV3_APP_GROUP_ID}"
     JUCE_STRICT_REFCOUNTEDPOINTER=1
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0

@@ -1,15 +1,15 @@
 # Vekt
 
-Vekt is a reusable C++20/JUCE framework for macOS audio effects. The first
-reference effects are Vekt Rav and Vekt Glimmer with reusable DSP, state, and
-preset infrastructure.
+Vekt is a reusable C++20/JUCE framework for macOS audio effects and instruments.
+Vekt Rav, Vekt Glimmer, and Vekt Mono use its shared DSP, state, preset, and
+native editor infrastructure.
 
 ## Requirements
 
 - macOS 27 or newer on Apple Silicon
 - CMake 3.25 or newer
 - Ninja for command-line development builds
-- Full Xcode for AUv3 builds
+- Apple Command Line Tools for Ninja builds; full Xcode only for the Xcode preset
 
 Initialize dependencies after cloning:
 
@@ -23,11 +23,14 @@ Configure, build, and test the current development slice:
 ./scripts/test.sh
 ```
 
-Build the Standalone and VST3 development artifacts with:
+Build the Standalone, VST3, and AUv2 development artifacts for all three products with:
 
 ```sh
 ./scripts/build-dev.sh
 ```
+
+For AUv2 components only, use `zsh scripts/build-au.sh`; add `--release` for
+Release builds.
 
 Run a deterministic offline processor report without opening a DAW:
 
@@ -76,9 +79,9 @@ audio output. The lab hosts Rav and Glimmer in a serial chain; select either
 editor tab and use the order control to audition both routing orders, then
 explicitly arm output. Use headphones or safe monitoring when testing.
 
-The `xcode` configure preset is reserved for AUv3-capable builds. It requires a
-full Xcode installation selected through `xcode-select`; Apple Command Line
-Tools alone are insufficient.
+The optional `xcode` configure preset builds the same formats through Xcode.
+It requires a full Xcode installation selected through `xcode-select`; Apple
+Command Line Tools alone are sufficient for the normal Ninja workflows.
 
 ## Install In A DAW
 
@@ -94,10 +97,12 @@ System Folders**, then trigger a plug-in rescan. Find **Vekt Rav** under the
 Audio Effects browser and drag it onto an audio track.
 
 Development builds may be ad-hoc signed and can be rejected by Gatekeeper or
-the host. For normal use, install a signed release bundle instead. The AUv3
-build is intended for AUv3-compatible hosts such as Logic Pro and GarageBand;
-Ableton Live should use the VST3 bundle. Remove an older copy from the VST3
-folder before rescanning if Live shows duplicate versions.
+the host. For normal use, install a signed release bundle instead. AUv2
+components support AU hosts such as Logic Pro, GarageBand, and Ableton Live;
+VST3 remains an option in Live. Installation, replacing old copies, signing,
+and rescanning require explicit approval in the development workflow.
+See [macOS release gates](packaging/macos/README.md) for AU installation and
+product-aware validation. No build script installs plugins automatically.
 
 ## Current Scope
 
@@ -119,9 +124,10 @@ folder before rescanning if Live shows duplicate versions.
 - 53 focused Catch2 tests covering DSP, modes, multiband routing, state, presets,
   latency, and tracking/offline quality selection
 
-Standalone, VST3, and AUv3 development builds are validated locally. Host
-registration, pluginval/auval, DAW smoke tests, signing/notarization, and
-Apple M4 performance measurements remain release-time validation gates.
+Standalone, VST3, and AUv2 targets are available in the existing presets. Build
+and test evidence is distinct from host registration, pluginval/auval, DAW
+smoke tests, trusted signing/notarization, and Apple M4 performance measurements;
+those remain separate release gates.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for module and real-time rules,
 [docs/UI_UX.md](docs/UI_UX.md) for shared editor conventions, and

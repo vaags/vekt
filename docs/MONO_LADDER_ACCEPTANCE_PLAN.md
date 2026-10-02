@@ -569,7 +569,7 @@ production acceptance remain unqualified.
 
 For **all** rows, playback/offline split and follow/override recall are planned,
 not implemented. The normal host plugin still selects legacy at every quality;
-focused development tests do not establish VST3/AUv3/Standalone lifecycle or
+focused development tests do not establish production-wrapper lifecycle or
 actual device deadlines. Preserve the dated raw results in
 `docs/MONO_VALIDATION.md`; this audit does not rescore earlier runs.
 
@@ -925,7 +925,7 @@ behavior and full regression results. Record build IDs and limitations in
    contract before release; do not silently route that mode to legacy.
 4. **Cut over and verify — blocked.** In a reviewable change, enable coupled
    for the ordinary host-created plugin *without development flags*. Validate
-   Release Standalone/VST3 and AUv3 where built, host lifecycle and live
+  Release Standalone/VST3/AUv2, host lifecycle and live
    audio, playback/offline quality (including follow/override once implemented),
    reported latency, project and preset recall, gain/headroom, all retained
    modes, factory content and full regression tests. Explicitly test older

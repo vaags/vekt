@@ -12,8 +12,7 @@ add_library(VektRavCore STATIC
 	Source/FactoryPresets.cpp
 	Source/Parameters.cpp
 	Source/PluginEditor.cpp
-	Source/PluginProcessor.cpp
-	Source/UserPresetPaths.cpp)
+	Source/PluginProcessor.cpp)
 
 target_include_directories(VektRavCore PUBLIC Source)
 
@@ -28,11 +27,7 @@ target_link_libraries(VektRavCore
 		vekt::state
 		vekt_project_options)
 
-set(vekt_rav_formats Standalone VST3)
-
-if(CMAKE_GENERATOR STREQUAL "Xcode")
-	list(APPEND vekt_rav_formats AUv3)
-endif()
+set(vekt_rav_formats Standalone VST3 AU)
 
 juce_add_plugin(VektRav
 	VERSION ${PROJECT_VERSION}
@@ -58,3 +53,5 @@ target_link_libraries(VektRav PRIVATE
 	juce::juce_audio_utils
 	juce::juce_audio_formats
 	juce::juce_dsp)
+
+vekt_adhoc_seal_bundle(VektRav_AU)

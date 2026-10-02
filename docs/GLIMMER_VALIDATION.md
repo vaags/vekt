@@ -121,13 +121,13 @@ I/O, but includes OS interruptions; it is not a real-time scheduling guarantee.
 ## Build Gates
 
 ```sh
-cmake --build --preset dev --target vekt_dsp_tests VektGlimmer_Standalone VektGlimmer_VST3
+cmake --build --preset dev --target vekt_dsp_tests VektGlimmer_Standalone VektGlimmer_VST3 VektGlimmer_AU
 ctest --preset dev --output-on-failure
 ```
 
 ## Local Validation (2026-09-19)
 
-- Standalone, VST3, AUv3, release Audio Lab and renderer builds succeeded.
+- Standalone, VST3, release Audio Lab and renderer builds succeeded.
 - Mode/preset follow-up: Standalone, VST3 and release Audio Lab rebuilt;
   all 34 focused Glimmer/RAV-editor checks passed. Editor and browser snapshots
   were inspected. Six factory programs and factory/user browser navigation are
@@ -140,7 +140,8 @@ ctest --preset dev --output-on-failure
   range) remain unresolved; this is not an assertion-free release validation.
   The external Steinberg VST3 validator was not configured.
 - Targeted `auval -v aufx Glmr Vekt` could not find the registered component;
-  AU validation remains blocked despite the successful AUv3 build.
+  no registered component was available at that revision. This is historical
+  evidence, not a result for the current AUv2 wrapper.
 - Earlier rotary-upgrade full development suite: 135/136 passed. The existing unrelated
   `Rav band wet controls do not couple unaffected bands` failure remains.
 - All Glimmer/rotor checks passed, including the 0.5-second tail checks with
@@ -177,6 +178,8 @@ Before release, audition level-matched organ, guitar, electric piano, stereo pad
 at 44.1, 48, and 96 kHz. Confirm angle wrapping, distance behavior, slow/fast
 transitions, Auto-mode hysteresis, bypass, and project-state restoration in a
 host. Run available `pluginval`, `auval`, and DAW smoke checks separately.
+For AUv2, use `auval -v aufx Glmr Vekt` against the matching installed component
+with the [macOS release gates](../packaging/macos/README.md).
 Confirm Wide is musically distinct from merely increasing Width. Public pedal
 demos are qualitative references, not controlled A/B measurements. Also verify
 real-time allocations, drive alias spectra, callback headroom during model

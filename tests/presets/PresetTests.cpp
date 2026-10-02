@@ -1,11 +1,11 @@
 #include <FactoryPresets.h>
 #include <Parameters.h>
 #include <PluginProcessor.h>
-#include <UserPresetPaths.h>
 
 #include <vekt/presets/FilePresetRepository.h>
 #include <vekt/presets/PresetCatalog.h>
 #include <vekt/presets/PresetJsonCodec.h>
+#include <vekt/presets/PresetPaths.h>
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -216,20 +216,16 @@ TEST_CASE("Preset catalogs own user preset lifecycle and navigation", "[presets]
 	REQUIRE(factoryOnly.removeUserPreset("Unavailable").failed());
 }
 
-TEST_CASE("Rav user preset paths keep desktop and AUv3 storage separate", "[presets]")
+TEST_CASE("Desktop user preset paths are product-specific", "[presets]")
 {
-	const auto desktop = vekt::rav::UserPresetPaths::desktop();
-	const auto expectedDesktop = juce::File::getSpecialLocation(juce::File::userHomeDirectory)
-		.getChildFile("Library/Audio/Presets/Vekt/Vekt Rav");
-	REQUIRE(desktop == expectedDesktop);
-
-	const auto container = juce::File("/AppGroupContainer");
-	REQUIRE(vekt::rav::UserPresetPaths::insideContainer(container)
-		== container.getChildFile("Library/Audio/Presets/Vekt/Vekt Rav"));
-
-	juce::File destination = desktop;
-	REQUIRE(vekt::rav::UserPresetPaths::auv3AppGroup({}, destination).failed());
-	REQUIRE(destination == desktop);
+	const auto root = juce::File::getSpecialLocation(juce::File::userHomeDirectory)
+		.getChildFile("Library/Audio/Presets/Vekt");
+	for (const auto& product : juce::StringArray { "Vekt Rav", "Vekt Glimmer", "Vekt Mono" })
+	{
+		const auto directory = vekt::presets::PresetPaths::desktop(product);
+		REQUIRE(directory == root.getChildFile(product));
+		REQUIRE(directory.getFileName() == product);
+	}
 }
 
 TEST_CASE("Rav user preset services do not change its host program bank", "[presets]")

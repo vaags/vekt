@@ -859,7 +859,7 @@ not in presets, default Off (older sessions without it restore Off). The Perform
   the mailbox (and may wait for it) when they wake, before claiming any unit, then join the workgroup so
   macOS schedules them like the audio thread.
 * **Pool creation** can be reached from `prepareToPlay` (a host thread) and the message thread; a mutex
-  covers the check and the creation. The audio thread only reads the published atomic pointer. AU/AUv3 and Standalone provide one; VST3 on macOS
+  covers the check and the creation. The audio thread only reads the published atomic pointer. AU and Standalone can provide a workgroup, subject to host/device support; VST3 on macOS
   does not, so helpers there run at real-time priority outside the host's workgroup. Audio Lab forwards
   its device's workgroup.
 * **When to go parallel.** Only with at least two units and 32 internal samples in the segment; otherwise

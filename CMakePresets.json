@@ -60,7 +60,7 @@
     },
     {
       "name": "xcode",
-      "displayName": "Xcode (AUv3)",
+      "displayName": "Xcode",
       "inherits": "base",
       "generator": "Xcode"
     }
