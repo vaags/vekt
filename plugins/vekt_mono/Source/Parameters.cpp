@@ -141,6 +141,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 	// Depth is reached with the mod wheel or aftertouch fully up; at rest the vibrato is silent.
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { vibratoDepth, version }, "Vibrato Depth",
 		juce::NormalisableRange<float> { 0.0f, 100.0f, 0.1f }, 50.0f, withDecimals(1, "ct")));
+	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { vibratoAmount, version }, "Vibrato Amount",
+		juce::NormalisableRange<float> { 0.0f, 100.0f, 0.1f }, 0.0f, withDecimals(1, "%")));
 	// Ladder output pole mix: -1 LP (the plain ladder), 0 Notch, +1 HP. The landmarks read as names.
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { filterMode, version }, "Filter Mode",
 		juce::NormalisableRange<float> { -1.0f, 1.0f, 0.001f }, -1.0f, juce::AudioParameterFloatAttributes {}

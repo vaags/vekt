@@ -20,7 +20,8 @@ default, a factory program selected and product extras (Rav's stage order) chang
   them. Before release, a deliberate format change may delete the fixtures and freeze new ones.
 - When a parameter is added, the coverage test fails. Freeze the current format as a new
   fixture with `build/dev/tests/vekt_dsp_tests "[.capture-state]"`. It refuses to freeze a state
-  that does not round-trip, and never overwrites.
+  that does not round-trip, never overwrites, and skips a product whose state and expectation
+  match its newest fixture.
 - Older fixtures also check that parameters added since then restore to their defaults, even
   over a modified instance.
 

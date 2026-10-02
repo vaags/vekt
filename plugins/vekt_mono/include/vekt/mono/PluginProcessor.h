@@ -96,7 +96,7 @@ public:
 	[[nodiscard]] float getLfoDisplayRate(std::size_t index) const noexcept { return lfoDisplayRates[index].load(std::memory_order_relaxed); }
 	// Sounding voices (including release tails) after the latest block. Safe from any thread; for display.
 	[[nodiscard]] int getSoundingVoiceDisplay() const noexcept { return soundingVoiceDisplay.load(std::memory_order_relaxed); }
-	// Highest mod wheel or aftertouch amount currently applied (0..1). For display only.
+	// Highest mod wheel, aftertouch or Vibrato Amount currently applied (0..1). For display only.
 	[[nodiscard]] float getVibratoControlDisplay() const noexcept { return vibratoControlDisplay.load(std::memory_order_relaxed); }
 
 private:

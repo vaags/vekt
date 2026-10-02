@@ -6,6 +6,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <iomanip>
@@ -298,12 +299,27 @@ TEST_CASE("Capture today's project state for every product", "[.capture-state]")
 		INFO(product.name << " does not round-trip; not freezing a lossy state:" << joined(lost));
 		REQUIRE(lost.empty());
 
+		// A product whose state has not changed since its newest fixture gains nothing from a copy of it.
+		const auto expectation = formatExpectation(*restored, product);
+		if (const auto frozen = filesWithExtension(stateDirectory(product), ".state"); !frozen.empty())
+		{
+			const auto newest = newestFixture(frozen);
+			const auto frozenBytes = readBytes(newest);
+			const auto frozenExpectation = readBytes(std::filesystem::path(newest).replace_extension(".expected"));
+			const auto* data = static_cast<const char*>(bytes.getData());
+			if (std::equal(frozenBytes.begin(), frozenBytes.end(), data, data + bytes.getSize())
+				&& std::equal(frozenExpectation.begin(), frozenExpectation.end(), expectation.begin(), expectation.end()))
+			{
+				std::cout << "Unchanged since " << newest.string() << "; not freezing " << product.name << "\n";
+				continue;
+			}
+		}
+
 		// Fixtures are permanent: never overwrite one, add another.
 		auto stem = stateDirectory(product) / today();
 		for (auto suffix = 2; std::filesystem::exists(std::filesystem::path(stem).replace_extension(".state")); ++suffix)
 			stem = stateDirectory(product) / (today() + "-" + std::to_string(suffix));
 		writeBytes(std::filesystem::path(stem).replace_extension(".state"), bytes.getData(), bytes.getSize());
-		const auto expectation = formatExpectation(*restored, product);
 		writeBytes(std::filesystem::path(stem).replace_extension(".expected"), expectation.data(), expectation.size());
 		std::cout << "Froze " << stem.string() << ".state\n";
 	}

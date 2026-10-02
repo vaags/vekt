@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -379,6 +380,67 @@ TEST_CASE("Mono reset all controllers returns the vibrato controls to rest", "[m
 	reset.addEvent(juce::MidiMessage::controllerEvent(3, 121, 0), 0);
 	processor.processBlock(block, reset);
 	REQUIRE(processor.getVibratoControlDisplay() == 0.0f);
+}
+
+TEST_CASE("Mono vibrato amount plays the vibrato like a full mod wheel without MIDI controllers", "[mono][vibrato]")
+{
+	const auto render = [](float amount, std::vector<std::pair<juce::MidiMessage, int>> events)
+	{
+		vekt::mono::PluginProcessor processor;
+		initializeSine(processor);
+		setParameter(processor, parameters::vibratoRate, 7.0f);
+		setParameter(processor, parameters::vibratoDepth, 100.0f);
+		setParameter(processor, parameters::vibratoAmount, amount);
+		events.emplace_back(juce::MidiMessage::noteOn(1, 69, 0.8f), 0);
+		auto output = renderEvents(processor, 14'400, events);
+		return std::pair { output, processor.getVibratoControlDisplay() };
+	};
+	const auto [wheel, wheelDisplay] = render(0.0f, { { juce::MidiMessage::controllerEvent(1, 1, 127), 0 } });
+	const auto [screen, screenDisplay] = render(100.0f, {});
+	REQUIRE(identical(wheel, screen));
+	REQUIRE(screenDisplay == Catch::Approx(1.0f));
+	const auto [dry, dryDisplay] = render(0.0f, {});
+	REQUIRE_FALSE(identical(dry, screen));
+	REQUIRE(dryDisplay == 0.0f);
+	REQUIRE(render(25.0f, {}).second == Catch::Approx(0.25f));
+}
+
+TEST_CASE("Mono vibrato uses the higher of the vibrato amount and the MIDI controllers", "[mono][vibrato][midi]")
+{
+	const auto render = [](float amount, std::vector<std::pair<juce::MidiMessage, int>> events)
+	{
+		vekt::mono::PluginProcessor processor;
+		initializeSine(processor);
+		setParameter(processor, parameters::vibratoRate, 7.0f);
+		setParameter(processor, parameters::vibratoDepth, 100.0f);
+		setParameter(processor, parameters::vibratoAmount, amount);
+		events.emplace_back(juce::MidiMessage::noteOn(1, 69, 0.8f), 0);
+		return renderEvents(processor, 14'400, events);
+	};
+	const auto fullWheel = render(0.0f, { { juce::MidiMessage::controllerEvent(1, 1, 127), 0 } });
+	// A full wheel outweighs a half amount, and a full amount outweighs a half wheel or pressure, on any channel.
+	REQUIRE(identical(fullWheel, render(50.0f, { { juce::MidiMessage::controllerEvent(1, 1, 127), 0 } })));
+	REQUIRE(identical(fullWheel, render(100.0f, { { juce::MidiMessage::controllerEvent(1, 1, 64), 0 } })));
+	REQUIRE(identical(fullWheel, render(100.0f, { { juce::MidiMessage::channelPressureChange(1, 64), 0 } })));
+	const auto halfAmount = render(50.0f, {});
+	REQUIRE_FALSE(identical(fullWheel, halfAmount));
+	REQUIRE(identical(halfAmount, render(50.0f, { { juce::MidiMessage::controllerEvent(1, 1, 32), 0 } })));
+}
+
+TEST_CASE("Mono vibrato amount is kept with the project but not stored in or changed by presets", "[mono][vibrato]")
+{
+	REQUIRE(std::find(parameters::soundParameterIds.begin(), parameters::soundParameterIds.end(),
+		std::string_view { parameters::vibratoAmount }) == parameters::soundParameterIds.end());
+	vekt::mono::PluginProcessor processor;
+	REQUIRE(rawValue(processor, parameters::vibratoAmount) == 0.0f);
+	setParameter(processor, parameters::vibratoAmount, 40.0f);
+	REQUIRE(processor.loadNextPreset().wasOk());
+	REQUIRE(rawValue(processor, parameters::vibratoAmount) == Catch::Approx(40.0f));
+	juce::MemoryBlock state;
+	processor.getStateInformation(state);
+	vekt::mono::PluginProcessor restored;
+	restored.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
+	REQUIRE(rawValue(restored, parameters::vibratoAmount) == Catch::Approx(40.0f));
 }
 
 TEST_CASE("Mono publishes whether an LFO display value is live and each LFO's rate", "[mono][processor][lfo][modulation]")

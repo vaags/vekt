@@ -318,8 +318,12 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 		vibratoPanel.addAndMakeVisible(*label);
 	}
 	vibratoMeter.setName("Vibrato Control");
-	vibratoMeter.setTooltip("Live mod wheel or aftertouch amount, whichever is higher.");
+	vibratoMeter.setTooltip("On-screen mod wheel: drag it, or use the arrow keys (Shift for fine). The vibrato follows it, "
+		"the mod wheel or aftertouch, whichever is higher. Double-click to reset.");
+	vibratoMeter.setPopupDisplayEnabled(true, false, &getContent());
 	vibratoPanel.addAndMakeVisible(vibratoMeter);
+	vibratoAmountAttachment = std::make_unique<SliderAttachment>(pluginProcessor.getParameters(), parameters::vibratoAmount, vibratoMeter);
+	vibratoMeter.setDoubleClickReturnValue(true, 0.0);
 	selectLfo(0);
 	refreshPresetLabel();
 	resized();
@@ -511,7 +515,9 @@ void PluginEditor::resized()
 	vibratoRateControl.setBounds(6, 38, 65, 140);
 	vibratoDepthControl.setBounds(73, 38, 65, 140);
 	vibratoShapeLabel.setBounds(156, 38, 180, 18); vibratoShapeBox.setBounds(156, 58, 180, 28);
-	vibratoMeterLabel.setBounds(156, 112, 180, 18); vibratoMeter.setBounds(156, 134, 180, 12);
+	vibratoMeterLabel.setBounds(156, 112, 180, 18);
+	// The slider insets its travel by its thumb radius (half its height), so the bar itself spans 156-336 like the label.
+	vibratoMeter.setBounds(145, 130, 202, 22);
 	for (std::size_t index = 0; index < lfoTabs.size(); ++index) lfoTabs[index].setBounds(64 + static_cast<int>(index) * 60, 5, 54, 24);
 	for (auto& controls : lfoControls)
 	{

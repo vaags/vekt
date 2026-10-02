@@ -1,3 +1,25 @@
+# Mono on-screen vibrato wheel (2 October 2026)
+
+The Vibrato panel's Wheel / AT bar is an on-screen mod wheel attached to the
+new `vibratoAmount` parameter ("Vibrato Amount", 0-100 %, default 0,
+automatable, appended to the layout). Vibrato follows the highest of the mod
+wheel, channel pressure, poly aftertouch and Vibrato Amount, so at 0 the sound
+is unchanged. The bar drags like a slider (Shift-drag fine, double-click
+resets to 0) and takes keyboard focus (arrow keys 1 %, Shift+arrow 0.1 %). It
+fills to the amount in effect; its handle shows the wheel's own position.
+
+Vibrato Amount is a performance control like the hardware wheel: it is kept
+with the project but is not in `soundParameterIds`, so presets neither store
+nor change it and it does not mark a preset modified. MIDI reset all
+controllers does not reset it. The parameter manifest gained its line and the
+state fixture `state/mono/2026-10-02` was frozen.
+
+Evidence (dev build): `ctest --preset dev -L vibrato` 8/8, `-L compat` 11/11,
+`-L ui` 43/43, `-R '^Mono' -LE slow` 218/218 and the slow "Mono LFOs reach
+every destination" PASS; VektMono Standalone, VST3 and AU build. Listening,
+mouse/keyboard use in the Standalone and host automation/recall are not yet
+checked.
+
 # Mono ladder solver performance (29 September 2026)
 
 Profiling 8 voices with 4x unison (Release, M1 Pro, 48 kHz/128) put ~56% of the
@@ -62,8 +84,8 @@ repeating a note does not repeat it exactly. A playing-state reset (prepare, pre
 load, quality or voice-count change, host stop) restarts each voice's random stream
 from its seed, clears the pink-noise filter and restarts the shared Free-mode LFO
 and vibrato clocks, so the output after a preset load does not depend on what
-played before. Controller positions (mod wheel, pressure, pitch bend) are the
-player's state and survive a load.
+played before. Controller positions (mod wheel, pressure, pitch bend, and the
+on-screen Vibrato Amount) are the player's state and survive a load.
 
 Unison Detune now defaults to 15 cents (labelled in cents). Presets store their
 own detune, but presets using unison get louder (about +3 dB at 2x, +6 dB at 4x)

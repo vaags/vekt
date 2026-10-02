@@ -674,6 +674,34 @@ TEST_CASE("Mono vibrato panel sits beside Performance with its controls and cont
 	auto* depth = dynamic_cast<vekt::ui::RotaryControl*>(find("Vibrato Depth"));
 	depth->getSlider().setValue(80.0, juce::sendNotificationSync);
 	REQUIRE(processor.getParameters().getRawParameterValue(vekt::mono::parameters::vibratoDepth)->load() == Catch::Approx(80.0f));
+	// The controller bar is the on-screen mod wheel: a focusable slider on Vibrato Amount.
+	auto* wheel = dynamic_cast<vekt::mono::VibratoWheel*>(find("Vibrato Control"));
+	REQUIRE(wheel != nullptr);
+	const auto amount = [&] { return processor.getParameters().getRawParameterValue(vekt::mono::parameters::vibratoAmount)->load(); };
+	REQUIRE(wheel->getWantsKeyboardFocus());
+	REQUIRE(wheel->getDoubleClickReturnValue() == 0.0);
+	wheel->setValue(60.0, juce::sendNotificationSync);
+	REQUIRE(amount() == Catch::Approx(60.0f));
+	REQUIRE(wheel->keyPressed(juce::KeyPress(juce::KeyPress::rightKey)));
+	REQUIRE(amount() == Catch::Approx(61.0f));
+	REQUIRE(wheel->keyPressed(juce::KeyPress(juce::KeyPress::leftKey, juce::ModifierKeys::shiftModifier, 0)));
+	REQUIRE(amount() == Catch::Approx(60.9f));
+	// The bar spans the same width as its label above it.
+	REQUIRE(wheel->getPositionOfValue(0.0) == Catch::Approx(156.0 - wheel->getX()));
+	REQUIRE(wheel->getPositionOfValue(100.0) == Catch::Approx(336.0 - wheel->getX()));
+	// Mouse: dragging from the left end to the middle sets half the amount.
+	const auto y = static_cast<float>(wheel->getHeight()) * 0.5f;
+	const auto at = [&](double value) { return juce::Point<float>(static_cast<float>(wheel->getPositionOfValue(value)), y); };
+	auto source = juce::Desktop::getInstance().getMainMouseSource();
+	const auto event = [&](juce::Point<float> position, juce::Point<float> down)
+	{
+		return juce::MouseEvent(source, position, {}, juce::MouseInputSource::defaultPressure, 0.0f, 0.0f, 0.0f, 0.0f,
+			wheel, wheel, juce::Time::getCurrentTime(), down, juce::Time::getCurrentTime(), 1, false);
+	};
+	wheel->mouseDown(event(at(0.0), at(0.0)));
+	wheel->mouseDrag(event(at(50.0), at(0.0)));
+	wheel->mouseUp(event(at(50.0), at(0.0)));
+	REQUIRE(amount() == Catch::Approx(50.0f).margin(1.0f));
 	for (int first = 0; first < vibrato->getNumChildComponents(); ++first)
 		for (int second = first + 1; second < vibrato->getNumChildComponents(); ++second)
 			REQUIRE_FALSE(vibrato->getChildComponent(first)->getBounds().intersects(vibrato->getChildComponent(second)->getBounds()));

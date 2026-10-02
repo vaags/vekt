@@ -469,8 +469,8 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
 	for (std::size_t index = 0; index < frame.values.size(); ++index)
 		frame.values[index] = newest != nullptr ? newest->getLfoOutput(index) : 0.0f;
 	lfoHistory.publish(frame);
-	auto control = std::max(*std::max_element(modWheelByChannel.begin(), modWheelByChannel.end()),
-		*std::max_element(pressureByChannel.begin(), pressureByChannel.end()));
+	auto control = std::max({ *std::max_element(modWheelByChannel.begin(), modWheelByChannel.end()),
+		*std::max_element(pressureByChannel.begin(), pressureByChannel.end()), value(parameters::vibratoAmount) * 0.01f });
 	for (const auto& voice : voices) if (voice->isActive()) control = std::max(control, voice->getPolyPressure());
 	vibratoControlDisplay.store(control, std::memory_order_relaxed);
 	soundingVoiceDisplay.store(getSoundingVoiceCount(), std::memory_order_relaxed);
@@ -645,9 +645,11 @@ void PluginProcessor::render(juce::AudioBuffer<float>& buffer, int start, int co
 	vibratoClock->setRate(value(parameters::vibratoRate));
 	const auto vibratoShape = juce::roundToInt(value(parameters::vibratoShape)) == 1 ? LfoShape::triangle : LfoShape::sine;
 	const auto vibratoDepthSemitones = value(parameters::vibratoDepth) * 0.01f;
+	// The on-screen wheel (Vibrato Amount) plays every channel; the higher of it and each channel's controllers wins.
+	const auto screenWheel = value(parameters::vibratoAmount) * 0.01f;
 	std::array<float, 16> channelControl {};
 	for (std::size_t channel = 0; channel < channelControl.size(); ++channel)
-		channelControl[channel] = std::max(modWheelByChannel[channel], pressureByChannel[channel]);
+		channelControl[channel] = std::max({ modWheelByChannel[channel], pressureByChannel[channel], screenWheel });
 	const auto outputGain = dbToGain(value(parameters::masterOutput));
 	juce::dsp::AudioBlock<float> outputBlock(buffer);
 	auto renderBlock = outputBlock.getSubBlock(static_cast<std::size_t>(start), static_cast<std::size_t>(count));

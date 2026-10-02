@@ -110,6 +110,9 @@ inline constexpr auto vibratoRate = "vibratoRate";
 inline constexpr auto vibratoShape = "vibratoShape";
 inline constexpr auto vibratoDepth = "vibratoDepth";
 inline constexpr std::array vibratoParameterIds { vibratoRate, vibratoShape, vibratoDepth };
+// The on-screen wheel: plays the vibrato like the mod wheel, whichever is higher. A performance control like the
+// hardware wheel, so it is automatable and kept with the project but not stored in presets.
+inline constexpr auto vibratoAmount = "vibratoAmount";
 
 // Performance, oscillators, mixer, filter and envelopes.
 inline constexpr std::array coreSoundParameterIds {

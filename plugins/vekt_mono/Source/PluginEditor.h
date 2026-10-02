@@ -71,10 +71,21 @@ public:
 	}
 };
 
-// Horizontal bar for the live mod wheel / aftertouch amount (0..1).
-class ControlMeter final : public juce::Component, public juce::SettableTooltipClient
+// The on-screen mod wheel, attached to Vibrato Amount (0..100 %): drag it, or focus it and use the arrow keys (Shift
+// for fine steps). The bar fills to the amount in effect, the higher of the wheel and the live mod wheel / aftertouch;
+// the handle shows where the wheel itself sits.
+class VibratoWheel final : public juce::Slider
 {
 public:
+	VibratoWheel()
+	{
+		setSliderStyle(LinearHorizontal);
+		setTextBoxStyle(NoTextBox, true, 0, 0);
+		setWantsKeyboardFocus(true);
+		// Shift-drag moves relative to the press, at a fifth of the speed.
+		setVelocityModeParameters(0.2, 1, 0.0, true, juce::ModifierKeys::shiftModifier);
+	}
+	// The live amount in effect (0..1), from the processor.
 	void setLevel(float newLevel)
 	{
 		if (juce::approximatelyEqual(level, newLevel)) return;
@@ -82,15 +93,34 @@ public:
 		repaint();
 	}
 	[[nodiscard]] float getLevel() const noexcept { return level; }
+	bool keyPressed(const juce::KeyPress& key) override
+	{
+		const auto code = key.getKeyCode();
+		const auto direction = code == juce::KeyPress::rightKey || code == juce::KeyPress::upKey ? 1.0
+			: code == juce::KeyPress::leftKey || code == juce::KeyPress::downKey ? -1.0 : 0.0;
+		const auto modifiers = key.getModifiers();
+		if (direction == 0.0 || modifiers.isCommandDown() || modifiers.isAltDown() || modifiers.isCtrlDown())
+			return Slider::keyPressed(key);
+		setValue(getValue() + direction * (modifiers.isShiftDown() ? 0.1 : 1.0), juce::sendNotificationSync);
+		return true;
+	}
 	void paint(juce::Graphics& graphics) override
 	{
-		const auto bounds = getLocalBounds().toFloat().reduced(0.5f);
+		const auto centreY = static_cast<float>(getHeight()) * 0.5f;
+		const auto left = static_cast<float>(getPositionOfValue(getMinimum()));
+		const auto right = static_cast<float>(getPositionOfValue(getMaximum()));
+		const auto track = juce::Rectangle<float>::leftTopRightBottom(left, centreY - 6.0f, right, centreY + 6.0f).reduced(0.5f);
+		const auto wheel = static_cast<float>(valueToProportionOfLength(getValue()));
 		graphics.setColour(juce::Colour::fromRGB(19, 24, 27));
-		graphics.fillRoundedRectangle(bounds, 3.0f);
+		graphics.fillRoundedRectangle(track, 3.0f);
 		graphics.setColour(juce::Colour::fromRGB(227, 156, 75));
-		graphics.fillRoundedRectangle(bounds.withWidth(bounds.getWidth() * std::clamp(level, 0.0f, 1.0f)), 3.0f);
-		graphics.setColour(juce::Colour::fromRGB(70, 82, 86));
-		graphics.drawRoundedRectangle(bounds, 3.0f, 1.0f);
+		graphics.fillRoundedRectangle(track.withWidth(track.getWidth() * std::clamp(std::max(level, wheel), 0.0f, 1.0f)), 3.0f);
+		const auto focused = hasKeyboardFocus(false);
+		graphics.setColour(focused ? juce::Colour::fromRGB(227, 156, 75) : juce::Colour::fromRGB(70, 82, 86));
+		graphics.drawRoundedRectangle(track, 3.0f, focused ? 2.0f : 1.0f);
+		const auto handle = static_cast<float>(getPositionOfValue(getValue()));
+		graphics.setColour(juce::Colour::fromRGB(224, 226, 220).withMultipliedAlpha(isMouseOverOrDragging() || focused ? 1.0f : 0.8f));
+		graphics.fillRoundedRectangle(juce::Rectangle<float>(handle - 2.5f, centreY - 9.0f, 5.0f, 18.0f), 2.0f);
 	}
 
 private:
@@ -190,7 +220,8 @@ private:
 	juce::ComboBox vibratoShapeBox;
 	std::unique_ptr<ComboBoxAttachment> vibratoShapeAttachment;
 	juce::Label vibratoShapeLabel, vibratoMeterLabel;
-	ControlMeter vibratoMeter;
+	VibratoWheel vibratoMeter;
+	std::unique_ptr<SliderAttachment> vibratoAmountAttachment;
 	std::array<LfoTabButton, 2> lfoTabs;
 	std::array<LfoControls, 2> lfoControls;
 	// Column headers (Pitch, Morph, Width, Level), oscillator rows, then the seven single destinations.
