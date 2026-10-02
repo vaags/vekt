@@ -1,3 +1,19 @@
+# Mono SVF maximum Q 20 (2 October 2026)
+
+The SVF's Resonance now reaches Q 20 instead of Q 8 (ADR 0006, Maximum Q). The
+map is unchanged up to 90 %; only the top 10 % is extended. The SVF still
+cannot self-oscillate. No factory preset uses the SVF.
+
+Evidence (dev build): `ctest --preset dev -L 'svf|switch-gain|filter-type'`
+34/34 PASS after relaxing ADR 0007's K35 − SVF bound to 3 dB at full Resonance
+(it failed at −2.45 dB first; see ADR 0007); `Every Mono reference render still
+sounds the same` PASS (the curve below 90 % did not move); hidden
+`[svf-periodicity-full]` 8,640/8,640 PASS with Q 2–20; hidden
+`[svf-prominence]` and `[svf-q-renders]` run for the ADR figures;
+`./scripts/test.sh --quick` 426/426 PASS; VektMono Standalone builds. Thomas
+auditioned the offline renders and chose Q 20. Not yet checked: listening in
+the real voice (Audio Lab or Standalone) and the full suite including `[slow]`.
+
 # Mono on-screen vibrato wheel (2 October 2026)
 
 The Vibrato panel's Wheel / AT bar is an on-screen mod wheel attached to the

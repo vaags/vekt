@@ -136,7 +136,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	}
 	filterControls[0].getSlider().setTooltip("Cutoff frequency, the same for every filter type. Sweeps exponentially from dark to fully open.");
 	filterControls[1].getSlider().setTooltip("Emphasis. Ladder: a resonant peak with natural bass loss that reaches self-oscillation near maximum. "
-		"SVF: strong resonance up to Q 8 that never self-oscillates and softens as Drive rises. K35: ringing up to Q 100 at 95 %, "
+		"SVF: strong resonance up to Q 20 that never self-oscillates and softens as Drive rises. K35: ringing up to Q 100 at 95 %, "
 		"screaming self-oscillation in the last few percent, held and quenched by the played signal.");
 	filterControls[2].getSlider().setTooltip("Keyboard tracking. At 100%, cutoff rises one octave per keyboard octave.");
 	filterControls[3].getSlider().setTooltip("Unipolar filter contour amount. Applies the filter envelope in octave pitch space.");

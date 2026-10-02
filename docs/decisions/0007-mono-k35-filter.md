@@ -244,6 +244,10 @@ above. The development override now offers only K35 (`DevelopmentFilter::korg35`
   Ladder, RMS dB: Drive 0: -0.7 to +0.9 / means 0 to +1.8 (worst -2.0 and +4.2 at 100 %); +12 dB: -1.1 to -5.1 /
   -1.3 to +5.9; +24 dB: -0.8 to -4.7 / -7.2 to +10.0 (characterized, as for the SVF). Pinned at Drive 0 by
   `[switch-gain]`: within 1.5 dB of the SVF, within 3 dB of the Ladder below full Resonance, under 6 dB everywhere.
+  *Revised 2 October 2026:* the 1.5 dB bound to the SVF applies below full Resonance; at 100 % it is 3 dB. The SVF's
+  maximum Q rose from 8 to 20 (ADR 0006), and at 100 % note 48's 9th harmonic sits near the 1.2 kHz cutoff, so the SVF
+  is now 2.5 dB louder there (K35 - SVF -1.4 / -2.5 dB at notes 36 / 48). At full Resonance the two filters differ by
+  design; matching them would undo the SVF's extension.
 - **DC.** At the output stage (the core driven by a band-limited saw, whole periods): -36 dB re RMS before the
   blocker, numerically zero after it; the blocker is -3 dB at 5 Hz and within 0.3 dB from 20 Hz. Found on the way:
   the shipping Ladder and SVF carry more DC than K35 does in a driven patch (about -18 and -23 to -29 dB re RMS at

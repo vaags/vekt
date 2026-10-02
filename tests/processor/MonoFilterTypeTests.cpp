@@ -494,7 +494,8 @@ TEST_CASE("Mono K35 switching level", "[.][mono-switch-gain-k35]")
 TEST_CASE("Mono K35 switches at a sensible level at Drive 0", "[mono][filter][filter-type][k35][switch-gain]")
 {
 	// ADR 0006's switching policy for K35 against the Ladder (under 6 dB everywhere, within 3 dB below full Resonance),
-	// and within 1.5 dB of the SVF, whose Resonance trim it shares (ADR 0007).
+	// and within 1.5 dB of the SVF, whose Resonance trim it shares, below full Resonance (ADR 0007). At 100 % the two
+	// differ by design (K35 self-oscillates, the SVF reaches Q 20; 2 October 2026), so within 3 dB there.
 	for (const auto resonance : { 0.0f, 0.5f, 0.9f, 1.0f })
 		for (const auto note : { 36, 48 })
 		{
@@ -504,7 +505,7 @@ TEST_CASE("Mono K35 switches at a sensible level at Drive 0", "[mono][filter][fi
 			INFO("Resonance " << resonance << ", note " << note << ": K35 - Ladder " << k35.rms - ladder.rms << " dB, K35 - SVF " << k35.rms - svf.rms << " dB");
 			CHECK(std::abs(k35.rms - ladder.rms) < 6.0);
 			if (resonance < 1.0f) CHECK(std::abs(k35.rms - ladder.rms) <= 3.0);
-			CHECK(std::abs(k35.rms - svf.rms) <= 1.5);
+			CHECK(std::abs(k35.rms - svf.rms) <= (resonance < 1.0f ? 1.5 : 3.0));
 		}
 }
 

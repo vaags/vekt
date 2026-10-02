@@ -343,7 +343,8 @@ Solver correctness and dynamical policy are separate tests.
 beta, then the resonance curve up to Q 8, then Ladder↔SVF switching gain, then
 the Filter Type UI. Q 8 stays as the maximum for instrument reasons, not
 stability: the model is periodic to Q 12, but more Q would compete with the
-Ladder's self-oscillating range instead of differing from it. The Newton
+Ladder's self-oscillating range instead of differing from it. (Revised
+2 October 2026: Q max 20; see Maximum Q.) The Newton
 fallback stays as insurance. The periodicity sentinel runs in the quick
 suite; the full sweep is hidden (`[svf-periodicity-full]`, about 4 min).
 
@@ -409,6 +410,33 @@ less output. At mixer level 1 knee 3 gives about 1 % LP THD at Drive 0 (4:
 0.6 %, 2: about 2 %). Knee 2 was not chosen for switching gain alone: it moves
 the whole SVF 6 dB deeper into saturation. The Audio Lab audition overrides
 for beta, p and knee have been removed.
+
+**Maximum Q (2 October 2026):** Q max rises from 8 to 20 (`svfMaximumQ`); the
+SVF still cannot self-oscillate. `svfDamping` keeps the 29 September law
+`k = 2 − 1.875 √r` exactly up to Resonance 90 % (Q 4.5), then lowers k by a
+smoothstep from 0.125 to 1/20 over the top 10 % (Q about 7.4 at 95 %, 13 at
+98 %), monotonic with no slope step at the join. Reasons: the Q 8 cap was an
+instrument choice, not a stability limit, and K35 has since joined the Ladder
+in self-oscillating at the top of its knob. The SEM, the SVF's model family,
+also has almost no damping at small signals at full resonance; its diode
+network adds damping as the band-pass level grows, as `psi(B)` does here, so
+Q mostly lengthens the ring of quiet signals and of harmonics on the cutoff.
+- *Periodicity:* the full sweep (`[svf-periodicity-full]`, now Q 2/4/8/12/16/20,
+  48 and 192 kHz) has 0 of 8,640 cases persistent.
+- *Audition* (`[svf-q-renders]`, hidden; Q 8/12/16/20 at Resonance 95/100 %,
+  Drive 0/+12/+24 dB, sweeps and plucks, against the Ladder): differences are
+  modest. Q 8 → 20 at 100 %, Drive 0: sweep RMS +1.9 dB and peak +3.8 dB; a
+  pluck with the cutoff on a harmonic +4.2 dB RMS, a filter-envelope pluck
+  +1.7 dB, between harmonics +0.9 dB. Thomas chose Q 20 by listening for the
+  wider range.
+- *Prominence at 100 %* (`[svf-prominence]`, beta 0.5, level 1): 16.7 dB at
+  Drive 0 falling to 9.7 dB at +24 dB, against about 14 → 7 dB at Q 8.
+- *Switching level at Drive 0:* SVF − Ladder stays within 2.2 dB at 100 %.
+  K35 − SVF is −1.4 / −2.5 dB there (notes 36 / 48; note 48's 9th harmonic sits
+  near the 1.2 kHz cutoff), so ADR 0007's 1.5 dB bound now applies below full
+  Resonance and is 3 dB at 100 %.
+- *Decay:* the zero-input decay tests pass at Q 20; at the 2.5 Hz floor the
+  tail's time constant is about 2.5 s, so that test runs 7.5 s.
 
 **Switching gain (29 September 2026):** the trim follows 80 % of the Ladder's
 `1/(1+4r)` passband loss in dB, leaving the SVF slightly more open. Measured

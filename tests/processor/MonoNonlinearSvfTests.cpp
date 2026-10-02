@@ -1,4 +1,6 @@
+#include "FilterPrototypeSupport.h"
 #include "LinearTptSvf.h"
+#include "NonlinearTptLadder.h"
 #include "NonlinearTptSvf.h"
 #include "SvfResponse.h"
 
@@ -260,8 +262,8 @@ TEST_CASE("Mono nonlinear SVF decays to silence at maximum Resonance and Drive u
 
 TEST_CASE("Mono nonlinear SVF still decays at the lowest cutoff and highest effective rate", "[mono][filter][svf][svf-nonlinear]")
 {
-	// The 2.5 Hz floor at 192 kHz x8, where g is smallest: the envelope time constant is Q / (pi fc), about 1 s at
-	// Q 8, so three seconds of tail should shed well over 90 % of its peak, without solver failures.
+	// The 2.5 Hz floor at 192 kHz x8, where g is smallest: the envelope time constant is Q / (pi fc), about 2.5 s at
+	// Q 20, so 7.5 seconds of tail should shed well over 90 % of its peak, without solver failures.
 	constexpr double sampleRate = 192'000.0 * 8.0;
 	NonlinearTptSvf svf;
 	svf.prepare(sampleRate);
@@ -271,7 +273,7 @@ TEST_CASE("Mono nonlinear SVF still decays at the lowest cutoff and highest effe
 	for (long sample = 0; sample < static_cast<long>(0.1 * sampleRate); ++sample) juce::ignoreUnused(svf.process(noise(random), settings));
 	const auto window = static_cast<long>(0.05 * sampleRate);
 	double firstPeak {}, lastPeak {};
-	const auto tail = static_cast<long>(3.0 * sampleRate);
+	const auto tail = static_cast<long>(7.5 * sampleRate);
 	for (long sample = 0; sample < tail; ++sample)
 	{
 		const auto out = svf.process(0.0, settings);
@@ -305,7 +307,7 @@ TEST_CASE("Mono nonlinear SVF output stays periodic with periodic input across t
 	// The full sweep: attractors show up in windows about 2 dB wide, so the level relative to the knee is swept in
 	// 1/24-decade steps from 0.05 to about 16 (past full input saturation), not in 6 dB Drive steps.
 	for (const auto sampleRate : { 48'000.0, 192'000.0 })
-		for (const auto q : { 2.0, 4.0, 1.0 / vekt::mono::svfDamping(1.0), 12.0 })
+		for (const auto q : { 2.0, 4.0, 8.0, 12.0, 16.0, 1.0 / vekt::mono::svfDamping(1.0) })
 			for (const auto ratio : { 1.0 / 3.0, 0.5, 1.0, 2.0 })
 				for (const auto wave : { Wave::sine, Wave::saw, Wave::square })
 					for (int step = 0; step < 60; ++step)
@@ -424,5 +426,133 @@ TEST_CASE("Mono nonlinear SVF resonance prominence", "[.][svf-prominence]")
 					<< decibels(peak.gain / u) << " / " << juce::String(100.0 * std::sqrt(peak.harmonicShare), 1) << " | "
 					<< decibels(peak.gain / passband.gain) << "\n";
 			}
+	}
+}
+
+// Development audition, hidden: candidate SVF maximum Q (ADR 0006). The Resonance map keeps the 29 September law to 90 %
+// and smoothsteps k from 0.125 to 1 / maximumQ over the top 10 %, as svfDamping does with svfMaximumQ; maximum Q 8 is
+// the earlier map. With VEKT_MONO_DUMP set,
+// writes 96 kHz mono WAVs to svf-q/fixed-gain and svf-q/rms-matched: an A2 saw at mixer level 1 through the
+// filter-envelope sweep (150 Hz -> 6 kHz -> 150 Hz) at Resonance 90 / 95 / 100 % and Drive 0 / +12 / +24 dB, the
+// Ladder at the same settings for reference, and plucks at Resonance 100 % (0.15 s notes every 0.6 s): with the
+// cutoff fixed between harmonics (600 Hz) and on the 6th (660 Hz), where Q decides the ring, and with a filter-envelope
+// pluck (cutoff 4 kHz falling to 150 Hz, time constant 0.1 s), each at Drive 0 and +12 dB. SVF output is trimmed as in
+// the voice (svfOutputTrim); the Ladder is raw.
+TEST_CASE("Mono SVF maximum Q audition renders", "[.][svf-q-renders]")
+{
+	using namespace vekt::test::filter_prototype;
+	const auto* directory = std::getenv("VEKT_MONO_DUMP");
+	REQUIRE(directory != nullptr);
+	const auto folder = juce::File(directory).getChildFile("svf-q");
+	const auto fixedFolder = folder.getChildFile("fixed-gain"), matchedFolder = folder.getChildFile("rms-matched");
+	for (const auto& old : { fixedFolder, matchedFolder })
+		for (const auto& file : old.findChildFiles(juce::File::findFiles, false, "*.wav")) file.deleteFile();
+	REQUIRE(fixedFolder.createDirectory().wasOk());
+	REQUIRE(matchedFolder.createDirectory().wasOk());
+	constexpr double sampleRate = 96'000.0, note = 110.0;
+	const auto damping = [](double resonance, double maximumQ)
+	{
+		const auto r = std::clamp(resonance, 0.0, 1.0);
+		const auto t = std::clamp((r - 0.9) / 0.1, 0.0, 1.0);
+		return 2.0 - 1.875 * std::pow(r, vekt::mono::svfResonanceShape) - (0.125 - 1.0 / maximumQ) * t * t * (3.0 - 2.0 * t);
+	};
+	// At the shipping maximum this is the production map.
+	for (int step = 0; step <= 100; ++step)
+		REQUIRE(std::abs(damping(step / 100.0, vekt::mono::svfMaximumQ) - vekt::mono::svfDamping(step / 100.0)) < 1.0e-15);
+	const auto sweepCutoff = [](double t)
+	{
+		const auto position = t < 2.0 ? t / 2.0 : std::max(0.0, 1.0 - (t - 2.0) / 2.0);
+		return 150.0 * std::pow(40.0, position);
+	};
+	enum class Kind { svfSweep, ladderSweep, svfPluck, ladderPluck };
+	struct Render
+	{
+		std::string name;
+		Kind kind {};
+		double resonance {}, driveDb {}, maximumQ {};
+		double pluckCutoff {}; // fixed pluck cutoff in Hz; 0 for the filter-envelope pluck
+	};
+	const auto percent = [](double value) { return std::to_string(static_cast<int>(std::lround(value * 100.0))); };
+	const auto whole = [](double value) { return std::to_string(static_cast<int>(value)); };
+	std::vector<Render> renders;
+	for (const auto resonance : { 0.9, 0.95, 1.0 })
+		for (const auto db : { 0.0, 12.0, 24.0 })
+		{
+			// At 90 % every candidate is the current map: render it once.
+			for (const auto q : resonance <= 0.9 ? std::vector { 8.0 } : std::vector { 8.0, 12.0, 16.0, 20.0 })
+				renders.push_back({ "svf-q" + whole(q) + "-sweep-res" + percent(resonance) + "-drive" + whole(db), Kind::svfSweep, resonance, db, q });
+			renders.push_back({ "ladder-sweep-res" + percent(resonance) + "-drive" + whole(db), Kind::ladderSweep, resonance, db, 0.0 });
+		}
+	for (const auto& [pluckName, pluckCutoff] : { std::pair { std::string("between"), 600.0 }, std::pair { std::string("onharmonic"), 660.0 },
+		std::pair { std::string("envelope"), 0.0 } })
+		for (const auto db : { 0.0, 12.0 })
+		{
+			const auto suffix = "-pluck-" + pluckName + "-res100-drive" + whole(db);
+			for (const auto q : { 8.0, 12.0, 16.0, 20.0 })
+				renders.push_back({ "svf-q" + whole(q) + suffix, Kind::svfPluck, 1.0, db, q, pluckCutoff });
+			renders.push_back({ "ladder" + suffix, Kind::ladderPluck, 1.0, db, 0.0, pluckCutoff });
+		}
+	const auto outputs = parallelMap(renders.size(), [&](std::size_t index)
+	{
+		const auto& render = renders[index];
+		const auto pluck = render.kind == Kind::svfPluck || render.kind == Kind::ladderPluck;
+		const auto ladder = render.kind == Kind::ladderSweep || render.kind == Kind::ladderPluck;
+		AdditiveSaw saw { note, sampleRate };
+		NonlinearTptSvf svf;
+		vekt::mono::NonlinearTptLadder ladderFilter;
+		svf.prepare(sampleRate);
+		ladderFilter.prepare(sampleRate);
+		NonlinearTptSvfSettings svfSettings { render.pluckCutoff > 0.0 ? render.pluckCutoff : 600.0, ladder ? 2.0 : damping(render.resonance, render.maximumQ), render.driveDb,
+			vekt::mono::svfKnee, vekt::mono::svfDampingCurve };
+		vekt::mono::NonlinearTptLadderSettings ladderSettings { static_cast<float>(svfSettings.cutoffHz), static_cast<float>(render.resonance),
+			static_cast<float>(render.driveDb) };
+		const auto trim = vekt::mono::svfOutputTrim(render.resonance);
+		const auto length = static_cast<long>((pluck ? 4.8 : 4.5) * sampleRate);
+		std::vector<float> out;
+		out.reserve(static_cast<std::size_t>(length));
+		for (long sample = 0; sample < length; ++sample)
+		{
+			const auto time = static_cast<double>(sample) / sampleRate;
+			auto x = saw.next();
+			if (pluck)
+			{
+				// 0.15 s notes every 0.6 s with 2 ms edges, so the tails are the filter's, not a click.
+				const auto position = std::fmod(time, 0.6);
+				x *= std::clamp(std::min(position, 0.15 - position) / 0.002, 0.0, 1.0);
+				if (render.pluckCutoff <= 0.0)
+				{
+					svfSettings.cutoffHz = 150.0 + 3'850.0 * std::exp(-position / 0.1);
+					ladderSettings.cutoffHz = static_cast<float>(svfSettings.cutoffHz);
+				}
+			}
+			else
+			{
+				svfSettings.cutoffHz = sweepCutoff(time);
+				ladderSettings.cutoffHz = static_cast<float>(svfSettings.cutoffHz);
+			}
+			const auto y = ladder ? static_cast<double>(ladderFilter.processCoupled(static_cast<float>(x), ladderSettings))
+				: trim * svf.process(x, svfSettings).lowPass;
+			out.push_back(static_cast<float>(y));
+		}
+		CHECK(svf.diagnostics().unconvergedSamples == 0);
+		CHECK(svf.diagnostics().nonFiniteSamples == 0);
+		CHECK(ladderFilter.diagnostics().unconvergedSamples == 0);
+		return out;
+	});
+	double peak {};
+	for (const auto& out : outputs)
+		for (const auto sample : out) peak = std::max(peak, static_cast<double>(std::abs(sample)));
+	REQUIRE(peak > 0.0);
+	const auto fixedGain = std::pow(10.0, -1.0 / 20.0) / peak;
+	std::cout << "\nfixed gain " << dB(fixedGain) << " dB; file | RMS / peak in the fixed-gain set (dBFS)\n";
+	for (std::size_t index = 0; index < renders.size(); ++index)
+	{
+		INFO(renders[index].name);
+		REQUIRE(rmsOf(outputs[index]) > 0.0);
+		writeWav(fixedFolder.getChildFile(renders[index].name + ".wav"), outputs[index], fixedGain, sampleRate);
+		writeWav(matchedFolder.getChildFile(renders[index].name + ".wav"), outputs[index], 0.1 / rmsOf(outputs[index]), sampleRate);
+		double renderPeak {};
+		for (const auto sample : outputs[index]) renderPeak = std::max(renderPeak, static_cast<double>(std::abs(sample)));
+		std::cout << renders[index].name << " | " << dB(fixedGain * rmsOf(outputs[index])) << " / " << dB(fixedGain * renderPeak) << "\n";
 	}
 }

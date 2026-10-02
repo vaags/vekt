@@ -266,14 +266,15 @@ TEST_CASE("Mono SVF Mode sweep keeps both passbands and deepens to the notch", "
 
 TEST_CASE("Mono SVF Resonance shapes keep both ends and only raise Q", "[mono][filter][svf][svf-mode]")
 {
+	const auto top = 1.0 / vekt::mono::svfMaximumQ;
 	for (const auto shape : { 1.0, 0.7, 0.5, 0.35 })
 	{
 		INFO("shape " << shape);
 		REQUIRE(vekt::mono::svfDamping(0.0, shape) == 2.0);
-		REQUIRE(std::abs(vekt::mono::svfDamping(1.0, shape) - 0.125) < 1.0e-15);
+		REQUIRE(std::abs(vekt::mono::svfDamping(1.0, shape) - top) < 1.0e-15);
 		// Out of range holds the ends, like the rest of the Resonance path.
 		REQUIRE(vekt::mono::svfDamping(-0.5, shape) == 2.0);
-		REQUIRE(std::abs(vekt::mono::svfDamping(1.5, shape) - 0.125) < 1.0e-15);
+		REQUIRE(std::abs(vekt::mono::svfDamping(1.5, shape) - top) < 1.0e-15);
 		auto previous = vekt::mono::svfDamping(0.0, shape);
 		for (int step = 1; step <= 1'000; ++step)
 		{
@@ -284,14 +285,24 @@ TEST_CASE("Mono SVF Resonance shapes keep both ends and only raise Q", "[mono][f
 			previous = k;
 		}
 	}
-	// Shape 1 is exactly the linear-in-k map; the locked shape is 0.5.
-	for (int step = 0; step <= 100; ++step)
+	// Up to the extension, shape 1 is exactly the linear-in-k map and the locked shape 0.5 exactly its law.
+	const auto bits = [](double value) { return std::bit_cast<std::uint64_t>(value); };
+	for (int step = 0; step <= 90; ++step)
 	{
-		const auto bits = [](double value) { return std::bit_cast<std::uint64_t>(value); };
-		REQUIRE(bits(vekt::mono::svfDamping(step / 100.0, 1.0)) == bits(2.0 - 1.875 * (step / 100.0)));
+		const auto r = step / 100.0;
+		REQUIRE(bits(vekt::mono::svfDamping(r, 1.0)) == bits(2.0 - 1.875 * r));
+		REQUIRE(bits(vekt::mono::svfDamping(r)) == bits(2.0 - 1.875 * std::pow(r, 0.5)));
 	}
 	REQUIRE(vekt::mono::svfResonanceShape == 0.5);
+	REQUIRE(bits(vekt::mono::svfExtensionStart) == bits(0.9));
 	REQUIRE(std::abs(1.0 / vekt::mono::svfDamping(0.5) - 1.48) < 0.01);
+	REQUIRE(std::abs(1.0 / vekt::mono::svfDamping(0.9) - 4.52) < 0.01);
+	REQUIRE(std::abs(1.0 / vekt::mono::svfDamping(1.0) - 20.0) < 1.0e-12);
+	// The top extension joins without a slope step: one-sided slopes at 90 % agree to first order.
+	constexpr double h = 1.0e-6;
+	const auto below = (vekt::mono::svfDamping(0.9) - vekt::mono::svfDamping(0.9 - h)) / h;
+	const auto above = (vekt::mono::svfDamping(0.9 + h) - vekt::mono::svfDamping(0.9)) / h;
+	REQUIRE(std::abs(above - below) < 1.0e-3 * std::abs(below));
 }
 
 TEST_CASE("Mono SVF output trim follows most of the Ladder's passband loss", "[mono][filter][svf][switch-gain]")
