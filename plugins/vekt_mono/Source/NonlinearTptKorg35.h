@@ -30,6 +30,14 @@ namespace vekt::mono
 // Below threshold the incremental dynamics in w = dU2, v = dU1 + 4/3 dU2 are exactly
 //   w' = w0 ((c - 7/3) w + v),   v' = -w0 w,   c = rho h'(U2) in [rho / G, rho],
 // a damped oscillator whose damping 7/3 - c stays positive for rho < 7/3, so forced trajectories converge.
+//
+// Mode's high-pass (ADR 0007) is how the MS-20 makes its high-pass from the same circuit (Stinchcombe, section 7): the
+// input goes into the lifted ground end of C2 instead of the low-pass input. highPass = b feeds x_lp = (1 - b) x and
+// x_hp = b x; C2's state becomes W = U2 - x_hp, W' = w0 (v - U2). Small-signal,
+//   y = [x_lp + (p^2 + 4/3 p) x_hp] / (p^2 + (7/3 - rho) p + 1),
+// so b = 1 is a 6 dB/oct high-pass with the same poles (same resonance and threshold), and b = 1/2 is the full signal
+// at -6 dB plus a resonant bell (flat at rho = 1). Per sample this is the low-pass solve with s2 + x_hp in place of s2,
+// so the residual, its unique root and the solver are unchanged.
 struct NonlinearTptKorg35Settings
 {
 	double cutoffHz { 1'000.0 };
@@ -37,6 +45,7 @@ struct NonlinearTptKorg35Settings
 	double driveDecibels {};
 	double knee { 1.0 };       // K: the output level where the diodes take over
 	double stageGain { 58.0 }; // G: small-signal over large-signal gain of the diode stage
+	double highPass {};        // b in [0, 1]: share of the driven input fed into C2 (the high-pass) rather than the LP input
 	bool linear {};            // h(u) = u: the linear reference, development only
 };
 
@@ -211,13 +220,13 @@ public:
 		secondState = second;
 	}
 
-	// The LP output y = h(U2).
+	// The output y = h(U2).
 	[[nodiscard]] double process(double input, const NonlinearTptKorg35Settings& settings) noexcept
 	{
 		const auto sample = begin(input, settings, nullptr);
 		if (settings.linear) return finish(sample, nullptr, 0.0);
 		NonlinearTptKorg35Newton newton;
-		newton.start(firstState, secondState, sample.g, sample.feedback, sample.driven, sample.knee, sample.gain, sample.linearDifference);
+		newton.start(firstState, sample.base, sample.g, sample.feedback, sample.driven, sample.knee, sample.gain, sample.linearDifference);
 		while (!newton.done) newton.advance(std::tanh(newton.argument()));
 		return finish(sample, &newton.solution, newton.stageValue);
 	}
@@ -268,7 +277,8 @@ private:
 	// One sample's coefficients and linear seed, before the solve.
 	struct Sample
 	{
-		double cutoff {}, g {}, feedback {}, knee {}, gain {}, driven {}, linearDifference {};
+		// driven: the low-pass input x_lp; high: the high-pass input x_hp; base: s2 + x_hp, the solve's second state.
+		double cutoff {}, g {}, feedback {}, knee {}, gain {}, driven {}, high {}, base {}, linearDifference {};
 	};
 
 	// shared: the same sample's coefficients from a filter at the same rate with the same settings (a voice's unison
@@ -281,8 +291,13 @@ private:
 		sample.feedback = std::clamp(settings.feedback, 0.0, nonlinearTptKorg35MaximumFeedback);
 		sample.knee = std::max(1.0e-3, settings.knee);
 		sample.gain = std::max(1.0, settings.stageGain);
-		sample.driven = input * driveGainFor(settings.driveDecibels);
-		sample.linearDifference = nonlinearTptKorg35LinearDifference(firstState, secondState, sample.g, sample.feedback, sample.driven);
+		const auto driven = input * driveGainFor(settings.driveDecibels);
+		const auto blend = std::clamp(settings.highPass, 0.0, 1.0);
+		// At b = 0 exactly the low-pass arithmetic, so a plain low-pass renders the same bits.
+		sample.driven = blend > 0.0 ? (1.0 - blend) * driven : driven;
+		sample.high = blend > 0.0 ? blend * driven : 0.0;
+		sample.base = blend > 0.0 ? secondState + sample.high : secondState;
+		sample.linearDifference = nonlinearTptKorg35LinearDifference(firstState, sample.base, sample.g, sample.feedback, sample.driven);
 		return sample;
 	}
 
@@ -301,7 +316,7 @@ private:
 			if (!solution->converged) ++diagnosticsState.unconvergedSamples;
 			difference = solution->difference;
 		}
-		const auto second = secondState + sample.g * difference;
+		const auto second = sample.base + sample.g * difference;
 		const auto output = solution == nullptr ? second : stageValue;
 		const auto first = second + difference - sample.feedback * output;
 		if (!std::isfinite(difference) || !std::isfinite(output) || !std::isfinite(first))
@@ -312,7 +327,7 @@ private:
 		}
 		// The trapezoidal state update, once, from the solved states: s <- 2 y - s.
 		firstState = 2.0 * first - firstState;
-		secondState = 2.0 * second - secondState;
+		secondState = 2.0 * (sample.high != 0.0 ? second - sample.high : second) - secondState;
 		return output;
 	}
 
@@ -332,7 +347,7 @@ private:
 			auto& filter = *filters[lane];
 			samples[lane] = filter.begin(inputs[lane], *settings[lane], shared);
 			const auto& sample = samples[lane];
-			newtons[lane].start(filter.firstState, filter.secondState, sample.g, sample.feedback, sample.driven, sample.knee, sample.gain,
+			newtons[lane].start(filter.firstState, sample.base, sample.g, sample.feedback, sample.driven, sample.knee, sample.gain,
 				sample.linearDifference);
 		}
 		for (;;)

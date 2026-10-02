@@ -1,3 +1,16 @@
+# Mono K35 Mode: MS-20 high-pass input (2 October 2026)
+
+K35's Mode is enabled: it moves the input from the low-pass input to the MS-20's 6 dB/oct high-pass input (C2), with
+the full sound plus a resonant bell halfway (ADR 0007, Mode). Chosen by Thomas in an Audio Lab audition over a series
+band-pass crossfade and a spread HP→LP pair. At Mode −1 K35 is bit-identical to before. No factory preset uses K35.
+
+Evidence (dev build): scratch K35 dump at highPass 0 byte-identical to the previous core at -O0/-O3;
+`ctest --preset dev -L 'k35|filter-type|switch-gain|ui|svf-mode'` 75/75 PASS; `Every Mono reference render still
+sounds the same` PASS; `./scripts/test.sh --quick` 429/429 PASS; VektMono Standalone, VST3 and AU build. Thomas's
+listening was on the audition implementation (same equations and Mode mapping; the shipping core shares tanh across
+lanes, about 2 ulp apart); a listen in the shipping build is still open. Known gap: at Mode +1 K35 is up to 4.6 dB RMS above the SVF's high-pass and 6.6–16 dB above the
+Ladder's (characterised, bounded at 6 dB from the SVF); a cross-filter Notch/HP level policy is the next piece of work.
+
 # Mono SVF maximum Q 20 (2 October 2026)
 
 The SVF's Resonance now reaches Q 20 instead of Q 8 (ADR 0006, Maximum Q). The

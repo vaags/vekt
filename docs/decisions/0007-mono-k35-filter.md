@@ -81,7 +81,9 @@ limiter on a state inside the loop did not reintroduce the SVF's frequency-divis
   threshold, which is crossed at 95.9 %: only the top 4 % of the knob self-oscillates. The joins are rounded by cubic
   Hermite blends (in log 1/Q around 80 %, in rho around 95 %) with harmonic-mean knot slopes, so the map is monotonic
   and C1. Chosen by listening: at 2.2-2.3 the top did not scream enough.
-- **Low-pass only.** Mode and Q Comp do not apply to K35 and are disabled for it rather than given new meanings.
+- **Mode: low-pass to the MS-20 high-pass** (revised 2 October 2026; it was low-pass only, with Mode disabled). Mode
+  moves the input from the low-pass input to the MS-20's high-pass input; see Mode below. Q Comp does not apply to K35
+  and stays disabled.
 - **Output stage:** K35's Resonance trim `korg35OutputTrim`, (1 + 4 r)^-0.8 (see Progress), then the voice's
   filter-output DC blocker, 5 Hz first order (see Validation, DC). Until ADR 0008 the blocker was K35's own, before
   the trim; it is now common to all three filters. Both act on the output only; the loop feeds back the limiter
@@ -361,3 +363,26 @@ offset-matched symmetric control. Every sample differs, but little: the level-ma
 in the same frequencies as the resonant ringing that masks it. In a blind A/B (dynamic 200 % against the control) the
 pairs were indistinguishable. The mechanism is real but inaudible in this filter: closed, not to be revisited. (The
 revisit's temporary render test was removed with it.)
+
+**Mode (2 October 2026).** K35's Mode now feeds the MS-20's high-pass input: `highPass` b = (Mode + 1) / 2 splits the
+driven input into x_lp = (1 − b) x at the low-pass input and x_hp = b x at the lifted ground end of C2, which is how the
+MS-20 builds its high-pass from the same Korg35 circuit (Stinchcombe, section 7: grounding the LP input and driving C2
+gives a 6 dB/oct high-pass, not 12). With C2's state W = U2 − x_hp the per-sample equation is the low-pass solve with
+s2 + x_hp in place of s2, so the residual, its unique root, the bracket and the batched lanes are unchanged.
+Small-signal, `y = [x_lp + (p² + 4/3 p) x_hp] / (p² + (7/3 − ρ) p + 1)`: Mode +1 is a 6 dB/oct high-pass with the
+low-pass's poles (same resonance and self-oscillation threshold); Mode 0 is the full signal at −6 dB with a resonant
+bell at the cutoff (flat at ρ = 1, a shallow dip below it). The MS-20 itself never blends the two inputs: its HPF and
+LPF are separate circuits in series, each with its own cutoff, which one Cutoff cannot reproduce.
+- *Candidates, auditioned in Audio Lab and offline:* this input blend; a crossfade LP → series HP→LP band-pass → HP;
+  and HP→LP in series with Mode spreading their cutoffs (the MS-20's two cutoff knobs folded into one). Thomas chose the
+  blend by listening. The audition selector, its header and its render test were removed.
+- *Low-pass unchanged:* at b = 0 the arithmetic is the previous K35's; a scratch dump of scalar and 1–5 batched lanes
+  (shared, own and mixed-rate settings, hostile controls) at -O0 and -O3 was bit-identical, and the `mono/k35`
+  reference render passes.
+- *Tests:* `[k35-highpass]` checks the small-signal high-pass (6 dB/oct below the cutoff, unity above) and the half
+  blend's flat −6 dB at ρ = 1; the hostile-solver, contraction and batched-lane tests now cover b = 0.5 and 1; K35's
+  Mode sweep is click-free; hostile modulation sweeps Mode by LFO.
+- *Level, characterised:* at Mode +1, Drive 0 (1.2 kHz, notes 36 / 48, RMS) K35's high-pass is +0.2 to +4.6 dB above
+  the SVF's, since its 6 dB/oct slope keeps more of a note's low harmonics, and 6.6 to 16 dB above the Ladder's, whose
+  high-pass is far quieter at high Resonance (the SVF's is 2.5 to 13 dB above it too). Bounded at 6 dB from the SVF
+  (`[switch-gain]`) pending a cross-filter level policy for Notch/HP; the Ladder is reported, not bounded.

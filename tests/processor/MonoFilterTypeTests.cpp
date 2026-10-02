@@ -214,13 +214,16 @@ TEST_CASE("Mono filter type switches under a held note without a click", "[mono]
 	}
 }
 
-TEST_CASE("Mono SVF Mode sweeps smoothly and changes the held sound", "[mono][filter][filter-type][svf-mode]")
+namespace
 {
-	// The SVF reads the same smoothed Mode as the ladder: a Mode change ramps from the previous response.
+// SVF and K35 read the same smoothed Mode as the ladder: a Mode change ramps from the previous response, then the held
+// sound has changed substantially.
+void checkModeSweep(float filterType)
+{
 	vekt::mono::PluginProcessor lowPass, swept;
 	for (auto* processor : { &lowPass, &swept })
 	{
-		setParameter(*processor, parameters::filterType, 1.0f);
+		setParameter(*processor, parameters::filterType, filterType);
 		setParameter(*processor, parameters::filterCutoff, 800.0f);
 		setParameter(*processor, parameters::filterResonance, 60.0f);
 		processor->prepareToPlay(48'000.0, 512);
@@ -257,6 +260,11 @@ TEST_CASE("Mono SVF Mode sweeps smoothly and changes the held sound", "[mono][fi
 		}
 	}
 }
+}
+
+TEST_CASE("Mono SVF Mode sweeps smoothly and changes the held sound", "[mono][filter][filter-type][svf-mode]") { checkModeSweep(1.0f); }
+
+TEST_CASE("Mono K35 Mode sweeps smoothly and changes the held sound", "[mono][filter][filter-type][k35]") { checkModeSweep(2.0f); }
 
 // Development audition, hidden from normal runs: with VEKT_MONO_DUMP set to a directory, renders a held A2 saw with a
 // slow filter-envelope sweep at full Resonance through Ladder and SVF at Drive 0, +12 and +24 dB, as 32-bit float
@@ -509,6 +517,23 @@ TEST_CASE("Mono K35 switches at a sensible level at Drive 0", "[mono][filter][fi
 		}
 }
 
+TEST_CASE("Mono K35 high-pass switches at a sensible level at Drive 0", "[mono][filter][filter-type][k35][switch-gain]")
+{
+	// Characterised, not matched (ADR 0007, 2 October 2026): K35's high-pass is the MS-20's 6 dB/oct, so it keeps more of
+	// a note's low harmonics than the SVF's 12 dB high-pass (+0.2 to +4.6 dB RMS here). Bounded at 6 dB from the SVF
+	// until the cross-filter level policy for Notch/HP is settled. The Ladder's own HP is far quieter at high Resonance
+	// (SVF and K35 both 6-16 dB above it), so it is reported, not bounded.
+	for (const auto resonance : { 0.0f, 0.5f, 0.9f, 1.0f })
+		for (const auto note : { 36, 48 })
+		{
+			const auto k35 = measureVoice(measurementVoice(vekt::mono::FilterType::korg35, 1'200.0f, resonance, 0.0f, 1.0f), note);
+			const auto ladder = measureVoice(measurementVoice(vekt::mono::FilterType::ladder, 1'200.0f, resonance, 0.0f, 1.0f), note);
+			const auto svf = measureVoice(measurementVoice(vekt::mono::FilterType::svf, 1'200.0f, resonance, 0.0f, 1.0f), note);
+			INFO("Resonance " << resonance << ", note " << note << ": K35 - Ladder " << k35.rms - ladder.rms << " dB, K35 - SVF " << k35.rms - svf.rms << " dB");
+			CHECK(std::abs(k35.rms - svf.rms) < 6.0);
+		}
+}
+
 TEST_CASE("Mono K35 renders its own sound", "[mono][filter][filter-type][k35]")
 {
 	const auto render = [](float type)
@@ -572,6 +597,9 @@ TEST_CASE("Mono K35 stays finite under hostile modulation through the processor"
 			setParameter(processor, parameters::lfos[0].rate, 7.0f);
 			setParameter(processor, parameters::lfos[0].filter, 4.0f);
 			setParameter(processor, parameters::lfos[0].drive, 24.0f);
+			// Mode swept across low-pass, the half blend and high-pass.
+			setParameter(processor, parameters::filterMode, 0.0f);
+			setParameter(processor, parameters::lfos[0].filterMode, 100.0f);
 			setParameter(processor, parameters::filterEnvelopeAmount, 100.0f);
 			processor.prepareToPlay(48'000.0, 512);
 			const auto output = playChord(processor, 48 * 512);

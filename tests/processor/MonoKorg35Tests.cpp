@@ -202,41 +202,45 @@ TEST_CASE("Mono Korg35 residual is strictly increasing with its root in the anal
 
 TEST_CASE("Mono Korg35 has no solver failures under hostile rendering over the rate matrix", "[mono][filter][k35][k35-solver]")
 {
+	// The high-pass input (Mode) only shifts the solve's second state, so the same guarantees hold at every blend.
 	for (const auto hostRate : hostRates)
 		for (const auto factor : oversamplingFactors)
 			for (const auto feedback : { 2.2, 3.0, nonlinearTptKorg35MaximumFeedback })
 				for (const auto knee : { 0.1, 1.0 })
-				{
-					const auto sampleRate = hostRate * factor;
-					NonlinearTptKorg35 filter;
-					filter.prepare(sampleRate);
-					auto settings = settingsFor(1'000.0, feedback, knee);
-					settings.driveDecibels = 24.0;
-					std::mt19937 random { 64 };
-					std::uniform_real_distribution noise { -0.3, 0.3 };
-					double peak {};
-					const auto total = static_cast<long>(0.05 * sampleRate);
-					const auto period = static_cast<int>(std::lround(sampleRate / 110.0));
-					for (long sample = 0; sample < total; ++sample)
+					for (const auto highPass : { 0.0, 0.5, 1.0 })
 					{
-						settings.cutoffHz = 1'000.0 * std::exp2(4.0 * std::sin(2.0 * std::numbers::pi * 7.0 * static_cast<double>(sample) / sampleRate));
-						const auto phase = static_cast<double>(sample % period) / period;
-						const auto input = sample < total * 2 / 3 ? 2.0 * (2.0 * phase - 1.0) + noise(random) : 0.0;
-						peak = std::max(peak, std::abs(filter.process(input, settings)));
+						const auto sampleRate = hostRate * factor;
+						NonlinearTptKorg35 filter;
+						filter.prepare(sampleRate);
+						auto settings = settingsFor(1'000.0, feedback, knee);
+						settings.driveDecibels = 24.0;
+						settings.highPass = highPass;
+						std::mt19937 random { 64 };
+						std::uniform_real_distribution noise { -0.3, 0.3 };
+						double peak {};
+						const auto total = static_cast<long>(0.05 * sampleRate);
+						const auto period = static_cast<int>(std::lround(sampleRate / 110.0));
+						for (long sample = 0; sample < total; ++sample)
+						{
+							settings.cutoffHz = 1'000.0 * std::exp2(4.0 * std::sin(2.0 * std::numbers::pi * 7.0 * static_cast<double>(sample) / sampleRate));
+							const auto phase = static_cast<double>(sample % period) / period;
+							const auto input = sample < total * 2 / 3 ? 2.0 * (2.0 * phase - 1.0) + noise(random) : 0.0;
+							peak = std::max(peak, std::abs(filter.process(input, settings)));
+						}
+						INFO("rate " << hostRate << " x" << factor << ", rho " << feedback << ", K " << knee << ", high-pass " << highPass);
+						CHECK(filter.diagnostics().nonFiniteSamples == 0);
+						CHECK(filter.diagnostics().unconvergedSamples == 0);
+						CHECK(filter.diagnostics().maximumIterations < nonlinearTptKorg35MaximumIterations);
+						CHECK(std::isfinite(peak));
 					}
-					INFO("rate " << hostRate << " x" << factor << ", rho " << feedback << ", K " << knee);
-					CHECK(filter.diagnostics().nonFiniteSamples == 0);
-					CHECK(filter.diagnostics().unconvergedSamples == 0);
-					CHECK(filter.diagnostics().maximumIterations < nonlinearTptKorg35MaximumIterations);
-					CHECK(std::isfinite(peak));
-				}
 }
 
 namespace
 {
 // Two filters under the same input from different states: the state distance falls by at least 1e6 over a window
 // scaled by the linear envelope rate w0 (7/3 - rho) / 2 (a time scale, not a bound).
-double contractionRatio(double sampleRate, double cutoff, double feedback, double ratio, bool saw, double level, std::uint32_t seed)
+double contractionRatio(double sampleRate, double cutoff, double feedback, double ratio, bool saw, double level, std::uint32_t seed,
+	double highPass = 0.0)
 {
 	NonlinearTptKorg35 reference, perturbed;
 	reference.prepare(sampleRate);
@@ -244,7 +248,8 @@ double contractionRatio(double sampleRate, double cutoff, double feedback, doubl
 	std::mt19937 random { seed };
 	std::uniform_real_distribution state { -2.0, 2.0 };
 	perturbed.setState(state(random), state(random));
-	const auto settings = settingsFor(cutoff, feedback);
+	auto settings = settingsFor(cutoff, feedback);
+	settings.highPass = highPass;
 	const auto rate = std::numbers::pi * cutoff * (nonlinearTptKorg35Threshold - feedback);
 	const auto total = static_cast<long>(4.0 * std::log(1.0e7) / rate * sampleRate);
 	const auto period = static_cast<int>(std::lround(sampleRate / (cutoff * ratio)));
@@ -268,14 +273,16 @@ TEST_CASE("Mono Korg35 trajectories converge below threshold", "[mono][filter][k
 {
 	// The incremental dynamics are a damped oscillator with damping 7/3 - rho h' >= 7/3 - rho > 0 (see the header),
 	// whatever the input: two starting states must merge, from nearly linear levels to far past the knee.
+	// The high-pass input enters the same incremental dynamics, so the high-pass and the half blend converge too.
 	std::uint32_t seed = 65;
-	for (const auto feedback : { 0.0, 1.5, 2.2, 2.3 })
-		for (const auto [ratio, saw] : { std::pair { 1.0 / 3.0, true }, std::pair { 1.0, true }, std::pair { 1.0, false }, std::pair { 0.5, true } })
-			for (const auto level : { 0.25, 1.0, 4.0, 16.0 })
-			{
-				INFO("rho " << feedback << ", ratio " << ratio << (saw ? " saw" : " sine") << ", level " << level);
-				CHECK(contractionRatio(48'000.0, 1'000.0, feedback, ratio, saw, level, seed++) < 1.0e-6);
-			}
+	for (const auto highPass : { 0.0, 0.5, 1.0 })
+		for (const auto feedback : { 0.0, 1.5, 2.2, 2.3 })
+			for (const auto [ratio, saw] : { std::pair { 1.0 / 3.0, true }, std::pair { 1.0, true }, std::pair { 1.0, false }, std::pair { 0.5, true } })
+				for (const auto level : { 0.25, 1.0, 4.0, 16.0 })
+				{
+					INFO("high-pass " << highPass << ", rho " << feedback << ", ratio " << ratio << (saw ? " saw" : " sine") << ", level " << level);
+					CHECK(contractionRatio(48'000.0, 1'000.0, feedback, ratio, saw, level, seed++, highPass) < 1.0e-6);
+				}
 }
 
 namespace
@@ -1186,6 +1193,8 @@ TEST_CASE("Mono K35 batched lanes match the scalar solve", "[mono][filter][k35]"
 				scalar[lane].prepare(96'000.0);
 				settings[lane] = settingsFor(1'000.0, sharedSettings ? 2.2 : 1.0 + 0.3 * static_cast<double>(lane), korg35Knee);
 				settings[lane].driveDecibels = 12.0;
+				// Shared: the half blend; own: low-pass to high-pass across the lanes.
+				settings[lane].highPass = sharedSettings ? 0.5 : static_cast<double>(lane) / 3.0;
 			}
 			std::array<NonlinearTptKorg35*, 4> filters {};
 			std::array<const NonlinearTptKorg35Settings*, 4> laneSettings {};
@@ -1222,4 +1231,49 @@ TEST_CASE("Mono K35 batched lanes match the scalar solve", "[mono][filter][k35]"
 				CHECK(batched[lane].diagnostics().samples == 20'000u);
 			}
 		}
+}
+
+namespace
+{
+// Steady-state gain of a small sine (near-linear) through K35 with the given high-pass blend, after two seconds of settling.
+double k35HighPassGain(double frequency, double cutoff, double feedback, double highPass)
+{
+	constexpr double sampleRate = 96'000.0, amplitude = 1.0e-4;
+	NonlinearTptKorg35 filter;
+	filter.prepare(sampleRate);
+	auto settings = settingsFor(cutoff, feedback, korg35Knee);
+	settings.highPass = highPass;
+	const auto settle = static_cast<long>(2.0 * sampleRate);
+	const auto periods = std::max(4.0, std::floor(0.5 * frequency));
+	const auto measure = static_cast<long>(std::lround(periods * sampleRate / frequency));
+	double inPhase {}, quadrature {};
+	for (long sample = 0; sample < settle + measure; ++sample)
+	{
+		const auto phase = 2.0 * std::numbers::pi * frequency * static_cast<double>(sample) / sampleRate;
+		const auto out = filter.process(amplitude * std::sin(phase), settings);
+		if (sample < settle) continue;
+		inPhase += out * std::sin(phase);
+		quadrature += out * std::cos(phase);
+	}
+	return 2.0 * std::hypot(inPhase, quadrature) / static_cast<double>(measure) / amplitude;
+}
+}
+
+TEST_CASE("Mono Korg35 high-pass input is 6 dB/oct below the cutoff, unity above, and flat at the half blend for rho = 1",
+	"[mono][filter][k35][k35-highpass]")
+{
+	// Small-signal, y = [x_lp + (p^2 + 4/3 p) x_hp] / (p^2 + (7/3 - rho) p + 1) (NonlinearTptKorg35.h, ADR 0007). The
+	// half blend's numerator 0.5 (p^2 + 4/3 p + 1) is half the denominator at rho = 1: -6 dB at every frequency.
+	constexpr double cutoff = 1'000.0, lowRho = 7.0 / 3.0 - 2.0; // Q 0.5
+	const auto octave = 20.0 * std::log10(k35HighPassGain(cutoff / 8.0, cutoff, lowRho, 1.0) / k35HighPassGain(cutoff / 16.0, cutoff, lowRho, 1.0));
+	const auto passband = 20.0 * std::log10(k35HighPassGain(cutoff * 8.0, cutoff, lowRho, 1.0));
+	INFO("slope " << octave << " dB per octave, passband " << passband << " dB");
+	CHECK(std::abs(octave - 6.0) < 0.5);
+	CHECK(std::abs(passband) < 0.5);
+	for (const auto ratio : { 0.125, 0.5, 1.0, 2.0, 8.0 })
+	{
+		const auto flat = 20.0 * std::log10(k35HighPassGain(cutoff * ratio, cutoff, 1.0, 0.5));
+		INFO("half blend, f / fc " << ratio << ": " << flat << " dB");
+		CHECK(std::abs(flat + 6.02) < 0.2);
+	}
 }

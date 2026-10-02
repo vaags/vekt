@@ -501,7 +501,8 @@ public:
 
 	// finishSample for K35 (ADR 0007): each unison layer through its own reduced early-Korg35 filter with the cutoff and
 	// Drive the ladder would get and Resonance through korg35Feedback (Korg35Response.h), then K35's own Resonance trim
-	// (korg35OutputTrim). Low-pass only; Mode and Q Comp do not apply. Its DC (the limiter partly rectifies inputs
+	// (korg35OutputTrim). Mode moves its input from the low-pass input to the MS-20's high-pass input (C2): b = (Mode + 1) / 2,
+	// so -1 is the low-pass, +1 the 6 dB/oct high-pass and 0 the full signal with a resonant bell. Q Comp does not apply. Its DC (the limiter partly rectifies inputs
 	// without half-wave symmetry) is removed by the voice's filter-output blocker in finishSample, as for every filter;
 	// the filter's own feedback keeps the unblocked limiter output.
 	// A single voice (render): its own layers as one batched solve. The processor instead batches every voice of a
@@ -527,6 +528,7 @@ public:
 		korg35Settings.feedback = korg35Feedback(static_cast<double>(filter.resonance));
 		korg35Settings.driveDecibels = static_cast<double>(filter.driveDecibels);
 		korg35Settings.knee = korg35Knee;
+		korg35Settings.highPass = 0.5 * (std::clamp(static_cast<double>(filter.mode), -1.0, 1.0) + 1.0);
 		for (std::size_t stack = 0; stack < static_cast<std::size_t>(pending.layers); ++stack)
 		{
 			filters[stack] = &filterKorgs[stack];

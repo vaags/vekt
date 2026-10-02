@@ -479,7 +479,7 @@ TEST_CASE("Mono Filter Type tabs select the filter and disable the Ladder-only t
 	}
 }
 
-TEST_CASE("Mono filter tabs select the type in one undo step each and disable Mode and Q Comp for K35", "[mono][processor][ui][filter-type][k35]")
+TEST_CASE("Mono filter tabs select the type in one undo step each, keep Mode and disable Q Comp for K35", "[mono][processor][ui][filter-type][k35]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
 	vekt::mono::PluginProcessor processor;
@@ -499,7 +499,7 @@ TEST_CASE("Mono filter tabs select the type in one undo step each and disable Mo
 	auto& undo = processor.getUndoManager();
 	// APVTS normally flushes parameter changes to its undoable tree on a timer; copyState() flushes now.
 	const auto flush = [&state] { juce::ignoreUnused(state.copyState()); };
-	// SVF, then K35: K35 lit, Mode and Q Comp disabled but visible.
+	// SVF, then K35: K35 lit, Mode enabled (its high-pass input), Q Comp disabled but visible.
 	svf->onClick();
 	flush();
 	k35->onClick();
@@ -509,7 +509,7 @@ TEST_CASE("Mono filter tabs select the type in one undo step each and disable Mo
 	REQUIRE_FALSE(svf->getToggleState());
 	REQUIRE_FALSE(ladder->getToggleState());
 	REQUIRE(mode->isVisible());
-	REQUIRE_FALSE(mode->isEnabled());
+	REQUIRE(mode->isEnabled());
 	REQUIRE_FALSE(qCompensation->isEnabled());
 	if (const auto* path = std::getenv("VEKT_MONO_SNAPSHOT_K35")) writeSnapshot(editor, path);
 	// Each click is one undo step.
