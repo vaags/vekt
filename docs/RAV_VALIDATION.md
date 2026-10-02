@@ -1,6 +1,6 @@
 # Vekt Rav Validation
 
-This document defines the repeatable quality gates for the four-mode Rav processor.
+This document defines the repeatable quality gates for the five-mode Rav processor.
 
 ## Automated gates
 
