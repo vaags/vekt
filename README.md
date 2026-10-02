@@ -126,6 +126,8 @@ Apple M4 performance measurements remain release-time validation gates.
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for module and real-time rules,
 [docs/UI_UX.md](docs/UI_UX.md) for shared editor conventions, and
 [docs/PRESET_UX.md](docs/PRESET_UX.md) for preset-specific interactions.
+The [Claude development workflow](docs/DEVELOPMENT_WORKFLOW.md) defines planning,
+scoped changes, review, and validation evidence for all three products.
 
 ## License
 
