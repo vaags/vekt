@@ -27,7 +27,8 @@ and the high passband from Notch to HP, and the level at the cutoff is
 linear-in-`k` map (`svfDamping`). Ladder renders remain bit-identical on the
 dump fixtures.
 
-**Progress (29 September 2026, step 5):** `NonlinearTptSvf` replaces the linear
+**Progress (29 September 2026, step 5; first topology, superseded the same day by
+amplitude-increasing damping, see Open questions):** `NonlinearTptSvf` replaces the linear
 reference on the render path. It solves `F(h)` by safeguarded scalar Newton,
 seeded with the linear solution, inside the tighter analytic bracket
 `x - k s1 - s2 ± g a (k + 1)`. A step is bisected when it leaves the bracket, or
@@ -166,8 +167,11 @@ LP = s2 + g BP        s2 <- LP + g BP
 Notch = LP + HP = x - k BP
 ```
 
-**Nonlinear production candidate.** The integrator drives saturate; the
-damping feedback stays linear. With `h = HP_raw`:
+**Nonlinear first topology (historical).** Superseded on 29 September 2026 by
+amplitude-increasing damping (Open questions; `NonlinearTptSvf.h`), whose heard
+outputs are its states and whose notch cancels the fundamental at the cutoff at
+every level. The φ(h) notch behaviour described here no longer applies. The
+integrator drives saturate; the damping feedback stays linear. With `h = HP_raw`:
 
 ```text
 BP(h) = s1 + g phi(h)

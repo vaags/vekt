@@ -110,11 +110,16 @@ passband or depend on instantaneous audio/drive. Because it multiplied the entir
 voice, On and Off were indistinguishable after level matching at fixed settings;
 it does not restore input body relative to the generated resonance tone. A
 selective compensation topology required a separate experiment. Candidate 2
-uses `c(r) = 0.20 clamp(r, 0, 1)` when enabled, zero otherwise, and
-`u1 = (1 + k c) clamp(D x, -24, 24) - k y4`. The coefficient is smoothed over
-20 ms. The term vanishes exactly for zero input, but changes driven saturation.
-The 0.20 maximum is provisional, not an approved setting. Old Q-Comp-On presets
-change sound; the parameter ID and default-off project recall are preserved.
+uses a constant `c = 0.5` when enabled, zero otherwise, and
+`u1 = (1 + k c) clamp(D x, -24, 24) - k y4`. Since `k = 0` at zero resonance, On
+and Off are identical there. The coefficient is smoothed over 20 ms, and the
+solver accepts `c` in `0 .. 0.5`. The term vanishes exactly for zero input, but
+changes driven saturation. *28 September 2026 (`eed5d6d`):* the constant 0.5
+replaced the earlier `c(r) = 0.20 clamp(r, 0, 1)` after listening found too little
+low-end restoration at full resonance. Thomas then judged the bass restoration
+adequate (see `docs/MONO_VALIDATION.md`). It is still provisional, not an approved
+setting. Old Q-Comp-On presets change sound; the parameter ID and default-off
+project recall are preserved.
 Master Output 0 dB means unity, not peak protection: floating-point outputs
 above ±1 at extreme settings are permitted, and downstream headroom is the
 user's responsibility. Candidate 2 requires
@@ -157,9 +162,28 @@ outputCompensated = y4 / sqrt(D)
 Reports must label which output is measured. Raw output is the default for model
 validation; compensated output is a separate sound-design candidate.
 
+**Mode output (LP → Notch → HP).** Mode only changes what is heard; feedback
+always comes from `y4`, and LP (`mode = -1`) is exactly `outputRaw`. Notch and HP
+mix the taps `[u1, y1..y4]` with the linear-ladder coefficients in
+`LadderPoleMix.h`. Applying a linear mix to the nonlinear ladder takes three
+fitted pieces, recorded here as **provisional voicing**, not as model equations:
+
+- The taps are saturated as `a tanh(v / a)` with knee
+  `a = max(1, 3 / sqrt(D))` (`ladderPoleMixKnee`).
+- The normalising feedback gain is `k s(E)`, with
+  `s(E) = 1 / (1 + (E / 2.45)^2.9)` (`ladderFeedbackAuthority`). It is fitted to
+  sine measurements, and `E` is a 5 ms attack / 150 ms release peak follower of
+  the first-stage excitation (the driven input plus any Q-compensation term), so
+  the Notch/HP normalisation depends on recent signal level.
+- The 0.0287 integration-gain tuning below.
+
+Re-deriving the Notch/HP normalisation from the filter's own state would change
+the sound and needs its own listening gate.
+
 ## Cutoff and resonance definitions
 
-The cutoff control is clamped to `10 Hz .. 0.45 sampleRate`. For a processing rate
+The cutoff control is clamped to `2.5 Hz .. 0.45 sampleRate` (moved from 10 Hz
+for every Mono filter; see ADR 0006, Cutoff range). For a processing rate
 `fs`, the base trapezoidal integration gain and equivalent prewarped continuous-time
 pole frequency are:
 
@@ -207,13 +231,11 @@ finite-amplitude pitch, not its small-signal pole frequency, tracks the cutoff.
 The corresponding analytical references use the same revised coefficient.
 This is a fitted calibration requiring full sound and reference review.
 
-The **processor voice path**, not the raw fourth-stage ladder output, also
-multiplies its post-envelope, post-pan signal by `1 + 0.6 t² (3 - 2t)` (before
-master output), independently of input-feedback Q compensation. This restores a musically useful
-tone through normal voice scaling, including the tested preset-style patch,
-without increasing the nonlinear feedback or altering the raw-ladder model.
-It increases all voice output in this narrow top-resonance range, including
-driven input; headroom and level interactions remain release validation gates.
+**Removed (28 September 2026, `d25815a`):** the processor voice path no longer
+multiplies its post-envelope, post-pan signal by `1 + 0.6 t² (3 - 2t)`. That
+voice-level ramp was removed to isolate the ladder's own contribution to the
+97–100% loudness jump (see `docs/MONO_VALIDATION.md`); the feedback extension
+`k` above is unchanged. There is no post-ladder resonance boost.
 
 ## Discretization
 

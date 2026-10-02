@@ -846,6 +846,15 @@ limitations; include modulation/overload and long runs. Record build,
 timings, simulated deadlines and any device tests separately. The default
 `VektMonoProcessorCost` now measures the ordinary coupled processor.
 `VektLadderCost` is filter-only. Short diagnostics cannot establish feasibility.
+*2 October 2026:* the scalar and batched coupled solves now share one Newton
+state machine (`CoupledNewton` in `NonlinearTptLadder.cpp`), as K35 does. Output,
+diagnostics and integrator states are bit-identical to the previous build (scratch
+dumps of scalar/1–5-lane/mixed-rate cases at -O0/-O3; the 18 `[mono-dump]` processor
+renders). No case reached the line-search-exhausted or 16-iteration-cap branches;
+their equivalence rests on code review. Release `VektMonoProcessorCost` medians
+are within run-to-run noise (indicative: 2–3 interleaved pairs on one M1 Pro) at
+48k/257/8/unison 4, 48k/128/8/unison 1 and 44.1k/257/8/4x/unison 2. Earlier cost
+runs describe the previous binary.
 **Done when:** reviewer-approved 1x complete-path cost/safety go/no-go is
 recorded. **Remaining:** sound review, allocation checks, long-duration
 candidate results and all four approved configurations.

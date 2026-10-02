@@ -7,7 +7,7 @@
 
 namespace vekt::mono
 {
-// K35 voicing (ADR 0007), provisional until the final audition.
+// K35 voicing (ADR 0007), accepted after the real-synth audition (30 September 2026).
 //
 // The knee puts the diode stage at L0 = 0.5 of it at Drive 0 for a mixer level of 1 (a unit-peak saw). A patch with
 // several oscillators near full level drives it further (about L = 1.5 with all three), which is part of the sound.
