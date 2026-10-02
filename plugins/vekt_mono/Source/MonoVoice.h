@@ -7,6 +7,7 @@
 #include "NonlinearTptSvf.h"
 #include "SvfResponse.h"
 #include "NonlinearTptLadder.h"
+#include "NonlinearTptLadderHighPass.h"
 #include "WidthOscillator.h"
 #include "ContourEnvelope.h"
 #include "FilterLimits.h"
@@ -28,6 +29,9 @@ constexpr float twoPi = 2.0f * std::numbers::pi_v<float>;
 constexpr float maximumContourOctaves = 8.0f;
 constexpr float maximumVelocityOctaves = 4.0f;
 constexpr float voiceTransitionSeconds = 0.003f;
+// The Ladder's high-pass ladder rests only when no LFO reaches Mode and Mode has stayed at LP this long, so a knob or
+// automation move that passes through LP does not restart it (ADR 0009).
+constexpr float ladderHighPassRestSeconds = 1.0f;
 
 // The filter-output DC blocker (ADR 0008): oscillators and filters may carry or generate DC (the raw Width policy, and
 // every filter's saturation on waveforms without half-wave symmetry), and the voice removes it once, per unison layer,
@@ -166,6 +170,7 @@ public:
 		driftCoefficientSpeed = -1.0f; // Drift walks' one-pole coefficient, recomputed when Drift's speed changes
 		juce::ignoreUnused(WidthWavetable::instance()); // build the shared tables before audio starts
 		for (auto& ladder : filterLadders) ladder.prepare(newSampleRate);
+		for (auto& filter : filterHighPasses) filter.prepare(newSampleRate);
 		for (auto& svf : filterSvfs) svf.prepare(newSampleRate);
 		for (auto& filter : filterKorgs) filter.prepare(newSampleRate);
 		for (auto& blocker : filterDcBlockers) blocker.prepare(newSampleRate, filterOutputDcBlockerHz);
@@ -222,6 +227,9 @@ public:
 		vibratoControl = polyPressure = 0.0f;
 		morphsInitialized = false;
 		for (auto& ladder : filterLadders) ladder.reset();
+		for (auto& filter : filterHighPasses) filter.reset();
+		highPassResting = false;
+		highPassSamplesAtLowPass = 0;
 		for (auto& svf : filterSvfs) svf.reset();
 		for (auto& filter : filterKorgs) filter.reset();
 		for (auto& blocker : filterDcBlockers) blocker.reset();
@@ -298,6 +306,9 @@ public:
 		hasPitch = gliding = false;
 		amp.reset(); filterEnvelope.reset();
 		for (auto& ladder : filterLadders) ladder.reset();
+		for (auto& filter : filterHighPasses) filter.reset();
+		highPassResting = false;
+		highPassSamplesAtLowPass = 0;
 		for (auto& svf : filterSvfs) svf.reset();
 		for (auto& filter : filterKorgs) filter.reset();
 		for (auto& blocker : filterDcBlockers) blocker.reset();
@@ -322,51 +333,69 @@ public:
 			return;
 		}
 		const auto layers = static_cast<std::size_t>(pending.layers);
-		std::array<float, 4> ladderInputs {}, ladderOutputs {};
-		const auto inputGain = prepareLadderInput();
-		for (std::size_t stack = 0; stack < layers; ++stack) ladderInputs[stack] = inputGain * pending.mixers[stack];
-		NonlinearTptLadder::processCoupled(std::span(filterLadders.data(), layers), std::span<const float>(ladderInputs.data(), layers),
+		std::array<float, 4> ladderOutputs {};
+		prepareLadderSolve();
+		NonlinearTptLadder::processCoupled(std::span(filterLadders.data(), layers), std::span<const float>(pending.mixers.data(), layers),
 			std::span(ladderOutputs.data(), layers), ladderSolveSettings);
 		finishLadderSample(ladderOutputs.data(), left, right);
 	}
 
-	// The ladder's settings and HP-side gains for this sample: the Resonance its solve gets (ladderHighPassResonance, which
-	// keeps the high-pass short of self-oscillation), the input gain (ladderHighPassGains) and the output gain, its make-up
-	// times the Notch -> HP level lift (ladderHighPassLevel, faded out where the ladder can self-oscillate), all exactly
-	// unchanged at or below Notch. When the output gain changes the ladders' state is rescaled by old / new gain, so the
-	// output continues where it was and the ladder settles from there instead of replaying its ring or oscillation louder.
-	[[nodiscard]] float prepareLadderInput() noexcept
+	// The ladder's settings for this sample's solve: Mode capped at Notch, since above Notch the voice crossfades from the
+	// ladder's Notch into the high-pass ladder (finishLadderSample; ADR 0009).
+	void prepareLadderSolve() noexcept
 	{
 		ladderSolveSettings = pending.ladderSettings;
-		const auto mode = static_cast<double>(pending.ladderSettings.mode);
-		const auto solveResonance = ladderHighPassResonance(mode, static_cast<double>(pending.ladderSettings.resonance));
-		ladderSolveSettings.resonance = static_cast<float>(solveResonance);
-		const auto gains = ladderHighPassGains(mode, solveResonance, static_cast<double>(pending.ladderSettings.driveDecibels));
-		const auto lift = mode <= 0.0 ? 1.0 : 1.0 + (ladderHighPassLevel(mode, ladderFeedbackGain(solveResonance)) - 1.0)
-			* (1.0 - ladderHighPassSelfOscillationFade(solveResonance));
-		const auto inputGain = static_cast<float>(gains.input);
-		const auto outputGain = lift * gains.output;
-		if (std::abs(outputGain - ladderOutputGain) > 0.0)
-			for (auto& ladder : filterLadders)
-				ladder.scaleState(ladderOutputGain / outputGain, static_cast<double>(inputGain) / static_cast<double>(ladderInputGain));
-		ladderInputGain = inputGain;
-		ladderOutputGain = outputGain;
-		return ladderInputGain;
+		ladderSolveSettings.mode = std::min(ladderSolveSettings.mode, 0.0f);
 	}
 
-	// After the ladder solve, given each layer's output: the Notch -> HP half's level (ladderHighPassLevel, identity at
-	// or below Notch), then the rest of the voice.
+	// After the ladder solve, given each layer's output. Up to Notch that output is the voice's filter (the tap mix,
+	// LP -> Notch). Across Notch -> HP it crossfades by filterModeEase(Mode) from the ladder's Notch into the high-pass
+	// ladder (NonlinearTptLadderHighPass: linear stages, saturating feedback, short of self-oscillation), chosen by ear
+	// over a low-pass-to-high-pass crossfade and a snap at Notch (ADR 0009). The high-pass ladder runs whenever Mode is
+	// above LP, so it is settled before the crossfade reaches it. It rests (reset) only where most patches sit: Mode at LP
+	// for ladderHighPassRestSeconds with no LFO on Mode. It then restarts primed; a restart still rings against the warm
+	// filter it replaces (about as loudly as the signal on a square Mode LFO), so modulated Mode never rests.
 	void finishLadderSample(const float* ladderOutputs, float& left, float& right) noexcept
 	{
-		if (ladderSolveSettings.mode <= 0.0f)
+		const auto& filter = pending.ladderSettings;
+		if (filter.mode <= -1.0f)
 		{
-			finishSample(ladderOutputs, left, right);
-			return;
+			if (!highPassResting)
+			{
+				highPassSamplesAtLowPass = pending.modeModulated ? 0 : highPassSamplesAtLowPass + 1;
+				if (highPassSamplesAtLowPass >= static_cast<int>(ladderHighPassRestSeconds * sampleRate))
+				{
+					for (auto& highPass : filterHighPasses) highPass.reset();
+					highPassResting = true;
+				}
+			}
+			if (highPassResting)
+			{
+				finishSample(ladderOutputs, left, right);
+				return;
+			}
 		}
-		// The output gain matching this sample's solve (prepareLadderInput).
-		const auto level = static_cast<float>(ladderOutputGain);
+		else highPassSamplesAtLowPass = 0;
+		NonlinearTptLadderHighPassSettings settings;
+		settings.cutoffHz = static_cast<double>(filter.cutoffHz);
+		settings.feedback = ladderHighPassFeedback(static_cast<double>(filter.resonance));
+		settings.driveDecibels = static_cast<double>(filter.driveDecibels);
+		const auto coefficients = filterHighPasses[0].coefficients(settings); // the layers share one rate and settings
+		if (highPassResting)
+		{
+			// Restarted on a running signal: from its steady state, so it does not ring the step.
+			for (std::size_t stack = 0; stack < static_cast<std::size_t>(pending.layers); ++stack)
+				filterHighPasses[stack].prime(static_cast<double>(pending.mixers[stack]), coefficients);
+			highPassResting = false;
+		}
+		const auto blend = filter.mode <= 0.0f ? 0.0 : filterModeEase(std::min(1.0, static_cast<double>(filter.mode)));
 		std::array<float, 4> outputs {};
-		for (std::size_t stack = 0; stack < static_cast<std::size_t>(pending.layers); ++stack) outputs[stack] = level * ladderOutputs[stack];
+		for (std::size_t stack = 0; stack < static_cast<std::size_t>(pending.layers); ++stack)
+		{
+			const auto highPass = filterHighPasses[stack].process(static_cast<double>(pending.mixers[stack]), coefficients);
+			outputs[stack] = blend > 0.0 ? static_cast<float>((1.0 - blend) * static_cast<double>(ladderOutputs[stack]) + blend * highPass)
+				: ladderOutputs[stack];
+		}
 		finishSample(outputs.data(), left, right);
 	}
 
@@ -500,6 +529,8 @@ public:
 				+ normalizedStack * unisonSpread);
 		}
 		pending.layers = unisonCount;
+		pending.modeModulated = std::any_of(settings.lfo.begin(), settings.lfo.end(),
+			[](const MonoLfoSettings& lfo) { return std::abs(lfo.filterMode) > 0.0f; });
 		pending.amplitude = amplitude;
 		pending.ladderSettings = ladderSettings;
 		return true;
@@ -509,11 +540,11 @@ public:
 	[[nodiscard]] int ladderLanes() const noexcept { return pending.layers; }
 	void ladderRequest(NonlinearTptLadder** ladders, float* inputs, const NonlinearTptLadderSettings** settings) noexcept
 	{
-		const auto inputGain = prepareLadderInput();
+		prepareLadderSolve();
 		for (std::size_t stack = 0; stack < static_cast<std::size_t>(pending.layers); ++stack)
 		{
 			ladders[stack] = &filterLadders[stack];
-			inputs[stack] = inputGain * pending.mixers[stack];
+			inputs[stack] = pending.mixers[stack];
 			settings[stack] = &ladderSolveSettings;
 		}
 	}
@@ -646,6 +677,20 @@ public:
 		}
 		return total;
 	}
+	[[nodiscard]] NonlinearTptLadderHighPassDiagnostics ladderHighPassDiagnostics() const noexcept
+	{
+		NonlinearTptLadderHighPassDiagnostics total;
+		for (const auto& highPass : filterHighPasses)
+		{
+			const auto& value = highPass.diagnostics();
+			total.samples += value.samples;
+			total.iterations += value.iterations;
+			total.unconvergedSamples += value.unconvergedSamples;
+			total.nonFiniteSamples += value.nonFiniteSamples;
+			total.maximumIterations = std::max(total.maximumIterations, value.maximumIterations);
+		}
+		return total;
+	}
 	[[nodiscard]] NonlinearTptSvfDiagnostics svfDiagnostics() const noexcept
 	{
 		NonlinearTptSvfDiagnostics total;
@@ -684,7 +729,13 @@ private:
 		if (type == filterType) return;
 		if (type == FilterType::svf) for (auto& svf : filterSvfs) svf.reset();
 		else if (type == FilterType::korg35) for (auto& filter : filterKorgs) filter.reset();
-		else for (auto& ladder : filterLadders) ladder.reset();
+		else
+		{
+			for (auto& ladder : filterLadders) ladder.reset();
+			for (auto& filter : filterHighPasses) filter.reset();
+			highPassResting = false;
+			highPassSamplesAtLowPass = 0;
+		}
 		filterType = type;
 		if (!filterRunning) return;
 		continuitySamples = 0;
@@ -792,9 +843,10 @@ private:
 	std::array<NonlinearTptLadder, 4> filterLadders;
 	std::array<NonlinearTptSvf, 4> filterSvfs; // side by side with the ladders: only the selected type is run
 	std::array<NonlinearTptKorg35, 4> filterKorgs; // likewise
-	float ladderInputGain { 1.0f }; // this sample's ladder input gain (prepareLadderInput)
-	double ladderOutputGain { 1.0 }; // and its output gain
-	NonlinearTptLadderSettings ladderSolveSettings; // the ladder's settings for this sample's solve (prepareLadderInput)
+	NonlinearTptLadderSettings ladderSolveSettings; // the ladder's settings for this sample's solve (prepareLadderSolve)
+	std::array<NonlinearTptLadderHighPass, 4> filterHighPasses; // the Ladder's high-pass, one per unison layer (ADR 0009)
+	bool highPassResting {}; // reset after a rest at LP; primed when Mode leaves (a reset elsewhere starts cold, like the ladders)
+	int highPassSamplesAtLowPass {};
 	std::array<dsp::DcBlocker<double>, 4> filterDcBlockers; // per layer, after whichever filter type runs
 	NonlinearTptKorg35Settings korg35Settings;             // this sample's K35 settings, shared by its layers
 	FilterType filterType { FilterType::ladder };
@@ -805,6 +857,7 @@ private:
 		std::array<float, 4> mixers {}, pans {};
 		float amplitude {};
 		int layers {};
+		bool modeModulated {}; // an LFO reaches Mode (the Ladder's high-pass ladder then never rests)
 		NonlinearTptLadderSettings ladderSettings {};
 	} pending;
 	double hostRate { 48'000.0 };

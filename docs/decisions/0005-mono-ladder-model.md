@@ -162,7 +162,10 @@ outputCompensated = y4 / sqrt(D)
 Reports must label which output is measured. Raw output is the default for model
 validation; compensated output is a separate sound-design candidate.
 
-**Mode output (LP → Notch → HP).** Mode only changes what is heard; feedback
+**Mode output (LP → Notch → HP).** (Amended 2 October 2026: Mono now uses the tap
+mix only from LP to Notch; across Notch → HP the voice crossfades into a separate
+high-pass ladder, ADR 0009, so the tap HP below no longer reaches the output.)
+Mode only changes what is heard; feedback
 always comes from `y4`, and LP (`mode = -1`) is exactly `outputRaw`. Notch and HP
 mix the taps `[u1, y1..y4]` with the linear-ladder coefficients in
 `LadderPoleMix.h`. Applying a linear mix to the nonlinear ladder takes three
@@ -180,7 +183,7 @@ fitted pieces, recorded here as **provisional voicing**, not as model equations:
 Re-deriving the Notch/HP normalisation from the filter's own state would change
 the sound and needs its own listening gate.
 
-**Notch → HP level (2 October 2026).** Mono's level-matching policy (switching
+**Notch → HP level (2 October 2026; superseded the same day by ADR 0009, Ladder high-pass topology).** Mono's level-matching policy (switching
 filter type at Drive 0 should need no level change; SVF as the reference,
 K-weighted, within 3 dB on average and 6 dB worst over notes × cutoff positions
 at Resonance 0–90 %) found the ladder's HP 1.9 / 7.8 / 12.6 dB below the SVF's at
@@ -201,7 +204,8 @@ pinned by `[switch-gain]` "Mono filters switch at a sensible level at Notch and
 HP". LP (whose slopes differ inherently), full Resonance and Drive stay
 characterised (`[mono-switch-gain-modes]`).
 
-**HP input level and top (2 October 2026).** At full HP with the cutoff at
+**HP input level and top (2 October 2026; superseded the same day by ADR 0009: the high-pass is now a true
+high-pass ladder, and these layers are gone).** At full HP with the cutoff at
 1 kHz or above, the ladder sounded jittery and static-like, also at 8x, with
 the level meter jumping. Cause: the first stage saturates the raw input
 (`tanh`, no knee), so a hot detuned mix (Classic Three Bass sums three
@@ -284,9 +288,10 @@ model, `k = 4` is the oscillation boundary at `wc`, not a useful finite-amplitud
 guarantee. The product requirement (28 September 2026) is bounded, sustained,
 approximately sinusoidal self-oscillation after excitation at maximum resonance
 and ordinary audible cutoffs with an open output path. A long decay is insufficient.
-(Revised 2 October 2026 for the high-pass side only: from Mode 0.15 toward HP the
-ladder stops just short of self-oscillation; LP and Notch keep it. See HP input
-level and top.)
+(Revised 2 October 2026 for the high-pass side only: across Notch → HP the voice
+crossfades into a true high-pass ladder that stops just short of
+self-oscillation, so the Notch's self-oscillation fades out along the way; LP and
+Notch keep it. See ADR 0009.)
 The control preserves the earlier mapping through `r = 0.98`, then smoothly extends
 feedback above the boundary:
 

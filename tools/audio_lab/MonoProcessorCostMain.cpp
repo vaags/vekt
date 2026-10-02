@@ -38,7 +38,7 @@ void setParameter(vekt::mono::PluginProcessor& processor, const char* identifier
 }
 
 int run(double rate, int blockSize, int voices, int factor, double seconds, bool work, bool transitions, bool cpu, int unison, bool multicore,
-	bool svf, bool korg35)
+	bool svf, bool korg35, float mode)
 {
 	if (!vekt::audio_lab::callback_allocation_probe::verify()) return 1;
 	vekt::mono::PluginProcessor processor;
@@ -55,6 +55,7 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 	setParameter(processor, vekt::mono::parameters::filterDrive, 12.0f);
 	setParameter(processor, vekt::mono::parameters::multicore, multicore ? 1.0f : 0.0f);
 	setParameter(processor, vekt::mono::parameters::filterType, korg35 ? 2.0f : svf ? 1.0f : 0.0f);
+	setParameter(processor, vekt::mono::parameters::filterMode, mode);
 	processor.prepareToPlay(rate, blockSize);
 	if (processor.getActiveQuality() != qualityIndex) return 1;
 	juce::AudioBuffer<float> buffer(2, blockSize);
@@ -231,9 +232,9 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 
 int main(int argc, char** argv)
 {
-	if (argc < 6 || argc > 10)
+	if (argc < 6 || argc > 11)
 	{
-		std::cerr << "Usage: VektMonoProcessorCost rate block_size voices(8|12|16) factor(1|2|4|8) seconds [work|transitions|cpu] [unison=1|2|4] [multicore] [svf|k35]\n";
+		std::cerr << "Usage: VektMonoProcessorCost rate block_size voices(8|12|16) factor(1|2|4|8) seconds [work|transitions|cpu] [unison=1|2|4] [multicore] [svf|k35] [mode=-1..1]\n";
 		return 64;
 	}
 	try
@@ -246,6 +247,7 @@ int main(int argc, char** argv)
 		bool work {}, transitions {}, cpu {};
 		int unison = 1;
 		bool multicore {}, svf {}, korg35 {};
+		float mode = -1.0f; // Filter Mode, -1 LP .. +1 HP
 		for (int index = 6; index < argc; ++index)
 		{
 			const std::string_view option(argv[index]);
@@ -256,6 +258,7 @@ int main(int argc, char** argv)
 			else if (option == "multicore") multicore = true;
 			else if (option == "svf") svf = true;
 			else if (option == "k35") korg35 = true;
+			else if (option.starts_with("mode=")) mode = std::stof(std::string(option.substr(5)));
 			else return 64;
 		}
 		if (!std::isfinite(rate) || rate < 44'100.0 || rate > 192'000.0
@@ -263,10 +266,10 @@ int main(int argc, char** argv)
 			|| (factor != 1 && factor != 2 && factor != 4 && factor != 8)
 			|| !std::isfinite(seconds) || seconds <= 0.0 || seconds > 30.0
 			|| static_cast<int>(work) + static_cast<int>(transitions) + static_cast<int>(cpu) > 1
-			|| (unison != 1 && unison != 2 && unison != 4)) return 64;
+			|| (unison != 1 && unison != 2 && unison != 4) || !std::isfinite(mode) || mode < -1.0f || mode > 1.0f) return 64;
 		juce::ScopedJuceInitialiser_GUI juceInitialiser;
 		if (svf && korg35) return 64;
-		return run(rate, block, voices, factor, seconds, work, transitions, cpu, unison, multicore, svf, korg35);
+		return run(rate, block, voices, factor, seconds, work, transitions, cpu, unison, multicore, svf, korg35, mode);
 	}
 	catch (const std::exception&) { return 64; }
 }

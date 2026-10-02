@@ -14,7 +14,8 @@ struct NonlinearTptLadderSettings
 	float driveDecibels {};
 	bool driveCompensation {};
 	float inputFeedbackCompensation {};
-	// Output pole mix: -1 = LP (the plain ladder), 0 = Notch, +1 = HP. See LadderPoleMix.h.
+	// Output pole mix: -1 = LP (the plain ladder), 0 = Notch, +1 = the tap HP. See LadderPoleMix.h. Mono uses it up to the
+	// Notch; its HP is the high-pass ladder (NonlinearTptLadderHighPass.h, ADR 0009).
 	float mode { -1.0f };
 };
 
@@ -61,16 +62,6 @@ public:
 	// Offline analysis only: inject/read the four integrator states to finite-
 	// difference the real coupled step. Call prepare first; no audio-thread use.
 	void setAnalysisIntegratorState(const std::array<double, 4>& state) noexcept;
-	// Scales the solve's state (integrators, last stage outputs, feedback input) by stateFactor and the driven-input
-	// peak follower by inputFactor, for a caller that changes the gain around the ladder: the output it then multiplies by
-	// its new gain continues where it was, and the ladder settles from there (the voice's high-pass make-up, ADR 0005).
-	void scaleState(double stateFactor, double inputFactor) noexcept
-	{
-		for (auto& value : integratorState) value *= stateFactor;
-		for (auto& value : previousOutput) value *= stateFactor;
-		previousFeedbackInput *= stateFactor;
-		drivenPeak *= inputFactor;
-	}
 	[[nodiscard]] std::array<double, 4> analysisIntegratorState() const noexcept { return integratorState; }
 
 private:

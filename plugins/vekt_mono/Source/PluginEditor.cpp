@@ -136,14 +136,16 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	}
 	filterControls[0].getSlider().setTooltip("Cutoff frequency, the same for every filter type. Sweeps exponentially from dark to fully open.");
 	filterControls[1].getSlider().setTooltip("Emphasis. Ladder: a resonant peak with natural bass loss that reaches self-oscillation near maximum in LP and Notch "
-		"(toward HP it stops just short). "
+		"(from Notch to HP it fades out: the high-pass stops just short). "
 		"SVF: strong resonance up to Q 20 that never self-oscillates and softens as Drive rises. K35: ringing up to Q 100 at 95 %, "
 		"screaming self-oscillation in the last few percent, held and quenched by the played signal.");
 	filterControls[2].getSlider().setTooltip("Keyboard tracking. At 100%, cutoff rises one octave per keyboard octave.");
 	filterControls[3].getSlider().setTooltip("Unipolar filter contour amount. Applies the filter envelope in octave pitch space.");
-	filterControls[4].getSlider().setTooltip("Input overload. Drives the nonlinear filter harder: the Ladder's stages saturate; the SVF's input "
+	filterControls[4].getSlider().setTooltip("Input overload. Drives the nonlinear filter harder: the Ladder's stages saturate (toward HP, its input and "
+		"resonance); the SVF's input "
 		"saturates and its resonance softens; K35's output stage, already gritty at 0 dB, grows nastier and quenches the resonance.");
-	filterControls[5].getSlider().setTooltip("Output mix from LP through Notch to HP. Ladder: a mix of its four stages over the same resonant ladder; "
+	filterControls[5].getSlider().setTooltip("Output mix from LP through Notch to HP. Ladder: a mix of its four stages from LP to Notch, then a crossfade into a true "
+		"high-pass ladder; "
 		"SVF: its native LP and HP, with an exact Notch between them. K35: moves its input from the low-pass to the MS-20's "
 		"6 dB/oct high-pass input; halfway is the full sound with a resonant peak at the cutoff.");
 	// Filter type (ADR 0006, 0007): Ladder (4-pole, self-oscillating), SVF (2-pole, strongly resonant, never
@@ -175,8 +177,8 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	qCompensationButton.setButtonText("Q Comp");
 	qCompensationButton.setName("Q Compensation");
 	qCompensationButton.setComponentID(parameters::filterQCompensation);
-	qCompensationButton.setTooltip("Ladder only. Experimental input-path Q compensation. May change drive, harmonics and peaks; does not boost a "
-		"free-running tone.");
+	qCompensationButton.setTooltip("Ladder only, fading out from Notch to HP. Experimental input-path Q compensation. May change drive, harmonics "
+		"and peaks; does not boost a free-running tone.");
 	qCompensationAttachment = std::make_unique<ButtonAttachment>(pluginProcessor.getParameters(), parameters::filterQCompensation, qCompensationButton);
 	const std::array ampNames { "Attack", "Decay", "Sustain", "Release", "Velocity" };
 	const std::array ampIds { parameters::ampAttack, parameters::ampDecay, parameters::ampSustain, parameters::ampRelease, parameters::ampVelocity };

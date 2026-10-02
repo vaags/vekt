@@ -35,6 +35,7 @@ add_executable(vekt_dsp_tests
 	processor/MonoReproducibilityTests.cpp
 	processor/MonoLadderBatchTests.cpp
 	processor/MonoLadderPoleMixTests.cpp
+	processor/MonoLadderHighPassTests.cpp
 	processor/MonoSvfTests.cpp
 	processor/MonoNonlinearSvfTests.cpp
 	processor/MonoKorg35Tests.cpp

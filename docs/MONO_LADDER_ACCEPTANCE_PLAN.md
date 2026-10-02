@@ -1,6 +1,6 @@
 # Mono Ladder Acceptance Plan
 
-**Updated:** 28 September 2026
+**Updated:** 2 October 2026 (high-pass ladder track added; the rest as of 28 September 2026)
 
 **Decision:** ADR 0005 is Proposed. In pre-alpha with no users, Mono directly
 replaces legacy with coupled for the ordinary host-created plugin at every
@@ -22,6 +22,84 @@ Failed gates block a release claim or require an explicit scope/model decision;
 they do not automatically restore legacy. The planned separate Playback and
 Offline Render Quality controls in ADR 0001 are not yet implemented and need
 an explicit release-contract decision.
+
+## High-pass ladder topology track (started 2 October 2026)
+
+**Approved scope (Thomas, 2 October 2026):** replace the Ladder's tap-mix high-pass with a true high-pass ladder
+(four non-linear one-pole HP stages, global feedback; the LP ladder's mirror), so that the HP compensation layers of the
+interim baseline (`40bb819`: level lift, 18-30 dB input reduction, HP stops short of self-oscillation, state rescaling;
+ADR 0005, HP input level and top) can go where the topology makes them unnecessary. Up to two ladder cores are
+acceptable in part or all of the Mode range if clearly better. LP and the LP -> Notch half stay unchanged.
+
+**Hypotheses:** linear `G = HP^4 / (1 + k HP^4)` lines up with the SVF/K35 without a lift; saturation inside each
+stage's low-pass (`y = u - LP_tanh(u)`) leaves its products in the low band, which the following stages remove, so the
+static goes without input reduction; its self-oscillation behaves like the LP ladder's.
+
+**Phases:** 2 model and offline prototype (`NonlinearTptLadderHighPass.h`, development only, hidden tests): linear
+mirror, solver, decay/onset/pitch, residue/jitter/aliasing on Classic Three Bass without input reduction, level against
+the SVF without lift, filter-only Release cost; stop for Thomas's decision. 3 Mode morph candidates (M1 tap mix to Notch
+then crossfade into the HP ladder; M2 LP ladder crossfading into the HP ladder; M3 HP snap), rendered and auditioned in
+Audio Lab, with level, transients and cost; Thomas chooses. 4 integration: voice and batched path, remove superseded
+layers one by one with measurements, tests, Step 5 1x cost configurations (may block), listening, a new ADR (Ladder
+high-pass topology) referenced from ADR 0005.
+
+**Phase 2 evidence (2 October 2026; prototype `NonlinearTptLadderHighPass.h`, formulation A: l' = w (tanh(u) - tanh(l)),
+y = u - l; tests `[ladder-hp]`, hidden `[ladder-hp-prototype]`, `[ladder-hp-aliasing]`; filter level, 48 kHz):**
+
+- Linear: exactly the bilinear HP^4 / (1 + k HP^4) over 44.1-192 kHz x1/x8, k 0/2/3.6 (`[ladder-hp]`, PASS).
+- Solver: damped coupled Newton converges; a bracketed nested fallback (monotone stages, F(u_1) from -inf to +inf) was
+  needed for 1-2 samples per 2,200 in the hostile corner (1x, k >= 3.92, +24 dB, cutoff swept to 16 kHz) (PASS).
+- Hypothesis 1 holds: switching level without any lift, HP ladder - SVF HP, K-weighted, -1.0 / -1.3 / -1.8 dB at
+  Resonance 0 / 50 / 90 % (worst -4.3); the baseline tap HP needed the lift for +1.0 / +1.1 / +2.0.
+- Hypothesis 2 fails for formulation A: on the Classic Three Bass-like mix without input management its 50 ms level
+  range is 1.4-6.5 dB against the linear reference's own beating of 0.02-0.67 dB (residue -9 to +2 dB). With the
+  baseline input law it is clean: ranges equal the linear beating, residue -23 to -45 dB (baseline tap HP: -33 to -60).
+- Self-oscillation: decays to silence through 98 %; at 99 / 100 % it oscillates at -21 / -18 dB RMS, at 0.95 / 0.90 fc
+  (it would need its own pitch tuning). The make-up/self-oscillation conflict at the top would remain with an input law.
+- Aliasing at 1x (single saw, 110 Hz): -41 to -90 dB inharmonic, against -29 to -47 for the tap HP and -47 to -63 for
+  the SVF HP; 2x removes the rest.
+- Cost (Release, filter only, unoptimised scalar): 250-300 ns per sample, 1.7-2.6x the LP ladder's scalar coupled solve.
+
+**Placement F (2 October 2026, Thomas chose to try it):** the input saturates as 3 tanh(D x / 3) (the SVF's knee), the
+four stages are linear one-pole high-passes, and only the feedback saturates, u_1 = v - k tanh(y_4): one scalar equation
+per sample with a unique, bracketed root.
+- Linear mirror and solver: as A (`[ladder-hp]` PASS; no fallback needed).
+- Static without any input management: non-linear residue -20 to -21 dB and 50 ms level range 0.8-1.6 dB on the
+  Classic Three Bass-like mix, the same as the SVF HP (-21 dB, 1.0-1.6 dB), which Thomas hears as the cleanest; near the
+  onset at 3 kHz the residue rises to -12 / -7 dB at 97 / 98 % (resonance compression; the range stays 0.7-0.9 dB).
+- Level without lift, HP ladder F - SVF HP, K-weighted: -1.6 / -1.0 / +1.9 dB at Resonance 0 / 50 / 90 % (worst +2.8).
+- Self-oscillation exactly at the cutoff (0.9992-0.9999 fc at 99-100 %, no tuning), -8.9 / -5.2 dB RMS, level range
+  0.1-0.2 dB at 100 %; decays to silence through 98 %.
+- Drive behaves like the SVF's: residue -6 dB and range 3.6-4.8 dB at +12 dB, -1 dB and 8-9 dB at +24 dB (SVF HP: -6 /
+  4.1-4.4, -1 / 5.6-7.3).
+- Aliasing at 1x: -45 to -69 dB (tap HP -29 to -47, SVF HP -47 to -63).
+- Cost (Release, filter only): 50-85 ns per sample, 0.3-0.5x the LP ladder's scalar solve (A: 1.7-2.6x).
+
+**Phase 4 (2 October 2026):** Thomas chose M1 with the high-pass stopping short. Integrated as ADR 0009: the voice keeps
+the tap mix to Notch and crossfades into the shipping `NonlinearTptLadderHighPass` (placement F only); the baseline's
+high-pass layers are removed; tests, measurements and cost in ADR 0009 and `docs/MONO_VALIDATION.md`. Reviewer
+follow-ups (same day): the high-pass ladder rests only with no LFO on Mode and Mode at LP for 1 s, and restarts primed
+(a reset at LP rang against the warm filter on a square Mode LFO); one set of coefficients per voice sample; processor
+and extracted voice compared at Mode 0.5 with unison 2; docs and tooltips corrected. Step 5 at Mode +1 (8 voices, 1x,
+unison 1, 30 s, default scheduler): first runs met the measured timing rules in 3 of 4; 44.1 kHz/257 failed on one
+7.7 ms callback (cause unproven) and two repeats met, so Step 5 stays unqualified for Mode +1; +45 % median over Mode
+−1, which is unchanged. Unison 4 at 128 samples, beyond Step 5, is marginal at Mode +1.
+**Current gate:** Phase 4 and the reviewer follow-ups implemented; automated checks in `docs/MONO_VALIDATION.md`; open:
+Thomas's listen to the shipping build, then commit. **Next action (follow-up, not blocking):** vectorise the high-pass
+ladder across lanes to win back cost (unison 4 at small blocks).
+
+**Phase 3 (2 October 2026, F approved for it):** Audio Lab audition `LadderHighPassAudition.h` (morph: baseline / M1
+tap mix to Notch then crossfade into F / M2 LP ladder crossfading into F / M3 tap mix to Notch then F; F top: stop short /
+oscillate); hidden `[ladder-hp-morph]` through the processor (Classic Three Bass, 1 kHz): M1 keeps LP -> Notch exactly
+and moves smoothly into F (Mode 0.5: -22.6 dB between Notch -16.7 and HP -36.4), Mode LFO at 100 % 7.0 dB (baseline 9.4);
+M2 loses the Notch (Mode 0: -22.7 dB); M3 steps by about 20 dB at Notch; "oscillate" is about 11 dB louder at 100 % with
+9.9 dB level swings; F's HP 50 ms range at 90 / 100 % is 3.1 / 4.3 dB (baseline 2.0 / 2.6). Waiting on Thomas's audition.
+
+**Earlier gate:** Phase 2 complete with placement F, stopped for Thomas's decision. With F every baseline layer looks
+removable: the lift (level matches without it), the input law (static at the SVF's level without it), the state
+rescaling (no gains left), and possibly the HP top handling (F's self-oscillation is clean, stable and at pitch;
+needs listening). Open: the character of linear stages (by ear), and the Mode morph (Phase 3). **Next action:** Thomas
+decides whether to take F into Phase 3.
 
 ## Historical evidence ledger (27 September 2026 and earlier; not current instructions)
 

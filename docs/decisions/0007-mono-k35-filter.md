@@ -393,7 +393,8 @@ LPF are separate circuits in series, each with its own cutoff, which one Cutoff 
 - *High-pass input level, considered and rejected (2 October 2026):* at high Resonance K35's high-pass carries a large
   non-linear residue (−13.6 dB at 50 %, −3 to −6 dB at 90 % re its linear output on a detuned three-oscillator mix;
   −29 dB at 0 %): the resonance drives the diode stage, which the low-pass's note body masks. Lowering the HP-side
-  input (with make-up after the filter, as the Ladder's HP now does) cleans it by 10–30 dB, but the diode limiting is
+  input (with make-up after the filter, as the Ladder's HP then did; ADR 0009 later replaced it with a high-pass ladder
+  that needs no input law) cleans it by 10–30 dB, but the diode limiting is
   also what holds K35's high-Q resonance: with less of it the HP's resonance came up by as much as +7 to +11 dB at
   90–93 %, and the fade needed before self-oscillation made the level dip by as much again toward 95.9 %. Auditioned
   at 0 / −6 / −12 / −18 dB in Audio Lab; Thomas kept it off (more problems than it solves). The limited, gritty HP is

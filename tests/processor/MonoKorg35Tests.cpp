@@ -1,8 +1,10 @@
 #include "FilterPrototypeSupport.h"
 #include "Korg35Response.h"
+#include "LadderResonance.h"
 #include "LinearTptSvf.h"
 #include "NonlinearTptKorg35.h"
 #include "NonlinearTptLadder.h"
+#include "NonlinearTptLadderHighPass.h"
 #include "NonlinearTptSvf.h"
 #include "SvfResponse.h"
 
@@ -1200,7 +1202,7 @@ TEST_CASE("Mono K35 aliasing against oversampling", "[.][k35-aliasing]")
 // aliasing; what stays is not.
 TEST_CASE("Mono Ladder high-pass aliasing against oversampling", "[.][ladder-hp-aliasing]")
 {
-	enum class Kind { ladderHighPass, ladderLowPass, svfHighPass, k35HighPass };
+	enum class Kind { ladderHighPass, ladderLowPass, svfHighPass, k35HighPass, highPassLadder };
 	struct Job
 	{
 		Kind kind;
@@ -1208,7 +1210,7 @@ TEST_CASE("Mono Ladder high-pass aliasing against oversampling", "[.][ladder-hp-
 		int factor;
 	};
 	std::vector<Job> jobs;
-	for (const auto kind : { Kind::ladderHighPass, Kind::ladderLowPass, Kind::svfHighPass, Kind::k35HighPass })
+	for (const auto kind : { Kind::ladderHighPass, Kind::ladderLowPass, Kind::svfHighPass, Kind::k35HighPass, Kind::highPassLadder })
 		for (const auto cutoff : { 1'000.0, 2'000.0, 4'000.0 })
 			for (const auto resonance : { 0.0, 0.5, 0.9 })
 				for (const auto factor : oversamplingFactors) jobs.push_back({ kind, cutoff, resonance, factor });
@@ -1224,6 +1226,11 @@ TEST_CASE("Mono Ladder high-pass aliasing against oversampling", "[.][ladder-hp-
 		ladder.prepare(sampleRate);
 		svf.prepare(sampleRate);
 		korg.prepare(sampleRate);
+		vekt::mono::NonlinearTptLadderHighPass highPassLadder;
+		highPassLadder.prepare(sampleRate);
+		vekt::mono::NonlinearTptLadderHighPassSettings highPassSettings;
+		highPassSettings.cutoffHz = job.cutoff;
+		highPassSettings.feedback = vekt::mono::ladderHighPassFeedback(job.resonance);
 		const vekt::mono::NonlinearTptLadderSettings ladderSettings { static_cast<float>(job.cutoff), static_cast<float>(job.resonance), 0.0f,
 			false, 0.0f, job.kind == Kind::ladderHighPass ? 1.0f : -1.0f };
 		const vekt::mono::NonlinearTptSvfSettings svfSettings { job.cutoff, vekt::mono::svfDamping(job.resonance), 0.0, vekt::mono::svfKnee,
@@ -1242,12 +1249,13 @@ TEST_CASE("Mono Ladder high-pass aliasing against oversampling", "[.][ladder-hp-
 			case Kind::ladderLowPass: out = ladder.processCoupled(static_cast<float>(x), ladderSettings); break;
 			case Kind::svfHighPass: out = svf.process(x, svfSettings).highPass; break;
 			case Kind::k35HighPass: out = korg.process(x, korgSettings); break;
+			case Kind::highPassLadder: out = highPassLadder.process(x, highPassSettings); break;
 			}
 			if (sample >= total / 4) y.push_back(out);
 		}
 		return nonharmonicDb(y, sampleRate, note);
 	});
-	constexpr std::array kindNames { "Ladder HP", "Ladder LP", "SVF HP", "K35 HP" };
+	constexpr std::array kindNames { "Ladder tap HP (raw)", "Ladder LP", "SVF HP", "K35 HP", "Ladder HP (high-pass ladder)" };
 	std::cout << "\ninharmonic energy in 20 Hz - 20 kHz, dB re total | 1x | 2x | 4x | 8x\n";
 	for (std::size_t index = 0; index < jobs.size(); index += oversamplingFactors.size())
 	{

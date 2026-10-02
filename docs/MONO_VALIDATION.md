@@ -1,4 +1,56 @@
-# Mono Ladder HP: lower input, no self-oscillation (2 October 2026)
+# Mono Ladder: true high-pass ladder across Notch → HP (2 October 2026)
+
+ADR 0009. The Ladder's Mode keeps the tap mix from LP to Notch and crossfades from the ladder's Notch into a true
+high-pass ladder (`NonlinearTptLadderHighPass.h`: linear stages, saturating feedback, input knee 3, short of
+self-oscillation) across Notch → HP. Chosen by Thomas in Audio Lab auditions (Phase 2 placements A and F; Phase 3 morphs
+M1-M3 and the top). The interim baseline's high-pass layers (level lift, input law, Drive rule, HP Resonance compression
+for the low-pass ladder, state rescaling) are removed.
+
+Evidence (dev build unless noted): `ctest --preset dev -L 'switch-gain|filter-type|ladder-mode|ladder-coupled|svf-mode|
+k35|ladder-hp|ui'` 109/109 PASS (including the 3 new always-run `[ladder-hp]` tests and the slow linear-mirror test);
+`Every Mono reference render still sounds the same` PASS (LP unchanged). Switching level at HP, K-weighted, Ladder −
+SVF: −1.6 / −1.0 / +1.9 dB (Drive 0), −1.5 / −0.1 / +0.7 (+12), −1.5 / +0.7 / +0.8 (+24) at Resonance 0 / 50 / 90 %,
+with no lift. Overshoot at Resonance 100 %: Mode jump LP → HP +2.1 to +4.5 dB (SVF −0.2), Resonance jump 80 → 100 % at
+HP +2.1 / +4.5 dB (SVF +4.1); Mode LFO crest 7–10 dB (SVF 8).
+
+Reviewer follow-ups (vekt-reviewer, same day; dev build unless noted):
+- Restart: resetting the high-pass ladder at LP and restarting it as Mode left rang against the warm filter at −10 to
+  +5 dB re the signal on a 3 Hz square Mode LFO (cutoffs 100 / 250 / 1,000 Hz, Resonance 90 / 100 %), primed or not. It
+  now rests only with no LFO on Mode and Mode at LP for 1 s, and restarts primed (steady state for the current input):
+  −15 to −16 dB, the Mode-trajectory floor, the same as a temporary always-running build. New always-run tests:
+  `Mono Ladder high-pass keeps running under Mode modulation`, `Mono Ladder high-pass rests only at unmodulated LP`
+  (static LP rests after 1 s; a 0.25 Hz square LFO never rests it), `Mono high-pass ladder primes to the exact steady
+  state` (Drive up to +24 dB, top feedback), `Mono high-pass ladder primes a restart on a running signal` (Resonance 0:
+  primed −37 to −53 dB from 1 kHz, −30 / −15 dB at 250 Hz; unprimed −12 to −17 dB). Hidden `[mono-ladder-mode-transient]`,
+  `[mono-switch-gain-modes]`, `[mono-hp-jitter]`, `[mono-ladder-resonance-level]` re-run: unchanged.
+- One set of high-pass ladder coefficients (tan, Drive gain) per voice sample for every unison layer; output identical
+  (cost tool sum of squares unchanged).
+- `Mono processor and extracted voice render identically` now also runs the Ladder at Mode 0.5 with unison 2 (PASS,
+  2,150 assertions).
+- Tooltips (Resonance, Drive, Q Comp), ADR 0005 / 0007 / 0009 and code comments corrected for the high-pass ladder.
+- Step 5, Release (`build/audio-lab-release/tools/audio_lab/VektMonoProcessorCost {44100|48000} {128|257} 8 1 30
+  mode={1|-1}`; 8 voices, 1x, unison 1; default scheduler, simulated callbacks): Mode +1 first runs
+  `measured_timing_rules_met=1` at 44.1/128, 48/128, 48/257 (p99.9 0.64 / 0.64 / 1.19 ms) and 0 at 44.1/257 (one
+  7.7 ms callback, p99.9 2.62 ms, cause unproven); two 44.1/257 repeats 1 (1.16 / 1.15 ms). Step 5 stays unqualified
+  for Mode +1 under the plan's policy. Median +45 % over Mode −1 (which met all four, p99.9 0.47–0.85 ms, and is
+  unchanged: 0.69 ms at 48/257 with the rest). Unison 4 (beyond Step 5): Mode −1 meets all four; Mode +1 meets at
+  257, fails at 128 (44.1: p99.9 1.85 ms, 3 exceedances; 48: 2.05 ms, 9; a 48 repeat met at 1.85 ms, none);
+  `multicore` at 128: 48 met, 44.1 one exceedance.
+- Checks: `ctest --preset dev -L 'switch-gain|filter-type|ladder-mode|ladder-coupled|svf-mode|k35|ladder-hp|ui'
+  --no-tests=error` 113/113 PASS; `ctest --preset dev -R "reference render|extracted voice render identically"` 4/4
+  PASS (Mono, Rav and Glimmer reference renders: LP unchanged); `./scripts/test.sh --quick` 437/437 PASS; slow Mono
+  voice and ladder tests (`-R "Mono batched ladder lanes|Mono uncompensated Ladder|Mono input Q compensation|Mono LFOs
+  reach every destination|Mono maximum resonance keeps|Mono voice resonance onset|Mono Ladder self-oscillates at
+  maximum|Mono unison keeps the 1x|Mono high-pass ladder is the low-pass"`) 12/12 PASS; `VektMono_All` (dev) and
+  `VektRavAudioLab` (audio-lab-release) build.
+
+Not yet: a listen to the shipping build (including Quartet Pad and a square or stepped Mode LFO), the full slow suite,
+and vectorising the high-pass ladder across lanes (cost follow-up; unison 4 at small blocks).
+
+# Mono Ladder HP: lower input, no self-oscillation (2 October 2026; superseded the same day by ADR 0009)
+
+*Superseded:* the input law, make-up, level lift, Drive rule, HP Resonance compression and state rescaling below were
+removed when the Ladder's HP became a true high-pass ladder (entry above). Kept as the record of the problem.
 
 Thomas heard the Ladder at full HP (cutoff 1 kHz and up) as jittery and static-like, also at 8x, with the meter
 jumping, and then, after a first fix, still rough from about 80 % Resonance and worst at 97–100 %. Diagnosis and design
@@ -37,6 +89,9 @@ Resonance 50–90 %); a Release cost run; a listen to the shipping build. Hidden
 crest (the same with Resonance held).
 
 # Mono filter level matching at Notch and HP (2 October 2026)
+
+*The Ladder's lift below was superseded the same day by ADR 0009 (a true high-pass ladder matches without it); the
+policy and K35's trim stand.*
 
 Policy (Thomas): switching filter type at the same settings should need no level change. Reference: the SVF;
 K-weighted level; within 3 dB on average and 6 dB worst over notes 36 / 48 / 60 × cutoff at the 1st / 4th / 16th

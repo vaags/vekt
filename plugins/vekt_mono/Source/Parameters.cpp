@@ -143,7 +143,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 		juce::NormalisableRange<float> { 0.0f, 100.0f, 0.1f }, 50.0f, withDecimals(1, "ct")));
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { vibratoAmount, version }, "Vibrato Amount",
 		juce::NormalisableRange<float> { 0.0f, 100.0f, 0.1f }, 0.0f, withDecimals(1, "%")));
-	// Ladder output pole mix: -1 LP (the plain ladder), 0 Notch, +1 HP. The landmarks read as names.
+	// Filter output: -1 LP, 0 Notch, +1 HP (for the Ladder its pole mix to Notch, then the high-pass ladder; ADR 0009). The
+	// landmarks read as names.
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { filterMode, version }, "Filter Mode",
 		juce::NormalisableRange<float> { -1.0f, 1.0f, 0.001f }, -1.0f, juce::AudioParameterFloatAttributes {}
 			.withStringFromValueFunction([](float value, int)

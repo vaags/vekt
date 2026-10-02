@@ -1459,7 +1459,8 @@ TEST_CASE("Mono filter switching level at every Mode", "[.][mono-switch-gain-mod
 
 TEST_CASE("Mono filters switch at a sensible level at Notch and HP", "[mono][filter][filter-type][switch-gain]")
 {
-	// Level-matching policy (ADR 0005, 0007; 2 October 2026): at Drive 0 and Resonance up to 90 %, against the SVF and
+	// Level-matching policy (ADR 0005, 0007, 0009; 2 October 2026; the Ladder's HP, a true high-pass ladder, meets it
+	// without a level lift): at Drive 0 and Resonance up to 90 %, against the SVF and
 	// K-weighted, over notes 36 / 48 / 60 with the cutoff at the 1st, 4th and 16th harmonic: within 3 dB on average and
 	// 6 dB in the worst case. Notch for the Ladder (K35's halfway bell boosts a harmonic only when one sits on the
 	// cutoff, so it is characterised, not bounded), HP for both. Full Resonance (self-oscillation) and Drive are
@@ -1690,6 +1691,88 @@ TEST_CASE("Mono Ladder level against Resonance at each Mode", "[.][mono-ladder-r
 			std::cout << " " << juce::String(resonance, 0) << "%: " << juce::String(10.0 * std::log10(energy / 48'000.0), 1);
 		}
 		std::cout << "\n";
+	}
+}
+
+TEST_CASE("Mono Ladder high-pass keeps running under Mode modulation", "[mono][filter][filter-type][ladder-hp]")
+{
+	// A square LFO on Mode (smoothed for 1 ms only) through the startup preset's held note. At depth 55 % Mode clamps at
+	// -1 for each LP half-cycle (a sixth of a second); at 49.95 % it stops at -0.999 and never reaches LP (at exactly
+	// 50 % the smoothed LFO stalls a hair short of -1). The renders differ only in the Mode transition's shape, about
+	// -15 dB re the signal in the loudest 5 ms, while the high-pass ladder runs through both. Resetting it at LP and
+	// restarting it as Mode left, even primed, rang against the warm filter: -10 to +5 dB at cutoffs 100 / 250 / 1,000 Hz
+	// (+0.9 / +1.1 / -10.3 / +0.2 dB at the four points here), so it never rests while an LFO reaches Mode (ADR 0009).
+	const auto render = [](float cutoff, float resonance, float depth)
+	{
+		vekt::mono::PluginProcessor processor;
+		setParameter(processor, parameters::filterMode, 0.0f);
+		setParameter(processor, parameters::filterCutoff, cutoff);
+		setParameter(processor, parameters::filterResonance, resonance);
+		setParameter(processor, parameters::lfos[0].shape, 4.0f);
+		setParameter(processor, parameters::lfos[0].rate, 3.0f);
+		setParameter(processor, parameters::lfos[0].filterMode, depth);
+		processor.prepareToPlay(48'000.0, 512);
+		return hold(processor, 188, 48);
+	};
+	for (const auto cutoff : { 100.0f, 1'000.0f })
+		for (const auto resonance : { 90.0f, 100.0f })
+		{
+			const auto clamped = render(cutoff, resonance, 55.0f), unclamped = render(cutoff, resonance, 49.95f);
+			const auto start = clamped.getNumSamples() - 72'000;
+			double signal {}, loudestDifference {};
+			for (int window = start; window + 240 <= clamped.getNumSamples(); window += 240)
+			{
+				double difference {};
+				for (int sample = window; sample < window + 240; ++sample)
+				{
+					const auto delta = static_cast<double>(clamped.getSample(0, sample) - unclamped.getSample(0, sample));
+					difference += delta * delta;
+					signal += static_cast<double>(unclamped.getSample(0, sample)) * unclamped.getSample(0, sample);
+				}
+				loudestDifference = std::max(loudestDifference, difference / 240.0);
+			}
+			const auto ratio = 10.0 * std::log10(loudestDifference / (signal / 72'000.0) + 1.0e-30);
+			INFO("cutoff " << cutoff << ", Resonance " << resonance << ": loudest 5 ms of the difference " << ratio << " dB re the signal");
+			CHECK(ratio < -12.0);
+		}
+}
+
+TEST_CASE("Mono Ladder high-pass rests only at unmodulated LP", "[mono][filter][filter-type][ladder-hp]")
+{
+	// The voice resets the high-pass ladder (it stops processing) after a second at LP with no LFO on Mode, and runs it
+	// again as Mode leaves; with an LFO on Mode it never rests, however long Mode dwells at LP (ADR 0009).
+	constexpr double sampleRate = 48'000.0;
+	const auto renderFor = [](vekt::mono::MonoVoice& voice, const vekt::mono::MonoVoiceSettings& settings, double seconds)
+	{
+		for (int sample = 0; sample < static_cast<int>(seconds * sampleRate); ++sample)
+		{
+			float left {}, right {};
+			voice.render(left, right, settings, 0.0f);
+		}
+		return voice.ladderHighPassDiagnostics().samples;
+	};
+	{
+		auto settings = measurementVoice(vekt::mono::FilterType::ladder, 1'000.0f, 0.5f, 0.0f, -1.0f);
+		vekt::mono::MonoVoice voice;
+		voice.prepare(sampleRate, 0x4d6f6e6fu);
+		voice.start(1, 48, 0.8f, settings, true, false, 1);
+		const auto afterRest = renderFor(voice, settings, 1.1);
+		CHECK(afterRest >= 47'000u);
+		CHECK(afterRest <= 48'000u);
+		CHECK(renderFor(voice, settings, 0.5) == afterRest);
+		settings.filterMode = 0.5f;
+		CHECK(renderFor(voice, settings, 0.1) == afterRest + 4'800u);
+	}
+	{
+		// A 0.25 Hz square LFO holds Mode at LP for two seconds per cycle.
+		auto settings = measurementVoice(vekt::mono::FilterType::ladder, 1'000.0f, 0.5f, 0.0f, 0.0f);
+		settings.lfo[0].source.shape = vekt::mono::LfoShape::square;
+		settings.lfo[0].source.rateHz = 0.25f;
+		settings.lfo[0].filterMode = 1.1f;
+		vekt::mono::MonoVoice voice;
+		voice.prepare(sampleRate, 0x4d6f6e6fu);
+		voice.start(1, 48, 0.8f, settings, true, false, 1);
+		CHECK(renderFor(voice, settings, 6.0) == 288'000u);
 	}
 }
 

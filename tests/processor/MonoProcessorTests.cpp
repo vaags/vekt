@@ -10,6 +10,7 @@
 #include <juce_events/juce_events.h>
 
 #include <catch2/catch_approx.hpp>
+#include <catch2/generators/catch_generators.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
@@ -2270,9 +2271,12 @@ TEST_CASE("Mono rendering is deterministic with drift enabled", "[mono][processo
 
 TEST_CASE("Mono processor and extracted voice render identically", "[mono][processor][engine][determinism]")
 {
+	// The Ladder at LP, and at Mode 0.5, where each unison layer also runs its high-pass ladder (ADR 0009).
+	const auto mode = GENERATE(-1.0f, 0.5f);
 	vekt::mono::PluginProcessor processor;
 	for (auto* parameter : processor.juce::AudioProcessor::getParameters())
 		parameter->setValueNotifyingHost(parameter->getDefaultValue());
+	setParameter(processor, vekt::mono::parameters::filterMode, mode);
 
 	vekt::mono::MonoVoiceSettings settings {
 		.range = { 2.0f, 1.0f, 3.0f },
