@@ -1,5 +1,6 @@
 #include <vekt/mono/PluginProcessor.h>
 
+#include "FilterPrototypeSupport.h"
 #include "MonoVoice.h"
 
 #include <vekt/presets/PresetSchema.h>
@@ -514,23 +515,6 @@ TEST_CASE("Mono K35 switches at a sensible level at Drive 0", "[mono][filter][fi
 			CHECK(std::abs(k35.rms - ladder.rms) < 6.0);
 			if (resonance < 1.0f) CHECK(std::abs(k35.rms - ladder.rms) <= 3.0);
 			CHECK(std::abs(k35.rms - svf.rms) <= (resonance < 1.0f ? 1.5 : 3.0));
-		}
-}
-
-TEST_CASE("Mono K35 high-pass switches at a sensible level at Drive 0", "[mono][filter][filter-type][k35][switch-gain]")
-{
-	// Characterised, not matched (ADR 0007, 2 October 2026): K35's high-pass is the MS-20's 6 dB/oct, so it keeps more of
-	// a note's low harmonics than the SVF's 12 dB high-pass (+0.2 to +4.6 dB RMS here). Bounded at 6 dB from the SVF
-	// until the cross-filter level policy for Notch/HP is settled. The Ladder's own HP is far quieter at high Resonance
-	// (SVF and K35 both 6-16 dB above it), so it is reported, not bounded.
-	for (const auto resonance : { 0.0f, 0.5f, 0.9f, 1.0f })
-		for (const auto note : { 36, 48 })
-		{
-			const auto k35 = measureVoice(measurementVoice(vekt::mono::FilterType::korg35, 1'200.0f, resonance, 0.0f, 1.0f), note);
-			const auto ladder = measureVoice(measurementVoice(vekt::mono::FilterType::ladder, 1'200.0f, resonance, 0.0f, 1.0f), note);
-			const auto svf = measureVoice(measurementVoice(vekt::mono::FilterType::svf, 1'200.0f, resonance, 0.0f, 1.0f), note);
-			INFO("Resonance " << resonance << ", note " << note << ": K35 - Ladder " << k35.rms - ladder.rms << " dB, K35 - SVF " << k35.rms - svf.rms << " dB");
-			CHECK(std::abs(k35.rms - svf.rms) < 6.0);
 		}
 }
 
@@ -1321,3 +1305,391 @@ TEST_CASE("Mono reused voice starts the same after any idle gap and settles DC-f
 	INFO("settled DC " << 20.0 * std::log10(std::abs(dc.ratio)) << " dB re RMS");
 	CHECK(20.0 * std::log10(std::abs(dc.ratio)) < -80.0);
 }
+
+namespace
+{
+// ITU-R BS.1770 K-weighting at 48 kHz (the pre-filter shelf, then the RLB high-pass), as used for LUFS: a loudness
+// weighting, so filters whose extra level is low bass do not count it at full weight.
+struct KWeighting
+{
+	struct Biquad
+	{
+		double b0, b1, b2, a1, a2, x1 {}, x2 {}, y1 {}, y2 {};
+		double process(double x) noexcept
+		{
+			const auto y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+			x2 = x1;
+			x1 = x;
+			y2 = y1;
+			y1 = y;
+			return y;
+		}
+	};
+	Biquad shelf { 1.53512485958697, -2.69169618940638, 1.19839281085285, -1.69065929318241, 0.73248077421585 };
+	Biquad highPass { 1.0, -2.0, 1.0, -1.99004745483398, 0.99007225036621 };
+	double process(double x) noexcept { return highPass.process(shelf.process(x)); }
+};
+
+struct SwitchLevel
+{
+	double rms {}, weighted {}; // dB: broadband RMS and K-weighted level of the left channel
+};
+
+// One voice held for a second, then measured over about half a second of whole periods.
+SwitchLevel measureSwitchLevel(const vekt::mono::MonoVoiceSettings& settings, int note)
+{
+	constexpr double sampleRate = 48'000.0;
+	vekt::mono::MonoVoice voice;
+	voice.prepare(sampleRate, 0x4d6f6e6fu);
+	voice.setPanPosition(0.0f);
+	voice.start(1, note, 0.8f, settings, true, false, 1);
+	const auto frequency = 440.0 * std::pow(2.0, (note - 69) / 12.0);
+	const auto settle = static_cast<int>(sampleRate);
+	const auto window = static_cast<int>(std::round(std::round(0.5 * frequency) * sampleRate / frequency));
+	KWeighting weighting;
+	double energy {}, weightedEnergy {};
+	for (int sample = 0; sample < settle + window; ++sample)
+	{
+		float left {}, right {};
+		voice.render(left, right, settings, 0.0f);
+		const auto weighted = weighting.process(static_cast<double>(left));
+		if (sample < settle) continue;
+		energy += static_cast<double>(left) * left;
+		weightedEnergy += weighted * weighted;
+	}
+	return { 10.0 * std::log10(energy / window), 10.0 * std::log10(weightedEnergy / window) };
+}
+}
+
+// Development measurement, hidden (level-matching plan, Phase 1): switching level between Ladder, SVF and K35 at every
+// Mode landmark, as broadband RMS and K-weighted (BS.1770) level. Notes 36 / 48 / 60 with the cutoff at the
+// fundamental, the 4th and the 16th harmonic; Resonance 0 / 50 / 90 / 100 %; Drive 0 and +12 dB. Prints, per Drive, Mode
+// and Resonance, each filter minus the SVF (the middle filter) as mean [min, max] over notes and cutoffs, then the
+// Ladder's high-pass against input level to separate its linear normalisation from the level-dependent part. With
+// VEKT_MONO_DUMP set, also writes every case to switch-levels.csv.
+TEST_CASE("Mono filter switching level at every Mode", "[.][mono-switch-gain-modes]")
+{
+	using vekt::mono::FilterType;
+	using namespace vekt::test::filter_prototype;
+	struct Case
+	{
+		float drive {}, mode {}, resonance {};
+		int note {};
+		float ratio {};
+	};
+	std::vector<Case> cases;
+	for (const auto drive : { 0.0f, 12.0f, 24.0f })
+		for (const auto mode : { -1.0f, -0.5f, 0.0f, 0.5f, 1.0f })
+			for (const auto resonance : { 0.0f, 0.5f, 0.9f, 1.0f })
+				for (const auto note : { 36, 48, 60 })
+					for (const auto ratio : { 1.0f, 4.0f, 16.0f })
+						cases.push_back({ drive, mode, resonance, note, ratio });
+	constexpr std::array types { FilterType::ladder, FilterType::svf, FilterType::korg35 };
+	const auto levels = parallelMap(cases.size() * types.size(), [&](std::size_t index)
+	{
+		const auto& c = cases[index / types.size()];
+		const auto frequency = 440.0f * std::pow(2.0f, (static_cast<float>(c.note) - 69.0f) / 12.0f);
+		return measureSwitchLevel(measurementVoice(types[index % types.size()], c.ratio * frequency, c.resonance, c.drive, c.mode), c.note);
+	});
+	const auto at = [&](std::size_t caseIndex, std::size_t type) { return levels[caseIndex * types.size() + type]; };
+	std::unique_ptr<juce::FileOutputStream> csv;
+	if (const auto* directory = std::getenv("VEKT_MONO_DUMP"))
+	{
+		const auto file = juce::File(directory).getChildFile("switch-levels.csv");
+		file.deleteFile();
+		csv = std::make_unique<juce::FileOutputStream>(file);
+		REQUIRE(csv->openedOk());
+		*csv << "drive,mode,resonance,note,cutoff_ratio,ladder_rms,svf_rms,k35_rms,ladder_k,svf_k,k35_k\n";
+		for (std::size_t index = 0; index < cases.size(); ++index)
+		{
+			const auto& c = cases[index];
+			*csv << c.drive << "," << c.mode << "," << c.resonance << "," << c.note << "," << c.ratio;
+			for (std::size_t type = 0; type < types.size(); ++type) *csv << "," << juce::String(at(index, type).rms, 2);
+			for (std::size_t type = 0; type < types.size(); ++type) *csv << "," << juce::String(at(index, type).weighted, 2);
+			*csv << "\n";
+		}
+		csv->flush();
+	}
+	const auto summary = [](const std::vector<double>& values)
+	{
+		double sum {};
+		for (const auto value : values) sum += value;
+		return juce::String(sum / static_cast<double>(values.size()), 1) + " [" + juce::String(*std::min_element(values.begin(), values.end()), 1)
+			+ ", " + juce::String(*std::max_element(values.begin(), values.end()), 1) + "]";
+	};
+	for (const auto drive : { 0.0f, 12.0f, 24.0f })
+	{
+		std::cout << "\nDrive +" << drive << " dB, minus the SVF, mean [min, max] over notes x cutoffs (dB)\n"
+			<< "Mode | Res | Ladder RMS | K35 RMS | Ladder K-weighted | K35 K-weighted\n";
+		for (const auto mode : { -1.0f, -0.5f, 0.0f, 0.5f, 1.0f })
+			for (const auto resonance : { 0.0f, 0.5f, 0.9f, 1.0f })
+			{
+				std::vector<double> ladderRms, k35Rms, ladderWeighted, k35Weighted;
+				for (std::size_t index = 0; index < cases.size(); ++index)
+				{
+					const auto& c = cases[index];
+					if (std::abs(c.drive - drive) > 1.0e-6f || std::abs(c.mode - mode) > 1.0e-6f || std::abs(c.resonance - resonance) > 1.0e-6f) continue;
+					ladderRms.push_back(at(index, 0).rms - at(index, 1).rms);
+					k35Rms.push_back(at(index, 2).rms - at(index, 1).rms);
+					ladderWeighted.push_back(at(index, 0).weighted - at(index, 1).weighted);
+					k35Weighted.push_back(at(index, 2).weighted - at(index, 1).weighted);
+				}
+				std::cout << mode << " | " << juce::String(100.0f * resonance, 0) << " % | " << summary(ladderRms) << " | " << summary(k35Rms)
+					<< " | " << summary(ladderWeighted) << " | " << summary(k35Weighted) << "\n";
+			}
+	}
+	// The Ladder's high-pass against input level (mixer level), cutoff at the 16th harmonic of note 48, Drive 0: if the
+	// gap to the SVF were the ladder's linear normalisation r = 1 / (1 + k), it would not depend on level.
+	std::cout << "\nLadder minus SVF at Mode +1 against mixer level (cutoff 16 f0, note 48, Drive 0), RMS dB\n"
+		<< "Res | level 0.01 | 0.1 | 0.7\n";
+	for (const auto resonance : { 0.0f, 0.5f, 0.9f, 1.0f })
+	{
+		std::cout << juce::String(100.0f * resonance, 0) << " %";
+		for (const auto level : { 0.01f, 0.1f, 0.7f })
+		{
+			const auto frequency = 440.0f * std::pow(2.0f, (48.0f - 69.0f) / 12.0f);
+			auto ladder = measurementVoice(FilterType::ladder, 16.0f * frequency, resonance, 0.0f, 1.0f);
+			auto svf = measurementVoice(FilterType::svf, 16.0f * frequency, resonance, 0.0f, 1.0f);
+			ladder.level = svf.level = { level, 0.0f, 0.0f };
+			std::cout << " | " << juce::String(measureSwitchLevel(ladder, 48).rms - measureSwitchLevel(svf, 48).rms, 1);
+		}
+		std::cout << "\n";
+	}
+}
+
+TEST_CASE("Mono filters switch at a sensible level at Notch and HP", "[mono][filter][filter-type][switch-gain]")
+{
+	// Level-matching policy (ADR 0005, 0007; 2 October 2026): at Drive 0 and Resonance up to 90 %, against the SVF and
+	// K-weighted, over notes 36 / 48 / 60 with the cutoff at the 1st, 4th and 16th harmonic: within 3 dB on average and
+	// 6 dB in the worst case. Notch for the Ladder (K35's halfway bell boosts a harmonic only when one sits on the
+	// cutoff, so it is characterised, not bounded), HP for both. Full Resonance (self-oscillation) and Drive are
+	// characterised by [mono-switch-gain-modes].
+	using vekt::mono::FilterType;
+	using namespace vekt::test::filter_prototype;
+	struct Case
+	{
+		float mode {}, resonance {}, ratio {};
+		int note {};
+	};
+	std::vector<Case> cases;
+	for (const auto mode : { 0.0f, 1.0f })
+		for (const auto resonance : { 0.0f, 0.5f, 0.9f })
+			for (const auto note : { 36, 48, 60 })
+				for (const auto ratio : { 1.0f, 4.0f, 16.0f })
+					cases.push_back({ mode, resonance, ratio, note });
+	constexpr std::array types { FilterType::ladder, FilterType::svf, FilterType::korg35 };
+	const auto levels = parallelMap(cases.size() * types.size(), [&](std::size_t index)
+	{
+		const auto& c = cases[index / types.size()];
+		const auto frequency = 440.0f * std::pow(2.0f, (static_cast<float>(c.note) - 69.0f) / 12.0f);
+		return measureSwitchLevel(measurementVoice(types[index % types.size()], c.ratio * frequency, c.resonance, 0.0f, c.mode), c.note).weighted;
+	});
+	for (const auto mode : { 0.0f, 1.0f })
+		for (const auto resonance : { 0.0f, 0.5f, 0.9f })
+			for (const auto type : { std::size_t { 0 }, std::size_t { 2 } })
+			{
+				if (mode < 0.5f && type == 2) continue;
+				double sum {}, worst {};
+				int count {};
+				for (std::size_t index = 0; index < cases.size(); ++index)
+				{
+					if (std::abs(cases[index].mode - mode) > 1.0e-6f || std::abs(cases[index].resonance - resonance) > 1.0e-6f) continue;
+					const auto gap = levels[index * types.size() + type] - levels[index * types.size() + 1];
+					sum += gap;
+					worst = std::max(worst, std::abs(gap));
+					++count;
+				}
+				const auto mean = sum / count;
+				INFO((type == 0 ? "Ladder" : "K35") << " - SVF at Mode " << mode << ", Resonance " << resonance << ": mean " << mean << " dB, worst " << worst << " dB");
+				CHECK(std::abs(mean) <= 3.0);
+				CHECK(worst <= 6.0);
+			}
+}
+
+// Development measurement, hidden: short-term level stability of each filter's high-pass through the ordinary
+// processor (default patch: one saw, no drift or detune), held note 48, Mode +1, Drive 0, at Quality 1x and 8x. 50 ms
+// window RMS of the left channel over the last 2 s: range (max - min, dB) and the largest window-to-window step (dB).
+// A steady saw through a time-invariant filter gives a flat level; any jitter is the filter's own.
+TEST_CASE("Mono high-pass level stability on a held note", "[.][mono-hp-jitter]")
+{
+	// The startup preset (Classic Three Bass: three detuned oscillators).
+	for (const auto quality : { 0.0f, 3.0f })
+		for (const auto type : { 0.0f, 1.0f, 2.0f })
+			for (const auto cutoff : { 1'000.0f, 3'000.0f })
+				for (const auto resonance : { 0.0f, 50.0f, 90.0f, 95.0f, 98.0f, 100.0f })
+				{
+					vekt::mono::PluginProcessor processor;
+					setParameter(processor, parameters::quality, quality);
+					setParameter(processor, parameters::filterType, type);
+					setParameter(processor, parameters::filterMode, 1.0f);
+					setParameter(processor, parameters::filterCutoff, cutoff);
+					setParameter(processor, parameters::filterResonance, resonance);
+					processor.prepareToPlay(48'000.0, 512);
+					const auto output = hold(processor, 300, 48);
+					constexpr int window = 2'400;
+					std::vector<double> levels;
+					for (int start = output.getNumSamples() - 40 * window; start + window <= output.getNumSamples(); start += window)
+					{
+						double energy {};
+						for (int sample = start; sample < start + window; ++sample) energy += static_cast<double>(output.getSample(0, sample)) * output.getSample(0, sample);
+						levels.push_back(10.0 * std::log10(energy / window + 1.0e-30));
+					}
+					double step {};
+					for (std::size_t index = 1; index < levels.size(); ++index) step = std::max(step, std::abs(levels[index] - levels[index - 1]));
+					std::cout << "Q" << quality << " " << (type < 0.5f ? "Ladder" : type < 1.5f ? "SVF" : "K35") << " HP, cutoff " << cutoff << ", Res "
+						<< resonance << " %: level " << juce::String(levels.back(), 1) << " dB, range "
+						<< juce::String(*std::max_element(levels.begin(), levels.end()) - *std::min_element(levels.begin(), levels.end()), 2)
+						<< " dB, largest step " << juce::String(step, 2) << " dB\n";
+				}
+}
+
+// Development measurement, hidden: how much of the voice's high-pass output is non-linear, through the whole processor
+// (the startup preset, Classic Three Bass; held note 48; Mode +1; Drive 0; Quality 1x). Reference: the same render with
+// every oscillator at 1/100 of its level, scaled back up (everything linear there). Residue re the reference, dB, and the
+// reference's level, so linear ringing (in both) and non-linear products (in the residue only) can be told apart.
+TEST_CASE("Mono high-pass residue through the processor", "[.][mono-hp-voice-residue]")
+{
+	const auto render = [](float type, float cutoff, float resonance, float scale, float drive, float mode)
+	{
+		vekt::mono::PluginProcessor processor;
+		setParameter(processor, parameters::filterType, type);
+		setParameter(processor, parameters::filterMode, mode);
+		setParameter(processor, parameters::filterDrive, drive);
+		setParameter(processor, parameters::filterCutoff, cutoff);
+		setParameter(processor, parameters::filterResonance, resonance);
+		setParameter(processor, parameters::osc1Level, 100.0f * scale);
+		setParameter(processor, parameters::osc2Level, 72.0f * scale);
+		setParameter(processor, parameters::osc3Level, 54.0f * scale);
+		processor.prepareToPlay(48'000.0, 512);
+		return hold(processor, 200, 48);
+	};
+	// Ladder HP, Ladder LP and SVF HP at Drive 0 / +12 / +24 dB.
+	struct Variant { float type, mode; const char* name; };
+	for (const auto drive : { 0.0f, 12.0f, 24.0f })
+	for (const auto variant : { Variant { 0.0f, 1.0f, "Ladder HP" }, Variant { 0.0f, -1.0f, "Ladder LP" }, Variant { 1.0f, 1.0f, "SVF HP" } })
+		for (const auto cutoff : { 1'000.0f })
+			for (const auto resonance : { 0.0f, 50.0f, 90.0f })
+			{
+				const auto type = variant.type;
+				const auto full = render(type, cutoff, resonance, 1.0f, drive, variant.mode), quiet = render(type, cutoff, resonance, 0.01f, drive, variant.mode);
+				double residue {}, energy {};
+				for (int sample = full.getNumSamples() - 48'000; sample < full.getNumSamples(); ++sample)
+				{
+					const auto reference = 100.0 * static_cast<double>(quiet.getSample(0, sample));
+					const auto delta = static_cast<double>(full.getSample(0, sample)) - reference;
+					residue += delta * delta;
+					energy += reference * reference;
+				}
+				std::cout << "Drive +" << drive << " " << variant.name << ", cutoff " << cutoff << ", Res " << resonance << " %: residue "
+					<< juce::String(10.0 * std::log10(residue / energy), 1) << " dB, linear level " << juce::String(10.0 * std::log10(energy / 48'000.0), 1)
+					<< " dB\n";
+			}
+}
+
+// Development measurement, hidden: level transients when Mode or Resonance moves during a held note through the Ladder
+// (startup preset, note 48, Drive 0, Quality 1x), the SVF for reference. 5 ms RMS windows: the loudest window in the
+// 500 ms after the change and the settled level (the mean over the last 500 ms of 4 s), in dB, and their difference.
+// A: Resonance 100 %, Mode jumps from LP or Notch to HP at 1 s. B: Mode 0.5, Resonance 100 -> 98 %. C: Mode +1,
+// Resonance 80 -> 100 %. LFO: Mode centred at Notch with a full-depth 2 Hz LFO on Mode: the loudest 5 ms window against
+// the median over the last 3 s.
+TEST_CASE("Mono Ladder transients when Mode or Resonance moves", "[.][mono-ladder-mode-transient]")
+{
+	constexpr int blocks = 375, changeBlock = 94; // 4 s and 1 s at 512 samples
+	constexpr int window = 240;
+	const auto envelope = [](const juce::AudioBuffer<float>& output, int start, int end)
+	{
+		std::vector<double> levels;
+		for (int sample = start; sample + window <= end; sample += window)
+		{
+			double energy {};
+			for (int index = sample; index < sample + window; ++index) energy += static_cast<double>(output.getSample(0, index)) * output.getSample(0, index);
+			levels.push_back(10.0 * std::log10(energy / window + 1.0e-30));
+		}
+		return levels;
+	};
+	struct Scenario
+	{
+		const char* name;
+		float type, cutoff, startMode, endMode, startResonance, endResonance;
+		bool lfo;
+	};
+	for (const auto& scenario : {
+			Scenario { "A LP->HP", 0.0f, 250.0f, -1.0f, 1.0f, 100.0f, 100.0f, false }, Scenario { "A LP->HP", 0.0f, 1'000.0f, -1.0f, 1.0f, 100.0f, 100.0f, false },
+			Scenario { "A Notch->HP", 0.0f, 250.0f, 0.0f, 1.0f, 100.0f, 100.0f, false }, Scenario { "A Notch->HP", 0.0f, 1'000.0f, 0.0f, 1.0f, 100.0f, 100.0f, false },
+			Scenario { "B Mode 0.5, Res 100->98", 0.0f, 250.0f, 0.5f, 0.5f, 100.0f, 98.0f, false },
+			Scenario { "B Mode 0.5, Res 100->98", 0.0f, 1'000.0f, 0.5f, 0.5f, 100.0f, 98.0f, false },
+			Scenario { "control Mode 0.5, Res 100 held", 0.0f, 250.0f, 0.5f, 0.5f, 100.0f, 100.0f, false },
+			Scenario { "control Mode 0.5, Res 98 held", 0.0f, 250.0f, 0.5f, 0.5f, 98.0f, 98.0f, false },
+			Scenario { "C HP, Res 80->100", 0.0f, 250.0f, 1.0f, 1.0f, 80.0f, 100.0f, false },
+			Scenario { "C HP, Res 80->100", 0.0f, 1'000.0f, 1.0f, 1.0f, 80.0f, 100.0f, false },
+			Scenario { "LFO Res 100", 0.0f, 250.0f, 0.0f, 0.0f, 100.0f, 100.0f, true }, Scenario { "LFO Res 100", 0.0f, 1'000.0f, 0.0f, 0.0f, 100.0f, 100.0f, true },
+			Scenario { "LFO Res 90", 0.0f, 250.0f, 0.0f, 0.0f, 90.0f, 90.0f, true }, Scenario { "LFO Res 90", 0.0f, 1'000.0f, 0.0f, 0.0f, 90.0f, 90.0f, true },
+			Scenario { "A LP->HP", 1.0f, 1'000.0f, -1.0f, 1.0f, 100.0f, 100.0f, false }, Scenario { "C HP, Res 80->100", 1.0f, 1'000.0f, 1.0f, 1.0f, 80.0f, 100.0f, false },
+			Scenario { "LFO Res 100", 1.0f, 1'000.0f, 0.0f, 0.0f, 100.0f, 100.0f, true } })
+	{
+		vekt::mono::PluginProcessor processor;
+		setParameter(processor, parameters::filterType, scenario.type);
+		setParameter(processor, parameters::filterCutoff, scenario.cutoff);
+		setParameter(processor, parameters::filterMode, scenario.startMode);
+		setParameter(processor, parameters::filterResonance, scenario.startResonance);
+		if (scenario.lfo)
+		{
+			setParameter(processor, parameters::lfos[0].rate, 2.0f);
+			setParameter(processor, parameters::lfos[0].filterMode, 100.0f);
+		}
+		processor.prepareToPlay(48'000.0, 512);
+		const auto output = hold(processor, blocks, 48, [&](int block)
+		{
+			if (block != changeBlock || scenario.lfo) return;
+			setParameter(processor, parameters::filterMode, scenario.endMode);
+			setParameter(processor, parameters::filterResonance, scenario.endResonance);
+		});
+		const auto total = output.getNumSamples();
+		const auto name = juce::String(scenario.type < 0.5f ? "Ladder " : "SVF ") + scenario.name + ", cutoff " + juce::String(scenario.cutoff, 0);
+		if (scenario.lfo)
+		{
+			auto levels = envelope(output, total - 144'000, total);
+			std::sort(levels.begin(), levels.end());
+			std::cout << name << ": loudest " << juce::String(levels.back(), 1) << " dB, median " << juce::String(levels[levels.size() / 2], 1)
+				<< " dB, loudest - median " << juce::String(levels.back() - levels[levels.size() / 2], 1) << " dB\n";
+			continue;
+		}
+		const auto changeSample = changeBlock * 512;
+		const auto before = envelope(output, changeSample - 24'000, changeSample);
+		const auto after = envelope(output, changeSample, changeSample + 24'000);
+		const auto settledLevels = envelope(output, total - 24'000, total);
+		double settledEnergy {}, beforeEnergy {};
+		for (const auto level : settledLevels) settledEnergy += std::pow(10.0, level / 10.0);
+		for (const auto level : before) beforeEnergy += std::pow(10.0, level / 10.0);
+		const auto settled = 10.0 * std::log10(settledEnergy / static_cast<double>(settledLevels.size()));
+		const auto beforeLevel = 10.0 * std::log10(beforeEnergy / static_cast<double>(before.size()));
+		const auto loudest = *std::max_element(after.begin(), after.end());
+		std::cout << name << ": before " << juce::String(beforeLevel, 1) << " dB, loudest after " << juce::String(loudest, 1) << " dB, settled "
+			<< juce::String(settled, 1) << " dB, overshoot " << juce::String(loudest - std::max(settled, beforeLevel), 1) << " dB\n";
+	}
+}
+
+// Development measurement, hidden: the Ladder's level against Resonance at several Modes (startup preset, note 48, Drive 0,
+// cutoff 1 kHz, held 3 s, mean of the last second), dB, so a level drop toward the top of the knob shows.
+TEST_CASE("Mono Ladder level against Resonance at each Mode", "[.][mono-ladder-resonance-level]")
+{
+	for (const auto mode : { 0.0f, 0.05f, 0.1f, 0.25f, 0.5f, 0.75f, 1.0f })
+	{
+		std::cout << "Mode " << mode << ":";
+		for (const auto resonance : { 90.0f, 95.0f, 97.0f, 98.0f, 99.0f, 100.0f })
+		{
+			vekt::mono::PluginProcessor processor;
+			setParameter(processor, parameters::filterMode, mode);
+			setParameter(processor, parameters::filterCutoff, 1'000.0f);
+			setParameter(processor, parameters::filterResonance, resonance);
+			processor.prepareToPlay(48'000.0, 512);
+			const auto output = hold(processor, 282, 48);
+			double energy {};
+			for (int sample = output.getNumSamples() - 48'000; sample < output.getNumSamples(); ++sample)
+				energy += static_cast<double>(output.getSample(0, sample)) * output.getSample(0, sample);
+			std::cout << " " << juce::String(resonance, 0) << "%: " << juce::String(10.0 * std::log10(energy / 48'000.0), 1);
+		}
+		std::cout << "\n";
+	}
+}
+

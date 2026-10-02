@@ -2,6 +2,7 @@
 #include "Korg35Response.h"
 #include "LinearTptSvf.h"
 #include "NonlinearTptKorg35.h"
+#include "NonlinearTptLadder.h"
 #include "NonlinearTptSvf.h"
 #include "SvfResponse.h"
 
@@ -12,6 +13,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <complex>
@@ -538,6 +540,21 @@ TEST_CASE("Mono Korg35 audition renders", "[.][k35-renders]")
 		writeWav(fixedFolder.getChildFile(renders[index].name + ".wav"), outputs[index], fixedGain, sampleRate);
 		writeWav(matchedFolder.getChildFile(renders[index].name + ".wav"), outputs[index], 0.1 / rmsOf(outputs[index]), sampleRate);
 		std::cout << renders[index].name << " | " << dB(fixedGain * rmsOf(outputs[index])) << "\n";
+	}
+}
+
+TEST_CASE("Mono K35 high-pass trim is unity up to the bell and eases to -3 dB at HP", "[mono][filter][k35]")
+{
+	using vekt::mono::korg35HighPassTrim;
+	for (const auto mode : { -1.0, -0.5, 0.0 }) REQUIRE(std::bit_cast<std::uint64_t>(korg35HighPassTrim(mode)) == std::bit_cast<std::uint64_t>(1.0));
+	REQUIRE(std::abs(20.0 * std::log10(korg35HighPassTrim(1.0)) + 3.0) < 1.0e-12);
+	REQUIRE(std::bit_cast<std::uint64_t>(korg35HighPassTrim(1.5)) == std::bit_cast<std::uint64_t>(korg35HighPassTrim(1.0)));
+	auto previous = 1.0;
+	for (int step = 1; step <= 100; ++step)
+	{
+		const auto trim = korg35HighPassTrim(step / 100.0);
+		REQUIRE(trim < previous);
+		previous = trim;
 	}
 }
 
@@ -1173,6 +1190,189 @@ TEST_CASE("Mono K35 aliasing against oversampling", "[.][k35-aliasing]")
 		std::cout << (job.svf ? "SVF 100 %" : "K35 90 %") << ", cutoff " << job.cutoff << ", +" << job.driveDb << " dB, note " << job.note;
 		for (std::size_t factor = 0; factor < oversamplingFactors.size(); ++factor) std::cout << " | " << juce::String(results[index + factor].inharmonicDb, 1);
 		std::cout << " | " << juce::String(results[index + oversamplingFactors.size() - 1].dcDb, 1) << "\n";
+	}
+}
+
+// Development measurement, hidden: why the Ladder's high-pass can sound harsh at high cutoffs. A band-limited saw (A2,
+// 110 Hz, level 0.7, Drive 0) at 48 kHz x 1 / 2 / 4 / 8 through the Ladder at Mode +1 and -1, the SVF's high-pass and
+// K35's high-pass, cutoff 1 / 2 / 4 kHz, Resonance 0 / 50 / 90 % (below every filter's threshold, so the steady state is
+// periodic). Inharmonic energy below 20 kHz re the total, at the oversampled rate: what falls with oversampling is
+// aliasing; what stays is not.
+TEST_CASE("Mono Ladder high-pass aliasing against oversampling", "[.][ladder-hp-aliasing]")
+{
+	enum class Kind { ladderHighPass, ladderLowPass, svfHighPass, k35HighPass };
+	struct Job
+	{
+		Kind kind;
+		double cutoff, resonance;
+		int factor;
+	};
+	std::vector<Job> jobs;
+	for (const auto kind : { Kind::ladderHighPass, Kind::ladderLowPass, Kind::svfHighPass, Kind::k35HighPass })
+		for (const auto cutoff : { 1'000.0, 2'000.0, 4'000.0 })
+			for (const auto resonance : { 0.0, 0.5, 0.9 })
+				for (const auto factor : oversamplingFactors) jobs.push_back({ kind, cutoff, resonance, factor });
+	constexpr double note = 110.0, level = 0.7;
+	const auto results = parallelMap(jobs.size(), [&](std::size_t index)
+	{
+		const auto& job = jobs[index];
+		const auto sampleRate = 48'000.0 * job.factor;
+		AdditiveSaw saw { note, sampleRate };
+		vekt::mono::NonlinearTptLadder ladder;
+		vekt::mono::NonlinearTptSvf svf;
+		NonlinearTptKorg35 korg;
+		ladder.prepare(sampleRate);
+		svf.prepare(sampleRate);
+		korg.prepare(sampleRate);
+		const vekt::mono::NonlinearTptLadderSettings ladderSettings { static_cast<float>(job.cutoff), static_cast<float>(job.resonance), 0.0f,
+			false, 0.0f, job.kind == Kind::ladderHighPass ? 1.0f : -1.0f };
+		const vekt::mono::NonlinearTptSvfSettings svfSettings { job.cutoff, vekt::mono::svfDamping(job.resonance), 0.0, vekt::mono::svfKnee,
+			vekt::mono::svfDampingCurve };
+		auto korgSettings = settingsFor(job.cutoff, korg35Feedback(job.resonance), korg35Knee);
+		korgSettings.highPass = 1.0;
+		std::vector<double> y;
+		const auto total = static_cast<long>(1.0 * sampleRate);
+		for (long sample = 0; sample < total; ++sample)
+		{
+			const auto x = level * saw.next();
+			double out {};
+			switch (job.kind)
+			{
+			case Kind::ladderHighPass:
+			case Kind::ladderLowPass: out = ladder.processCoupled(static_cast<float>(x), ladderSettings); break;
+			case Kind::svfHighPass: out = svf.process(x, svfSettings).highPass; break;
+			case Kind::k35HighPass: out = korg.process(x, korgSettings); break;
+			}
+			if (sample >= total / 4) y.push_back(out);
+		}
+		return nonharmonicDb(y, sampleRate, note);
+	});
+	constexpr std::array kindNames { "Ladder HP", "Ladder LP", "SVF HP", "K35 HP" };
+	std::cout << "\ninharmonic energy in 20 Hz - 20 kHz, dB re total | 1x | 2x | 4x | 8x\n";
+	for (std::size_t index = 0; index < jobs.size(); index += oversamplingFactors.size())
+	{
+		const auto& job = jobs[index];
+		std::cout << kindNames[static_cast<std::size_t>(job.kind)] << ", cutoff " << job.cutoff << ", Res " << 100.0 * job.resonance << " %";
+		for (std::size_t factor = 0; factor < oversamplingFactors.size(); ++factor) std::cout << " | " << juce::String(results[index + factor].inharmonicDb, 1);
+		std::cout << "\n";
+	}
+}
+
+// Development measurement, hidden: how much of each filter's high-pass is its own non-linear residue (distortion,
+// intermodulation and aliasing) on a Classic Three Bass-like mix (a 65.4 Hz sine at 1, a 130.6 Hz sine at 0.72 and a
+// 131.1 Hz band-limited saw at 0.54, as its 16' / 8' -3 ct / 8' +4 ct oscillators), 48 kHz, Drive 0, Mode +1. The linear
+// reference is the same filter at 1e-2 of the input, scaled back up (not smaller: the Ladder's solve tolerance is
+// absolute). Each filter's input can be lowered by the given dB
+// with the output made up, as the Ladder's high-pass now does. Residue re the linear output, in dB.
+TEST_CASE("Mono high-pass non-linear residue on a detuned mix", "[.][mono-hp-distortion]")
+{
+	enum class Kind { ladder, svf, k35 };
+	struct Job { Kind kind; double cutoff, resonance, reductionDb; };
+	std::vector<Job> jobs;
+	for (const auto kind : { Kind::ladder, Kind::svf, Kind::k35 })
+		for (const auto cutoff : { 1'000.0, 3'000.0 })
+			for (const auto resonance : { 0.0, 0.5, 0.9 })
+				for (const auto reductionDb : { 0.0, 6.0, 12.0, 18.0 }) jobs.push_back({ kind, cutoff, resonance, reductionDb });
+	constexpr double sampleRate = 48'000.0;
+	const auto render = [](const Job& job, double scale)
+	{
+		vekt::mono::NonlinearTptLadder ladder;
+		vekt::mono::NonlinearTptSvf svf;
+		NonlinearTptKorg35 korg;
+		ladder.prepare(sampleRate);
+		svf.prepare(sampleRate);
+		korg.prepare(sampleRate);
+		AdditiveSaw saw { 131.1, sampleRate };
+		const vekt::mono::NonlinearTptLadderSettings ladderSettings { static_cast<float>(job.cutoff), static_cast<float>(job.resonance), 0.0f, false, 0.0f, 1.0f };
+		const vekt::mono::NonlinearTptSvfSettings svfSettings { job.cutoff, vekt::mono::svfDamping(job.resonance), 0.0, vekt::mono::svfKnee,
+			vekt::mono::svfDampingCurve };
+		auto korgSettings = settingsFor(job.cutoff, korg35Feedback(job.resonance), korg35Knee);
+		korgSettings.highPass = 1.0;
+		const auto gain = scale * std::pow(10.0, -job.reductionDb / 20.0);
+		std::vector<double> y;
+		for (long sample = 0; sample < static_cast<long>(1.5 * sampleRate); ++sample)
+		{
+			const auto t = static_cast<double>(sample) / sampleRate;
+			const auto x = gain * (std::sin(2.0 * std::numbers::pi * 65.4 * t) + 0.72 * std::sin(2.0 * std::numbers::pi * 130.6 * t) + 0.54 * saw.next());
+			double out {};
+			switch (job.kind)
+			{
+			case Kind::ladder: out = ladder.processCoupled(static_cast<float>(x), ladderSettings); break;
+			case Kind::svf: out = svf.process(x, svfSettings).highPass; break;
+			case Kind::k35: out = korg.process(x, korgSettings); break;
+			}
+			if (sample >= static_cast<long>(0.5 * sampleRate)) y.push_back(out / gain);
+		}
+		return y;
+	};
+	const auto residues = parallelMap(jobs.size(), [&](std::size_t index)
+	{
+		const auto nonlinear = render(jobs[index], 1.0), linear = render(jobs[index], 1.0e-2);
+		double residue {}, energy {};
+		for (std::size_t sample = 0; sample < nonlinear.size(); ++sample)
+		{
+			residue += (nonlinear[sample] - linear[sample]) * (nonlinear[sample] - linear[sample]);
+			energy += linear[sample] * linear[sample];
+		}
+		return 10.0 * std::log10(residue / energy);
+	});
+	constexpr std::array kindNames { "Ladder", "SVF", "K35" };
+	std::cout << "\nHP non-linear residue re the linear output, dB | input 0 / -6 / -12 / -18 dB\n";
+	for (std::size_t index = 0; index < jobs.size(); index += 4)
+	{
+		const auto& job = jobs[index];
+		std::cout << kindNames[static_cast<std::size_t>(job.kind)] << " HP, cutoff " << job.cutoff << ", Res " << 100.0 * job.resonance << " %";
+		for (std::size_t step = 0; step < 4; ++step) std::cout << " | " << juce::String(residues[index + step], 1);
+		std::cout << "\n";
+	}
+}
+
+// Development measurement, hidden: the Ladder's non-linear residue at high Resonance (below its oscillation onset,
+// about 98.4 %), Mode +1 and -1, on the same detuned mix as [mono-hp-distortion], for input reductions with make-up.
+TEST_CASE("Mono Ladder residue at high Resonance", "[.][ladder-high-resonance-residue]")
+{
+	struct Job { float mode; double cutoff, resonance, reductionDb; };
+	std::vector<Job> jobs;
+	for (const auto mode : { 1.0f, -1.0f })
+		for (const auto cutoff : { 1'000.0, 3'000.0 })
+			for (const auto resonance : { 0.5, 0.8, 0.9, 0.95, 0.97, 0.98 })
+				for (const auto reductionDb : { 0.0, 18.0, 24.0, 30.0 }) jobs.push_back({ mode, cutoff, resonance, reductionDb });
+	constexpr double sampleRate = 48'000.0;
+	const auto render = [](const Job& job, double scale)
+	{
+		vekt::mono::NonlinearTptLadder ladder;
+		ladder.prepare(sampleRate);
+		AdditiveSaw saw { 131.1, sampleRate };
+		const vekt::mono::NonlinearTptLadderSettings settings { static_cast<float>(job.cutoff), static_cast<float>(job.resonance), 0.0f, false, 0.0f, job.mode };
+		const auto gain = scale * std::pow(10.0, -job.reductionDb / 20.0);
+		std::vector<double> y;
+		for (long sample = 0; sample < static_cast<long>(2.0 * sampleRate); ++sample)
+		{
+			const auto t = static_cast<double>(sample) / sampleRate;
+			const auto x = gain * (std::sin(2.0 * std::numbers::pi * 65.4 * t) + 0.72 * std::sin(2.0 * std::numbers::pi * 130.6 * t) + 0.54 * saw.next());
+			const auto out = ladder.processCoupled(static_cast<float>(x), settings);
+			if (sample >= static_cast<long>(1.0 * sampleRate)) y.push_back(out / gain);
+		}
+		return y;
+	};
+	const auto residues = parallelMap(jobs.size(), [&](std::size_t index)
+	{
+		const auto nonlinear = render(jobs[index], 1.0), linear = render(jobs[index], 1.0e-2);
+		double residue {}, energy {};
+		for (std::size_t sample = 0; sample < nonlinear.size(); ++sample)
+		{
+			residue += (nonlinear[sample] - linear[sample]) * (nonlinear[sample] - linear[sample]);
+			energy += linear[sample] * linear[sample];
+		}
+		return 10.0 * std::log10(residue / energy);
+	});
+	std::cout << "\nLadder non-linear residue re the linear output, dB | input 0 / -18 / -24 / -30 dB\n";
+	for (std::size_t index = 0; index < jobs.size(); index += 4)
+	{
+		const auto& job = jobs[index];
+		std::cout << (job.mode > 0.0f ? "HP" : "LP") << ", cutoff " << job.cutoff << ", Res " << 100.0 * job.resonance << " %";
+		for (std::size_t step = 0; step < 4; ++step) std::cout << " | " << juce::String(residues[index + step], 1);
+		std::cout << "\n";
 	}
 }
 

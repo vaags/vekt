@@ -180,6 +180,81 @@ fitted pieces, recorded here as **provisional voicing**, not as model equations:
 Re-deriving the Notch/HP normalisation from the filter's own state would change
 the sound and needs its own listening gate.
 
+**Notch → HP level (2 October 2026).** Mono's level-matching policy (switching
+filter type at Drive 0 should need no level change; SVF as the reference,
+K-weighted, within 3 dB on average and 6 dB worst over notes × cutoff positions
+at Resonance 0–90 %) found the ladder's HP 1.9 / 7.8 / 12.6 dB below the SVF's at
+Resonance 0 / 50 / 90 %. The gap is the ideal linear response, not the fitted
+parts above: it is level-independent, nearly the same for every note and cutoff,
+and the linear models reproduce it (−2.5 / −8.5 / −10.4 dB modelled against
+−2.4 / −8.4 / −10.4 measured at one case). The linear HP,
+`r (1 − H)^4 / (1 + k H^4)`, keeps the low-pass's passband loss `r = 1 / (1 + k)`
+(the SVF's trim follows 80 % of it), and its zeros cancel much of the resonant
+peak. The voice therefore lifts the Notch → HP half by
+`L(k) = 10^(2.5/20) (1 + k)^0.6` (`ladderHighPassLevel`, nominal k), eased in by
+`filterModeEase` from Notch, so LP → Notch is the plain pole mix. Thomas chose to
+match overall loudness rather than only the passband, so at HP the ladder's
+passband sits a few dB above the SVF's, standing in for its smaller peak. After:
++0.6 / +0.4 / −2.2 dB mean (worst −4.7) at HP, and +0.6 to +1.9 at Mode +0.5
+(after the HP input change below: +1.0 / +1.0 / +2.0, worst +2.9);
+pinned by `[switch-gain]` "Mono filters switch at a sensible level at Notch and
+HP". LP (whose slopes differ inherently), full Resonance and Drive stay
+characterised (`[mono-switch-gain-modes]`).
+
+**HP input level and top (2 October 2026).** At full HP with the cutoff at
+1 kHz or above, the ladder sounded jittery and static-like, also at 8x, with
+the level meter jumping. Cause: the first stage saturates the raw input
+(`tanh`, no knee), so a hot detuned mix (Classic Three Bass sums three
+oscillators to peaks near 2) intermodulates into dense products a few Hz apart;
+the low-pass buries them, the 4-pole high-pass leaves little else (non-linear
+residue about 0 dB re the linear HP output; 50 ms level swings of 8–14 dB). Not
+aliasing (8x does not remove it), not the tap saturation, the authority
+follower or the vibrato. Near the top of Resonance the ladder's own resonant
+gain drives the stages again. Fix, chosen by ear in Audio Lab auditions:
+
+- `ladderHighPassGains`: the voice lowers the ladder's input at HP by 18 dB up
+  to Resonance 80 %, rising to 30 dB at 97.9 % (over a flat 6, 12 or 18 dB and a
+  rise to 24 dB), eased in from Notch, and multiplies the output by the inverse,
+  so the linear level is unchanged and only the saturation moves.
+- `ladderHighPassResonance`: the high-pass no longer self-oscillates. Its
+  oscillation interacts with the note through the saturating stages, which the
+  low-pass hides; neither letting the input return at the top nor holding it low
+  without make-up (the note then sits about 30 dB under the oscillation, with a
+  20–29 dB dropout near the onset) sounded right. Across Notch → HP the top of
+  the knob is compressed, r up to 90 %, then 0.9 + 0.1 (u − 0.21 u²) with
+  u = (r − 0.9) / 0.1, so 100 % is 97.9 % (k = 3.916, below the onset at 4) and
+  the knob keeps working. LP and Notch keep the full range, and the low-pass its
+  self-oscillation, as the product boundary above requires. This is a deliberate
+  revision of the oscillation boundary for the high-pass only.
+- Self-oscillation does not scale with the input, so the make-up must not reach
+  it: where the top still crosses the onset (Mode just above Notch), the
+  reduction, its make-up and the level lift fade out together over 97.9–98.4 %.
+  The compression is complete from Mode 0.15, not only at HP: at a mid Mode the
+  ladder would otherwise still oscillate at the top of the knob, the lift would
+  have to fade there, and the level fell several dB between 98 and 100 %
+  (Thomas). Now the level is flat from 98 to 100 % at every Mode from 0.25.
+- Drive eats the reduction dB for dB, so Drive still takes the high-pass into
+  saturation: Drive 0 is clean, from about +12 dB the high-pass is as gritty as
+  before the change, and its level at +12 dB is within about 1–3 dB of the
+  SVF's (K-weighted). At +24 dB the level lift over-corrects a fully saturated
+  ladder (+9 to +10 dB over the SVF at Resonance 50–90 %); characterised, open.
+- Moving Mode or Resonance during a note changes the gains around a ladder that
+  holds ringing or oscillation built at the old gains. The voice therefore
+  rescales the ladder's state by old / new output gain whenever it changes
+  (`NonlinearTptLadder::scaleState`; the input-level follower by the input-gain
+  ratio), so the output continues where it was and the ladder settles from
+  there. Mode jumping from LP or Notch to HP at Resonance 100 % gave +14 to
+  +17 dB bursts before, −1 to +1 dB after (the SVF: −0.2); a full-depth Mode LFO
+  at 100 % swung 19–21 dB before, 9–10 dB after (the SVF: 8). Found by review
+  (`[mono-ladder-mode-transient]`).
+
+Result on Classic Three Bass at HP: 50 ms level swings 0.8–2 dB (the SVF's:
+2–2.8 dB) up to 100 % at 1 kHz and up to 98 % at 3 kHz (3.6 dB at 100 %, 3 kHz);
+non-linear residue −27 to −50 dB at 1 kHz and −23 to −38 dB at 3 kHz through
+Resonance 50–100 % (SVF: about −19). The HP is about 4–5 dB quieter at low
+Resonance on such mixes (the distortion energy is gone); level matching still
+holds (`[switch-gain]`). Drive still saturates the HP.
+
 ## Cutoff and resonance definitions
 
 The cutoff control is clamped to `2.5 Hz .. 0.45 sampleRate` (moved from 10 Hz
@@ -209,6 +284,9 @@ model, `k = 4` is the oscillation boundary at `wc`, not a useful finite-amplitud
 guarantee. The product requirement (28 September 2026) is bounded, sustained,
 approximately sinusoidal self-oscillation after excitation at maximum resonance
 and ordinary audible cutoffs with an open output path. A long decay is insufficient.
+(Revised 2 October 2026 for the high-pass side only: from Mode 0.15 toward HP the
+ladder stops just short of self-oscillation; LP and Notch keep it. See HP input
+level and top.)
 The control preserves the earlier mapping through `r = 0.98`, then smoothly extends
 feedback above the boundary:
 

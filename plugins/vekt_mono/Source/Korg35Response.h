@@ -1,5 +1,6 @@
 #pragma once
 
+#include "FilterModeEase.h"
 #include "NonlinearTptKorg35.h"
 
 #include <algorithm>
@@ -22,6 +23,17 @@ inline constexpr double korg35OutputTrimDepth = 0.8;
 [[nodiscard]] inline double korg35OutputTrim(double resonance) noexcept
 {
 	return std::pow(1.0 + 4.0 * std::clamp(resonance, 0.0, 1.0), -korg35OutputTrimDepth);
+}
+
+// High-pass side trim (ADR 0007, level matching, 2 October 2026): the MS-20's 6 dB/oct high-pass keeps more of a note's
+// low harmonics than the SVF's 12 dB one, about +2 to +4 dB K-weighted at Resonance 0-90 %. A constant -3 dB eases in
+// across Mode 0 -> +1 (filterModeEase), so the low-pass and the halfway bell are unchanged.
+inline constexpr double korg35HighPassTrimDecibels = -3.0;
+
+[[nodiscard]] inline double korg35HighPassTrim(double mode) noexcept
+{
+	if (mode <= 0.0) return 1.0;
+	return 1.0 + filterModeEase(std::min(mode, 1.0)) * (std::pow(10.0, korg35HighPassTrimDecibels / 20.0) - 1.0);
 }
 
 // Loop gain at 100 % Resonance: above the self-oscillation threshold 7/3, so only the top of the knob self-oscillates.

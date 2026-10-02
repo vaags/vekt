@@ -406,7 +406,7 @@ void PluginProcessor::renderJob(int job) noexcept
 			std::span<const float>(ladderInputs.data(), lanes), std::span(ladderOutputs.data(), lanes),
 			std::span<const NonlinearTptLadderSettings* const>(ladderSettings.data(), lanes));
 		for (std::size_t index = 0; index < voiceCount; ++index)
-			if (sounding[index]) voices[jobVoices[index]]->finishSample(ladderOutputs.data() + firstLane[index], voiceLeft[index], voiceRight[index]);
+			if (sounding[index]) voices[jobVoices[index]]->finishLadderSample(ladderOutputs.data() + firstLane[index], voiceLeft[index], voiceRight[index]);
 	});
 }
 

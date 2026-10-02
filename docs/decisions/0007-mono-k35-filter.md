@@ -384,5 +384,18 @@ LPF are separate circuits in series, each with its own cutoff, which one Cutoff 
   Mode sweep is click-free; hostile modulation sweeps Mode by LFO.
 - *Level, characterised:* at Mode +1, Drive 0 (1.2 kHz, notes 36 / 48, RMS) K35's high-pass is +0.2 to +4.6 dB above
   the SVF's, since its 6 dB/oct slope keeps more of a note's low harmonics, and 6.6 to 16 dB above the Ladder's, whose
-  high-pass is far quieter at high Resonance (the SVF's is 2.5 to 13 dB above it too). Bounded at 6 dB from the SVF
-  (`[switch-gain]`) pending a cross-filter level policy for Notch/HP; the Ladder is reported, not bounded.
+  high-pass is far quieter at high Resonance (the SVF's is 2.5 to 13 dB above it too).
+- *Level, matched (later the same day):* under Mono's level-matching policy (ADR 0005, Notch → HP level) K35's
+  high-pass side gets a constant −3 dB (`korg35HighPassTrim`), eased in across Mode 0 → +1; the low-pass and the bell
+  are unchanged. K35 − SVF at HP, K-weighted: +2.4 / +4.0 / +2.1 dB before, −0.6 / +1.0 / −0.9 after (worst −4.4) at
+  Resonance 0 / 50 / 90 %. The bell (Mode 0) varies with whether a harmonic sits on the cutoff (−5.6 to +9.3 dB) and
+  is characterised, not bounded.
+- *High-pass input level, considered and rejected (2 October 2026):* at high Resonance K35's high-pass carries a large
+  non-linear residue (−13.6 dB at 50 %, −3 to −6 dB at 90 % re its linear output on a detuned three-oscillator mix;
+  −29 dB at 0 %): the resonance drives the diode stage, which the low-pass's note body masks. Lowering the HP-side
+  input (with make-up after the filter, as the Ladder's HP now does) cleans it by 10–30 dB, but the diode limiting is
+  also what holds K35's high-Q resonance: with less of it the HP's resonance came up by as much as +7 to +11 dB at
+  90–93 %, and the fade needed before self-oscillation made the level dip by as much again toward 95.9 %. Auditioned
+  at 0 / −6 / −12 / −18 dB in Audio Lab; Thomas kept it off (more problems than it solves). The limited, gritty HP is
+  K35's character. Measurement kept: `[mono-hp-distortion]`.
+

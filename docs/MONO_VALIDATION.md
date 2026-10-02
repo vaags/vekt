@@ -1,3 +1,92 @@
+# Mono Ladder HP: lower input, no self-oscillation (2 October 2026)
+
+Thomas heard the Ladder at full HP (cutoff 1 kHz and up) as jittery and static-like, also at 8x, with the meter
+jumping, and then, after a first fix, still rough from about 80 % Resonance and worst at 97–100 %. Diagnosis and design
+in ADR 0005 (HP input level and top): intermodulation in the ladder's saturating first stage, exposed by the 4-pole
+high-pass, then the resonance's own gain and the self-oscillation. The voice lowers the ladder's HP-side input by 18 dB,
+rising to 30 dB at Resonance 97.9 %, with make-up after the filter (`ladderHighPassGains`), and the high-pass stops
+short of self-oscillation (`ladderHighPassResonance`: 100 % at HP is 97.9 %). Chosen by ear in Audio Lab auditions of
+0 / −6 / −12 / −18 dB, a rise to −24 / −30 dB, and two self-oscillating tops (input returning; input held low with the
+note under the oscillation); all removed. LP keeps its self-oscillation.
+
+| Classic Three Bass, Ladder HP | 50 ms level range, 1 / 3 kHz | Non-linear residue, 1 / 3 kHz |
+|---|---|---|
+| Before, Res 0 % | 9.2 / 13.7 dB | +0.5 / +1.5 dB |
+| After, Res 0 % | 1.1 / 1.1 dB | about −28 dB |
+| Before, Res 98 % | — | −4.7 / +0.7 dB |
+| After, Res 98 % / 100 % | 1.8 / 1.4 dB; 2.0 / 3.6 dB | −50 / −32 dB; −49 / −24 dB |
+| SVF HP, for reference | 2–3 dB | about −19 dB |
+
+Hidden measurements kept: `[mono-hp-jitter]`, `[mono-hp-voice-residue]` (processor, startup preset),
+`[mono-hp-distortion]` and `[ladder-high-resonance-residue]` (filters, detuned mix), `[ladder-hp-aliasing]` (single saw
+against oversampling: the Ladder HP's 1x aliasing is a smaller, separate effect). Evidence (dev build):
+`ctest --preset dev -L 'switch-gain|filter-type|ladder-mode|ladder-coupled|svf-mode|k35'` 67/67 PASS; `Every Mono
+reference render still sounds the same` PASS; `./scripts/test.sh --quick` 433/433 PASS; slow Mono voice tests including
+"Mono Ladder self-oscillates at maximum emphasis" 11/11 PASS. K35's HP artefacts at high Resonance (its diode limiter)
+were auditioned with the lower-input remedy and kept as they are (ADR 0007).
+
+Review follow-ups (vekt-reviewer, same day): moving Mode or Resonance during a note replayed ringing or oscillation
+through the new make-up (Mode LP/Notch → HP at Resonance 100 %: +14 to +17 dB bursts; Mode LFO at 100 %: 19–21 dB
+swings). Fixed by rescaling the ladder's state whenever its output gain changes: −1 to +1 dB and 9–10 dB (the SVF: −0.2
+and 8). The level lift now fades out where the ladder can still self-oscillate, and the HP-side compression is complete
+from Mode 0.15, so the level no longer drops between 98 and 100 % at a mid Mode (−27.1 dB flat at Mode 0.5, 1 kHz).
+Drive eats the input reduction dB for dB: Drive 0 clean (residue −34 to −49 dB), +12 dB as gritty as before (−2 to
++4 dB) and within about 1–3 dB of the SVF. Open: at Drive +24 dB the lift over-corrects (+9 to +10 dB over the SVF at
+Resonance 50–90 %); a Release cost run; a listen to the shipping build. Hidden measurements added:
+`[mono-ladder-mode-transient]`, `[mono-ladder-resonance-level]`; the "Scenario B" +6 dB there is the patch's own 5 ms
+crest (the same with Resonance held).
+
+# Mono filter level matching at Notch and HP (2 October 2026)
+
+Policy (Thomas): switching filter type at the same settings should need no level change. Reference: the SVF;
+K-weighted level; within 3 dB on average and 6 dB worst over notes 36 / 48 / 60 × cutoff at the 1st / 4th / 16th
+harmonic, at Drive 0 and Resonance 0–90 %. Changes: the Ladder's Notch → HP half is lifted by
+`10^(2.5/20) (1 + k)^0.6` (ADR 0005), K35's high-pass side trimmed by −3 dB (ADR 0007); both are exactly unity at or
+below Notch, so LP, Notch, the K35 bell and every reference fixture are unchanged. The SVF is unchanged.
+
+| Minus the SVF, K-weighted, Res 0 / 50 / 90 % | Before | After |
+|---|---|---|
+| Ladder at HP | −1.9 / −7.8 / −12.6 | +0.6 / +0.4 / −2.2 (worst −4.7); after the HP input change +1.0 / +1.0 / +2.0 |
+| K35 at HP | +2.4 / +4.0 / +2.1 | −0.6 / +1.0 / −0.9 (worst −4.4) |
+| Ladder at Mode +0.5 | −0.4 / −3.1 / −6.1 | +1.0 / +1.9 / +0.6 |
+
+Factory preset Quartet Pad (Ladder, Mode −0.3, LFO → Mode 35 %) swings Mode up to about +0.4, where the lift adds up
+to about +3.3 dB; before, the Ladder sat about 3 dB under the SVF there.
+
+Evidence (dev build): `ctest --preset dev -L 'switch-gain|filter-type|ladder-mode|ladder-coupled|svf-mode|k35'` 65/65
+PASS (including the new 4 s "Mono filters switch at a sensible level at Notch and HP"); `Every Mono reference render
+still sounds the same` PASS; `./scripts/test.sh --quick` 431/431 PASS; the slow Mono voice tests (LFO destinations,
+maximum resonance, resonance onset, passband loss, Q Comp, unison) 10/10 PASS; hidden `[mono-switch-gain-modes]`
+re-run; VektMono Standalone, VST3, AU and the Release Audio Lab build. Not yet checked: Thomas's A/B in Audio Lab and
+a listen to Quartet Pad.
+
+# Mono filter switching level at every Mode (2 October 2026, measurement only)
+
+Level-matching plan, Phase 1. Hidden `[mono-switch-gain-modes]` (`MonoFilterTypeTests.cpp`): Ladder, SVF and K35 at
+Mode −1 / −0.5 / 0 / +0.5 / +1, Resonance 0 / 50 / 90 / 100 %, notes 36 / 48 / 60 with the cutoff at the 1st, 4th
+and 16th harmonic, Drive 0 and +12 dB; broadband RMS and K-weighted (BS.1770) level of one held voice. Per-case data:
+`switch-levels.csv` when `VEKT_MONO_DUMP` is set. Drive 0, each filter minus the SVF, mean [min, max] over notes and
+cutoffs, K-weighted dB:
+
+| Mode | Res | Ladder | K35 |
+|---|---|---|---|
+| −1 (LP) | 0 / 50 / 90 % | −2.9 [−6.9, −0.3] / −2.5 [−4.6, −1.3] / −4.1 [−8.0, −1.6] | 0.0 / +1.2 [0.0, 3.0] / −1.0 [−2.5, 0.0] |
+| 0 (Notch; K35 bell) | 0 / 50 / 90 % | −0.1 / −1.2 / −0.9 [−2.1, 1.1] | −4.5 [−5.6, −3.1] / −0.5 [−4.4, 5.4] / +3.5 [−1.6, 9.3] |
+| +1 (HP) | 0 / 50 / 90 % | −1.9 [−3.6, −1.4] / −7.8 [−9.4, −7.0] / −12.6 [−15.2, −10.7] | +2.4 [1.5, 3.9] / +4.0 [3.6, 4.7] / +2.1 [−1.4, 4.9] |
+
+- K-weighting changes the picture by at most about 1 dB (K35's HP at Resonance 0: +3.4 RMS, +2.4 weighted).
+- The Ladder's HP is the outlier: its gap grows with Resonance and is nearly the same for every note and cutoff
+  (spread 1–4 dB), so it is an offset, not a slope effect. It is also level-independent (Ladder − SVF at Mode +1,
+  cutoff 16 f0, note 48: −2.4 / −2.4 / −2.8 dB at Resonance 0, −8.4 / −8.4 / −8.8 at 50 %, −10.4 / −10.5 / −12.0 at
+  90 % for mixer levels 0.01 / 0.1 / 0.7). The fitted, level-dependent parts of its Notch/HP normalisation
+  (`ladderFeedbackAuthority`, `ladderPoleMixKnee`) are therefore not the cause; the gap is in its linear HP response.
+- LP over this wider matrix is only loosely matched: the cutoff at the fundamental separates a 24 dB/oct ladder from
+  the 2-pole filters (to −8 dB at 90 %). The existing `[switch-gain]` bound, at 1.2 kHz only, still passes.
+- K35's halfway bell is level-variable by nature (−5.6 to +9.3 dB): a harmonic on the cutoff is boosted, otherwise
+  not.
+- Resonance 100 % is confounded by the Ladder's and K35's self-oscillation (the Ladder's level at 0.01 input is +20.8 dB
+  above the SVF's). Drive +12 dB shifts every gap by a few dB (characterised).
+
 # Mono K35 Mode: MS-20 high-pass input (2 October 2026)
 
 K35's Mode is enabled: it moves the input from the low-pass input to the MS-20's 6 dB/oct high-pass input (C2), with

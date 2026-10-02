@@ -1,6 +1,8 @@
 #pragma once
 
 #include "Korg35Response.h"
+#include "LadderPoleMix.h"
+#include "LadderResonance.h"
 #include "NonlinearTptKorg35.h"
 #include "NonlinearTptSvf.h"
 #include "SvfResponse.h"
@@ -320,10 +322,52 @@ public:
 			return;
 		}
 		const auto layers = static_cast<std::size_t>(pending.layers);
-		std::array<float, 4> ladderOutputs {};
-		NonlinearTptLadder::processCoupled(std::span(filterLadders.data(), layers), std::span<const float>(pending.mixers.data(), layers),
-			std::span(ladderOutputs.data(), layers), pending.ladderSettings);
-		finishSample(ladderOutputs.data(), left, right);
+		std::array<float, 4> ladderInputs {}, ladderOutputs {};
+		const auto inputGain = prepareLadderInput();
+		for (std::size_t stack = 0; stack < layers; ++stack) ladderInputs[stack] = inputGain * pending.mixers[stack];
+		NonlinearTptLadder::processCoupled(std::span(filterLadders.data(), layers), std::span<const float>(ladderInputs.data(), layers),
+			std::span(ladderOutputs.data(), layers), ladderSolveSettings);
+		finishLadderSample(ladderOutputs.data(), left, right);
+	}
+
+	// The ladder's settings and HP-side gains for this sample: the Resonance its solve gets (ladderHighPassResonance, which
+	// keeps the high-pass short of self-oscillation), the input gain (ladderHighPassGains) and the output gain, its make-up
+	// times the Notch -> HP level lift (ladderHighPassLevel, faded out where the ladder can self-oscillate), all exactly
+	// unchanged at or below Notch. When the output gain changes the ladders' state is rescaled by old / new gain, so the
+	// output continues where it was and the ladder settles from there instead of replaying its ring or oscillation louder.
+	[[nodiscard]] float prepareLadderInput() noexcept
+	{
+		ladderSolveSettings = pending.ladderSettings;
+		const auto mode = static_cast<double>(pending.ladderSettings.mode);
+		const auto solveResonance = ladderHighPassResonance(mode, static_cast<double>(pending.ladderSettings.resonance));
+		ladderSolveSettings.resonance = static_cast<float>(solveResonance);
+		const auto gains = ladderHighPassGains(mode, solveResonance, static_cast<double>(pending.ladderSettings.driveDecibels));
+		const auto lift = mode <= 0.0 ? 1.0 : 1.0 + (ladderHighPassLevel(mode, ladderFeedbackGain(solveResonance)) - 1.0)
+			* (1.0 - ladderHighPassSelfOscillationFade(solveResonance));
+		const auto inputGain = static_cast<float>(gains.input);
+		const auto outputGain = lift * gains.output;
+		if (std::abs(outputGain - ladderOutputGain) > 0.0)
+			for (auto& ladder : filterLadders)
+				ladder.scaleState(ladderOutputGain / outputGain, static_cast<double>(inputGain) / static_cast<double>(ladderInputGain));
+		ladderInputGain = inputGain;
+		ladderOutputGain = outputGain;
+		return ladderInputGain;
+	}
+
+	// After the ladder solve, given each layer's output: the Notch -> HP half's level (ladderHighPassLevel, identity at
+	// or below Notch), then the rest of the voice.
+	void finishLadderSample(const float* ladderOutputs, float& left, float& right) noexcept
+	{
+		if (ladderSolveSettings.mode <= 0.0f)
+		{
+			finishSample(ladderOutputs, left, right);
+			return;
+		}
+		// The output gain matching this sample's solve (prepareLadderInput).
+		const auto level = static_cast<float>(ladderOutputGain);
+		std::array<float, 4> outputs {};
+		for (std::size_t stack = 0; stack < static_cast<std::size_t>(pending.layers); ++stack) outputs[stack] = level * ladderOutputs[stack];
+		finishSample(outputs.data(), left, right);
 	}
 
 	// Everything before the ladder: modulation, envelopes, oscillators and mixers. Returns false (and renders
@@ -465,11 +509,12 @@ public:
 	[[nodiscard]] int ladderLanes() const noexcept { return pending.layers; }
 	void ladderRequest(NonlinearTptLadder** ladders, float* inputs, const NonlinearTptLadderSettings** settings) noexcept
 	{
+		const auto inputGain = prepareLadderInput();
 		for (std::size_t stack = 0; stack < static_cast<std::size_t>(pending.layers); ++stack)
 		{
 			ladders[stack] = &filterLadders[stack];
-			inputs[stack] = pending.mixers[stack];
-			settings[stack] = &pending.ladderSettings;
+			inputs[stack] = inputGain * pending.mixers[stack];
+			settings[stack] = &ladderSolveSettings;
 		}
 	}
 
@@ -540,7 +585,8 @@ public:
 	// After the K35 solve, given each layer's filter output: the Resonance trim, then the rest of the voice.
 	void finishKorg35Sample(const double* filterOutputs, float& left, float& right) noexcept
 	{
-		const auto trim = korg35OutputTrim(static_cast<double>(pending.ladderSettings.resonance));
+		const auto trim = korg35OutputTrim(static_cast<double>(pending.ladderSettings.resonance))
+			* korg35HighPassTrim(static_cast<double>(pending.ladderSettings.mode));
 		std::array<float, 4> outputs {};
 		for (std::size_t stack = 0; stack < static_cast<std::size_t>(pending.layers); ++stack)
 			outputs[stack] = static_cast<float>(trim * filterOutputs[stack]);
@@ -746,6 +792,9 @@ private:
 	std::array<NonlinearTptLadder, 4> filterLadders;
 	std::array<NonlinearTptSvf, 4> filterSvfs; // side by side with the ladders: only the selected type is run
 	std::array<NonlinearTptKorg35, 4> filterKorgs; // likewise
+	float ladderInputGain { 1.0f }; // this sample's ladder input gain (prepareLadderInput)
+	double ladderOutputGain { 1.0 }; // and its output gain
+	NonlinearTptLadderSettings ladderSolveSettings; // the ladder's settings for this sample's solve (prepareLadderInput)
 	std::array<dsp::DcBlocker<double>, 4> filterDcBlockers; // per layer, after whichever filter type runs
 	NonlinearTptKorg35Settings korg35Settings;             // this sample's K35 settings, shared by its layers
 	FilterType filterType { FilterType::ladder };

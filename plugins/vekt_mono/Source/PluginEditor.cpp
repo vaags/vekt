@@ -135,7 +135,8 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 		filterControls[index].getSlider().setColour(juce::Slider::rotarySliderFillColourId, filterAccent);
 	}
 	filterControls[0].getSlider().setTooltip("Cutoff frequency, the same for every filter type. Sweeps exponentially from dark to fully open.");
-	filterControls[1].getSlider().setTooltip("Emphasis. Ladder: a resonant peak with natural bass loss that reaches self-oscillation near maximum. "
+	filterControls[1].getSlider().setTooltip("Emphasis. Ladder: a resonant peak with natural bass loss that reaches self-oscillation near maximum in LP and Notch "
+		"(toward HP it stops just short). "
 		"SVF: strong resonance up to Q 20 that never self-oscillates and softens as Drive rises. K35: ringing up to Q 100 at 95 %, "
 		"screaming self-oscillation in the last few percent, held and quenched by the played signal.");
 	filterControls[2].getSlider().setTooltip("Keyboard tracking. At 100%, cutoff rises one octave per keyboard octave.");
@@ -148,7 +149,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	// Filter type (ADR 0006, 0007): Ladder (4-pole, self-oscillating), SVF (2-pole, strongly resonant, never
 	// self-oscillating) or K35 (2-pole, gritty; Mode reaches the MS-20 high-pass).
 	const std::array filterTypeNames { "LADDER", "SVF", "K35" };
-	const std::array filterTypeTooltips { "Ladder: 4-pole, 24 dB/oct nonlinear ladder. Thick, and self-oscillates near maximum Resonance.",
+	const std::array filterTypeTooltips { "Ladder: 4-pole, 24 dB/oct nonlinear ladder. Thick, and self-oscillates near maximum Resonance in LP and Notch.",
 		"SVF: 2-pole, 12 dB/oct state-variable filter. More open, strongly resonant, never self-oscillates; native LP, Notch and HP.",
 		"K35: 2-pole, 12 dB/oct low-pass after the early MS-20 filter, with a diode-limited output stage. Gritty even at Drive 0, "
 		"screaming at the top of Resonance. Mode turns it into the MS-20's 6 dB/oct high-pass." };
