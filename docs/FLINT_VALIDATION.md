@@ -1,5 +1,10 @@
 # Flint Validation
 
+> Kobber was called **Mono** until 3 October 2026. Dated entries and records below keep the names of their time:
+> Mono, `vekt::mono`, `plugins/vekt_mono`, `Mono*` types, `[mono]` and `[mono-*]` tags, test names "Mono ...", tools
+> `VektMono*` (now `VektKobber*`), `VEKT_MONO_*` variables (now `VEKT_KOBBER_*`), and the Audio Lab tools
+> `VektRavAudioLab` and `VektRavRender` (now `VektAudioLab` and `VektRender`).
+
 Flint is a sample-free percussion synthesizer: one instrument per plugin instance, built into kits by the host (an
 Ableton Drum Rack holds one Flint per pad). Its hierarchy is **Mode → Model → Sound**: Mode is the kind of instrument
 (Kick, Snare, Mallet …), Model the synthesis method that makes it. This document is Flint's product contract and the

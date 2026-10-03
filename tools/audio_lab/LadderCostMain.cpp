@@ -22,7 +22,7 @@ using Clock = std::chrono::steady_clock;
 using namespace vekt::dsp;
 
 // Experimental persistent workers; neither this synchronization policy nor
-// these shared-input ladders are a production Mono voice-render design.
+// these shared-input ladders are a production Kobber voice-render design.
 class ParallelLadders
 {
 public:

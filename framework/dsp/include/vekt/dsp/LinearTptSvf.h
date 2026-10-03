@@ -14,7 +14,7 @@ struct LinearTptSvfOutputs
 
 // The canonical two-integrator TPT state-variable filter (ADR 0006): HP = x - k BP - LP, HP -> integrator -> BP,
 // BP -> integrator -> LP, with trapezoidal integrators prewarped so the pole frequency is exactly the cutoff.
-// k is the damping, 1/Q; at the cutoff |LP| = |BP| = |HP| = 1/k and LP + HP has its notch. Mono uses it as the linear
+// k is the damping, 1/Q; at the cutoff |LP| = |BP| = |HP| = 1/k and LP + HP has its notch. Kobber uses it as the linear
 // reference for its nonlinear SVF; Flint for its click and noise filters.
 class LinearTptSvf
 {

@@ -1,4 +1,4 @@
-// Cost and aliasing of Mono's Width oscillator. Times one oscillator of the production table renderer
+// Cost and aliasing of Kobber's Width oscillator. Times one oscillator of the production table renderer
 // against the exact additive reference, then the whole processor per
 // Quality, and measures inharmonic output power for a narrow high pulse (the whistle setup).
 #include "KobberAdditiveOscillator.h"

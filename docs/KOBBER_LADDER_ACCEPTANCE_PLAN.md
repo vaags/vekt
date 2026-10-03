@@ -1,13 +1,15 @@
-# Mono Ladder Acceptance Plan
+# Kobber Ladder Acceptance Plan
 
-> Kobber was called **Mono** until 3 October 2026. Dated entries and records below keep the names of their time
-> (Mono, `vekt::mono`, `plugins/vekt_mono`, `[mono]`, test names "Mono ...").
+> Kobber was called **Mono** until 3 October 2026. Dated entries and records below keep the names of their time:
+> Mono, `vekt::mono`, `plugins/vekt_mono`, `Mono*` types, `[mono]` and `[mono-*]` tags, test names "Mono ...", tools
+> `VektMono*` (now `VektKobber*`), `VEKT_MONO_*` variables (now `VEKT_KOBBER_*`), and the Audio Lab tools
+> `VektRavAudioLab` and `VektRavRender` (now `VektAudioLab` and `VektRender`).
 
-**Updated:** 3 October 2026 (quality scope: Mono now offers the shared Tracking and Offline choices, including 16x;
+**Updated:** 3 October 2026 (quality scope: Kobber now offers the shared Tracking and Offline choices, including 16x;
 ADR 0001. References below to the retained 1x/2x/4x/8x qualities and to unimplemented Playback/Offline controls are
 historical); 2 October 2026 (high-pass ladder track added; the rest as of 28 September 2026)
 
-**Decision:** ADR 0005 is Proposed. In pre-alpha with no users, Mono directly
+**Decision:** ADR 0005 is Proposed. In pre-alpha with no users, Kobber directly
 replaces legacy with coupled for the ordinary host-created plugin at every
 retained 1x/2x/4x/8x quality. This is a breaking sound change, not release
 validation. No parallel preview SKU, development constructor selector,

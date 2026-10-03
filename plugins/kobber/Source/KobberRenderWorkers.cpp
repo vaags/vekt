@@ -11,7 +11,7 @@ namespace vekt::kobber
 class KobberRenderWorkers::Worker final : public juce::Thread
 {
 public:
-	explicit Worker(KobberRenderWorkers& pool, int index) : juce::Thread("Mono render " + juce::String(index)), owner(pool) {}
+	explicit Worker(KobberRenderWorkers& pool, int index) : juce::Thread("Kobber render " + juce::String(index)), owner(pool) {}
 
 	void run() override
 	{

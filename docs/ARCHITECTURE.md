@@ -21,13 +21,13 @@ link the products' Core libraries.
 Plugin processors are composition roots: they connect parameters, reusable DSP,
 state, and format wrappers but do not contain signal-processing algorithms.
 Kobber's processor, the largest, composes separately tested parts in its
-`Source/`: `MonoSettingsSnapshot` (the one mapping from parameters to voice
-settings, shared with tests), `MonoVoiceAllocator` (polyphonic reuse and
+`Source/`: `KobberSettingsSnapshot` (the one mapping from parameters to voice
+settings, shared with tests), `KobberVoiceAllocator` (polyphonic reuse and
 stealing, the monophonic modes, note priority, held-key return and the sustain
-pedal, unit-tested against a recording fake voice) and `MonoRenderPlan` (how a
+pedal, unit-tested against a recording fake voice) and `KobberRenderPlan` (how a
 segment's sounding voices are grouped into summing units and thread jobs).
-`MonoVoice` keeps its per-sample path inline in its header; setup, note start
-and release, and diagnostics live in `MonoVoice.cpp`.
+`KobberVoice` keeps its per-sample path inline in its header; setup, note start
+and release, and diagnostics live in `KobberVoice.cpp`.
 
 New abstractions must be justified by at least two concrete consumers or by a
 hard ownership boundary. A generic runtime effect graph is outside version 1.
@@ -51,7 +51,7 @@ hard ownership boundary. A generic runtime effect graph is outside version 1.
 - `ChoiceTable` lists a choice parameter's values in choice order with their
   names. Each product keeps its tables in a uniquely named `Source/` header
   (`RavParameterChoices.h`, `GlimmerParameterChoices.h`,
-  `MonoParameterChoices.h`; Flint's Mode table sits with its models in
+  `KobberParameterChoices.h`; Flint's Mode table sits with its models in
   `Models.h`, Drive Type with its enum in `FlintParameters.h`); the layout builds the parameter's choices from the
   table and the processor and editor decode the value with it, rounded and
   clamped to a valid choice, so names, order and meaning cannot drift apart.

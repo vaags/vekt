@@ -48,7 +48,7 @@ std::pair<float, float> fundamental(Wave wave)
 	return { static_cast<float>(2.0 * sine / cycleSamples), static_cast<float>(2.0 * cosine / cycleSamples) };
 }
 
-// Mono's Width oscillator at 25 Hz / 48 kHz: every guard-passing harmonic (up to H864) is present, and a
+// Kobber's Width oscillator at 25 Hz / 48 kHz: every guard-passing harmonic (up to H864) is present, and a
 // 4096-sample cycle resolves them all without aliasing.
 constexpr double oscillatorRate = 48'000.0;
 constexpr float oscillatorPitch = 25.0f;

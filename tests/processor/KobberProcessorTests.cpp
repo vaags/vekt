@@ -534,7 +534,7 @@ TEST_CASE("Kobber held-key return retains the original velocity", "[kobber][proc
 	}
 }
 
-TEST_CASE("Kobber Legato starts a new gate during a release tail", "[kobber][processor][midi]")
+TEST_CASE("Kobber Mono Legato starts a new gate during a release tail", "[kobber][processor][midi]")
 {
 	juce::ScopedJuceInitialiser_GUI juceInitializer;
 	vekt::kobber::PluginProcessor processor;
@@ -903,7 +903,7 @@ TEST_CASE("Kobber preset loads clear old audio while allowing new notes in the f
 		struct TemporaryPresetDirectory
 		{
 			juce::File path = juce::File::getSpecialLocation(juce::File::tempDirectory)
-				.getChildFile("vekt-mono-preset-isolation-" + juce::Uuid().toString()); // unique across parallel test processes
+				.getChildFile("vekt-kobber-preset-isolation-" + juce::Uuid().toString()); // unique across parallel test processes
 			~TemporaryPresetDirectory() { path.deleteRecursively(); }
 		} directory;
 		vekt::presets::FilePresetRepository repository(directory.path);
@@ -2083,7 +2083,7 @@ TEST_CASE("Kobber voice stealing avoids an exceptional sample-boundary jump", "[
 	}
 }
 
-TEST_CASE("Kobber modes isolate held-note stacks by MIDI channel", "[kobber][processor][midi]")
+TEST_CASE("Kobber Mono modes isolate held-note stacks by MIDI channel", "[kobber][processor][midi]")
 {
 	vekt::kobber::PluginProcessor processor;
 	setParameter(processor, vekt::kobber::parameters::performanceMode, 1.0f);

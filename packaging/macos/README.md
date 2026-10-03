@@ -12,8 +12,8 @@ zsh scripts/verify-bundles.sh --release
 `scripts/build-dev.sh` runs it for Debug.
 
 AU components are at
-`build/release/plugins/vekt_<product>/<Target>_artefacts/Release/AU/<Product Name>.component`
-(Flint: `build/release/plugins/flint/Flint_artefacts/Release/AU/Flint.component`).
+`build/release/plugins/<product>/<Product>_artefacts/Release/AU/<Product>.component`
+(for example `build/release/plugins/kobber/Kobber_artefacts/Release/AU/Kobber.component`).
 Each Standalone, VST3 and AU build is ad-hoc sealed after JUCE's post-build steps
 (`cmake/VektSealBundle.cmake`) when it fails strict signature verification, and the
 build fails if the bundle still fails afterwards. It uses no identity and is not

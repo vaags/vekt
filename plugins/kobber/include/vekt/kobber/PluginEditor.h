@@ -158,7 +158,7 @@ struct LfoDot
 class PluginEditor final : public ui::ScalableEditor, private juce::Timer
 {
 public:
-	// Mono is wider than the other products: the extra column holds the LFO (and later vibrato) panels.
+	// Kobber is wider than the other products: the extra column holds the LFO (and later vibrato) panels.
 	static constexpr int editorWidth = 1484;
 
 	explicit PluginEditor(PluginProcessor& processor);

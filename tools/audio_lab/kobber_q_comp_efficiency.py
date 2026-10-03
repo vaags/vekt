@@ -53,7 +53,7 @@ def main() -> int:
     pathlib.Path(sys.argv[3]).write_text(
         '<svg xmlns="http://www.w3.org/2000/svg" width="620" height="310" viewBox="0 0 620 310">\n'
         '<rect width="620" height="310" fill="white"/>\n'
-        '<text x="70" y="25">Mono Q Comp: sine fundamental / input excitation</text>\n'
+        '<text x="70" y="25">Kobber Q Comp: sine fundamental / input excitation</text>\n'
         '<path d="M70 70 V230 H550" fill="none" stroke="black"/>\n'
         '<path d="M70 70 H550" stroke="#aaa" stroke-dasharray="4 4"/>\n'
         '<text x="55" y="75" text-anchor="end">1</text><text x="55" y="235" text-anchor="end">0</text>\n'

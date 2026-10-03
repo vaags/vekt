@@ -112,7 +112,7 @@ public:
 		productTabs.addItem("Glimmer", 3);
 		productTabs.addItem("Flint", 4);
 		// One instrument plays at a time; the one left is silenced (RackRouting.h).
-		instrumentBox.addItem("Play: Mono", 1);
+		instrumentBox.addItem("Play: Kobber", 1);
 		instrumentBox.addItem("Play: Flint", 2);
 		instrumentBox.setTooltip("The instrument the keyboard and MIDI input play, before the rack.");
 		instrumentBox.setSelectedId(instrument.load() + 1, juce::dontSendNotification);
@@ -169,7 +169,7 @@ public:
 			}
 		}
 		showProductEditor(productTabs.getSelectedId());
-		// Fit the largest product editor at its native size (Mono is wider than Rav and Glimmer).
+		// Fit the largest product editor at its native size (Kobber is wider than Rav and Glimmer).
 		int editorWidth = vekt::ui::ScalableEditor::logicalWidth, editorHeight = vekt::ui::ScalableEditor::logicalHeight;
 		for (auto* editor : { kobberEditor.get(), ravEditor.get(), glimmerEditor.get(), flintEditor.get() })
 			if (const auto* scalable = dynamic_cast<vekt::ui::ScalableEditor*>(editor))
@@ -205,7 +205,7 @@ public:
 		glimmerProcessor.prepareToPlay(sampleRate, samplesPerBlockExpected);
 		kobberProcessor.prepareToPlay(sampleRate, samplesPerBlockExpected);
 		flintProcessor.prepareToPlay(sampleRate, samplesPerBlockExpected);
-		// A plugin host passes its audio workgroup; this lab hosts Mono directly, so forward the device's.
+		// A plugin host passes its audio workgroup; this lab hosts Kobber directly, so forward the device's.
 		if (auto* device = getCurrentAudioDevice()) kobberProcessor.audioWorkgroupContextChanged(device->getWorkgroup());
 		midiCollector.reset(sampleRate);
 		midiCollector.ensureStorageAllocated(4096);
@@ -288,7 +288,7 @@ public:
 		for (auto* editor : { kobberEditor.get(), ravEditor.get(), glimmerEditor.get(), flintEditor.get() })
 		{
 			const auto editorArea = getLocalBounds().withTop(editorTop).withTrimmedBottom(16).reduced(16, 0);
-			// Each product may use its own logical size (Mono is wider), so fit each editor by its own aspect.
+			// Each product may use its own logical size (Kobber is wider), so fit each editor by its own aspect.
 			const auto* scalable = dynamic_cast<vekt::ui::ScalableEditor*>(editor);
 			const auto logicalWidth = static_cast<float>(scalable != nullptr ? scalable->getLogicalWidth() : vekt::ui::ScalableEditor::logicalWidth);
 			const auto logicalHeight = static_cast<float>(scalable != nullptr ? scalable->getLogicalHeight() : vekt::ui::ScalableEditor::logicalHeight);
@@ -466,7 +466,7 @@ private:
 		if (const auto availableMidiInputs = juce::MidiInput::getAvailableDevices(); availableMidiInputs != midiInputDevices)
 			refreshMidiInputs();
 		const auto diagnostics = juce::String(instrument.load() == static_cast<int>(vekt::audio_lab::Instrument::flint)
-			? "Flint  In " : "Mono  In ")
+			? "Flint  In " : "Kobber  In ")
 			+ juce::String(generatedPeak.load(), 3) + "  Out "
 			+ juce::String(outputPeak.load(), 3) + "  Lat "
 			+ juce::String(rackLatencySamples()) + "  CPU "

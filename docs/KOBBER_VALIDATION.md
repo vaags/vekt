@@ -1,7 +1,9 @@
 # Kobber Validation
 
-> Kobber was called **Mono** until 3 October 2026. Dated entries and records below keep the names of their time
-> (Mono, `vekt::mono`, `plugins/vekt_mono`, `[mono]`, test names "Mono ...").
+> Kobber was called **Mono** until 3 October 2026. Dated entries and records below keep the names of their time:
+> Mono, `vekt::mono`, `plugins/vekt_mono`, `Mono*` types, `[mono]` and `[mono-*]` tags, test names "Mono ...", tools
+> `VektMono*` (now `VektKobber*`), `VEKT_MONO_*` variables (now `VEKT_KOBBER_*`), and the Audio Lab tools
+> `VektRavAudioLab` and `VektRavRender` (now `VektAudioLab` and `VektRender`).
 
 # Mono processor split (3 October 2026)
 
@@ -1639,7 +1641,7 @@ already-snapped state.
   The first note after reset has no prior pitch and starts directly.
 - Legato glides only when another key remains held, independently of whether the
   envelope is retriggered. An audible release tail alone is not a held gate.
-- Kobber retriggers on each note. Mono Legato restarts on a new gate, including a
+- Mono retriggers on each note. Mono Legato restarts on a new gate, including a
   new note during the previous release tail, but retains contours for overlapping
   notes. Retrigger still starts from the current envelope level, not forced zero.
 - Held-key return restores the original key's velocity and its amplitude/filter
@@ -1675,7 +1677,7 @@ comparison has been captured in this increment.
 
 ## Deterministic Audio Lab Fixtures
 
-`VektKobberRender` drives the product-local `MonoVoice` directly. It applies note
+`VektKobberRender` drives the product-local `KobberVoice` directly. It applies note
 and control events at absolute sample positions, independently of render block
 boundaries, and seeds the voice's oscillator phase, drift and noise generator
 explicitly. It does not duplicate oscillator, contour, ladder, VCA or panning DSP,
@@ -1684,7 +1686,7 @@ and it does not add development controls to plugin state or presets.
 Build and render the fixed fixture set in Release mode with:
 
 ```sh
-./scripts/render-kobber-report.sh /tmp/vekt-mono-render
+./scripts/render-kobber-report.sh /tmp/vekt-kobber-render
 ```
 
 The script writes a 32-bit stereo WAV and an indented JSON report for each fixture:
@@ -1719,7 +1721,7 @@ The same render script also builds `VektLadderPrototype` and writes
 ladder is extracted into a reusable product-local class without changing its
 arithmetic, state lifecycle or sound; pre/post extraction fixture WAV and JSON
 files are byte-identical. The candidate remains isolated and is not selected by
-`MonoVoice`, the processor, plugin parameters, presets or saved state. It combines
+`KobberVoice`, the processor, plugin parameters, presets or saved state. It combines
 the four nonlinear one-pole ladder structure
 described by Antti Huovilainen in *Non-Linear Digital Implementation of the Moog
 Ladder Filter* (DAFx-04) with trapezoidal/TPT integrators and a bounded Newton solve
@@ -3154,7 +3156,7 @@ headroom, and documented control semantics.
 
 ### 7. Integrate The Selected Filter For Release
 
-Replace `DelayedFeedbackLadder` in `MonoVoice`, remove hidden legacy normalization,
+Replace `DelayedFeedbackLadder` in `KobberVoice`, remove hidden legacy normalization,
 delete old-filter tests that encode discarded behavior and regenerate affected
 fixtures after reviewing and recording the intended deltas. Do not add a legacy mode,
 state migration or legacy cutoff map. Retain historical reports only as development

@@ -46,7 +46,7 @@ bool identical(const juce::AudioBuffer<float>& first, const juce::AudioBuffer<fl
 struct TemporaryDirectory
 {
 	juce::File path = juce::File::getSpecialLocation(juce::File::tempDirectory)
-		.getChildFile("vekt-mono-reproducibility-" + juce::Uuid().toString()); // unique across parallel test processes
+		.getChildFile("vekt-kobber-reproducibility-" + juce::Uuid().toString()); // unique across parallel test processes
 	~TemporaryDirectory() { path.deleteRecursively(); }
 };
 }

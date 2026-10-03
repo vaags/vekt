@@ -15,12 +15,12 @@
 #include <limits>
 #include <vector>
 
-// Mono's per-sample state at every internal rate up to the highest (ARCHITECTURE.md, DSP Contracts): states that step
+// Kobber's per-sample state at every internal rate up to the highest (ARCHITECTURE.md, DSP Contracts): states that step
 // toward a target or accumulate a phase must neither stall nor drift as the steps shrink with the rate.
 
 namespace
 {
-// The base rate and the internal rates Mono reaches: 48 kHz, its Offline default (4x), 192 kHz x4 and the highest.
+// The base rate and the internal rates Kobber reaches: 48 kHz, its Offline default (4x), 192 kHz x4 and the highest.
 constexpr std::array internalRates { 48'000.0, 192'000.0, 768'000.0, vekt::dsp::maximumInternalSampleRate };
 
 // Samples until `done` holds, or -1 past `limit` seconds.

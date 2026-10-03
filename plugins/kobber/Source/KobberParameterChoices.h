@@ -7,7 +7,7 @@
 
 namespace vekt::kobber
 {
-// Mono's choice parameters: each table lists its values in choice order with the names the parameter shows. The
+// Kobber's choice parameters: each table lists its values in choice order with the names the parameter shows. The
 // layout builds the parameters from these tables, and the processor and editor decode them with the same tables.
 // Projects store the choice index, so a table only ever grows at its end. (LFO divisions keep their own table in Lfo.h.)
 inline constexpr plugin_support::ChoiceTable oscillatorRanges { // octaves from 8'

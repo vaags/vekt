@@ -15,7 +15,7 @@
 8 | Kobber Ladder and SVF switch at a sensible level at Drive 0 | pre-existing (2 October 2026), not yet reviewed for length
 7 | Kobber Width DC policies follow the frozen-width analytical means | pre-existing (2 October 2026), not yet reviewed for length
 6 | Kobber Width and Morph surface has finite fundamentals and continuous anchors | pre-existing (2 October 2026), not yet reviewed for length
-6 | Every Mono reference render still sounds the same | pre-existing (2 October 2026), not yet reviewed for length
+6 | Every Kobber reference render still sounds the same | pre-existing (2 October 2026), not yet reviewed for length
 5 | Kobber coupled reports oversampling latency across retained rates and blocks | pre-existing (2 October 2026), not yet reviewed for length
 5 | Kobber nonlinear SVF still decays at the lowest cutoff and highest effective rate | pre-existing (2 October 2026), not yet reviewed for length
 5 | Kobber nonlinear SVF stays periodic in the cases that broke earlier topologies | pre-existing (2 October 2026), not yet reviewed for length

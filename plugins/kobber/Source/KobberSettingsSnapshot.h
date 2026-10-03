@@ -17,7 +17,7 @@ struct KobberLfoParameterValues
 	std::array<std::atomic<float>*, 19> depths {}; // in parameters::LfoParameterIds::depths() order
 };
 
-// Every parameter Mono's processor reads, resolved by ID once (at construction) so no block looks one up by name.
+// Every parameter Kobber's processor reads, resolved by ID once (at construction) so no block looks one up by name.
 struct KobberParameterValues
 {
 	std::array<std::atomic<float>*, 3> range {}, semitone {}, fine {}, octave {}, level {}, morph {}, pulseWidth {};
@@ -38,7 +38,7 @@ struct KobberParameterValues
 	[[nodiscard]] static KobberParameterValues resolve(juce::AudioProcessorValueTreeState& state);
 };
 
-// The voice settings the parameters describe now, in the voice's units: the one mapping from Mono's parameters to its
+// The voice settings the parameters describe now, in the voice's units: the one mapping from Kobber's parameters to its
 // voices, used by the processor for every block and note and by tests that render a voice directly. Tempo-synced LFO
 // rates follow transportBpm. Audio-thread safe.
 [[nodiscard]] KobberVoiceSettings voiceSettingsFrom(const KobberParameterValues& cached, double transportBpm) noexcept;

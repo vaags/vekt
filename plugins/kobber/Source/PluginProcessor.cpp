@@ -32,7 +32,7 @@ PluginProcessor::PluginProcessor()
 		},
 		[](presets::Preset& preset)
 		{
-			return preset.soundSchemaVersion == parameters::presetSoundSchemaVersion ? juce::Result::ok() : juce::Result::fail("Unsupported Mono preset sound schema");
+			return preset.soundSchemaVersion == parameters::presetSoundSchemaVersion ? juce::Result::ok() : juce::Result::fail("Unsupported Kobber preset sound schema");
 		},
 		[this](const presets::Preset& preset) { return validatePresetSound(preset); },
 		[this](const presets::Preset& preset) { return applyPreset(preset); },
@@ -514,7 +514,7 @@ juce::Result PluginProcessor::loadNextPreset() { return presetHost.loadAdjacentP
 juce::Result PluginProcessor::loadPreviousPreset() { return presetHost.loadAdjacentPreset(false); }
 juce::Result PluginProcessor::validatePresetSound(const presets::Preset& preset) const
 {
-	return preset.soundSchemaVersion != parameters::presetSoundSchemaVersion ? juce::Result::fail("Unsupported Mono preset sound schema")
+	return preset.soundSchemaVersion != parameters::presetSoundSchemaVersion ? juce::Result::fail("Unsupported Kobber preset sound schema")
 		: presets::PresetSchema::validate(preset, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds);
 }
 juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)

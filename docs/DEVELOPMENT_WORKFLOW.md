@@ -40,7 +40,7 @@ installation side effects are part of this workflow.
 | --- | --- | --- |
 | `/vekt-plan <goal>` | Produce a scoped plan and stop for approval | User only |
 | `/vekt-change <approved goal or plan>` | Implement, check, and review approved work | User only |
-| `/vekt-validate <rav\|glimmer\|mono\|flint\|shared> <scope>` | Select and execute relevant existing checks | User or Claude |
+| `/vekt-validate <rav\|glimmer\|kobber\|flint\|shared> <scope>` | Select and execute relevant existing checks | User or Claude |
 
 The `vekt-reviewer` agent reviews substantial DSP, state, compatibility, and
 shared-framework changes in a fresh context. Its tools are only Read, Grep,

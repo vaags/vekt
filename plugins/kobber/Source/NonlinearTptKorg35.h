@@ -14,7 +14,7 @@
 
 namespace vekt::kobber
 {
-// A reduced model of the early (Korg35-based) MS-20 low-pass, Mono's K35 filter (ADR 0007). It follows
+// A reduced model of the early (Korg35-based) MS-20 low-pass, Kobber's K35 filter (ADR 0007). It follows
 // Stinchcombe's simplified Korg35 structure (A Study of the Korg MS10 & MS20 Filters, 2006, figure 3 and section 5):
 // a Sallen-Key pair with C1 = 3 C2 and R1 = R2 / 3, whose output gain stage (x58 non-inverting, back-to-back diodes)
 // is a limiter in the forward path, and whose output also drives the resonance through C1. Not a circuit emulation:

@@ -14,7 +14,7 @@ struct NonlinearTptLadderSettings
 	float driveDecibels {};
 	bool driveCompensation {};
 	float inputFeedbackCompensation {};
-	// Output pole mix: -1 = LP (the plain ladder), 0 = Notch, +1 = the tap HP. See LadderPoleMix.h. Mono uses it up to the
+	// Output pole mix: -1 = LP (the plain ladder), 0 = Notch, +1 = the tap HP. See LadderPoleMix.h. Kobber uses it up to the
 	// Notch; its HP is the high-pass ladder (NonlinearTptLadderHighPass.h, ADR 0009).
 	float mode { -1.0f };
 };

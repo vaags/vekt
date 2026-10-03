@@ -42,6 +42,6 @@ TEST_CASE("Audio Lab settings default and clamp invalid persisted values", "[aud
 	REQUIRE_FALSE(restored.outputArmed);
 	REQUIRE(restored.instrument == 1);
 
-	// Settings saved before Flint joined the lab play Mono.
+	// Settings saved before Flint joined the lab play Kobber.
 	REQUIRE(vekt::audio_lab::readLabSettings(juce::ValueTree("VektAudioLabRackState")).instrument == 0);
 }

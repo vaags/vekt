@@ -255,7 +255,7 @@ TEST_CASE("Reference comparison rejects non-finite output", "[compat][reference]
 // One test per product so CTest can run them in parallel.
 TEST_CASE("Every Rav reference render still sounds the same", "[compat][reference][rav]") { checkReferences("rav"); }
 TEST_CASE("Every Glimmer reference render still sounds the same", "[compat][reference][glimmer]") { checkReferences("glimmer"); }
-TEST_CASE("Every Mono reference render still sounds the same", "[compat][reference][kobber]") { checkReferences("kobber"); }
+TEST_CASE("Every Kobber reference render still sounds the same", "[compat][reference][kobber]") { checkReferences("kobber"); }
 
 TEST_CASE("Capture reference renders", "[.capture-references]")
 {

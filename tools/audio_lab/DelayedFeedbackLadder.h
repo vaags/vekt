@@ -32,7 +32,7 @@ inline LadderCoefficients ladderCoefficients(float cutoff, float sampleRate) noe
 	return { coefficient, 1.0f / std::pow(stageMagnitude, 4.0f) };
 }
 
-// Historical offline comparator only; not linked into the Mono render path.
+// Historical offline comparator only; not linked into the Kobber render path.
 class DelayedFeedbackLadder
 {
 public:

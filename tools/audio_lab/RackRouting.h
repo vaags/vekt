@@ -7,7 +7,7 @@ namespace vekt::audio_lab
 // The instruments the lab plays, in its Instrument menu order.
 enum class Instrument
 {
-	mono,
+	kobber,
 	flint
 };
 inline constexpr int instrumentCount = 2;

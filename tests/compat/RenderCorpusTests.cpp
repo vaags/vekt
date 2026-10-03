@@ -168,7 +168,7 @@ std::vector<CorpusCase> corpus()
 		    twoNotes() },
 		{ "kobber-white-noise", kobberProcessor, { { kobber::noiseType, 1.0f }, { kobber::noiseLevel, 40.0f } }, twoNotes() },
 		{ "kobber-pink-noise", kobberProcessor, { { kobber::noiseType, 2.0f }, { kobber::noiseLevel, 40.0f } }, twoNotes() },
-		// Mono's startup sound is unison 2x at 12 cents, Mono Legato: the cases set what differs from it.
+		// Kobber's startup sound is unison 2x at 12 cents, Mono Legato: the cases set what differs from it.
 		{ "kobber-unison-off", kobberProcessor, { { kobber::unison, 0.0f } }, twoNotes() },
 		{ "kobber-unison-4x-lfo", kobberProcessor,
 		    { { kobber::unison, 2.0f }, { kobber::lfos[0].rate, 6.0f }, { kobber::lfos[0].pitch[0], 2.0f },

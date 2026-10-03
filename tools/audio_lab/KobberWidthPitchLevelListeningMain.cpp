@@ -9,7 +9,7 @@
 //   diff    - unmatched 4bpo minus oracle, i.e. exactly what the candidate removes
 // Candidate files are RMS-matched to the oracle over the whole file.
 // A second set (ladder/) feeds identical, unmatched oscillator signals through
-// the production NonlinearTptLadder at 1x and 4x with Mono's decimators; its
+// the production NonlinearTptLadder at 1x and 4x with Kobber's decimators; its
 // diff files are the unmatched post-ladder difference. Both sets report how
 // much of the difference lies below 15 kHz, where the grouping adds nothing
 // before the ladder.
@@ -83,7 +83,7 @@ std::array<std::vector<float>, 3> synthesize(const std::vector<std::complex<doub
 	return outputs;
 }
 
-// Oscillator samples at rate * factor through the production ladder, then Mono's decimator.
+// Oscillator samples at rate * factor through the production ladder, then Kobber's decimator.
 std::vector<float> throughLadder(const std::vector<float>& internal, double rate, int factor, float driveDb, float resonance)
 {
 	using namespace vekt::dsp;

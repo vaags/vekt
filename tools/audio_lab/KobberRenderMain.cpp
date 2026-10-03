@@ -58,14 +58,14 @@ int main(int argc, char** argv)
 	if (!vekt::audio_lab::makeMonoRenderFixture(options.fixture, options.sampleRate,
 		options.blockSize, options.seed, request))
 	{
-		std::cerr << "Unknown Mono fixture\n";
+		std::cerr << "Unknown Kobber fixture\n";
 		return 64;
 	}
 	const auto result = vekt::audio_lab::renderMono(request);
 	if (!vekt::audio_lab::writeMonoRenderWav(juce::File(options.wavPath), result, options.sampleRate)
 		|| !vekt::audio_lab::writeMonoRenderReport(juce::File(options.reportPath), result))
 	{
-		std::cerr << "Unable to write Mono render outputs\n";
+		std::cerr << "Unable to write Kobber render outputs\n";
 		return 1;
 	}
 	const auto* channel = result.report.getProperty("channels", {}).getArray();

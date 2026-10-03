@@ -82,7 +82,7 @@ TEST_CASE("ControlTransition ramps small moves smoothly at the highest internal 
 
 TEST_CASE("LinearRamp moves small steps smoothly at the highest internal rate", "[dsp][control][precision]")
 {
-	// Mono's cutoff ramp (in octaves, about 13 for 8 kHz) over 15 ms: a 0.01-octave move takes 2.2e-7 per sample at
+	// Kobber's cutoff ramp (in octaves, about 13 for 8 kHz) over 15 ms: a 0.01-octave move takes 2.2e-7 per sample at
 	// 192 kHz x16, under half a float ulp at 13, so a float ramp stalled and then stepped 12 cents. Half way through
 	// it must be half way.
 	vekt::dsp::LinearRamp ramp;

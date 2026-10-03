@@ -13,7 +13,7 @@ struct LabSettings
 	juce::String midiInputIdentifier;
 	juce::String audioFilePath;
 	bool outputArmed {};
-	int instrument {}; // Instrument (RackRouting.h): 0 Mono, 1 Flint
+	int instrument {}; // Instrument (RackRouting.h): 0 Kobber, 1 Flint
 };
 
 inline LabSettings readLabSettings(const juce::ValueTree& state)

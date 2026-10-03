@@ -1,6 +1,6 @@
 #pragma once
 
-// Shared helpers for the Mono filter-prototype characterizations (the K35 candidate, ADR 0007):
+// Shared helpers for the Kobber filter-prototype characterizations (the K35 candidate, ADR 0007):
 // parallel jobs, a band-limited saw, cycle and harmonic analysis, and WAV output.
 
 #include <juce_audio_formats/juce_audio_formats.h>

@@ -55,7 +55,7 @@ TEST_CASE("Audio Lab rack routes send source audio through the selected effects"
 	}
 }
 
-TEST_CASE("Audio Lab measures Mono processing with the effects rack bypassed", "[audio-lab][rack][kobber][cpu]")
+TEST_CASE("Audio Lab measures Kobber processing with the effects rack bypassed", "[audio-lab][rack][kobber][cpu]")
 {
 	vekt::kobber::PluginProcessor kobber;
 	vekt::rav::PluginProcessor rav;
@@ -83,7 +83,7 @@ TEST_CASE("Audio Lab silences the instrument it stops playing", "[audio-lab][rac
 	juce::AudioBuffer<float> block(2, blockSize);
 	juce::MidiBuffer midi, scratch;
 	scratch.ensureSize(vekt::audio_lab::silenceEventBytes);
-	// Mono holds a note, then the lab switches to Flint and strikes it.
+	// Kobber holds a note, then the lab switches to Flint and strikes it.
 	midi.addEvent(juce::MidiMessage::noteOn(1, 60, 1.0f), 0);
 	juce::ignoreUnused(vekt::audio_lab::processInstrument(block, midi, kobber));
 	REQUIRE(block.getMagnitude(0, 0, blockSize) > 0.0f);
@@ -91,7 +91,7 @@ TEST_CASE("Audio Lab silences the instrument it stops playing", "[audio-lab][rac
 	REQUIRE(block.getMagnitude(0, 0, blockSize) == 0.0f);
 	juce::ignoreUnused(vekt::audio_lab::processInstrument(block, midi, flint));
 	REQUIRE(block.getMagnitude(0, 0, blockSize) > 0.0f);
-	// Back to Mono with no new note: the held note does not come back.
+	// Back to Kobber with no new note: the held note does not come back.
 	midi.clear();
 	for (auto iteration = 0; iteration < 8; ++iteration)
 	{
