@@ -22,7 +22,7 @@ struct PluginProcessor::CachedParameters
 	explicit CachedParameters(juce::AudioProcessorValueTreeState& state)
 	{
 		const auto require = [&state](const char* identifier)
-		{ return plugin_support::requireParameter(state, identifier); };
+		{ return &plugin_support::requireParameter(state, identifier); };
 		pitch = require(parameters::pitch);
 		attack = require(parameters::attack);
 		decay = require(parameters::decay);

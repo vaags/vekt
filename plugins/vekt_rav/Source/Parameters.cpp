@@ -2,6 +2,8 @@
 
 #include <vekt/plugin_support/QualitySelection.h>
 
+#include "RavParameterChoices.h"
+
 #include <memory>
 
 namespace vekt::rav::parameters
@@ -67,7 +69,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 		juce::AudioParameterFloatAttributes {}.withLabel("Hz")));
 	layout.add(std::make_unique<juce::AudioParameterChoice>(
 		juce::ParameterID { mode, parameterVersion }, "Mode",
-		juce::StringArray { "Saturation", "Overdrive", "Distortion", "Circuit Fuzz", "Gated Fuzz" }, 0));
+		ravModes.names(), 0));
 	for (const auto& parameter : std::array {
 		std::pair { shape, "Shape" }, std::pair { dynamics, "Dynamics" },
 		std::pair { texture, "Texture" } })

@@ -3,6 +3,7 @@
 #include <vekt/plugin_support/QualitySelection.h>
 
 #include "Lfo.h"
+#include "MonoParameterChoices.h"
 #include "WidthOscillator.h"
 
 #include <memory>
@@ -12,6 +13,9 @@ namespace vekt::mono::parameters
 namespace
 {
 constexpr auto version = 1;
+// Defaults as choice indices, found at compile time: a value missing from its table does not compile.
+constexpr auto defaultRange = oscillatorRanges.indexOf(0); // 8'
+constexpr auto defaultVoiceCount = voiceCounts.indexOf(8);
 
 juce::AudioParameterChoiceAttributes nonAutomatable()
 {
@@ -23,7 +27,7 @@ void addOscillator(juce::AudioProcessorValueTreeState::ParameterLayout& layout, 
 	const char* range, const char* semitone, const char* fine, const char* level, const char* morph, const char* width)
 {
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { range, version }, "Osc " + juce::String(index) + " Range",
-		juce::StringArray { "16'", "8'", "4'", "2'", "1'" }, 1));
+		oscillatorRanges.names(), defaultRange));
 	layout.add(std::make_unique<juce::AudioParameterInt>(juce::ParameterID { semitone, version }, "Osc " + juce::String(index) + " Semitone", -24, 24, 0));
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { fine, version }, "Osc " + juce::String(index) + " Fine",
 		juce::NormalisableRange<float> { -100.0f, 100.0f, 0.01f }, 0.0f, juce::AudioParameterFloatAttributes {}.withLabel("ct")));
@@ -66,9 +70,9 @@ void addLfo(juce::AudioProcessorValueTreeState::ParameterLayout& layout, int num
 	for (const auto& [division, beats] : lfoDivisions) { juce::ignoreUnused(beats); divisions.add(division); }
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { ids.division, version }, prefix + "Division", divisions, defaultLfoDivision));
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { ids.shape, version }, prefix + "Shape",
-		juce::StringArray { "Sine", "Triangle", "Saw Up", "Saw Down", "Square", "Smooth Random" }, 0));
-	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { ids.polarity, version }, prefix + "Polarity", juce::StringArray { "Bipolar", "Unipolar" }, 0));
-	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { ids.mode, version }, prefix + "Mode", juce::StringArray { "Free", "Retrigger", "One Shot" }, 0));
+		lfoShapes.names(), 0));
+	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { ids.polarity, version }, prefix + "Polarity", lfoPolarities.names(), 0));
+	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { ids.mode, version }, prefix + "Mode", lfoModes.names(), 0));
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids.phase, version }, prefix + "Phase",
 		juce::NormalisableRange<float> { 0.0f, 360.0f, 0.1f }, 0.0f, withDecimals(1, "deg")));
 	for (const auto [identifier, name] : { std::pair { ids.delay, "Delay" }, std::pair { ids.fade, "Fade" } })
@@ -97,16 +101,16 @@ void addLfo(juce::AudioProcessorValueTreeState::ParameterLayout& layout, int num
 juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 {
 	juce::AudioProcessorValueTreeState::ParameterLayout layout;
-	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { voiceCount, version }, "Voice Count", juce::StringArray { "2", "4", "8", "12", "16" }, 2, nonAutomatable()));
-	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { performanceMode, version }, "Performance Mode", juce::StringArray { "Poly", "Mono", "Mono Legato" }, 0));
-	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { multicore, version }, "Multicore", juce::StringArray { "Off", "On" }, 0, nonAutomatable()));
-	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { unison, version }, "Unison", juce::StringArray { "1x", "2x", "4x" }, 0));
+	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { voiceCount, version }, "Voice Count", voiceCounts.names(), defaultVoiceCount, nonAutomatable()));
+	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { performanceMode, version }, "Performance Mode", performanceModes.names(), 0));
+	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { multicore, version }, "Multicore", multicoreChoices.names(), 0, nonAutomatable()));
+	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { unison, version }, "Unison", unisonCounts.names(), 0));
 	// Unison Detune is in cents and defaults to 15 so switching unison on thickens the sound straight away.
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { unisonDetune, version }, "Unison Detune",
 		juce::NormalisableRange<float> { 0.0f, 50.0f, 0.01f }, 15.0f, juce::AudioParameterFloatAttributes {}.withLabel("ct")));
 	for (const auto [identifier, name] : { std::pair { unisonSpread, "Unison Spread" }, std::pair { voiceWidth, "Voice Pan" }, std::pair { drift, "Drift" } })
 		layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { identifier, version }, name, juce::NormalisableRange<float> { 0.0f, 100.0f, 0.01f }, 0.0f, juce::AudioParameterFloatAttributes {}.withLabel("%")));
-	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { glideMode, version }, "Glide", juce::StringArray { "Off", "Always", "Legato" }, 0));
+	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { glideMode, version }, "Glide", glideModes.names(), 0));
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { glideTime, version }, "Glide Time", juce::NormalisableRange<float> { 0.0f, 5.0f, 0.001f, 0.35f }, 0.0f, juce::AudioParameterFloatAttributes {}.withLabel("s")));
 	layout.add(std::make_unique<juce::AudioParameterInt>(juce::ParameterID { pitchBendRange, version }, "Pitch Bend Range", 1, 24, 2, juce::AudioParameterIntAttributes {}.withLabel("st")));
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { calibration, version }, "Calibration", juce::NormalisableRange<float> { -100.0f, 100.0f, 0.01f }, 0.0f, juce::AudioParameterFloatAttributes {}.withLabel("ct")));
@@ -114,7 +118,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 	addOscillator(layout, 1, osc1Range, osc1Semitone, osc1Fine, osc1Level, osc1Morph, osc1PulseWidth);
 	addOscillator(layout, 2, osc2Range, osc2Semitone, osc2Fine, osc2Level, osc2Morph, osc2PulseWidth);
 	addOscillator(layout, 3, osc3Range, osc3Semitone, osc3Fine, osc3Level, osc3Morph, osc3PulseWidth);
-	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { noiseType, version }, "Noise", juce::StringArray { "Off", "White", "Pink" }, 0));
+	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { noiseType, version }, "Noise", noiseTypes.names(), 0));
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { noiseLevel, version }, "Noise Level", juce::NormalisableRange<float> { 0.0f, 100.0f, 0.01f }, 0.0f, juce::AudioParameterFloatAttributes {}.withLabel("%")));
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { filterCutoff, version }, "Cutoff", juce::NormalisableRange<float> { 5.0f, 20'000.0f, 0.01f, 0.25f }, 1'000.0f, juce::AudioParameterFloatAttributes {}.withLabel("Hz")));
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { filterResonance, version }, "Resonance", juce::NormalisableRange<float> { 0.0f, 100.0f, 0.01f }, 10.0f, juce::AudioParameterFloatAttributes {}.withLabel("%")));
@@ -133,12 +137,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 			juce::AudioParameterIntAttributes {}.withLabel("oct")));
 	layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID { heldKeyReturn, version }, "Held Key Return", true));
 	layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID { filterQCompensation, version }, "Q Compensation", false));
-	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { notePriority, version }, "Mono Priority", juce::StringArray { "Last", "Low" }, 0));
+	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { notePriority, version }, "Mono Priority", notePriorities.names(), 0));
 	for (std::size_t index = 0; index < lfos.size(); ++index) addLfo(layout, static_cast<int>(index) + 1, lfos[index]);
 	juce::NormalisableRange<float> vibratoRateRange { 0.1f, 12.0f };
 	vibratoRateRange.setSkewForCentre(4.0f);
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { vibratoRate, version }, "Vibrato Rate", vibratoRateRange, 5.5f, withDecimals(2, "Hz")));
-	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { vibratoShape, version }, "Vibrato Shape", juce::StringArray { "Sine", "Triangle" }, 0));
+	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { vibratoShape, version }, "Vibrato Shape", vibratoShapes.names(), 0));
 	// Depth is reached with the mod wheel or aftertouch fully up; at rest the vibrato is silent.
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { vibratoDepth, version }, "Vibrato Depth",
 		juce::NormalisableRange<float> { 0.0f, 100.0f, 0.1f }, 50.0f, withDecimals(1, "ct")));
@@ -168,7 +172,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 		addDepth(layout, lfos[index].filterMode, "LFO " + juce::String(static_cast<int>(index) + 1) + " Filter Mode", 100.0f, 1.0f, "%");
 	// Discrete filter topology (ADR 0005-0007). Not an LFO destination.
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { filterType, version }, "Filter Type",
-		juce::StringArray { "Ladder", "SVF", "K35" }, 0));
+		filterTypes.names(), 0));
 	// Tracking defaults to Off (no oversampling) to keep the synth light; Offline to 4x FIR.
 	layout.add(plugin_support::QualitySelection::makeTrackingParameter(trackingOversampling, version, 0));
 	layout.add(plugin_support::QualitySelection::makeOfflineParameter(offlineOversampling, version, 2));

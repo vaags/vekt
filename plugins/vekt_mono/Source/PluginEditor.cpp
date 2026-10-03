@@ -1,7 +1,9 @@
 #include <vekt/mono/PluginEditor.h>
 
 #include <vekt/dsp/OversamplingChoices.h>
+#include <vekt/ui/ChoiceItems.h>
 #include "LfoDestinations.h"
+#include "MonoParameterChoices.h"
 
 #include <vector>
 
@@ -154,7 +156,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 		"6 dB/oct high-pass input; halfway is the full sound with a resonant peak at the cutoff.");
 	// Filter type (ADR 0006, 0007): Ladder (4-pole, self-oscillating), SVF (2-pole, strongly resonant, never
 	// self-oscillating) or K35 (2-pole, gritty; Mode reaches the MS-20 high-pass).
-	const std::array filterTypeNames { "LADDER", "SVF", "K35" };
+	static_assert(std::tuple_size_v<decltype(filterTypeTabs)> == filterTypes.size()); // one tab per type, in choice order
 	const std::array filterTypeTooltips { "Ladder: 4-pole, 24 dB/oct nonlinear ladder. Thick, and self-oscillates near maximum Resonance in LP and Notch.",
 		"SVF: 2-pole, 12 dB/oct state-variable filter. More open, strongly resonant, never self-oscillates; native LP, Notch and HP.",
 		"K35: 2-pole, 12 dB/oct low-pass after the early MS-20 filter, with a diode-limited output stage. Gritty even at Drive 0, "
@@ -163,16 +165,17 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	filterTypeAttachment = std::make_unique<juce::ParameterAttachment>(*pluginProcessor.getParameters().getParameter(parameters::filterType),
 		[this](float value)
 		{
-			shownFilterType = juce::roundToInt(value);
+			shownFilterType = filterTypes.at(value);
 			refreshFilterType();
 		}, nullptr);
 	for (std::size_t index = 0; index < filterTypeTabs.size(); ++index)
 	{
 		auto& tab = filterTypeTabs[index];
-		tab.setButtonText(filterTypeNames[index]);
-		tab.setName(juce::String("Filter Type ") + (index == 0 ? "Ladder" : index == 1 ? "SVF" : "K35"));
+		const juce::String typeName { filterTypes[index].name };
+		tab.setButtonText(typeName.toUpperCase());
+		tab.setName("Filter Type " + typeName);
 		tab.setTooltip(filterTypeTooltips[index]);
-		tab.onClick = [this, index] { selectFilterType(static_cast<int>(index)); };
+		tab.onClick = [this, index] { selectFilterType(filterTypes[index].value); };
 		filterPanel.addAndMakeVisible(tab);
 	}
 	filterTypeAttachment->sendInitialUpdate();
@@ -206,16 +209,16 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	outputFader.setTextValueSuffix(" dB");
 	outputFader.setDoubleClickReturnValue(true, 0.0);
 	outputAttachment = std::make_unique<SliderAttachment>(pluginProcessor.getParameters(), parameters::masterOutput, outputFader);
-	addChoice(noisePanel, noiseBox, { "Off", "White", "Pink" }, parameters::noiseType, noiseAttachment);
-	addChoice(performancePanel, voiceCountBox, { "2", "4", "8", "12", "16" }, parameters::voiceCount, voiceCountAttachment);
-	addChoice(performancePanel, performanceModeBox, { "Poly", "Mono", "Mono Legato" }, parameters::performanceMode, performanceModeAttachment);
-	addChoice(voicePanel, priorityBox, { "Last priority", "Low priority" }, parameters::notePriority, priorityAttachment);
+	addChoice(noisePanel, noiseBox, parameters::noiseType, noiseAttachment);
+	addChoice(performancePanel, voiceCountBox, parameters::voiceCount, voiceCountAttachment);
+	addChoice(performancePanel, performanceModeBox, parameters::performanceMode, performanceModeAttachment);
+	addChoice(voicePanel, priorityBox, parameters::notePriority, priorityAttachment);
 	priorityBox.setTooltip("Mono note priority; low priority keeps the lowest held key sounding.");
 	performancePanel.addAndMakeVisible(heldKeyReturnButton);
 	heldKeyReturnAttachment = std::make_unique<ButtonAttachment>(pluginProcessor.getParameters(), parameters::heldKeyReturn, heldKeyReturnButton);
-	addChoice(performancePanel, unisonBox, { "1x", "2x", "4x" }, parameters::unison, unisonAttachment);
-	addChoice(performancePanel, glideBox, { "Off", "Always", "Legato" }, parameters::glideMode, glideAttachment);
-	addChoice(performancePanel, multicoreBox, { "Off", "On" }, parameters::multicore, multicoreAttachment);
+	addChoice(performancePanel, unisonBox, parameters::unison, unisonAttachment);
+	addChoice(performancePanel, glideBox, parameters::glideMode, glideAttachment);
+	addChoice(performancePanel, multicoreBox, parameters::multicore, multicoreAttachment);
 	multicoreBox.setTooltip("Render voices on up to seven extra CPU cores (one fewer than your performance cores). Helps from a few voices up, most with high Quality or unison; the sound is identical either way. Leave off if your host already spreads tracks across cores.");
 	const std::array performanceNames { "Voice count", "Mode", "Unison", "Glide", "Multicore" };
 	for (std::size_t index = 0; index < performanceLabels.size(); ++index)
@@ -248,9 +251,9 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 		const auto& ids = parameters::lfos[index];
 		auto& controls = lfoControls[index];
 		const auto prefix = "LFO " + juce::String(static_cast<int>(index) + 1) + " ";
-		addChoice(lfoPanel, controls.shape, { "Sine", "Triangle", "Saw Up", "Saw Down", "Square", "Smooth Random" }, ids.shape, controls.shapeAttachment);
-		addChoice(lfoPanel, controls.polarity, { "Bipolar", "Unipolar" }, ids.polarity, controls.polarityAttachment);
-		addChoice(lfoPanel, controls.mode, { "Free", "Retrigger", "One Shot" }, ids.mode, controls.modeAttachment);
+		addChoice(lfoPanel, controls.shape, ids.shape, controls.shapeAttachment);
+		addChoice(lfoPanel, controls.polarity, ids.polarity, controls.polarityAttachment);
+		addChoice(lfoPanel, controls.mode, ids.mode, controls.modeAttachment);
 		controls.shape.setName(prefix + "Shape");
 		controls.polarity.setName(prefix + "Polarity");
 		controls.mode.setName(prefix + "Mode");
@@ -316,7 +319,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 		control->getSlider().setName(qualifiedName);
 	}
 	vibratoDepthControl.getSlider().setTooltip("Vibrato depth reached with the mod wheel or aftertouch fully up.");
-	addChoice(vibratoPanel, vibratoShapeBox, { "Sine", "Triangle" }, parameters::vibratoShape, vibratoShapeAttachment);
+	addChoice(vibratoPanel, vibratoShapeBox, parameters::vibratoShape, vibratoShapeAttachment);
 	vibratoShapeBox.setName("Vibrato Shape");
 	vibratoShapeLabel.setText("Shape", juce::dontSendNotification);
 	vibratoMeterLabel.setText("Wheel / AT", juce::dontSendNotification);
@@ -355,16 +358,16 @@ void PluginEditor::refreshFilterType()
 {
 	const auto type = shownFilterType;
 	for (std::size_t index = 0; index < filterTypeTabs.size(); ++index)
-		filterTypeTabs[index].setToggleState(static_cast<int>(index) == type, juce::dontSendNotification);
+		filterTypeTabs[index].setToggleState(filterTypes[index].value == type, juce::dontSendNotification);
 	// Disabled, not hidden, so the panel keeps its layout (ADR 0006, 0007): Q Comp is Ladder-only.
-	qCompensationButton.setEnabled(type == 0);
+	qCompensationButton.setEnabled(type == FilterType::ladder);
 }
 
 // A tab click as one undoable step and a complete host gesture.
-void PluginEditor::selectFilterType(int type)
+void PluginEditor::selectFilterType(FilterType type)
 {
 	pluginProcessor.getUndoManager().beginNewTransaction("Filter Type");
-	filterTypeAttachment->setValueAsCompleteGesture(static_cast<float>(type));
+	filterTypeAttachment->setValueAsCompleteGesture(static_cast<float>(filterTypes.indexOf(type)));
 }
 void PluginEditor::selectLfo(std::size_t index)
 {
@@ -406,7 +409,7 @@ void PluginEditor::refreshModulationRings(double nowSeconds)
 	{
 		const auto& ids = parameters::lfos[lfo];
 		const auto amount = value(ids.amount) * 0.01f;
-		const auto polarity = static_cast<LfoPolarity>(juce::roundToInt(value(ids.polarity)));
+		const auto polarity = lfoPolarities.at(value(ids.polarity));
 		const auto output = sounding ? frame->values[lfo] : 0.0f;
 		const auto rate = pluginProcessor.getLfoDisplayRate(lfo);
 		const auto depthIds = ids.depths();
@@ -464,9 +467,9 @@ void PluginEditor::addRotary(ui::Panel& panel, ui::RotaryControl& control, const
 	// The attachment installs the parameter's text formatting; refresh the readout, which was set before it.
 	control.refreshValueText();
 }
-void PluginEditor::addChoice(ui::Panel& panel, juce::ComboBox& box, const juce::StringArray& choices, const char* identifier, std::unique_ptr<ComboBoxAttachment>& attachment)
+void PluginEditor::addChoice(ui::Panel& panel, juce::ComboBox& box, const char* identifier, std::unique_ptr<ComboBoxAttachment>& attachment)
 {
-	box.addItemList(choices, 1); panel.addAndMakeVisible(box); attachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), identifier, box);
+	ui::addChoiceItems(box, pluginProcessor.getParameters(), identifier); panel.addAndMakeVisible(box); attachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), identifier, box);
 }
 void PluginEditor::timerCallback()
 {

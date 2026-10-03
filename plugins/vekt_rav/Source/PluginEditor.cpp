@@ -2,6 +2,7 @@
 
 #include <vekt/dsp/OversamplingChoices.h>
 #include <vekt/rav/Parameters.h>
+#include <vekt/ui/ChoiceItems.h>
 #include <vekt/ui/ValueFormat.h>
 
 namespace vekt::rav
@@ -173,7 +174,7 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 	outputFader.setName("Output");
 	outputFader.setTooltip("Output gain");
 
-	modeBox.addItemList({"Saturation", "Overdrive", "Distortion", "Circuit Fuzz", "Gated Fuzz"}, 1);
+	ui::addChoiceItems(modeBox, pluginProcessor.getParameters(), parameters::mode);
 	modeAttachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), parameters::mode, modeBox);
 	inputFaderAttachment = std::make_unique<SliderAttachment>(pluginProcessor.getParameters(), parameters::inputGain, inputFader);
 	outputFaderAttachment = std::make_unique<SliderAttachment>(pluginProcessor.getParameters(), parameters::outputGain, outputFader);

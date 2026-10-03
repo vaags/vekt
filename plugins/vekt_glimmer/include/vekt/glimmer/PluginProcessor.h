@@ -70,7 +70,7 @@ public:
 	[[nodiscard]] bool isAutoTargetFast() const noexcept { return autoTargetFast.load(); }
 	[[nodiscard]] dsp::OversamplingQuality getActiveQuality() const noexcept;
 	[[nodiscard]] bool hasPendingQualityChange() const noexcept;
-	[[nodiscard]] int getActiveModel() const noexcept { return activeModel.load(); }
+	[[nodiscard]] CabinetModel getActiveModel() const noexcept { return activeModel.load(); }
 	[[nodiscard]] bool hasPendingModelChange() const noexcept { return modelPending.load(); }
 	[[nodiscard]] std::array<float, 2> getRotorSpeeds() const noexcept { return { hornRpm.load(), drumRpm.load() }; }
 
@@ -114,7 +114,8 @@ private:
 	int modelWarmup {};
 	int modelFade {};
 	bool switchingModel {};
-	std::atomic<int> activeModel {};
+	std::atomic<CabinetModel> activeModel { CabinetModel::classic };
+	static_assert(std::atomic<CabinetModel>::is_always_lock_free);
 	std::atomic<bool> modelPending {};
 	std::atomic<float> hornRpm {};
 	std::atomic<float> drumRpm {};

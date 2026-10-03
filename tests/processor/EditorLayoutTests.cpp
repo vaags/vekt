@@ -362,6 +362,70 @@ TEST_CASE("Mono uses a secondary arc only for filter controls", "[processor][ui]
 	}
 }
 
+namespace
+{
+// Every parameter menu an editor holds, hidden pages included, as its item texts. (The preset browser's folder menu is
+// not a parameter's.)
+std::vector<juce::StringArray> parameterMenus(juce::Component& editor)
+{
+	std::vector<juce::StringArray> menus;
+	std::function<void(juce::Component&)> collect = [&](juce::Component& component)
+	{
+		if (dynamic_cast<vekt::preset_ui::PresetBrowser*>(&component) != nullptr) return;
+		if (const auto* box = dynamic_cast<juce::ComboBox*>(&component))
+		{
+			juce::StringArray items;
+			for (int item = 0; item < box->getNumItems(); ++item) items.add(box->getItemText(item));
+			menus.push_back(items);
+		}
+		for (auto* child : component.getChildren()) collect(*child);
+	};
+	collect(editor);
+	return menus;
+}
+
+// Every menu shows exactly some choice parameter's own list: none keeps a copy of its own.
+void checkMenusListParameterChoices(juce::AudioProcessor& processor, const std::vector<juce::StringArray>& menus)
+{
+	std::vector<juce::StringArray> parameterChoices;
+	for (auto* parameter : processor.getParameters())
+		if (const auto* choice = dynamic_cast<juce::AudioParameterChoice*>(parameter)) parameterChoices.push_back(choice->choices);
+	for (const auto& menu : menus)
+	{
+		CAPTURE(menu.joinIntoString(", "));
+		REQUIRE(std::find(parameterChoices.begin(), parameterChoices.end(), menu) != parameterChoices.end());
+	}
+}
+}
+
+TEST_CASE("Mono editor menus list their parameters' choices", "[mono][processor][ui]")
+{
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	vekt::mono::PluginProcessor processor;
+	vekt::mono::PluginEditor editor(processor);
+	const auto menus = parameterMenus(editor);
+	REQUIRE(menus.size() >= 12);
+	checkMenusListParameterChoices(processor, menus);
+	REQUIRE(std::find(menus.begin(), menus.end(), juce::StringArray { "Last", "Low" }) != menus.end()); // Mono Priority
+}
+
+TEST_CASE("Rav and Glimmer editor menus list their parameters' choices", "[rav][glimmer][processor][ui]")
+{
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	{
+		vekt::rav::PluginProcessor processor;
+		vekt::rav::PluginEditor editor(processor);
+		const auto menus = parameterMenus(editor);
+		REQUIRE(menus.size() >= 3); // Mode and the two quality menus
+		checkMenusListParameterChoices(processor, menus);
+	}
+	vekt::glimmer::PluginProcessor processor;
+	vekt::glimmer::PluginEditor editor(processor);
+	const auto menus = parameterMenus(editor);
+	REQUIRE(menus.size() >= 3); // Speed and the two quality menus
+	checkMenusListParameterChoices(processor, menus);
+}
+
 TEST_CASE("Mono quality menus offer the shared tracking and offline choices", "[mono][processor][ui][quality]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;

@@ -5,6 +5,7 @@
 #include <vekt/rav/FactoryPresets.h>
 
 #include <vekt/plugin_support/RequireParameter.h>
+#include "RavParameterChoices.h"
 #include <vekt/presets/PresetPaths.h>
 #include <vekt/presets/PresetSchema.h>
 
@@ -30,28 +31,28 @@ PluginProcessor::PluginProcessor()
 		[this](const presets::Preset& preset) { return applyPreset(preset); },
 		[this](const presets::Preset& preset) { return matchesPresetSound(preset); } }),
 	  qualitySelection(parameterState, parameters::trackingOversampling, parameters::offlineOversampling),
-	  inputGainParameter(plugin_support::requireParameter(parameterState, parameters::inputGain)),
-	  driveParameter(plugin_support::requireParameter(parameterState, parameters::drive)),
-	  toneParameter(plugin_support::requireParameter(parameterState, parameters::tone)),
-	  biasParameter(plugin_support::requireParameter(parameterState, parameters::bias)),
-	  autoGainParameter(plugin_support::requireParameter(parameterState, parameters::autoGain)),
-	  bypassParameter(plugin_support::requireParameter(parameterState, parameters::bypass)),
-	  mixParameter(plugin_support::requireParameter(parameterState, parameters::mix)),
-	  outputGainParameter(plugin_support::requireParameter(parameterState, parameters::outputGain)),
-	  lowBandMixParameter(plugin_support::requireParameter(parameterState, parameters::lowBandMix)),
-	  midBandMixParameter(plugin_support::requireParameter(parameterState, parameters::midBandMix)),
-	  highBandMixParameter(plugin_support::requireParameter(parameterState, parameters::highBandMix)),
-	  lowMidCutoffParameter(plugin_support::requireParameter(parameterState, parameters::lowMidCutoffHz)),
-	  midHighCutoffParameter(plugin_support::requireParameter(parameterState, parameters::midHighCutoffHz)),
-	  modeParameter(plugin_support::requireParameter(parameterState, parameters::mode)),
-	  shapeParameter(plugin_support::requireParameter(parameterState, parameters::shape)),
-	  dynamicsParameter(plugin_support::requireParameter(parameterState, parameters::dynamics)),
-	  textureParameter(plugin_support::requireParameter(parameterState, parameters::texture)),
-	stageEnabledParameters { plugin_support::requireParameter(parameterState, parameters::stageEnabledSaturation),
-									 plugin_support::requireParameter(parameterState, parameters::stageEnabledOverdrive),
-									 plugin_support::requireParameter(parameterState, parameters::stageEnabledDistortion),
-										 plugin_support::requireParameter(parameterState, parameters::stageEnabledCircuitFuzz),
-										 plugin_support::requireParameter(parameterState, parameters::stageEnabledGatedFuzz) }
+	  inputGainParameter(&plugin_support::requireParameter(parameterState, parameters::inputGain)),
+	  driveParameter(&plugin_support::requireParameter(parameterState, parameters::drive)),
+	  toneParameter(&plugin_support::requireParameter(parameterState, parameters::tone)),
+	  biasParameter(&plugin_support::requireParameter(parameterState, parameters::bias)),
+	  autoGainParameter(&plugin_support::requireParameter(parameterState, parameters::autoGain)),
+	  bypassParameter(&plugin_support::requireParameter(parameterState, parameters::bypass)),
+	  mixParameter(&plugin_support::requireParameter(parameterState, parameters::mix)),
+	  outputGainParameter(&plugin_support::requireParameter(parameterState, parameters::outputGain)),
+	  lowBandMixParameter(&plugin_support::requireParameter(parameterState, parameters::lowBandMix)),
+	  midBandMixParameter(&plugin_support::requireParameter(parameterState, parameters::midBandMix)),
+	  highBandMixParameter(&plugin_support::requireParameter(parameterState, parameters::highBandMix)),
+	  lowMidCutoffParameter(&plugin_support::requireParameter(parameterState, parameters::lowMidCutoffHz)),
+	  midHighCutoffParameter(&plugin_support::requireParameter(parameterState, parameters::midHighCutoffHz)),
+	  modeParameter(&plugin_support::requireParameter(parameterState, parameters::mode)),
+	  shapeParameter(&plugin_support::requireParameter(parameterState, parameters::shape)),
+	  dynamicsParameter(&plugin_support::requireParameter(parameterState, parameters::dynamics)),
+	  textureParameter(&plugin_support::requireParameter(parameterState, parameters::texture)),
+	stageEnabledParameters { &plugin_support::requireParameter(parameterState, parameters::stageEnabledSaturation),
+									 &plugin_support::requireParameter(parameterState, parameters::stageEnabledOverdrive),
+									 &plugin_support::requireParameter(parameterState, parameters::stageEnabledDistortion),
+										 &plugin_support::requireParameter(parameterState, parameters::stageEnabledCircuitFuzz),
+										 &plugin_support::requireParameter(parameterState, parameters::stageEnabledGatedFuzz) }
 {
 	const auto factoryPresetResult = addFactoryPresets(presetHost.catalog());
 	jassert(factoryPresetResult.wasOk());
@@ -118,8 +119,7 @@ void PluginProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
 		bandMixSmoothers[band].prepare(effectiveSampleRate);
 		bandMixSmoothers[band].setCurrentAndTargetValue(initialBandMixes[band]);
 	}
-	const auto initialMode = static_cast<RavMode>(
-		juce::jlimit(0, static_cast<int>(ravModeCount - 1), juce::roundToInt(modeParameter->load())));
+	const auto initialMode = ravModes.at(modeParameter->load());
 	const auto initialCompatibilityMode = stageEnabledParameters[0]->load() >= 0.5f
 		&& std::all_of(stageEnabledParameters.begin() + 1, stageEnabledParameters.end(),
 			[](const auto* parameter) { return parameter->load() < 0.5f; });
@@ -230,8 +230,7 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 	inputGain.setGainDecibels(inputGainParameter->load());
 	outputGain.setGainDecibels(outputGainParameter->load());
 	dryWetMixer.setWetProportion(mixParameter->load() * 0.01f);
-	const auto currentMode = static_cast<RavMode>(
-		juce::jlimit(0, static_cast<int>(ravModeCount - 1), juce::roundToInt(modeParameter->load())));
+	const auto currentMode = ravModes.at(modeParameter->load());
 	toneStage.setRampDurationSeconds(0.02);
 	const auto usesDedicatedTone = currentMode == RavMode::circuitFuzz
 		|| currentMode == RavMode::gatedFuzz;

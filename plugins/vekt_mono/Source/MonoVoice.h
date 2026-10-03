@@ -14,6 +14,7 @@
 #include "Glide.h"
 #include "FilterLimits.h"
 #include "Lfo.h"
+#include "MonoChoiceTypes.h"
 
 #include <vekt/dsp/DcBlocker.h>
 
@@ -81,19 +82,19 @@ inline constexpr std::size_t lfoCount = 2;
 // anchor's frozen-Width mean, zeroCentered removes it.
 enum class WidthDcPolicy { raw, zeroCentered };
 
-// The filter topology: Ladder (ADR 0005), SVF (ADR 0006) or K35 (ADR 0007), read per render segment from filterType.
-enum class FilterType { ladder, svf, korg35 };
-
 
 struct MonoVoiceSettings
 {
-	std::array<float, 3> range, semitone, fine, octave, level, morph, pulseWidth;
+	std::array<int, 3> rangeOctaves {}; // Range (footage) in octaves from 8': 16' is -1, 1' is 3
+	std::array<float, 3> semitone {}, fine {}, octave {}, level {}, morph {}, pulseWidth {};
 	float noiseLevel {}, cutoff {}, resonance {}, tracking {}, envelopeAmount {}, drive {};
 	float ampAttack {}, ampDecay {}, ampSustain {}, ampRelease {};
 	float filterAttack {}, filterDecay {}, filterSustain {}, filterRelease {};
 	float ampVelocity {}, filterVelocity {}, calibration {};
 	float detune {}, unisonSpread {}, voiceWidth {}, glideTime {}, drift {};
-	int unison {}, glideMode {}, noiseType {};
+	int unison {};
+	GlideMode glideMode { GlideMode::off };
+	NoiseType noiseType { NoiseType::off };
 	bool qCompensation {};
 	float filterMode { -1.0f };
 	FilterType filterType { FilterType::ladder };
@@ -257,7 +258,7 @@ public:
 	{
 		const auto wasActive = active;
 		const auto target = static_cast<float>(newNote) + settings.calibration * 0.01f;
-		gliding = hasPitch && (settings.glideMode == 1 || (settings.glideMode == 2 && legato));
+		gliding = hasPitch && (settings.glideMode == GlideMode::always || (settings.glideMode == GlideMode::legato && legato));
 		if (gliding) glide.retarget(target);
 		else glide.jump(target);
 		hasPitch = true;
@@ -425,7 +426,7 @@ public:
 		auto modulation = nextModulation(settings, lfoClockPositions);
 		vibratoControl += (std::max(channelControl, polyPressure) - vibratoControl) * vibratoSmoothing;
 		for (auto& pitch : modulation.pitch) pitch += vibratoSemitones * static_cast<float>(vibratoControl);
-		const auto playedNote = glide.next(gliding && settings.glideMode != 0, settings.glideTime, sampleRate) + bend;
+		const auto playedNote = glide.next(gliding && settings.glideMode != GlideMode::off, settings.glideTime, sampleRate) + bend;
 		const auto baseHz = midiToHz(playedNote);
 		const auto unisonCount = settings.unison;
 		const auto filterEnvelopeValue = filterEnvelope.getNextSample();
@@ -462,7 +463,7 @@ public:
 			unisonPhaseSpread = std::min(1.0, unisonPhaseSpread + static_cast<double>(baseHz * (std::exp2(neighbourCents / 1'200.0f) - 1.0f)) / sampleRate);
 		}
 		const auto noiseCorrelation = unisonNoiseCorrelation(unisonCount, static_cast<float>(unisonPhaseSpread));
-		if (settings.noiseType == 0) noiseHoldRemaining = 0; // holds restart when noise is switched on
+		if (settings.noiseType == NoiseType::off) noiseHoldRemaining = 0; // holds restart when noise is switched on
 		else if (--noiseHoldRemaining < 0)
 		{
 			noiseHoldRemaining = noiseHoldSamples - 1;
@@ -470,7 +471,7 @@ public:
 			for (int layer = 0; layer < unisonCount; ++layer)
 				heldLayerNoise[static_cast<std::size_t>(layer)] = noiseCorrelation < 1.0f ? random.nextFloat() * 2.0f - 1.0f : 0.0f;
 		}
-		const auto sharedNoise = settings.noiseType != 0 ? heldSharedNoise : 0.0f;
+		const auto sharedNoise = settings.noiseType != NoiseType::off ? heldSharedNoise : 0.0f;
 		const auto unisonSpread = juce::jlimit(0.0f, 1.0f, settings.unisonSpread + modulation.spread);
 		const auto noiseLevel = juce::jlimit(0.0f, 1.0f, settings.noiseLevel + modulation.noise);
 		std::array<float, 3> levels {}, widths {};
@@ -512,7 +513,7 @@ public:
 				const auto cents = settings.fine[static_cast<std::size_t>(oscillator)] + normalizedStack * detune
 					+ drift * (driftWanderCents * wander + driftStaticCents * driftTuning[static_cast<std::size_t>(oscillator)]);
 				// Range (footage) and Octave in octaves, semitones, cents and pitch modulation in one exp2.
-				const auto frequency = baseHz * std::exp2(settings.range[static_cast<std::size_t>(oscillator)] - 1.0f
+				const auto frequency = baseHz * std::exp2(static_cast<float>(settings.rangeOctaves[static_cast<std::size_t>(oscillator)])
 					+ settings.octave[static_cast<std::size_t>(oscillator)]
 					+ (settings.semitone[static_cast<std::size_t>(oscillator)] + cents * 0.01f + modulation.pitch[static_cast<std::size_t>(oscillator)]) / 12.0f);
 				const auto phaseIncrement = static_cast<double>(frequency) / sampleRate;
@@ -527,13 +528,13 @@ public:
 					mixer += renderWidthOscillator(widthStates[static_cast<std::size_t>(stack)][static_cast<std::size_t>(oscillator)],
 						oscillatorPhase, frequency, hostRate, morph, width, settings.widthDcPolicy == WidthDcPolicy::zeroCentered) * level;
 			}
-			if (settings.noiseType != 0)
+			if (settings.noiseType != NoiseType::off)
 			{
 				// Layer noise has the same correlation the gain assumes; identical layers share one noise source.
 				auto noise = sharedNoise;
 				if (noiseCorrelation < 1.0f)
 					noise = std::sqrt(noiseCorrelation) * sharedNoise + std::sqrt(1.0f - noiseCorrelation) * heldLayerNoise[static_cast<std::size_t>(stack)];
-				if (settings.noiseType == 2)
+				if (settings.noiseType == NoiseType::pink)
 				{
 					auto& pink = pinkStates[static_cast<std::size_t>(stack)];
 					pink = pinkCoefficient * pink + (1.0 - pinkCoefficient) * noise;

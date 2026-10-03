@@ -274,7 +274,7 @@ TEST_CASE("Glimmer model requests settle without changing latency or losing sign
 			energy += value * value;
 		}
 	}
-	REQUIRE(processor.getActiveModel() == 2);
+	REQUIRE(processor.getActiveModel() == vekt::glimmer::CabinetModel::wide);
 	REQUIRE_FALSE(processor.hasPendingModelChange());
 	REQUIRE(energy > 0.1);
 }
@@ -494,6 +494,6 @@ TEST_CASE("Glimmer callback benchmark includes model transitions and rack", "[gl
 					<< " percent=" << sum * rate / (800.0 * blockSize * 10.0)
 					<< " max_ms=" << durations.back() << " p99_ms=" << durations[792]
 					<< " transition_max_ms=" << transitionMaximum << " over_budget=" << overBudget << '\n';
-				REQUIRE(processor.getActiveModel() == 0);
+				REQUIRE(processor.getActiveModel() == vekt::glimmer::CabinetModel::classic);
 			}
 }

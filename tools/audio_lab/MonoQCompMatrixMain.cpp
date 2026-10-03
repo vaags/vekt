@@ -64,7 +64,7 @@ struct Measurement
 	else
 	{
 		result.settings.level[0] = 0.0f;
-		result.settings.noiseType = 1;
+		result.settings.noiseType = vekt::mono::NoiseType::white;
 		result.settings.noiseLevel = 0.1f;
 	}
 	result.events.push_back({ 0, vekt::audio_lab::MonoEventType::noteOn,

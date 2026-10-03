@@ -357,7 +357,7 @@ vekt::mono::MonoVoiceSettings measurementVoice(vekt::mono::FilterType type, floa
 	float mode = -1.0f)
 {
 	vekt::mono::MonoVoiceSettings settings {};
-	settings.range = { 1.0f, 1.0f, 1.0f };
+	settings.rangeOctaves = { 0, 0, 0 }; // 8'
 	settings.semitone = settings.fine = settings.octave = {};
 	settings.level = { 0.7f, 0.0f, 0.0f };
 	settings.morph = { 2.0f, 2.0f, 2.0f };

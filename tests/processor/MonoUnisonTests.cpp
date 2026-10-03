@@ -22,7 +22,7 @@ void setParameter(vekt::mono::PluginProcessor& processor, const char* identifier
 vekt::mono::MonoVoiceSettings sawSettings(int unison, float detune)
 {
 	vekt::mono::MonoVoiceSettings settings {};
-	settings.range.fill(1.0f);
+	settings.rangeOctaves.fill(0); // 8'
 	settings.level = { 0.5f, 0.0f, 0.0f };
 	settings.morph.fill(2.0f);
 	settings.pulseWidth.fill(50.0f);

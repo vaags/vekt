@@ -37,8 +37,17 @@ hard ownership boundary. A generic runtime effect graph is outside version 1.
   parameters, turns them into the quality the audio thread activates at the
   next block, and publishes the active quality for the editor (all three
   products; Mono also re-prepares its voices on a change).
-- `requireParameter` resolves a parameter's value pointer once, so no block
-  looks a parameter up by name.
+- `requireParameter` resolves a parameter's value once, so no block looks a
+  parameter up by name. It returns a reference; an identifier the state does
+  not hold stops in every build.
+- `ChoiceTable` lists a choice parameter's values in choice order with their
+  names. Each product keeps its tables in a uniquely named `Source/` header
+  (`RavParameterChoices.h`, `GlimmerParameterChoices.h`,
+  `MonoParameterChoices.h`); the layout builds the parameter's choices from the
+  table and the processor and editor decode the value with it, rounded and
+  clamped to a valid choice, so names, order and meaning cannot drift apart.
+  The shared oversampling lists stay in `dsp/OversamplingChoices.h`, where a
+  test proves each name matches the quality it selects.
 
 Product headers live in `include/vekt/<product>/` (processor, parameters,
 editor, factory presets) and are included by that path; a product's `Source/`
@@ -58,6 +67,9 @@ The products consume the same `vekt::ui` controls:
 - `QualitySettings` is the anchored Settings pop-over with the shared Tracking
   and Offline choices, bound through the APVTS to the product's two quality
   parameters; the product places its toggle and sets its bounds (Rav, Mono).
+- `addChoiceItems` fills a combo box from its choice parameter's own list;
+  every parameter menu uses it, so no editor keeps a copy of a choice list. An
+  identifier that names no choice parameter stops in every build.
 - `UndoRedoControls` owns history buttons, availability and action tooltips.
   Products supply their UndoManager, a pre-action APVTS flush, and a post-action
   UI refresh. Pending parameter edits are also flushed before a new preset-load

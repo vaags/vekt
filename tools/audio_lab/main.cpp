@@ -2,6 +2,7 @@
 
 #include <vekt/rav/PluginProcessor.h>
 #include <vekt/glimmer/PluginProcessor.h>
+#include "GlimmerParameterChoices.h"
 #include <vekt/dsp/OversamplingChoices.h>
 
 #include <juce_audio_basics/juce_audio_basics.h>
@@ -354,8 +355,7 @@ juce::var glimmerSettingsReport(vekt::glimmer::PluginProcessor& processor)
 	for (const auto* identifier : { vekt::glimmer::parameters::trackingOversampling,
 		vekt::glimmer::parameters::offlineOversampling, vekt::glimmer::parameters::bypass })
 		settings->setProperty(identifier, processor.getParameters().getRawParameterValue(identifier)->load());
-	const std::array<juce::String, 3> names { "Classic", "Drum", "Wide" };
-	report->setProperty("active_model", names[static_cast<std::size_t>(processor.getActiveModel())]);
+	report->setProperty("active_model", juce::String(vekt::glimmer::cabinetModels.nameOf(processor.getActiveModel())));
 	report->setProperty("model_pending", processor.hasPendingModelChange());
 	report->setProperty("latency_samples", processor.getLatencySamples());
 	const auto speeds = processor.getRotorSpeeds();

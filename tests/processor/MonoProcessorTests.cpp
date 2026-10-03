@@ -2,6 +2,7 @@
 #include <vekt/mono/PluginProcessor.h>
 
 #include "MonoVoice.h"
+#include "MonoParameterChoices.h"
 #include "ContourEnvelope.h"
 #include "MonoRenderWorkers.h"
 
@@ -2434,7 +2435,7 @@ TEST_CASE("Mono processor and extracted voice render identically", "[mono][proce
 	setParameter(processor, vekt::mono::parameters::filterMode, mode);
 
 	vekt::mono::MonoVoiceSettings settings {
-		.range = { 2.0f, 1.0f, 3.0f },
+		.rangeOctaves = { 1, 0, 2 }, // 4', 8', 2'
 		.semitone = { 0.0f, 7.0f, -12.0f },
 		.fine = { 3.0f, -4.0f, 7.0f },
 		.octave = { 0.0f, 0.0f, 0.0f },
@@ -2464,8 +2465,8 @@ TEST_CASE("Mono processor and extracted voice render identically", "[mono][proce
 		.glideTime = 0.0f,
 		.drift = 25.0f,
 		.unison = 2,
-		.glideMode = 0,
-		.noiseType = 1,
+		.glideMode = vekt::mono::GlideMode::off,
+		.noiseType = vekt::mono::NoiseType::white,
 		.qCompensation = true
 	};
 
@@ -2478,7 +2479,7 @@ TEST_CASE("Mono processor and extracted voice render identically", "[mono][proce
 	const std::array widths { vekt::mono::parameters::osc1PulseWidth, vekt::mono::parameters::osc2PulseWidth, vekt::mono::parameters::osc3PulseWidth };
 	for (std::size_t oscillator = 0; oscillator < 3; ++oscillator)
 	{
-		setParameter(processor, ranges[oscillator], settings.range[oscillator]);
+		setParameter(processor, ranges[oscillator], static_cast<float>(vekt::mono::oscillatorRanges.indexOf(settings.rangeOctaves[oscillator])));
 		setParameter(processor, semitones[oscillator], settings.semitone[oscillator]);
 		setParameter(processor, fines[oscillator], settings.fine[oscillator]);
 		setParameter(processor, octaves[oscillator], settings.octave[oscillator]);
@@ -2492,12 +2493,12 @@ TEST_CASE("Mono processor and extracted voice render identically", "[mono][proce
 	setParameter(processor, vekt::mono::parameters::unisonDetune, settings.detune);
 	setParameter(processor, vekt::mono::parameters::unisonSpread, settings.unisonSpread * 100.0f);
 	setParameter(processor, vekt::mono::parameters::voiceWidth, settings.voiceWidth * 100.0f);
-	setParameter(processor, vekt::mono::parameters::glideMode, static_cast<float>(settings.glideMode));
+	setParameter(processor, vekt::mono::parameters::glideMode, static_cast<float>(vekt::mono::glideModes.indexOf(settings.glideMode)));
 	setParameter(processor, vekt::mono::parameters::glideTime, settings.glideTime);
 	setParameter(processor, vekt::mono::parameters::calibration, settings.calibration);
 	setParameter(processor, vekt::mono::parameters::drift, settings.drift);
 	setParameter(processor, vekt::mono::parameters::masterOutput, 0.0f);
-	setParameter(processor, vekt::mono::parameters::noiseType, static_cast<float>(settings.noiseType));
+	setParameter(processor, vekt::mono::parameters::noiseType, static_cast<float>(vekt::mono::noiseTypes.indexOf(settings.noiseType)));
 	setParameter(processor, vekt::mono::parameters::noiseLevel, settings.noiseLevel * 100.0f);
 	setParameter(processor, vekt::mono::parameters::filterCutoff, settings.cutoff);
 	setParameter(processor, vekt::mono::parameters::filterResonance, settings.resonance * 100.0f);
@@ -2519,7 +2520,7 @@ TEST_CASE("Mono processor and extracted voice render identically", "[mono][proce
 	const auto raw = [&processor](const char* identifier) { return processor.getParameters().getRawParameterValue(identifier)->load(); };
 	for (std::size_t oscillator = 0; oscillator < 3; ++oscillator)
 	{
-		settings.range[oscillator] = raw(ranges[oscillator]);
+		settings.rangeOctaves[oscillator] = vekt::mono::oscillatorRanges.at(raw(ranges[oscillator]));
 		settings.semitone[oscillator] = raw(semitones[oscillator]);
 		settings.fine[oscillator] = raw(fines[oscillator]);
 		settings.octave[oscillator] = raw(octaves[oscillator]);
@@ -2527,7 +2528,7 @@ TEST_CASE("Mono processor and extracted voice render identically", "[mono][proce
 		settings.morph[oscillator] = raw(morphs[oscillator]);
 		settings.pulseWidth[oscillator] = raw(widths[oscillator]);
 	}
-	settings.noiseType = juce::roundToInt(raw(vekt::mono::parameters::noiseType));
+	settings.noiseType = vekt::mono::noiseTypes.at(raw(vekt::mono::parameters::noiseType));
 	settings.noiseLevel = raw(vekt::mono::parameters::noiseLevel) * 0.01f;
 	settings.cutoff = raw(vekt::mono::parameters::filterCutoff);
 	settings.resonance = raw(vekt::mono::parameters::filterResonance) * 0.01f;
@@ -2547,12 +2548,12 @@ TEST_CASE("Mono processor and extracted voice render identically", "[mono][proce
 	settings.ampVelocity = raw(vekt::mono::parameters::ampVelocity) * 0.01f;
 	settings.filterVelocity = raw(vekt::mono::parameters::filterVelocity) * 0.01f;
 	settings.calibration = raw(vekt::mono::parameters::calibration);
-	settings.unison = raw(vekt::mono::parameters::unison) < 0.5f ? 1 : raw(vekt::mono::parameters::unison) < 1.5f ? 2 : 4;
+	settings.unison = vekt::mono::unisonCounts.at(raw(vekt::mono::parameters::unison));
 	settings.detune = raw(vekt::mono::parameters::unisonDetune);
 	settings.unisonSpread = raw(vekt::mono::parameters::unisonSpread) * 0.01f;
 	settings.voiceWidth = raw(vekt::mono::parameters::voiceWidth) * 0.01f;
 	settings.drift = raw(vekt::mono::parameters::drift);
-	settings.glideMode = juce::roundToInt(raw(vekt::mono::parameters::glideMode));
+	settings.glideMode = vekt::mono::glideModes.at(raw(vekt::mono::parameters::glideMode));
 	settings.glideTime = raw(vekt::mono::parameters::glideTime);
 
 	constexpr auto sampleRate = 48'000.0;

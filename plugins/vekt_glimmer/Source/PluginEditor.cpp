@@ -1,7 +1,10 @@
 #include <vekt/glimmer/PluginEditor.h>
 
 #include <vekt/dsp/OversamplingChoices.h>
+#include <vekt/ui/ChoiceItems.h>
 #include <vekt/ui/ValueFormat.h>
+
+#include "GlimmerParameterChoices.h"
 
 namespace vekt::glimmer
 {
@@ -65,22 +68,23 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	for (std::size_t index = 0; index < toneControls.size(); ++index)
 		configureRotary(tonePanel, toneControls[index], toneNames[index], toneIds[index], toneAttachments[index]);
 
-	speedModeBox.addItemList({ "Slow", "Fast", "Auto" }, 1);
+	ui::addChoiceItems(speedModeBox, pluginProcessor.getParameters(), parameters::speedMode);
 	rotationPanel.addAndMakeVisible(speedModeBox);
 	speedModeAttachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), parameters::speedMode, speedModeBox);
-	const std::array<juce::String, 3> modelNames { "Classic", "Drum", "Wide" };
+	static_assert(std::tuple_size_v<decltype(modelButtons)> == cabinetModels.size()); // one button per model, in choice order
 	for (std::size_t index = 0; index < modelButtons.size(); ++index)
 	{
 		auto& button = modelButtons[index];
-		button.setButtonText(modelNames[index]);
-		button.setName(modelNames[index] + " model");
-		button.setTooltip(modelNames[index] + " rotary speaker model");
+		const juce::String modelName { cabinetModels[index].name };
+		button.setButtonText(modelName);
+		button.setName(modelName + " model");
+		button.setTooltip(modelName + " rotary speaker model");
 		button.setClickingTogglesState(true);
 		button.setRadioGroupId(701);
 		getContent().addAndMakeVisible(button);
 		button.onClick = [this, index]
 		{
-			modelAttachment->setValueAsCompleteGesture(static_cast<float>(index));
+			modelAttachment->setValueAsCompleteGesture(static_cast<float>(index)); // the buttons are in choice order
 			refreshPresetLabel();
 		};
 	}
@@ -88,7 +92,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 		*pluginProcessor.getParameters().getParameter(parameters::cabinetModel), [this](float value)
 		{
 			for (std::size_t index = 0; index < modelButtons.size(); ++index)
-				modelButtons[index].setToggleState(static_cast<int>(index) == juce::roundToInt(value), juce::dontSendNotification);
+				modelButtons[index].setToggleState(cabinetModels[index].value == cabinetModels.at(value), juce::dontSendNotification);
 		}, &pluginProcessor.getUndoManager());
 	modelAttachment->sendInitialUpdate();
 	for (auto* component : { static_cast<juce::Component*>(&brakeButton), static_cast<juce::Component*>(&manualButton),
@@ -118,8 +122,8 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	manualAttachment = std::make_unique<ButtonAttachment>(pluginProcessor.getParameters(), parameters::manualSpeedEnabled, manualButton);
 	speedAttachment = std::make_unique<SliderAttachment>(pluginProcessor.getParameters(), parameters::speedPosition, speedSlider);
 	widthAttachment = std::make_unique<SliderAttachment>(pluginProcessor.getParameters(), parameters::stereoWidth, widthSlider);
-	trackingQualityBox.addItemList(dsp::trackingQualityChoices(), 1);
-	offlineQualityBox.addItemList(dsp::offlineQualityChoices(), 1);
+	ui::addChoiceItems(trackingQualityBox, pluginProcessor.getParameters(), parameters::trackingOversampling);
+	ui::addChoiceItems(offlineQualityBox, pluginProcessor.getParameters(), parameters::offlineOversampling);
 	trackingQualityBox.setName("Tracking quality");
 	offlineQualityBox.setName("Offline quality");
 	trackingQualityBox.setTooltip("Oversampling used during real-time playback");
@@ -193,21 +197,21 @@ void PluginEditor::timerCallback()
 	const auto& state = pluginProcessor.getParameters();
 	const auto manual = state.getRawParameterValue(parameters::manualSpeedEnabled)->load() >= 0.5f;
 	const auto braking = state.getRawParameterValue(parameters::brake)->load() >= 0.5f;
-	const auto mode = juce::roundToInt(state.getRawParameterValue(parameters::speedMode)->load());
-	const auto drumOnly = juce::roundToInt(state.getRawParameterValue(parameters::cabinetModel)->load()) == 1;
-	rotationControls[4].setEnabled(mode == 2 && !manual && !braking);
+	const auto mode = speedModes.at(state.getRawParameterValue(parameters::speedMode)->load());
+	const auto requestedModel = cabinetModels.at(state.getRawParameterValue(parameters::cabinetModel)->load());
+	const auto drumOnly = requestedModel == CabinetModel::drum;
+	rotationControls[4].setEnabled(mode == RotarySpeedMode::autoMode && !manual && !braking);
 	speedSlider.setEnabled(manual && !braking);
 	speedModeBox.setEnabled(!manual && !braking);
 	microphoneControls[0].setEnabled(!drumOnly);
 	toneControls[0].setEnabled(!drumOnly);
 	const auto speeds = pluginProcessor.getRotorSpeeds();
 	juce::String status = braking ? (std::abs(speeds[1]) < 0.1f && (drumOnly || std::abs(speeds[0]) < 0.1f) ? "Stopped" : "Braking")
-		: manual ? "Manual" : mode == 2 ? (pluginProcessor.isAutoTargetFast() ? "Auto: Fast" : "Auto: Slow") : mode == 1 ? "Fast" : "Slow";
+		: manual ? "Manual" : mode == RotarySpeedMode::autoMode ? (pluginProcessor.isAutoTargetFast() ? "Auto: Fast" : "Auto: Slow")
+		: mode == RotarySpeedMode::fast ? "Fast" : "Slow";
 	if (pluginProcessor.hasPendingModelChange())
 	{
-		const std::array<juce::String, 3> names { "Classic", "Drum", "Wide" };
-		status = names[static_cast<std::size_t>(pluginProcessor.getActiveModel())] + " -> " +
-			names[static_cast<std::size_t>(juce::roundToInt(state.getRawParameterValue(parameters::cabinetModel)->load()))];
+		status = juce::String(cabinetModels.nameOf(pluginProcessor.getActiveModel())) + " -> " + cabinetModels.nameOf(requestedModel);
 	}
 	status += drumOnly ? "\nD " + juce::String(std::abs(speeds[1]), 0) + " rpm"
 		: "\nH " + juce::String(std::abs(speeds[0]), 0) + " / D " + juce::String(std::abs(speeds[1]), 0) + " rpm";

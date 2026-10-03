@@ -1,3 +1,4 @@
+#include <vekt/plugin_support/ChoiceTable.h>
 #include <vekt/plugin_support/PresetHost.h>
 #include <vekt/plugin_support/QualitySelection.h>
 #include <vekt/presets/PresetSchema.h>
@@ -230,6 +231,32 @@ TEST_CASE("Quality selections apply a request at the next block once prepared", 
 	processor.setValue("tracking", 0.0f);
 	REQUIRE_FALSE(quality.takeRequest(false).has_value());
 	REQUIRE(quality.pending());
+}
+
+TEST_CASE("Choice tables name every value and decode to the nearest choice, clamped", "[plugin-support]")
+{
+	enum class Speed { slow, fast, automatic };
+	using vekt::plugin_support::Choice;
+	static constexpr vekt::plugin_support::ChoiceTable speeds { Choice { Speed::slow, "Slow" }, Choice { Speed::fast, "Fast" },
+		Choice { Speed::automatic, "Auto" } };
+	static_assert(speeds.size() == 3);
+
+	REQUIRE(speeds.names() == juce::StringArray { "Slow", "Fast", "Auto" });
+	REQUIRE(speeds.at(0.0f) == Speed::slow);
+	REQUIRE(speeds.at(1.0f) == Speed::fast);
+	REQUIRE(speeds.at(2.0f) == Speed::automatic);
+	REQUIRE(speeds.at(1.4f) == Speed::fast); // nearest choice
+	REQUIRE(speeds.at(0.6f) == Speed::fast);
+	REQUIRE(speeds.at(-1.0f) == Speed::slow); // clamped to the table
+	REQUIRE(speeds.at(3.0f) == Speed::automatic);
+	REQUIRE(speeds.at(1.0e9f) == Speed::automatic);
+	REQUIRE(speeds.indexOf(Speed::automatic) == 2);
+	REQUIRE(juce::String(speeds.nameOf(Speed::fast)) == "Fast");
+
+	// Values need not be enums: counts and offsets decode the same way.
+	static constexpr vekt::plugin_support::ChoiceTable counts { Choice { 1, "1x" }, Choice { 2, "2x" }, Choice { 4, "4x" } };
+	REQUIRE(counts.at(2.0f) == 4);
+	REQUIRE(counts[1].value == 2);
 }
 
 TEST_CASE("Shared quality choices name the quality they select", "[plugin-support][quality]")

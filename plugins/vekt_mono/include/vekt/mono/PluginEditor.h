@@ -4,6 +4,7 @@
 
 #include "LfoDestinations.h"
 #include "Lfo.h"
+#include "MonoChoiceTypes.h"
 #include <vekt/ui/LevelMeter.h>
 #include <vekt/ui/Oscilloscope.h>
 #include <vekt/ui/Panel.h>
@@ -178,12 +179,11 @@ private:
 	void refreshPresetLabel();
 	void addRotary(ui::Panel& panel, ui::RotaryControl& control, const char* name, const char* identifier,
 		std::unique_ptr<SliderAttachment>& attachment);
-	void addChoice(ui::Panel& panel, juce::ComboBox& box, const juce::StringArray& choices, const char* identifier,
-		std::unique_ptr<ComboBoxAttachment>& attachment);
+	void addChoice(ui::Panel& panel, juce::ComboBox& box, const char* identifier, std::unique_ptr<ComboBoxAttachment>& attachment);
 	void selectLfo(std::size_t index);
-	// Shows the filter type (0 Ladder, 1 SVF): lights its tab and disables the Ladder-only toggles for the SVF.
+	// Shows the filter type: lights its tab and disables the Ladder-only toggles for the SVF and K35.
 	void refreshFilterType();
-	void selectFilterType(int type);
+	void selectFilterType(FilterType type);
 	void refreshLfoVisibility();
 
 	struct LfoControls
@@ -244,7 +244,7 @@ private:
 	// After the tabs and toggles their callbacks update, so they are destroyed before them.
 	std::unique_ptr<juce::ParameterAttachment> filterTypeAttachment;
 	// The value the attachment last delivered (its callback can run before the parameter state's raw value moves).
-	int shownFilterType {};
+	FilterType shownFilterType { FilterType::ladder };
 	std::array<ui::RotaryControl, 5> ampControls;
 	std::array<std::unique_ptr<SliderAttachment>, 5> ampAttachments;
 	std::array<ui::RotaryControl, 5> filterEnvelopeControls;

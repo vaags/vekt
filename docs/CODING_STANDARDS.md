@@ -28,7 +28,10 @@ only; existing files are not reformatted).
 - **Make invalid states unrepresentable** where cheap: `enum class` over flags, `std::optional` over sentinels,
   types with invariants enforced in one constructor.
 - **Fail loudly in development, safely in production.** `jassert` for programmer errors, `juce::Result` for
-  expected failures, never silent clamping of invalid data (state and presets are all-or-nothing).
+  expected failures, never silent clamping of invalid data (state and presets are all-or-nothing). One exception:
+  static wiring errors that construction tests always catch, such as a parameter ID the state does not hold
+  (`requireParameter`, `ui::addChoiceItems`), stop in every build instead of leaving a null for later. These abort
+  paths cannot be tested in-process.
 - **Every change is tested** at the cheapest level that proves it, and a new test is shown to fail without the
   change (VERIFICATION_SPEED.md).
 
@@ -69,8 +72,10 @@ only; existing files are not reformatted).
 ## JUCE
 
 - **Parameters:** APVTS with `juce::ParameterID` and an explicit version hint; parameter IDs are immutable once
-  published. Audio code reads parameters through pointers resolved once (`plugin_support::requireParameter`),
-  never by name in `processBlock`.
+  published. Audio code reads parameters through values resolved once (`plugin_support::requireParameter`),
+  never by name in `processBlock`. A choice parameter is built and decoded through one `plugin_support::ChoiceTable`
+  (names and values together, decoded to an enum or typed value, never compared as a bare index), and its menu is
+  filled from the parameter (`ui::addChoiceItems`).
 - **Threads:** the audio thread runs `processBlock` only. Message-thread work (files, presets, editor) asserts it
   where misuse is plausible. Audio-to-UI publication through atomics or the wait-free taps (`ScopeTap`,
   `DisplayHistory`); UI-to-audio through parameters or atomics. Never `juce::AsyncUpdater::triggerAsyncUpdate`,

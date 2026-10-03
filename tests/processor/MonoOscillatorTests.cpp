@@ -295,7 +295,7 @@ TEST_CASE("Mono Width oscillator stays alias-free on a high note", "[mono][oscil
 TEST_CASE("Mono Width DC policy changes the ladder input on a held narrow pulse", "[mono][oscillator][width]")
 {
 	vekt::mono::MonoVoiceSettings settings {};
-	settings.range.fill(1.0f);
+	settings.rangeOctaves.fill(0); // 8'
 	settings.level = { 0.5f, 0.0f, 0.0f };
 	settings.morph.fill(3.0f);
 	settings.pulseWidth.fill(20.0f);
@@ -327,7 +327,7 @@ TEST_CASE("Mono Width DC policy changes the ladder input on a held narrow pulse"
 TEST_CASE("Mono moving Width and Morph remain finite through the voice and ladder", "[mono][oscillator][width]")
 {
 	vekt::mono::MonoVoiceSettings settings {};
-	settings.range.fill(1.0f);
+	settings.rangeOctaves.fill(0); // 8'
 	settings.level = { 0.5f, 0.0f, 0.0f };
 	settings.pulseWidth.fill(50.0f);
 	settings.cutoff = 2'000.0f;
@@ -458,8 +458,8 @@ TEST_CASE("Mono Morph wraps round its cycle", "[mono][oscillator]")
 TEST_CASE("Mono Morph knob changes are smoothed but LFO morph modulation is not", "[mono][oscillator][lfo]")
 {
 	constexpr double sampleRate = 48'000.0;
-	vekt::mono::MonoVoiceSettings settings {}; // value-initialised: the oscillator arrays have no default member initialisers
-	settings.range.fill(1.0f);
+	vekt::mono::MonoVoiceSettings settings {};
+	settings.rangeOctaves.fill(0); // 8'
 	settings.level = { 1.0f, 0.0f, 0.0f };
 	settings.morph.fill(0.0f);
 	settings.pulseWidth.fill(50.0f);
@@ -626,7 +626,7 @@ TEST_CASE("Mono Width knob jumps ramp instead of stepping the oscillator", "[mon
 	{
 		CAPTURE(from, to);
 		vekt::mono::MonoVoiceSettings settings {};
-		settings.range.fill(1.0f);
+		settings.rangeOctaves.fill(0); // 8'
 		settings.level = { 1.0f, 0.0f, 0.0f };
 		settings.morph.fill(0.0f);
 		settings.pulseWidth.fill(from);
@@ -701,7 +701,7 @@ TEST_CASE("Mono Drift wanders each voice's pitch by a few cents", "[mono][oscill
 	const auto pitchCents = [](float drift)
 	{
 		vekt::mono::MonoVoiceSettings settings {};
-		settings.range.fill(1.0f);
+		settings.rangeOctaves.fill(0); // 8'
 		settings.level = { 1.0f, 0.0f, 0.0f };
 		settings.morph.fill(0.0f);
 		settings.pulseWidth.fill(50.0f);
@@ -757,7 +757,7 @@ TEST_CASE("Mono unison level stays put while Drift separates the layers", "[mono
 	// Four layers at zero Detune start identical; Drift's per-layer wander decorrelates them. The unison
 	// gain must follow that separation, or the note sinks by up to 6 dB as it is held.
 	vekt::mono::MonoVoiceSettings settings {};
-	settings.range.fill(1.0f);
+	settings.rangeOctaves.fill(0); // 8'
 	settings.level = { 1.0f, 0.0f, 0.0f };
 	settings.morph.fill(2.0f);
 	settings.pulseWidth.fill(50.0f);

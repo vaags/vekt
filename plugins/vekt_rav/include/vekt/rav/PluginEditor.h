@@ -85,6 +85,6 @@ private:
 	std::unique_ptr<ButtonAttachment> bypassAttachment;
 	std::unique_ptr<ButtonAttachment> autoGainAttachment;
     std::unique_ptr<ComboBoxAttachment> modeAttachment;
-	RavStageChain::Order displayedStageOrder;
+	RavStageChain::Order displayedStageOrder {};
 };
 }

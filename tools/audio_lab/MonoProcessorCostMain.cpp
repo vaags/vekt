@@ -2,6 +2,7 @@
 
 #include "CallbackAllocationProbe.h"
 #include "MonoCostTimingRule.h"
+#include "MonoParameterChoices.h"
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_events/juce_events.h>
@@ -45,9 +46,8 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 	// Tracking Oversampling choices: Off, 2x IIR, 4x IIR, 2x FIR, 4x FIR, 8x FIR, 16x FIR (2x IIR and FIR above, as before).
 	const auto qualityIndex = factor == 1 ? 0 : factor == 2 ? 1 : factor == 4 ? 4 : factor == 8 ? 5 : 6;
 	setParameter(processor, vekt::mono::parameters::trackingOversampling, static_cast<float>(qualityIndex));
-	setParameter(processor, vekt::mono::parameters::unison, static_cast<float>(unison == 1 ? 0 : unison == 2 ? 1 : 2));
-	// Voice Count choices are 2, 4, 8, 12, 16.
-	setParameter(processor, vekt::mono::parameters::voiceCount, static_cast<float>(voices == 8 ? 2 : voices == 12 ? 3 : 4));
+	setParameter(processor, vekt::mono::parameters::unison, static_cast<float>(vekt::mono::unisonCounts.indexOf(unison)));
+	setParameter(processor, vekt::mono::parameters::voiceCount, static_cast<float>(vekt::mono::voiceCounts.indexOf(voices)));
 	setParameter(processor, vekt::mono::parameters::performanceMode, 0.0f);
 	setParameter(processor, vekt::mono::parameters::ampSustain, 100.0f);
 	setParameter(processor, vekt::mono::parameters::filterEnvelopeAmount, 0.0f);
@@ -55,7 +55,8 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 	setParameter(processor, vekt::mono::parameters::filterResonance, 85.0f);
 	setParameter(processor, vekt::mono::parameters::filterDrive, 12.0f);
 	setParameter(processor, vekt::mono::parameters::multicore, multicore ? 1.0f : 0.0f);
-	setParameter(processor, vekt::mono::parameters::filterType, korg35 ? 2.0f : svf ? 1.0f : 0.0f);
+	const auto filterType = korg35 ? vekt::mono::FilterType::korg35 : svf ? vekt::mono::FilterType::svf : vekt::mono::FilterType::ladder;
+	setParameter(processor, vekt::mono::parameters::filterType, static_cast<float>(vekt::mono::filterTypes.indexOf(filterType)));
 	setParameter(processor, vekt::mono::parameters::filterMode, mode);
 	processor.prepareToPlay(rate, blockSize);
 	if (processor.getActiveQuality().multiplier() != static_cast<std::size_t>(factor)) return 1;

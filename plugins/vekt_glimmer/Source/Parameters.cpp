@@ -2,6 +2,8 @@
 
 #include <vekt/plugin_support/QualitySelection.h>
 
+#include "GlimmerParameterChoices.h"
+
 #include <memory>
 
 namespace vekt::glimmer::parameters
@@ -65,7 +67,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 		juce::AudioParameterFloatAttributes {}.withLabel("dB")));
 	layout.add(std::make_unique<juce::AudioParameterChoice>(
 		juce::ParameterID { speedMode, parameterVersion }, "Speed",
-		juce::StringArray { "Slow", "Fast", "Auto" }, 0));
+		speedModes.names(), 0));
 	layout.add(std::make_unique<juce::AudioParameterFloat>(
 		juce::ParameterID { sensitivity, parameterVersion }, "Sensitivity",
 		juce::NormalisableRange<float> { 0.0f, 100.0f, 0.01f }, 50.0f,
@@ -85,7 +87,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 	layout.add(plugin_support::QualitySelection::makeOfflineParameter(offlineOversampling, parameterVersion, 4));
 
 	layout.add(std::make_unique<juce::AudioParameterChoice>(
-		juce::ParameterID { cabinetModel, 2 }, "Model", juce::StringArray { "Classic", "Drum", "Wide" }, 0));
+		juce::ParameterID { cabinetModel, 2 }, "Model", cabinetModels.names(), 0));
 	layout.add(std::make_unique<juce::AudioParameterBool>(
 		juce::ParameterID { brake, 2 }, "Brake", false));
 	layout.add(std::make_unique<juce::AudioParameterFloat>(

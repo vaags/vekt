@@ -1,6 +1,6 @@
 #include <vekt/ui/QualitySettings.h>
 
-#include <vekt/dsp/OversamplingChoices.h>
+#include <vekt/ui/ChoiceItems.h>
 
 namespace vekt::ui
 {
@@ -14,8 +14,8 @@ QualitySettings::QualitySettings(juce::AudioProcessorValueTreeState& parameters,
 	offlineBox.setName("Offline quality");
 	trackingBox.setTooltip("Oversampling during real-time playback");
 	offlineBox.setTooltip("Oversampling when the host renders offline (bounce or export)");
-	trackingBox.addItemList(dsp::trackingQualityChoices(), 1);
-	offlineBox.addItemList(dsp::offlineQualityChoices(), 1);
+	addChoiceItems(trackingBox, parameters, trackingIdentifier);
+	addChoiceItems(offlineBox, parameters, offlineIdentifier);
 	for (auto* component : { static_cast<juce::Component*>(&trackingLabel), static_cast<juce::Component*>(&trackingBox),
 			 static_cast<juce::Component*>(&offlineLabel), static_cast<juce::Component*>(&offlineBox),
 			 static_cast<juce::Component*>(&closeButton) })

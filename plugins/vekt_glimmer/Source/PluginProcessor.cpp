@@ -4,6 +4,7 @@
 #include <vekt/glimmer/PluginEditor.h>
 
 #include <vekt/plugin_support/RequireParameter.h>
+#include "GlimmerParameterChoices.h"
 #include <vekt/presets/PresetPaths.h>
 #include <vekt/presets/PresetSchema.h>
 
@@ -17,16 +18,6 @@ namespace
 float gainFromDb(float decibels) noexcept
 {
 	return std::pow(10.0f, decibels / 20.0f);
-}
-
-RotarySpeedMode speedModeFrom(float value) noexcept
-{
-	switch (juce::jlimit(0, 2, juce::roundToInt(value)))
-	{
-	case 1: return RotarySpeedMode::fast;
-	case 2: return RotarySpeedMode::autoMode;
-	default: return RotarySpeedMode::slow;
-	}
 }
 }
 
@@ -45,28 +36,28 @@ PluginProcessor::PluginProcessor()
 		[this](const presets::Preset& preset) { return applyPreset(preset); },
 		[this](const presets::Preset& preset) { return matchesPresetSound(preset); } }),
 	  qualitySelection(parameterState, parameters::trackingOversampling, parameters::offlineOversampling),
-	  inputGainParameter(plugin_support::requireParameter(parameterState, parameters::inputGain)),
-	  preampDriveParameter(plugin_support::requireParameter(parameterState, parameters::preampDrive)),
-	  balanceParameter(plugin_support::requireParameter(parameterState, parameters::hornDrumBalance)),
-	  micAngleParameter(plugin_support::requireParameter(parameterState, parameters::micAngle)),
-	  micDistanceParameter(plugin_support::requireParameter(parameterState, parameters::micDistance)),
-	  slowSpeedParameter(plugin_support::requireParameter(parameterState, parameters::slowSpeed)),
-	  fastSpeedParameter(plugin_support::requireParameter(parameterState, parameters::fastSpeed)),
-	  accelerationParameter(plugin_support::requireParameter(parameterState, parameters::accelerationTime)),
-	  decelerationParameter(plugin_support::requireParameter(parameterState, parameters::decelerationTime)),
-	  hornToneParameter(plugin_support::requireParameter(parameterState, parameters::hornTone)),
-	  drumToneParameter(plugin_support::requireParameter(parameterState, parameters::drumTone)),
-	  speedModeParameter(plugin_support::requireParameter(parameterState, parameters::speedMode)),
-	  sensitivityParameter(plugin_support::requireParameter(parameterState, parameters::sensitivity)),
-	  autoGainParameter(plugin_support::requireParameter(parameterState, parameters::autoGain)),
-	  bypassParameter(plugin_support::requireParameter(parameterState, parameters::bypass)),
-	  mixParameter(plugin_support::requireParameter(parameterState, parameters::mix)),
-	  outputGainParameter(plugin_support::requireParameter(parameterState, parameters::outputGain)),
-	  modelParameter(plugin_support::requireParameter(parameterState, parameters::cabinetModel)),
-	  brakeParameter(plugin_support::requireParameter(parameterState, parameters::brake)),
-	  widthParameter(plugin_support::requireParameter(parameterState, parameters::stereoWidth)),
-	  manualParameter(plugin_support::requireParameter(parameterState, parameters::manualSpeedEnabled)),
-	  positionParameter(plugin_support::requireParameter(parameterState, parameters::speedPosition))
+	  inputGainParameter(&plugin_support::requireParameter(parameterState, parameters::inputGain)),
+	  preampDriveParameter(&plugin_support::requireParameter(parameterState, parameters::preampDrive)),
+	  balanceParameter(&plugin_support::requireParameter(parameterState, parameters::hornDrumBalance)),
+	  micAngleParameter(&plugin_support::requireParameter(parameterState, parameters::micAngle)),
+	  micDistanceParameter(&plugin_support::requireParameter(parameterState, parameters::micDistance)),
+	  slowSpeedParameter(&plugin_support::requireParameter(parameterState, parameters::slowSpeed)),
+	  fastSpeedParameter(&plugin_support::requireParameter(parameterState, parameters::fastSpeed)),
+	  accelerationParameter(&plugin_support::requireParameter(parameterState, parameters::accelerationTime)),
+	  decelerationParameter(&plugin_support::requireParameter(parameterState, parameters::decelerationTime)),
+	  hornToneParameter(&plugin_support::requireParameter(parameterState, parameters::hornTone)),
+	  drumToneParameter(&plugin_support::requireParameter(parameterState, parameters::drumTone)),
+	  speedModeParameter(&plugin_support::requireParameter(parameterState, parameters::speedMode)),
+	  sensitivityParameter(&plugin_support::requireParameter(parameterState, parameters::sensitivity)),
+	  autoGainParameter(&plugin_support::requireParameter(parameterState, parameters::autoGain)),
+	  bypassParameter(&plugin_support::requireParameter(parameterState, parameters::bypass)),
+	  mixParameter(&plugin_support::requireParameter(parameterState, parameters::mix)),
+	  outputGainParameter(&plugin_support::requireParameter(parameterState, parameters::outputGain)),
+	  modelParameter(&plugin_support::requireParameter(parameterState, parameters::cabinetModel)),
+	  brakeParameter(&plugin_support::requireParameter(parameterState, parameters::brake)),
+	  widthParameter(&plugin_support::requireParameter(parameterState, parameters::stereoWidth)),
+	  manualParameter(&plugin_support::requireParameter(parameterState, parameters::manualSpeedEnabled)),
+	  positionParameter(&plugin_support::requireParameter(parameterState, parameters::speedPosition))
 {
 	const auto factoryResult = addFactoryPresets(presetHost.catalog());
 	jassert(factoryResult.wasOk());
@@ -96,8 +87,8 @@ void PluginProcessor::prepareToPlay(double newSampleRate, int newMaximumBlockSiz
 	activeEngine = 0;
 	switchingModel = false;
 	modelWarmup = modelFade = 0;
-	const auto selectedModel = juce::jlimit(0, 2, juce::roundToInt(modelParameter->load()));
-	for (auto& engine : engines) engine.start(static_cast<CabinetModel>(selectedModel), rotarySettings());
+	const auto selectedModel = cabinetModels.at(modelParameter->load());
+	for (auto& engine : engines) engine.start(selectedModel, rotarySettings());
 	activeModel.store(selectedModel);
 	modelPending.store(false);
 	inputTransition.prepare(sampleRateHz);
@@ -131,7 +122,7 @@ RotarySettings PluginProcessor::rotarySettings() const noexcept
 {
 	return { balanceParameter->load(), micAngleParameter->load(), micDistanceParameter->load(),
 		hornToneParameter->load(), drumToneParameter->load(), slowSpeedParameter->load(), fastSpeedParameter->load(),
-		accelerationParameter->load(), decelerationParameter->load(), speedModeFrom(speedModeParameter->load()),
+		accelerationParameter->load(), decelerationParameter->load(), speedModes.at(speedModeParameter->load()),
 		brakeParameter->load() >= 0.5f, manualParameter->load() >= 0.5f, positionParameter->load() * 0.01f };
 }
 
@@ -198,7 +189,7 @@ void PluginProcessor::process(juce::AudioBuffer<float>& buffer, bool bypassed)
 		widthTransition.setTargetValue(widthParameter->load() * 0.01f);
 		dryWetMixer.setWetProportion(mixParameter->load() * 0.01f);
 		const auto settings = rotarySettings();
-		const auto requestedModel = static_cast<CabinetModel>(juce::jlimit(0, 2, juce::roundToInt(modelParameter->load())));
+		const auto requestedModel = cabinetModels.at(modelParameter->load());
 		if (!switchingModel && requestedModel != engines[activeEngine].getModel())
 		{
 			engines[1 - activeEngine].start(requestedModel, settings, &engines[activeEngine]);
@@ -263,7 +254,7 @@ void PluginProcessor::process(juce::AudioBuffer<float>& buffer, bool bypassed)
 					{
 						activeEngine = 1 - activeEngine;
 						switchingModel = false;
-						activeModel.store(static_cast<int>(engines[activeEngine].getModel()));
+						activeModel.store(engines[activeEngine].getModel());
 					}
 				}
 			}

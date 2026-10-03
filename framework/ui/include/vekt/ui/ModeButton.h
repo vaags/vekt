@@ -58,7 +58,7 @@ public:
 			wasDragged = true;
 			setAlpha(0.65f);
 			toFront(false);
-			if (onDrag && getParentComponent())
+			if (onDrag && getParentComponent() != nullptr)
 				onDrag(*this, event.getEventRelativeTo(getParentComponent()).getPosition() - dragOffset);
 		}
 	}
@@ -70,7 +70,7 @@ public:
 		if (!isEnabled()) return;
 		if (wasDragged)
 		{
-			if (onDrop && getParentComponent())
+			if (onDrop && getParentComponent() != nullptr)
 				onDrop(*this, event.getEventRelativeTo(getParentComponent()).getPosition());
 			return;
 		}

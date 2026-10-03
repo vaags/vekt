@@ -3,6 +3,7 @@
 #include <vekt/mono/FactoryPresets.h>
 #include "LfoDestinations.h"
 #include "MonoVoice.h"
+#include "MonoParameterChoices.h"
 #include "MonoRenderWorkers.h"
 #include <vekt/mono/PluginEditor.h>
 
@@ -16,22 +17,12 @@
 
 namespace vekt::mono
 {
-namespace
-{
-int choiceToVoiceCount(float value) noexcept
-{
-	constexpr std::array counts { 2, 4, 8, 12, 16 };
-	return counts[static_cast<std::size_t>(juce::jlimit(0, static_cast<int>(counts.size()) - 1, juce::roundToInt(value)))];
-}
-int choiceToUnison(float value) noexcept { return value < 0.5f ? 1 : value < 1.5f ? 2 : 4; }
-}
-
 MonoVoiceSettings PluginProcessor::snapshotSettings() const
 {
 	MonoVoiceSettings settings;
 	for (std::size_t index = 0; index < 3; ++index)
 	{
-		settings.range[index] = value(cached.range[index]);
+		settings.rangeOctaves[index] = oscillatorRanges.at(value(cached.range[index]));
 		settings.semitone[index] = value(cached.semitone[index]);
 		settings.fine[index] = value(cached.fine[index]);
 		settings.octave[index] = value(cached.octave[index]);
@@ -39,7 +30,7 @@ MonoVoiceSettings PluginProcessor::snapshotSettings() const
 		settings.morph[index] = value(cached.morph[index]);
 		settings.pulseWidth[index] = value(cached.pulseWidth[index]);
 	}
-	settings.noiseType = juce::roundToInt(value(cached.noiseType));
+	settings.noiseType = noiseTypes.at(value(cached.noiseType));
 	settings.noiseLevel = value(cached.noiseLevel) * 0.01f;
 	settings.cutoff = value(cached.filterCutoff);
 	settings.resonance = value(cached.filterResonance) * 0.01f;
@@ -48,8 +39,7 @@ MonoVoiceSettings PluginProcessor::snapshotSettings() const
 	settings.drive = value(cached.filterDrive);
 	settings.qCompensation = value(cached.filterQCompensation) >= 0.5f;
 	settings.filterMode = value(cached.filterMode);
-	constexpr std::array filterTypes { FilterType::ladder, FilterType::svf, FilterType::korg35 }; // the choices' order
-	settings.filterType = filterTypes[static_cast<std::size_t>(juce::jlimit(0, 2, juce::roundToInt(value(cached.filterType))))];
+	settings.filterType = filterTypes.at(value(cached.filterType));
 	settings.ampAttack = value(cached.ampAttack);
 	settings.ampDecay = value(cached.ampDecay);
 	settings.ampSustain = value(cached.ampSustain) * 0.01f;
@@ -61,12 +51,12 @@ MonoVoiceSettings PluginProcessor::snapshotSettings() const
 	settings.ampVelocity = value(cached.ampVelocity) * 0.01f;
 	settings.filterVelocity = value(cached.filterVelocity) * 0.01f;
 	settings.calibration = value(cached.calibration);
-	settings.unison = choiceToUnison(value(cached.unison));
+	settings.unison = unisonCounts.at(value(cached.unison));
 	settings.detune = value(cached.unisonDetune);
 	settings.unisonSpread = value(cached.unisonSpread) * 0.01f;
 	settings.voiceWidth = value(cached.voiceWidth) * 0.01f;
 	settings.drift = value(cached.drift);
-	settings.glideMode = juce::roundToInt(value(cached.glideMode));
+	settings.glideMode = glideModes.at(value(cached.glideMode));
 	settings.glideTime = value(cached.glideTime);
 	for (std::size_t index = 0; index < parameters::lfos.size(); ++index)
 	{
@@ -74,9 +64,9 @@ MonoVoiceSettings PluginProcessor::snapshotSettings() const
 		auto& lfo = settings.lfo[index];
 		const auto division = juce::roundToInt(value(ids.division));
 		lfo.source.rateHz = value(ids.sync) >= 0.5f ? syncedLfoRateHz(transportBpm, division) : value(ids.rate);
-		lfo.source.shape = static_cast<LfoShape>(juce::roundToInt(value(ids.shape)));
-		lfo.source.polarity = static_cast<LfoPolarity>(juce::roundToInt(value(ids.polarity)));
-		lfo.source.mode = static_cast<LfoMode>(juce::roundToInt(value(ids.mode)));
+		lfo.source.shape = lfoShapes.at(value(ids.shape));
+		lfo.source.polarity = lfoPolarities.at(value(ids.polarity));
+		lfo.source.mode = lfoModes.at(value(ids.mode));
 		lfo.source.phase = value(ids.phase) / 360.0f;
 		lfo.source.delaySeconds = value(ids.delay);
 		lfo.source.fadeSeconds = value(ids.fade);
@@ -109,7 +99,7 @@ MonoVoiceSettings PluginProcessor::snapshotSettings() const
 
 PluginProcessor::CachedParameters PluginProcessor::cacheParameters(juce::AudioProcessorValueTreeState& state)
 {
-	const auto require = [&state](const char* identifier) { return plugin_support::requireParameter(state, identifier); };
+	const auto require = [&state](const char* identifier) { return &plugin_support::requireParameter(state, identifier); };
 	static_assert(std::tuple_size_v<decltype(CachedParameters::lfos)> == parameters::lfos.size());
 	static_assert(std::tuple_size_v<decltype(LfoParameters::depths)> == parameters::lfos[0].depths().size());
 	CachedParameters result;
@@ -229,7 +219,7 @@ PluginProcessor::~PluginProcessor()
 
 void PluginProcessor::parameterChanged(const juce::String& identifier, float newValue)
 {
-	if (identifier != parameters::multicore || newValue < 0.5f) return;
+	if (identifier != parameters::multicore || !multicoreChoices.at(newValue)) return;
 	// Threads are created off the audio thread: now if this is the message thread, else asynchronously.
 	if (juce::MessageManager::existsAndIsCurrentThread()) ensureRenderWorkers();
 	else triggerAsyncUpdate();
@@ -309,10 +299,10 @@ void PluginProcessor::prepareToPlay(double newSampleRate, int maximumBlockSize)
 	lfoPositionBuffer.assign(2 * voiceStride, 0.0);
 	vibratoBuffer.assign(voiceStride, 0.0f);
 	voiceBuffer.assign(voices.size() * 2 * voiceStride, 0.0f);
-	if (value(cached.multicore) >= 0.5f) ensureRenderWorkers();
+	if (multicoreChoices.at(value(cached.multicore))) ensureRenderWorkers();
 	for (auto& clock : lfoClocks) clock->reset();
 	vibratoClock->reset();
-	activeVoiceCount = choiceToVoiceCount(value(cached.voiceCount));
+	activeVoiceCount = voiceCounts.at(value(cached.voiceCount));
 	configureQuality(qualitySelection.prepare(isNonRealtime()));
 }
 
@@ -334,7 +324,7 @@ int PluginProcessor::getSoundingVoiceCount() const noexcept
 
 void PluginProcessor::applyConfigurationChanges()
 {
-	const auto voiceCount = choiceToVoiceCount(value(cached.voiceCount));
+	const auto voiceCount = voiceCounts.at(value(cached.voiceCount));
 	const auto quality = qualitySelection.takeRequest(isNonRealtime());
 	if (voiceCount == activeVoiceCount && !quality) return;
 	// Voice count and quality apply at once and cut whatever is sounding (ADR 0010).
@@ -588,19 +578,19 @@ MonoVoice& PluginProcessor::monoVoiceForChannel(int channel)
 void PluginProcessor::noteOn(int channel, int note, float velocity)
 {
 	const auto settings = snapshotSettings();
-	const auto mode = juce::roundToInt(value(cached.performanceMode));
-	if (mode != 0)
+	const auto mode = performanceModes.at(value(cached.performanceMode));
+	if (mode != PerformanceMode::poly)
 	{
 		auto& heldNotes = heldNotesByChannel[static_cast<std::size_t>(channel - 1)];
 		const auto legato = !heldNotes.empty();
 		heldNotes.erase(std::remove_if(heldNotes.begin(), heldNotes.end(), [note](const auto& heldNote) { return heldNote.note == note; }), heldNotes.end());
 		heldNotes.push_back({ note, velocity });
-		const auto lowPriority = value(cached.notePriority) >= 0.5f;
+		const auto lowPriority = notePriorities.at(value(cached.notePriority)) == NotePriority::low;
 		const auto& selected = lowPriority ? *std::min_element(heldNotes.begin(), heldNotes.end(), [](const auto& a, const auto& b) { return a.note < b.note; }) : heldNotes.back();
 		if (lowPriority && selected.note != note) return;
 		auto& voice = monoVoiceForChannel(channel);
 		voice.setPanPosition(0.0f);
-		const auto retrigger = mode == 1 || !legato || !voice.isActive() || (!voice.isHeld() && !voice.isSustained());
+		const auto retrigger = mode == PerformanceMode::mono || !legato || !voice.isActive() || (!voice.isHeld() && !voice.isSustained());
 		voice.start(channel, note, velocity, settings, retrigger, legato, ++noteAge);
 		return;
 	}
@@ -619,8 +609,8 @@ void PluginProcessor::noteOn(int channel, int note, float velocity)
 
 void PluginProcessor::noteOff(int channel, int note)
 {
-	const auto mode = juce::roundToInt(value(cached.performanceMode));
-	if (mode != 0)
+	const auto mode = performanceModes.at(value(cached.performanceMode));
+	if (mode != PerformanceMode::poly)
 	{
 		auto& heldNotes = heldNotesByChannel[static_cast<std::size_t>(channel - 1)];
 		auto& voice = monoVoiceForChannel(channel);
@@ -628,7 +618,7 @@ void PluginProcessor::noteOff(int channel, int note)
 		heldNotes.erase(std::remove_if(heldNotes.begin(), heldNotes.end(), [note](const auto& heldNote) { return heldNote.note == note; }), heldNotes.end());
 		if (wasActive && value(cached.heldKeyReturn) >= 0.5f && !heldNotes.empty())
 		{
-			retargetMonophonicVoice(channel, mode == 1);
+			retargetMonophonicVoice(channel, mode == PerformanceMode::mono);
 			return;
 		}
 		if (wasActive)
@@ -656,7 +646,7 @@ void PluginProcessor::retargetMonophonicVoice(int channel, bool retrigger)
 	const auto& heldNotes = heldNotesByChannel[static_cast<std::size_t>(channel - 1)];
 	if (heldNotes.empty()) return;
 	const auto settings = snapshotSettings();
-	const auto& returned = value(cached.notePriority) >= 0.5f
+	const auto& returned = notePriorities.at(value(cached.notePriority)) == NotePriority::low
 		? *std::min_element(heldNotes.begin(), heldNotes.end(), [](const auto& a, const auto& b) { return a.note < b.note; })
 		: heldNotes.back();
 	monoVoiceForChannel(channel).start(channel, returned.note, returned.velocity, settings, retrigger, true, ++noteAge);
@@ -698,7 +688,7 @@ void PluginProcessor::render(juce::AudioBuffer<float>& buffer, int start, int co
 		lfoDisplayRates[index].store(std::clamp(settings.lfo[index].source.rateHz, minimumLfoRateHz, maximumLfoRateHz), std::memory_order_relaxed);
 	}
 	vibratoClock->setRate(value(cached.vibratoRate));
-	const auto vibratoShape = juce::roundToInt(value(cached.vibratoShape)) == 1 ? LfoShape::triangle : LfoShape::sine;
+	const auto vibratoShape = vibratoShapes.at(value(cached.vibratoShape));
 	const auto vibratoDepthSemitones = value(cached.vibratoDepth) * 0.01f;
 	// The on-screen wheel (Vibrato Amount) plays every channel; the higher of it and each channel's controllers wins.
 	const auto screenWheel = value(cached.vibratoAmount) * 0.01f;
@@ -747,7 +737,7 @@ void PluginProcessor::render(juce::AudioBuffer<float>& buffer, int start, int co
 	segment.units = groupVoices(4 / lanesPerVoice, segment.unitVoices, segment.unitVoiceCount);
 	// Threads only pay off with enough samples to amortize waking the helpers.
 	auto* workers = renderWorkers.load(std::memory_order_acquire);
-	const auto threads = workers != nullptr && value(cached.multicore) >= 0.5f && samples >= 32 ? workers->threads() + 1 : 1;
+	const auto threads = workers != nullptr && multicoreChoices.at(value(cached.multicore)) && samples >= 32 ? workers->threads() + 1 : 1;
 	segment.jobs = segment.units;
 	segment.jobVoices = segment.unitVoices;
 	segment.jobVoiceCount = segment.unitVoiceCount;

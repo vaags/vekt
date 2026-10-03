@@ -25,8 +25,8 @@ QualitySelection::QualitySelection(juce::AudioProcessorValueTreeState& parameter
 	: state(parameters),
 	  trackingId(trackingIdentifier),
 	  offlineId(offlineIdentifier),
-	  trackingParameter(requireParameter(parameters, trackingIdentifier)),
-	  offlineParameter(requireParameter(parameters, offlineIdentifier))
+	  trackingParameter(&requireParameter(parameters, trackingIdentifier)),
+	  offlineParameter(&requireParameter(parameters, offlineIdentifier))
 {
 	requestedTracking.store(trackingParameter->load());
 	requestedOffline.store(offlineParameter->load());

@@ -140,7 +140,7 @@ TEST_CASE("Mono low notes keep their pitch at the highest internal rate", "[mono
 	{
 		CAPTURE(rate);
 		vekt::mono::MonoVoiceSettings settings {};
-		settings.range.fill(1.0f);
+		settings.rangeOctaves.fill(0); // 8'
 		settings.octave = { -2.0f, 0.0f, 0.0f };
 		settings.level = { 1.0f, 0.0f, 0.0f };
 		settings.morph.fill(0.0f);

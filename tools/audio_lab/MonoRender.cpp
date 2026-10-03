@@ -1,4 +1,5 @@
 #include "MonoRender.h"
+#include "MonoParameterChoices.h"
 
 #include <vekt/audio_analysis/Measurements.h>
 
@@ -116,7 +117,7 @@ void applyParameter(mono::MonoVoiceSettings& settings, MonoParameter parameter, 
 	object->setProperty("filter_sustain", settings.filterSustain);
 	object->setProperty("filter_release_seconds", settings.filterRelease);
 	object->setProperty("q_compensation", settings.qCompensation);
-	object->setProperty("noise_type", settings.noiseType);
+	object->setProperty("noise_type", mono::noiseTypes.indexOf(settings.noiseType));
 	object->setProperty("noise_level", settings.noiseLevel);
 	object->setProperty("drift", settings.drift);
 	return juce::var(object);
@@ -177,7 +178,7 @@ void applyParameter(mono::MonoVoiceSettings& settings, MonoParameter parameter, 
 mono::MonoVoiceSettings defaultMonoRenderSettings() noexcept
 {
 	mono::MonoVoiceSettings settings;
-	settings.range = { 1.0f, 1.0f, 1.0f };
+	settings.rangeOctaves = { 0, 0, 0 }; // 8'
 	settings.semitone = {};
 	settings.fine = {};
 	settings.octave = {};
@@ -274,7 +275,7 @@ bool makeMonoRenderFixture(const juce::String& name, double sampleRate, int bloc
 		destination.settings.cutoff = 1'000.0f;
 		destination.settings.resonance = 1.0f;
 		destination.settings.drive = 0.0f;
-		destination.settings.noiseType = 1;
+		destination.settings.noiseType = mono::NoiseType::white;
 		destination.settings.noiseLevel = 0.05f;
 		destination.settings.ampAttack = 0.0005f;
 		destination.settings.ampSustain = 1.0f;
@@ -304,7 +305,7 @@ bool makeMonoRenderFixture(const juce::String& name, double sampleRate, int bloc
 		destination.settings.drive = 0.0f;
 		destination.settings.ampAttack = 0.0005f;
 		destination.settings.ampSustain = 1.0f;
-		destination.settings.noiseType = tone ? 1 : 0;
+		destination.settings.noiseType = tone ? mono::NoiseType::white : mono::NoiseType::off;
 		destination.settings.noiseLevel = tone ? 0.05f : 0.0f;
 		destination.settings.qCompensation = name.endsWith("on");
 		destination.events = { { 0, MonoEventType::noteOn, MonoParameter::cutoff, 1.0f, 48 } };
@@ -329,7 +330,7 @@ bool makeMonoRenderFixture(const juce::String& name, double sampleRate, int bloc
 		destination.settings.drive = 6.0f;
 		destination.settings.ampSustain = 1.0f;
 		destination.settings.ampRelease = 0.15f;
-		destination.settings.noiseType = 1;
+		destination.settings.noiseType = mono::NoiseType::white;
 		destination.settings.noiseLevel = 0.025f;
 		destination.settings.drift = 15.0f;
 		destination.events = {
