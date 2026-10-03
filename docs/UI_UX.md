@@ -51,10 +51,10 @@ Preset workflows are specified separately in [PRESET_UX.md](PRESET_UX.md).
   output gain: left and right traces over 25 ms, full height at 0 dBFS (the
   meters' reference), triggered on rising zero crossings so periodic signals
   stand still. RAV places it above the channel strips, Glimmer beside its
-  meters; Mono, whose I/O panel is narrow, stacks scope, a horizontal meter and
+  meters; Kobber, whose I/O panel is narrow, stacks scope, a horizontal meter and
   a horizontal Master Output fader.
 - Tracking and Offline quality selectors offer the shared choices (ADR 0001).
-  Rav and Mono open them in the shared anchored Settings pop-over
+  Rav and Kobber open them in the shared anchored Settings pop-over
   (`vekt::ui::QualitySettings`): its toggle sits in the toolbar, opening focuses
   Tracking and Close returns focus to the toggle. Glimmer shows them inline.
   The active quality remains visible in the I/O strip.
@@ -109,7 +109,7 @@ Preset workflows are specified separately in [PRESET_UX.md](PRESET_UX.md).
   base value plus modulation only (not envelopes or key tracking), follows each
   source's polarity and master amount, and shows what the processor reaches:
   it stops where the processor stops and wraps on endless controls. Where the
-  processor carries modulation past the end of the knob's travel (Mono's pitch
+  processor carries modulation past the end of the knob's travel (Kobber's pitch
   and cutoff), the arc ends at the travel with a faint tail beyond it, and a
   live dot past the end is pinned there and drawn hollow. Modulation never
   moves the pointer or the value readout.
@@ -232,8 +232,8 @@ retain APVTS attachments/gestures and stable bounds during state changes.
 
 ## Audio Lab Input
 
-- Mono is the only live input. The on-screen keyboard and MIDI input selector
-  drive Mono; the selected rack route can process its output through RAV and Glimmer.
+- Kobber is the only live input. The on-screen keyboard and MIDI input selector
+  drive Kobber; the selected rack route can process its output through RAV and Glimmer.
 - The compact header keeps Restart App and input/output peak, latency, CPU, and
   output device diagnostics together on one row above the on-screen keyboard.
   Audio runs without an arm or mute step.

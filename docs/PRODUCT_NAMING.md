@@ -23,7 +23,7 @@ The maker is Thomas Vaags, an individual, not a company and not Vekt. Hosts show
 
 The maker code and each product's `PLUGIN_CODE` identify the plugin to hosts and are frozen at the first release. A
 later brand can change the displayed maker name, but not the code. Each product needs its own `PLUGIN_CODE`: Rav
-`Ravv`, Glimmer `Glmr`, Mono `Kobr` (already set for the Kobber rename).
+`Ravv`, Glimmer `Glmr`, Kobber `Kobr`, Flint `Flnt`.
 
 The bundle-ID prefix is not part of the host identity (AU uses type, subtype and maker code; the VST3 class ID is
 derived from the codes), so changing it does not break saved projects. Published bundle IDs are still immutable
@@ -55,16 +55,19 @@ A product is named after a natural material in Norwegian:
 
 ## Status of existing products
 
-- **Mono will be renamed Kobber** (decided by Thomas, 3 October 2026; not yet scheduled). Mono is a polyphonic synth
-  with three filters, so the old name is also misleading. Rename it only when asked. Its `PLUGIN_CODE` is already
-  `Kobr`.
-- Product names no longer carry the Vekt prefix (3 October 2026). The folders (`plugins/rav`), CMake targets
-  (`Rav_VST3`) and namespaces (`vekt::rav`) still do; drop the folder and target prefix together with the Kobber
-  rename, when asked.
-- New products start without the prefix; Flint is planned as `plugins/flint`.
+- **Mono was renamed Kobber** (decided by Thomas and done 3 October 2026): product name, editor title, bundle ID
+  `com.thomasvaags.kobber`, folder `plugins/kobber`, targets `Kobber`/`KobberCore`, namespace `vekt::kobber`, types
+  `Kobber*`, test tag `[kobber]`, and, while pre-release, the persisted keys (`com.vekt.kobber`, state type
+  `KobberParameters`, factory preset IDs `kobber-*`). Its `PLUGIN_CODE` was already `Kobr`. Musical "Mono" (the
+  Poly | Mono | Mono Legato performance modes, Mono Priority) is not the product and keeps its name.
+- No product carries the Vekt prefix (3 October 2026): folders `plugins/<product>`, plugin targets `<Product>`
+  (`Rav_VST3`), editor titles (`RAV`). Namespaces stay `vekt::<product>` because Vekt is the framework they belong
+  to; the Audio Lab tools keep `Vekt` for the same reason (`VektKobberRender`, `VektFlintCost`). The persisted keys of
+  Rav and Glimmer (`com.vekt.<product>`, `VektRavState`, `VektGlimmerState`) are Vekt data-format keys and stay.
 - Known risk (3 October 2026): JUCE names the Standalone settings file after the product, at the top of
-  `~/Library/Application Support` (`Rav.settings`, `Mono.settings`), so another app with the same file name would
-  share it. Resolve it with the Kobber rename, for example with a `Thomas Vaags` subfolder.
+  `~/Library/Application Support` (`Rav.settings`, `Kobber.settings`), so another app with the same file name would
+  share it. Not yet resolved: a `Thomas Vaags` subfolder needs a custom Standalone wrapper in the framework, its own
+  change before release.
 
 Products are pre-release, so a rename does not yet break saved projects. It does change plugin and bundle identifiers,
 preset folders, test labels and scripts that name the product, so plan it as its own change.

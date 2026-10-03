@@ -1,5 +1,8 @@
 # ADR 0010: Plugin Support Layer and Architecture Programme
 
+> Kobber was called **Mono** until 3 October 2026. Dated entries and records below keep the names of their time
+> (Mono, `vekt::mono`, `plugins/vekt_mono`, `[mono]`, test names "Mono ...").
+
 ## Status
 
 Accepted (2 October 2026) by Thomas after an architecture review. In progress; the programme status below is the
@@ -78,11 +81,11 @@ review follow-ups (every linear ramp in double through `dsp::LinearRamp`); all n
 built; pluginval strictness 10 (without GUI tests) passed for the three VST3s. Mono and Rav references were recaptured
 (approved; Glimmer's unchanged); Rav cost 8-16 % more at 16x in Release; step 10 cached its coefficients, recovering the fuzz modes with static controls (RAV_VALIDATION.md). **Step 10 (3 October 2026):** Mono's noise now matches 1x up to 2 kHz at every quality (Thomas chose the host-rate hold and, the same
 day, no gain for its top-octave roll-off), and Rav's coefficients are cached
-(bit-identical; MONO_VALIDATION.md, RAV_VALIDATION.md). The full suite passed 500/500 (after the review follow-ups) with the
+(bit-identical; KOBBER_VALIDATION.md, RAV_VALIDATION.md). The full suite passed 500/500 (after the review follow-ups) with the
 time-budget check; all nine wrappers and the Audio Lab tools built; pluginval strictness 10 (without GUI tests) passed
 for the three VST3s.
 
-**Step 8 open items** were resolved by step 9 (evidence in MONO_VALIDATION.md, 3 October 2026): the full suite passed
+**Step 8 open items** were resolved by step 9 (evidence in KOBBER_VALIDATION.md, 3 October 2026): the full suite passed
 496/496 with the time-budget check, all nine wrappers and the Audio Lab tools built, and pluginval strictness 10
 (without GUI tests) passed for the three VST3s.
 

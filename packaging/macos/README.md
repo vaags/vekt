@@ -4,7 +4,7 @@ Build AUv2 components and matching Release VST3 bundles:
 
 ```sh
 zsh scripts/build-au.sh --release
-cmake --build --preset release --target Rav_VST3 Glimmer_VST3 VektMono_VST3 Flint_VST3
+cmake --build --preset release --target Rav_VST3 Glimmer_VST3 Kobber_VST3 Flint_VST3
 zsh scripts/verify-bundles.sh --release
 ```
 
@@ -24,7 +24,7 @@ and registration, run from the repository root:
 ```sh
 zsh scripts/validate-release.sh rav
 zsh scripts/validate-release.sh glimmer
-zsh scripts/validate-release.sh mono
+zsh scripts/validate-release.sh kobber
 zsh scripts/validate-release.sh flint
 ```
 
@@ -38,7 +38,7 @@ register before failing:
 | --- | --- |
 | Rav | `aufx Ravv Tava` |
 | Glimmer | `aufx Glmr Tava` |
-| Mono | `aumu Kobr Tava` |
+| Kobber | `aumu Kobr Tava` |
 | Flint | `aumu Flnt Tava` |
 
 Pluginval is resolved from PATH or
@@ -52,7 +52,7 @@ and sandboxed hosts need the file exception for desktop user presets.
 
 Before release, test Logic Pro, GarageBand, and Ableton Live: state recall,
 automation, factory/user presets, native editors/choosers, bypass and latency.
-Verify desktop preset access in sandboxed hosts and Mono MIDI/Multicore workgroup
+Verify desktop preset access in sandboxed hosts and Kobber MIDI/Multicore workgroup
 lifecycle. Per-product audio/performance acceptance remains required.
 
 Installation/replacement, registration/cache changes, signing, notarization and

@@ -269,7 +269,7 @@ Parameter IDs, ranges and Mode/Model lists live in `include/vekt/flint/Parameter
   parameter, so start values apply only to a Mode change in the editor.
 - **Editor placement.** Drive Type sits under Drive. Velocity and Variation form a visible pair beside the shared
   controls. The Settings panel holds Tracking/Offline quality, Note Off Damps and New Seed.
-- Flint tracks and renders Off by default, so a bounce matches playback (Mono renders offline at 4x FIR).
+- Flint tracks and renders Off by default, so a bounce matches playback (Kobber renders offline at 4x FIR).
 
 ## Signal Path
 

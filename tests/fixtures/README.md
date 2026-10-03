@@ -40,7 +40,7 @@ removed line fails the test. Order is not pinned, because JUCE addresses paramet
 ## `audio/<product>/<case>.wav`
 
 0.2 s reference renders of the cases in `tests/compat/ReferenceRenderTests.cpp`. A fixed sweep
-plus noise for the effects, and a fixed two-note phrase for Mono, at 48 kHz in 256-sample blocks.
+plus noise for the effects, and a fixed two-note phrase for Kobber, at 48 kHz in 256-sample blocks.
 The tolerance is a peak error of 2e-5 (about -94 dBFS). A failing case writes its render to
 `build/dev/tests/compat-actual/` so it can be compared by ear. The references belong to the Debug
 (`dev`) build: optimised builds round differently, and Rav's nonlinear chains amplify that to about

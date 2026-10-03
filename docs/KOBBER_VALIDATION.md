@@ -1,3 +1,8 @@
+# Kobber Validation
+
+> Kobber was called **Mono** until 3 October 2026. Dated entries and records below keep the names of their time
+> (Mono, `vekt::mono`, `plugins/vekt_mono`, `[mono]`, test names "Mono ...").
+
 # Mono processor split (3 October 2026)
 
 The processor was split into `MonoSettingsSnapshot`, `MonoVoiceAllocator` and `MonoRenderPlan` (ARCHITECTURE.md), and
@@ -1316,7 +1321,7 @@ complete-processor safety or host evidence. Playback/offline split and
 follow/override are not yet implemented; production format, state and preset
 regressions after cutover have not run. Do not convert short probes into a
 per-quality pass or an 8x final failure. The gate-by-gate audit and staged
-cutover/rollback criteria are in `docs/MONO_LADDER_ACCEPTANCE_PLAN.md`;
+cutover/rollback criteria are in `docs/KOBBER_LADDER_ACCEPTANCE_PLAN.md`;
 ADR 0005 remains Proposed and `production_integration_allowed=false`.
 Preserve a known-good legacy build through production host regression; if a
 gated safety, timing, sound, latency or recall check fails, restore legacy in
@@ -1518,7 +1523,7 @@ numerical convergence and documented listening will guide development. Neither
 passing these tests nor using a zero-delay-feedback algorithm establishes accuracy
 to a particular Minimoog. No hardware-accuracy claim is made.
 
-Mono is pre-alpha and has no compatibility obligation. Existing project states,
+Kobber is pre-alpha and has no compatibility obligation. Existing project states,
 presets, parameter identifiers, parameter order, control mappings, DSP behavior and
 fixture output may be invalidated or replaced when they conflict with the selected
 architecture. Factory presets will be retuned for the completed engine. Legacy
@@ -1532,7 +1537,7 @@ interim behavior.
 
 ## Frozen Product Direction For Ladder Validation
 
-Mono follows a hybrid direction: preserve the core classic ladder and resonance
+Kobber follows a hybrid direction: preserve the core classic ladder and resonance
 identity while treating compensation, quality, articulation and modulation as
 deliberate modern product features. The following decisions are frozen for ladder
 validation even though ADR 0005 remains Proposed:
@@ -1586,9 +1591,9 @@ their labeled range choices, not their erroneous previous pitches.
 ### Optional Q Compensation (historical post-gain candidate; superseded)
 
 The following describes a discarded post-gain experiment, **not** the current
-Audio Lab Mono sound. The active pre-alpha Q Comp On behavior is the constant
+Audio Lab Kobber sound. The active pre-alpha Q Comp On behavior is the constant
 `c=0.5` input-feedback tap documented in the 28 September listening follow-up
-above. The default-off checkbox remains available in Audio Lab's Mono editor.
+above. The default-off checkbox remains available in Audio Lab's Kobber editor.
 
 `filterQCompensation` is an automatable sound parameter, exposed by the filter
 panel's **Q Compensation** checkbox. The parameter, startup preset and all factory
@@ -1619,7 +1624,7 @@ before testing high resonance, many voices, or heavy drive. Full nonlinear-path
 headroom characterization remains pending.
 
 The current development increment uses sound preset schema 4 and project schema 3.
-These versions are not compatibility commitments. Mono supports only its current
+These versions are not compatibility commitments. Kobber supports only its current
 schemas at each development milestone: earlier project states and presets are
 rejected rather than migrated. The final parameter set may remove, rename, reorder
 or replace current parameters, followed by one final pre-alpha schema reset and a
@@ -1627,14 +1632,14 @@ complete factory-preset rebuild. Boolean host values are currently resynchronize
 on current-schema project restore to avoid JUCE retaining fractional values for an
 already-snapped state.
 
-### Mono Performance
+### Kobber Performance
 
 - Glide Off snaps note pitch irrespective of the time knob.
 - Always glides from the remembered note, including after its voice falls silent.
   The first note after reset has no prior pitch and starts directly.
 - Legato glides only when another key remains held, independently of whether the
   envelope is retriggered. An audible release tail alone is not a held gate.
-- Mono retriggers on each note. Mono Legato restarts on a new gate, including a
+- Kobber retriggers on each note. Mono Legato restarts on a new gate, including a
   new note during the previous release tail, but retains contours for overlapping
   notes. Retrigger still starts from the current envelope level, not forced zero.
 - Held-key return restores the original key's velocity and its amplitude/filter
@@ -1670,7 +1675,7 @@ comparison has been captured in this increment.
 
 ## Deterministic Audio Lab Fixtures
 
-`VektMonoRender` drives the product-local `MonoVoice` directly. It applies note
+`VektKobberRender` drives the product-local `MonoVoice` directly. It applies note
 and control events at absolute sample positions, independently of render block
 boundaries, and seeds the voice's oscillator phase, drift and noise generator
 explicitly. It does not duplicate oscillator, contour, ladder, VCA or panning DSP,
@@ -1679,7 +1684,7 @@ and it does not add development controls to plugin state or presets.
 Build and render the fixed fixture set in Release mode with:
 
 ```sh
-./scripts/render-mono-report.sh /tmp/vekt-mono-render
+./scripts/render-kobber-report.sh /tmp/vekt-mono-render
 ```
 
 The script writes a 32-bit stereo WAV and an indented JSON report for each fixture:
@@ -2048,7 +2053,7 @@ The results are not an approved CPU budget or a 30-second test.
 
 After the product selected the local **Apple M1 Pro (MacBookPro18,1,
 32 GB)** as a physical CPU measurement target, a separate Release
-`VektMonoProcessorCost rate block_size voices factor seconds` tool was
+`VektKobberProcessorCost rate block_size voices factor seconds` tool was
 added. It times the **existing legacy** `PluginProcessor::processBlock`
 with 8/12/16 held polyphonic notes, oscillator/envelope/filter/VCA,
 stereo oversampling, output meter, 1 kHz cutoff, 85% resonance and
@@ -2142,7 +2147,7 @@ An **experimental parallel filter-only** mode accepts an optional
 `lanes` argument (1–10) on `VektLadderCost`. It preallocates lane buffers
 and starts persistent worker threads outside the timed loop; independent
 candidate ladders run on worker lanes before the audio thread mixes
-their results. It does **not** modify Mono or make the production audio
+their results. It does **not** modify Kobber or make the production audio
 thread thread-safe. Atomics with blocking `wait`, OS scheduling and
 synchronization on every callback are inappropriate as an unreviewed
 real-time implementation. The optional untimed serial rerender compares
@@ -2340,7 +2345,7 @@ remaining numerical, sound, timing and host-safety proposals still need review.
 
 The following is a **proposal for review**, not an implemented or passing gate.
 ADR 0005 stays Proposed and the report's `production_integration_allowed` stays false.
-The revised 26 September 2026 product scope permits 1x as Mono's real-time
+The revised 26 September 2026 product scope permits 1x as Kobber's real-time
 default when 2x cannot meet an actual measured CPU budget. The candidate
 plans separate Playback Quality (1x/2x/4x/8x, default 1x) and Offline Render
 Quality (follows playback by default; an explicit override offers
@@ -2354,7 +2359,7 @@ Thomas approved using Playback Quality whenever offline status is unverified
 or explicitly real-time, and Offline Render Quality only when the host
 explicitly reports offline processing. Switch only at a safe boundary and
 report the effective quality. The exact boundary, latency transition and
-host-specific guard are still pending; no guard exists in legacy Mono.
+host-specific guard are still pending; no guard exists in legacy Kobber.
 Thomas approved following Playback Quality (initially 1x) for new sessions
 until the user sets an independently recalled Offline Render Quality override;
 clearing the override resumes following subsequent playback-quality changes.
@@ -2390,7 +2395,7 @@ approved prepare-only quality-switch boundary. Check whether Live actually
 deactivates/reactivates before export and negotiates the resulting latency;
 no such host observation or export cancellation has been verified.
 Old normalized host automation/state values are not migrated: the former
-`1.0` "High" value now denotes 16x, not 2x. Mono's pre-alpha compatibility
+`1.0` "High" value now denotes 16x, not 2x. Kobber's pre-alpha compatibility
 policy permits this break, but existing sessions should be recreated or
 their quality choice checked before use.
 
@@ -2416,7 +2421,7 @@ a replacement quality path, but the measured 8x/16x FIR spectral
 improvement comes with simulated deadline exceedances in the sequential,
 filter-only Release cost probe on Apple M1 Pro. **This is diagnostic evidence only**:
 the proposed Apple M5 Pro CPU target and its 2x single-core / ten-core
-speed assumptions are hypothetical and unmeasured. Existing Mono renders
+speed assumptions are hypothetical and unmeasured. Existing Kobber renders
 voices sequentially per sample; no replacement has demonstrated the
 proposed spectral and CPU expectations together on a product CPU target.
 The other open gates are high-cutoff reference
@@ -2424,18 +2429,18 @@ convergence and broad-spectrum/IMD/modulation coverage; floor/ceiling
 and noise-seeded onset limits; the *candidate* in a complete production
 render-path Release CPU/allocation test; and documented unblinded checks with a
 named reviewer's explicit numerical/CPU/listening sign-off. The existing
-Release prototype report and legacy Mono renderer cannot substitute for
+Release prototype report and legacy Kobber renderer cannot substitute for
 that candidate production-path test. No approval or integration is
 implied by the passing development tests.
 
 ### Feasibility decision before matrix expansion (proposed workflow)
 
 The maintained status, next action, research comparison and stop/go checkpoints
-are in `docs/MONO_LADDER_ACCEPTANCE_PLAN.md`; update that file with each
+are in `docs/KOBBER_LADDER_ACCEPTANCE_PLAN.md`; update that file with each
 new result or decision. This document retains the detailed measurements.
 
 An initial **development-only**, bounded two-/four-substep solver variant is
-implemented in `plugins/vekt_mono/Source/NonlinearTptLadder.cpp` alongside the
+implemented in `plugins/kobber/Source/NonlinearTptLadder.cpp` alongside the
 unchanged one-step path. It linearly interpolates incoming sample and
 cutoff/resonance/drive endpoints, divides the incoming-rate prewarped TPT
 coefficient by the substep count, and uses the candidate's existing bounded
@@ -2468,7 +2473,7 @@ two-step half-second diagnostic at the same settings measured about
 `3136 µs` median at 48 kHz (0/94 simulated exceedances) and `3118 µs`
 at 96 kHz (187/187 simulated exceedances). There are zero
 reported solver fallbacks or non-finite samples. These short serial,
-filter-only timings exclude complete Mono voice/processor cost and actual
+filter-only timings exclude complete Kobber voice/processor cost and actual
 audio-device scheduling. Nonetheless, adding processor work cannot make
 these unoptimized sequential substep, eight-ladder configurations fit
 the measured M1 Pro 96 kHz simulated deadline; four steps also miss at
@@ -2546,7 +2551,7 @@ and between-grid response, input/reconstruction error, higher-factor
 full-render convergence, other rates, modulation and listening remain open.
 The previous full-suite result predates this reference-method test.
 Thomas approved the broader 1x artifact **review method** in
-`docs/MONO_LADDER_ACCEPTANCE_PLAN.md` on 26 September 2026: attribute
+`docs/KOBBER_LADDER_ACCEPTANCE_PLAN.md` on 26 September 2026: attribute
 reference-aligned excess components across rates and controls, followed by
 documented unblinded listening. The listening method was revised on
 27 September 2026; this did not approve a 1x numerical ceiling, this
@@ -2572,13 +2577,13 @@ does not reclassify earlier nested or legacy results as coupled evidence.
 
 **Development listening access (27 September 2026):** The separately built
 standalone Ladder Preview selects coupled at 1x, and `audio-lab-coupled`
-configures Audio Lab to select the coupled Mono processor at 1x. The ordinary
-Audio Lab preset and the normal Mono plugin still select legacy. Coupled preview
+configures Audio Lab to select the coupled Kobber processor at 1x. The ordinary
+Audio Lab preset and the normal Kobber plugin still select legacy. Coupled preview
 now exercises 1x/2x/4x/8x; 16x is no longer selectable. The development
 editor explicitly identifies the effective engine (`DEV COUPLED Nx`,
 `DEV NESTED 1x`, or `DEV PREVIEW: LEGACY`). Use
 `scripts/run-mono-coupled-audio-lab.sh` for the coupled Audio Lab build and
-verify the label when selecting Mono; start at a safe listening level because
+verify the label when selecting Kobber; start at a safe listening level because
 earlier legacy/candidate renders had different peaks. Thomas reports a manual
 coupled 1x audition sounds much better than legacy and favors removing legacy.
 The report does not specify monitoring conditions or separate resonance,
@@ -2656,7 +2661,7 @@ full gate passed; the root cause remains unknown. The temporary log is
    an alias or audibility gate. If no 1x sound candidate merits further
    work, stop and revisit the model or product target, not 2x CPU.
 3. **Measure the complete candidate while developing its sound:** An explicit
-   development-only 1x processor selection now exercises Mono's oscillator,
+   development-only 1x processor selection now exercises Kobber's oscillator,
    envelope, voice mixing and candidate filter without enabling it in the
    host plugin. Check gain/control mapping, reset/state, correct latency,
    allocation and bounded work. Compare Release candidate
@@ -2667,7 +2672,7 @@ full gate passed; the root cause remains unknown. The temporary log is
    include static/modulated driven cases and 30-second tail measurements.
    Record build ID, duration, allocations, median, p99.9, maximum and
    *simulated* deadline exceedances.
-   The default `VektMonoProcessorCost` reports `engine=legacy`; its explicit
+   The default `VektKobberProcessorCost` reports `engine=legacy`; its explicit
    development-build `candidate` mode times the complete 1x processor.
    `VektLadderCost` is filter-only. No short timing probe passes the CPU gate
    or measures actual callback misses.
@@ -2766,7 +2771,7 @@ sign-off are not implicit passes. No higher-mode result is recorded yet.
 
 ## Required Handoff Scope
 
-The handoff target is one coherent, measured and auditioned Mono engine. It requires:
+The handoff target is one coherent, measured and auditioned Kobber engine. It requires:
 
 - an authoritative ladder model and absolute-reference validation;
 - a deliberate oscillator/mixer/filter/VCA gain structure;
@@ -2801,13 +2806,13 @@ accepted. A feature is not retained merely because an existing preset uses it.
 
 ## Plan Of Record
 
-The provisional pre-alpha development ladder may be exercised in Mono's
+The provisional pre-alpha development ladder may be exercised in Kobber's
 processor before ADR 0005 is Accepted. The phases below describe the
 acceptance/release handoff, not a prohibition on development integration.
 Track provisional results and outstanding gates in
-`docs/MONO_LADDER_ACCEPTANCE_PLAN.md`.
+`docs/KOBBER_LADDER_ACCEPTANCE_PLAN.md`.
 
-On 27 September 2026 the one-step candidate was linked into `VektMonoCore`
+On 27 September 2026 the one-step candidate was linked into `VektKobberCore`
 and may be enabled only via an explicit local C++ development constructor at
 1x. Normal host-created instances and higher quality settings remain on
 the legacy ladder; neither the current parameter schema nor the offline
@@ -2992,7 +2997,7 @@ transition run completed 104 callbacks, 13 with note transitions (exit 0),
 recorded zero covered callback C++ `new` calls and reported zero solver
 fallback/non-finite samples. The ordinary tool rejects the development mode.
 A source scan found no explicit `malloc`, `calloc` or `realloc` calls in the
-inspected Mono processor, voice or ladder files. Neither that scan nor the
+inspected Kobber processor, voice or ladder files. Neither that scan nor the
 probe covers allocations inside dependencies, all platform allocator APIs or
 other threads. This short run is not an approved CPU/safety-gate measurement.
 On 27 September 2026, four sequential, approved-configuration 30-second
@@ -3039,7 +3044,7 @@ coupled audition is recorded above.
 ### 0. Baseline The Development Increment
 
 - Build and run the staged test suite before further engine changes.
-- Generate the current deterministic Mono and ladder reports in Release mode.
+- Generate the current deterministic Kobber and ladder reports in Release mode.
 - Record the compiler, architecture, rates, block sizes and fixture seed.
 - Use current output as comparison evidence, not as a compatibility requirement.
 - Do not stage, commit or discard unrelated work as part of this plan.
@@ -3066,7 +3071,7 @@ contract or a later phase responsible for defining one.
 
 ### 2. Select The Authoritative Ladder Model
 
-Add a Mono ladder decision record specifying:
+Add a Kobber ladder decision record specifying:
 
 - the continuous-time equations for all four stages;
 - each nonlinear function and its physical or normalized scaling;
@@ -3090,7 +3095,7 @@ Generalize deterministic stimuli, measurement windows, RMS/peak/DC/crest metrics
 complex sinusoidal projection, gain/phase response, harmonic and IMD components,
 ringdown, alias residuals, level matching, sample/block comparison and typed results.
 
-Keep Mono note scenarios, parameter matrices, patch definitions, acceptance limits
+Keep Kobber note scenarios, parameter matrices, patch definitions, acceptance limits
 and JSON report composition product-local. Refactor existing Audio Lab and processor
 test helpers where this removes duplication, but do not create a generic synthesizer
 framework or duplicate product DSP in the harness.
@@ -3224,7 +3229,7 @@ performance criteria.
 Only after DSP behavior is stable, define final parameter identifiers, order, ranges,
 tapers, units, defaults, UI controls and tooltips. Remove obsolete parameters and
 tests instead of carrying them for compatibility. Establish one final pre-alpha
-project schema and one final sound schema; reject all older Mono schemas without
+project schema and one final sound schema; reject all older Kobber schemas without
 migration or partial application.
 
 Retune, replace, rename or remove every factory preset against the completed engine.
@@ -3263,7 +3268,7 @@ legacy path.
 
 ## Definition Of Ready For Handoff
 
-Mono is ready for handoff when:
+Kobber is ready for handoff when:
 
 - no production decision exists solely to preserve pre-alpha behavior;
 - circuit-derived, behavioral and sound-design requirements are separated;

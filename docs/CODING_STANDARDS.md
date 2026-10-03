@@ -96,7 +96,7 @@ only; existing files are not reformatted).
 ## Tests
 
 - Catch2 v3, one behaviour per `TEST_CASE`, named as a sentence stating the expected behaviour.
-- Every test case carries an owner tag (`[rav]`, `[glimmer]`, `[mono]`, or a framework module such as `[dsp]`,
+- Every test case carries an owner tag (`[rav]`, `[glimmer]`, `[kobber]`, or a framework module such as `[dsp]`,
   `[ui]`, `[presets]`, `[plugin-support]`, `[compat]`, `[audio-lab]`), and a case named after a product carries that
   product's tag; `Every test case carries a product or framework tag` enforces it. Long cases add `[slow]`;
   measurements, renders and fixture captures are hidden (`[.]` plus their own tag) and carry no owner tag, since

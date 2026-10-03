@@ -10,7 +10,7 @@ not its build system, WebView UI, lifecycle scripts, or plugin registry.
 [ARCHITECTURE.md](ARCHITECTURE.md) owns dependency direction, real-time rules,
 and compatibility policy. Read the relevant product contract:
 [Rav](RAV_VALIDATION.md), [Glimmer](GLIMMER_VALIDATION.md),
-[Mono](MONO_VALIDATION.md), or [Flint](FLINT_VALIDATION.md). Shared editor and preset interactions belong to
+[Kobber](KOBBER_VALIDATION.md), or [Flint](FLINT_VALIDATION.md). Shared editor and preset interactions belong to
 [UI_UX.md](UI_UX.md) and [PRESET_UX.md](PRESET_UX.md). How code is written
 (general, C++20 and JUCE practice) belongs to
 [CODING_STANDARDS.md](CODING_STANDARDS.md); how checks are run quickly, to
@@ -65,7 +65,7 @@ continue broad exploration. Repair a local failure and rerun the same check.
 Expand validation when shared behavior or a user-facing workflow warrants it.
 
 Multi-session work may need a persisted plan. Prefer its existing owner, such
-as [MONO_LADDER_ACCEPTANCE_PLAN.md](MONO_LADDER_ACCEPTANCE_PLAN.md), rather than
+as [KOBBER_LADDER_ACCEPTANCE_PLAN.md](KOBBER_LADDER_ACCEPTANCE_PLAN.md), rather than
 a second status registry. Record approved scope, current gate, blockers,
 dated evidence, and next action. Create another plan only when persistence is
 needed and no existing document fits; no contract pack is required for a small fix.
@@ -76,7 +76,7 @@ needed and no existing document fits; no contract pack is required for a small f
 | --- | --- |
 | Product-local DSP | Nearby primitive and processor assertions; relevant audio measurements and listening gates |
 | Shared DSP, state, or presets | Shared tests and all affected consumers; compatibility fixtures when relevant |
-| Plugin support (`framework/plugin_support`) | `-L plugin-support`, then every product's preset, state, quality and compat cases (`-L presets`, `-L state`, `-L quality`, `-L compat`) and the Rav/Glimmer/Mono/Flint processor tests |
+| Plugin support (`framework/plugin_support`) | `-L plugin-support`, then every product's preset, state, quality and compat cases (`-L presets`, `-L state`, `-L quality`, `-L compat`) and the Rav/Glimmer/Kobber/Flint processor tests |
 | Editor or shared control | Control, layout, and value-format tests; affected editor builds and relevant visual/interaction checks |
 | Parameters or host integration | Parameter/state/automation tests and matching format builds; runtime validator when required |
 | Build or wrapper configuration | Affected products and formats; no-op/reconfiguration checks when relevant |
@@ -111,7 +111,7 @@ shared cases. Record the executed test count.
 | --- | --- | --- | --- | --- |
 | Rav | `Rav_Standalone` | `Rav_VST3` | `Rav_AU` | `VektRavRender --product rav` |
 | Glimmer | `Glimmer_Standalone` | `Glimmer_VST3` | `Glimmer_AU` | `VektRavRender --product glimmer` |
-| Mono | `VektMono_Standalone` | `VektMono_VST3` | `VektMono_AU` | `VektMonoRender --fixture <name>` |
+| Kobber | `Kobber_Standalone` | `Kobber_VST3` | `Kobber_AU` | `VektKobberRender --fixture <name>` |
 | Flint | `Flint_Standalone` | `Flint_VST3` | `Flint_AU` | none yet; `VektFlintCost` measures cost (A19) |
 
 Build only required wrappers, for example:
@@ -146,7 +146,7 @@ existing Ninja presets, without installing plugins. Xcode remains optional.
 ### Audio Evidence
 
 Use Release for performance-sensitive evidence. The existing
-`scripts/render-report.sh` uses the Debug `audio-lab` preset; the Mono report
+`scripts/render-report.sh` uses the Debug `audio-lab` preset; the Kobber report
 script builds multiple fixtures and a prototype. For a focused Release render:
 
 ```sh
@@ -163,17 +163,17 @@ build/audio-lab-release/tools/audio_lab/VektRavRender \
 
 For Rav, use `--product rav` and appropriate Rav controls instead of Glimmer
 overrides. Record all settings and consult the current parser for supported
-values; these are example inputs, not universal acceptance settings. Mono uses
+values; these are example inputs, not universal acceptance settings. Kobber uses
 a separate executable and requires both output paths:
 
 ```sh
-cmake --build --preset audio-lab-release --target VektMonoRender
-build/audio-lab-release/tools/audio_lab/VektMonoRender \
+cmake --build --preset audio-lab-release --target VektKobberRender
+build/audio-lab-release/tools/audio_lab/VektKobberRender \
   --fixture filter-sweep --sample-rate 48000 --block-size 127 --seed 1299148399 \
-  --wav "$output_directory/mono.wav" --report "$output_directory/mono.json"
+  --wav "$output_directory/kobber.wav" --report "$output_directory/kobber.json"
 ```
 
-The Mono example follows the configure/output-directory setup above. Preserve
+The Kobber example follows the configure/output-directory setup above. Preserve
 paths to evidence needed beyond the session; temporary files are not archival
 storage. Fixed inputs make audio comparisons repeatable, not callback timing.
 Generating a report successfully does not prove acceptable sound, aliasing,
@@ -189,7 +189,7 @@ executable at `/Applications/pluginval.app/Contents/MacOS/pluginval`. Check
 bundles as directories. Identify the exact product, configuration, revision,
 and path; an old installed bundle is not evidence for a new build.
 
-`zsh scripts/validate-release.sh <rav|glimmer|mono|flint> [vst3-path au-component-path]`
+`zsh scripts/validate-release.sh <rav|glimmer|kobber|flint> [vst3-path au-component-path]`
 defaults to that product's Release artifacts. Follow the
 [macOS release gates](../packaging/macos/README.md) for matching installed AU
 components, runtime validators, manual host checks, and distribution approvals.
@@ -224,7 +224,7 @@ warnings as errors, ccache, precompiled test headers and the clang-tidy commit
 hook were introduced. Reassess the tier selection (missed failures caught only
 by T2 or T3) and the hook's cost on commits during the pilots below.
 
-Two real tasks remain to be selected and authorized: one Mono DSP change and
+Two real tasks remain to be selected and authorized: one Kobber DSP change and
 one shared state/preset/UI change. Assess missed tests, incorrect commands,
 coverage of shared consumers, review usefulness, extra prompts, and document
 churn. Tighten these skills first. A product-aware runner, durable structured

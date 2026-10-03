@@ -10,7 +10,7 @@ replaces a required check: a skipped gate is reported as `SKIP` with its reason.
 | Tier | When | Command | Typical time (3 October 2026) |
 | --- | --- | --- | --- |
 | T0 | Every edit: the cheapest check that could disprove the change | Exact test names or tags, e.g. `ctest --preset dev-opt -R '<name>' --no-tests=error`; a focused build of one target | Seconds |
-| T1 | Before reporting a change: the tests of the changed code and of the code and tests that use it | `scripts/test-affected.sh` (`--dry-run` shows the selection and counts) | Rav 12 s (241 tests), Mono 30 s (347 tests) |
+| T1 | Before reporting a change: the tests of the changed code and of the code and tests that use it | `scripts/test-affected.sh` (`--dry-run` shows the selection and counts) | Rav 12 s (241 tests), Kobber 30 s (347 tests) |
 | T2 | Milestones: end of a plan step, before review, before handing work back | `scripts/test.sh --t2`, `scripts/lint-changed.sh`, and `scripts/pluginval-dev.sh` when wrappers, parameters, state or processing changed | Tests 60 s; lint about 12 s; pluginval 5 s once built |
 | T3 | Release-level, a shared or build-wide change, or when the user asks | `scripts/test.sh` (the full Debug suite) plus the release gates in DEVELOPMENT_WORKFLOW.md | Tests 80–88 s |
 
@@ -40,7 +40,7 @@ replaces a required check: a skipped gate is reported as `SKIP` with its reason.
 
 A change that must not alter the sound (a refactor, a type or structure change, a move between files) is proven with
 `scripts/render-diff.sh <base>`: it renders the corpus (`tests/compat/RenderCorpusTests.cpp`, 42 cases across Rav,
-Glimmer and Mono, including polyphony, voice stealing, note priority, held-key return, the sustain pedal, MIDI
+Glimmer and Kobber, including polyphony, voice stealing, note priority, held-key return, the sustain pedal, MIDI
 controllers, a parameter change mid-phrase, Multicore, odd block sizes and offline rendering) with the base revision and
 with the working tree, and compares every case byte for byte. "42 of 42 cases identical" is the evidence; anything else
 lists each differing case with its worst difference in dBFS. The corpus itself fails unless every case is
@@ -53,8 +53,10 @@ cannot prove this: they allow differences up to about -94 dBFS.
 - Both sides use the same build: `dev-opt` by default, `--preset dev` for Debug. Run both before relying on "no
   change" for a change that could round differently with or without optimisation.
 - The base always renders this tree's corpus: it is copied into a base that lacks it or has another version, so any
-  revision whose processors take the same parameter IDs can be compared. Add a case to the corpus when a behaviour it does not reach is being refactored;
-  keep cases deterministic and distinct (Mono's startup sound is unison 2x, Mono Legato: set what differs).
+  revision whose processors take the same parameter IDs can be compared. A base from before a rename of a product's namespace or
+  headers (Mono to Kobber, 3 October 2026) cannot compile this corpus; compare across it by rendering each side's own
+  corpus and mapping the case names. Add a case to the corpus when a behaviour it does not reach is being refactored;
+  keep cases deterministic and distinct (Kobber's startup sound is unison 2x, Mono Legato: set what differs).
 
 ## Which build
 
@@ -165,7 +167,7 @@ Apple Silicon, 10 cores. Times are wall-clock unless noted and swing with load; 
 | --- | --- |
 | Full Debug suite (T3), 501 tests | 79.8–88.3 s |
 | `scripts/test.sh --t2` (456 Debug, then 45 slow optimised) | 59.2–60.2 s |
-| `scripts/test-affected.sh` for a Mono change | 30.3 s (347 tests, plus 12 compat in Debug) |
+| `scripts/test-affected.sh` for a Kobber change | 30.3 s (347 tests, plus 12 compat in Debug) |
 | `scripts/test-affected.sh` for a Rav change | 12.0 s (241 tests, plus 12 compat in Debug) |
 | `scripts/pluginval-dev.sh` (three products, parallel, bundles already built) | 4.8 s |
 | clang-tidy on every framework and plugin source | 28–31 s |

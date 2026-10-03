@@ -1,9 +1,12 @@
 # ADR 0009: Mono Ladder High-Pass Topology
 
+> Kobber was called **Mono** until 3 October 2026. Dated entries and records below keep the names of their time
+> (Mono, `vekt::mono`, `plugins/vekt_mono`, `[mono]`, test names "Mono ...").
+
 ## Status
 
 Accepted (2 October 2026) by Thomas's Audio Lab audition (Phase 3 of the high-pass ladder topology track,
-`docs/MONO_LADDER_ACCEPTANCE_PLAN.md`). Implemented in `NonlinearTptLadderHighPass.h` and `MonoVoice`
+`docs/KOBBER_LADDER_ACCEPTANCE_PLAN.md`). Implemented in `NonlinearTptLadderHighPass.h` and `MonoVoice`
 (`finishLadderSample`). A listen to the shipping build is open. Supersedes the high-pass layers of the interim baseline
 (`40bb819`; ADR 0005, "Notch → HP level" and "HP input level and top").
 

@@ -1,5 +1,8 @@
 # ADR 0006: Mono SVF Filter
 
+> Kobber was called **Mono** until 3 October 2026. Dated entries and records below keep the names of their time
+> (Mono, `vekt::mono`, `plugins/vekt_mono`, `[mono]`, test names "Mono ...").
+
 ## Status
 
 Proposed. The SVF's nonlinear architecture is accepted (amplitude-increasing

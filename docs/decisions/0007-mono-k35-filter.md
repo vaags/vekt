@@ -1,5 +1,8 @@
 # ADR 0007: Mono Third Filter (K35)
 
+> Kobber was called **Mono** until 3 October 2026. Dated entries and records below keep the names of their time
+> (Mono, `vekt::mono`, `plugins/vekt_mono`, `[mono]`, test names "Mono ...").
+
 ## Status
 
 Accepted (30 September 2026, after the real-synth audition). The K35 core (`NonlinearTptKorg35.h`) and its voicing

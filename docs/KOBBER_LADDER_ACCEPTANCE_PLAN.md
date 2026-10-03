@@ -1,5 +1,8 @@
 # Mono Ladder Acceptance Plan
 
+> Kobber was called **Mono** until 3 October 2026. Dated entries and records below keep the names of their time
+> (Mono, `vekt::mono`, `plugins/vekt_mono`, `[mono]`, test names "Mono ...").
+
 **Updated:** 3 October 2026 (quality scope: Mono now offers the shared Tracking and Offline choices, including 16x;
 ADR 0001. References below to the retained 1x/2x/4x/8x qualities and to unimplemented Playback/Offline controls are
 historical); 2 October 2026 (high-pass ladder track added; the rest as of 28 September 2026)
@@ -19,7 +22,7 @@ of identical sound. (The rejection of stored 16x project state was removed on
 in a host for preset and project loading, older normalized quality snapshots,
 quality changes, reported and measured latency, audible clicks, callback
 allocations/timing and device glitches. Record hardware, host, rates, blocks,
-voices, qualities, source/build IDs and results in `docs/MONO_VALIDATION.md`.
+voices, qualities, source/build IDs and results in `docs/KOBBER_VALIDATION.md`.
 Failed gates block a release claim or require an explicit scope/model decision;
 they do not automatically restore legacy. The planned separate Playback and
 Offline Render Quality controls in ADR 0001 are not yet implemented and need
@@ -79,14 +82,14 @@ per sample with a unique, bracketed root.
 
 **Phase 4 (2 October 2026):** Thomas chose M1 with the high-pass stopping short. Integrated as ADR 0009: the voice keeps
 the tap mix to Notch and crossfades into the shipping `NonlinearTptLadderHighPass` (placement F only); the baseline's
-high-pass layers are removed; tests, measurements and cost in ADR 0009 and `docs/MONO_VALIDATION.md`. Reviewer
+high-pass layers are removed; tests, measurements and cost in ADR 0009 and `docs/KOBBER_VALIDATION.md`. Reviewer
 follow-ups (same day): the high-pass ladder rests only with no LFO on Mode and Mode at LP for 1 s, and restarts primed
 (a reset at LP rang against the warm filter on a square Mode LFO); one set of coefficients per voice sample; processor
 and extracted voice compared at Mode 0.5 with unison 2; docs and tooltips corrected. Step 5 at Mode +1 (8 voices, 1x,
 unison 1, 30 s, default scheduler): first runs met the measured timing rules in 3 of 4; 44.1 kHz/257 failed on one
 7.7 ms callback (cause unproven) and two repeats met, so Step 5 stays unqualified for Mode +1; +45 % median over Mode
 −1, which is unchanged. Unison 4 at 128 samples, beyond Step 5, is marginal at Mode +1.
-**Current gate:** Phase 4 and the reviewer follow-ups implemented; automated checks in `docs/MONO_VALIDATION.md`; open:
+**Current gate:** Phase 4 and the reviewer follow-ups implemented; automated checks in `docs/KOBBER_VALIDATION.md`; open:
 Thomas's listen to the shipping build, then commit. **Next action (follow-up, not blocking):** vectorise the high-pass
 ladder across lanes to win back cost (unison 4 at small blocks).
 
@@ -510,7 +513,7 @@ the top accurate; set each step to `not started`, `in progress`, `blocked` or
 `complete`. For every transition record the date, result and evidence location,
 the decision or reason for blocking, and what remains. A running or interrupted
 test is not a pass; a focused pass does not imply full-matrix completion. Reconcile
-the status in `docs/MONO_VALIDATION.md` and ADR 0005 whenever it changes. Do not
+the status in `docs/KOBBER_VALIDATION.md` and ADR 0005 whenever it changes. Do not
 rewrite earlier measurements as if they tested a newer model or binary.
 
 ## Product boundary and decision rules (current policy overrides historical text below)
@@ -589,7 +592,7 @@ within `1e-5` per sample. It passed 37,524 assertions. It does not establish
 behavior between release and re-prepare or a live-host reset contract.
 The final development suite passed 269/269 cases, and ordinary Release VST3
 and Standalone targets built with development mode off; no acceptance gate
-changed. See `docs/MONO_VALIDATION.md` for dated logs.
+changed. See `docs/KOBBER_VALIDATION.md` for dated logs.
 
 **Retained-quality reported-latency matrix (27 September 2026;
 development-only):** A focused regression checks coupled reported latency
@@ -613,7 +616,7 @@ deadlines, or production selection.
 The final development suite passed 268/268 cases; ordinary Release VST3 and
 Standalone targets built with development mode off. A repeated identical
 status-poll loop hit the `run_commands` guard during the run; the final test
-exit was independently checked as 0. See `docs/MONO_VALIDATION.md` for the
+exit was independently checked as 0. See `docs/KOBBER_VALIDATION.md` for the
 ephemeral logs and the polling-workflow note.
 
 **Preset-boundary diagnostic (27 September 2026; development-only):** A focused
@@ -651,16 +654,16 @@ For **all** rows, playback/offline split and follow/override recall are planned,
 not implemented. The normal host plugin still selects legacy at every quality;
 focused development tests do not establish production-wrapper lifecycle or
 actual device deadlines. Preserve the dated raw results in
-`docs/MONO_VALIDATION.md`; this audit does not rescore earlier runs.
+`docs/KOBBER_VALIDATION.md`; this audit does not rescore earlier runs.
 
 | Evidence | Verified scope | Unresolved implication |
 | --- | --- | --- |
-| Cutover-planning baseline verification (27 September 2026) | At source revision `d68aae9` plus documentation-only working-tree edits, the `dev` Debug arm64 configuration (`VEKT_MONO_LADDER_DEVELOPMENT=ON`) built its existing test executable with no work and `ctest --preset dev --output-on-failure` passed 264/264 tests in 232.25 seconds. The ordinary arm64 `release` configuration (`VEKT_MONO_LADDER_DEVELOPMENT=OFF`) built VST3 and Standalone targets. See `docs/MONO_VALIDATION.md` for ephemeral logs. | These are current baseline build/tests, not a coupled production binary, host/device test, accepted sound or CPU/safety result; no acceptance gate changed. |
-| Development suite before the latest 1x comparison | 246 cases, 6,645,095 assertions, exit 0; see `docs/MONO_VALIDATION.md` | Predates the 1x diagnostic; not a product gate. |
+| Cutover-planning baseline verification (27 September 2026) | At source revision `d68aae9` plus documentation-only working-tree edits, the `dev` Debug arm64 configuration (`VEKT_MONO_LADDER_DEVELOPMENT=ON`) built its existing test executable with no work and `ctest --preset dev --output-on-failure` passed 264/264 tests in 232.25 seconds. The ordinary arm64 `release` configuration (`VEKT_MONO_LADDER_DEVELOPMENT=OFF`) built VST3 and Standalone targets. See `docs/KOBBER_VALIDATION.md` for ephemeral logs. | These are current baseline build/tests, not a coupled production binary, host/device test, accepted sound or CPU/safety result; no acceptance gate changed. |
+| Development suite before the latest 1x comparison | 246 cases, 6,645,095 assertions, exit 0; see `docs/KOBBER_VALIDATION.md` | Predates the 1x diagnostic; not a product gate. |
 | Focused 1x diagnostic | 120 assertions; coherent 48 kHz tone, 1/2/4-step outputs and 16/32-step reference returns; see `tests/audio_lab/LadderPrototypeTests.cpp` | Reference returns have no reconstruction low-pass; neither alias attribution nor audibility is settled. |
-| Filtered 1x reference probe (26 September 2026) | 38,578 assertions in one focused case. Offline 16x/32x internal samples pass through a symmetric Blackman-windowed sinc low-pass before host decimation; sampled 1–15 kHz passband and 25–47 kHz stopband, injected 47 kHz fold and exact last-substep/host-return equivalence are checked. At 48 kHz, resonance 0.98, 7 kHz input and +12/+24 dB drive, the 1 and 5 kHz reference bins change by less than 0.5 dB from 16x to 32x; see `tests/audio_lab/LadderPrototypeTests.cpp` and `docs/MONO_VALIDATION.md`. | One tone, two inspected output bins, 1 kHz-spaced filter-response points and no 32x-to-higher-factor full-render convergence or full-band error budget. Not a listening or product pass. |
-| Release cost probes | Half-second, filter-only M1 Pro diagnostics in `docs/MONO_VALIDATION.md` | Not a complete candidate processor, 30-second tail qualification or actual audio callbacks. |
-| Coupled 1x development audition (27 September 2026) | Thomas reports that coupled 1x sounds much better than legacy and favors removing legacy; see `docs/MONO_VALIDATION.md`. No further conditions or control-by-control observations were supplied. | This establishes a positive 1x sound preference, not control-specific listening, higher-mode acceptance, production cutover or legacy deletion. |
+| Filtered 1x reference probe (26 September 2026) | 38,578 assertions in one focused case. Offline 16x/32x internal samples pass through a symmetric Blackman-windowed sinc low-pass before host decimation; sampled 1–15 kHz passband and 25–47 kHz stopband, injected 47 kHz fold and exact last-substep/host-return equivalence are checked. At 48 kHz, resonance 0.98, 7 kHz input and +12/+24 dB drive, the 1 and 5 kHz reference bins change by less than 0.5 dB from 16x to 32x; see `tests/audio_lab/LadderPrototypeTests.cpp` and `docs/KOBBER_VALIDATION.md`. | One tone, two inspected output bins, 1 kHz-spaced filter-response points and no 32x-to-higher-factor full-render convergence or full-band error budget. Not a listening or product pass. |
+| Release cost probes | Half-second, filter-only M1 Pro diagnostics in `docs/KOBBER_VALIDATION.md` | Not a complete candidate processor, 30-second tail qualification or actual audio callbacks. |
+| Coupled 1x development audition (27 September 2026) | Thomas reports that coupled 1x sounds much better than legacy and favors removing legacy; see `docs/KOBBER_VALIDATION.md`. No further conditions or control-by-control observations were supplied. | This establishes a positive 1x sound preference, not control-specific listening, higher-mode acceptance, production cutover or legacy deletion. |
 | Reviewer and approval | Thomas identified himself as product owner and single developer on 26 September 2026; approved the sound target and 1x CPU target, preferred coupled on 27 September and reported a favorable unblinded 1x audition. | Numerical sound limits, representative listening, higher-mode operating envelopes and final sign-off remain pending. |
 
 ## Ordered steps and checkpoints
@@ -751,7 +754,7 @@ conversation records the scope, pilot, CPU-target and sound-target decisions).
 Revised targets must be written *before* scoring new runs or explicitly marked
 as post-measurement changes. Record unresolved rows as
 pending; do not mark step 1 complete until all rows are settled and this file
-and `docs/MONO_VALIDATION.md` reflect the approved contract. Approval of a
+and `docs/KOBBER_VALIDATION.md` reflect the approved contract. Approval of a
 review method is not acceptance of the candidate or of remaining listening checks.
 
 **1x artifact decision method (approved by Thomas, 26 September 2026;
@@ -859,7 +862,7 @@ in two cases. Reference host returns remain
 bit-exact when internal samples are captured. These checks do not establish
 transition-band performance, inter-bin extrema, full-render or full-band
 reference convergence.
-See the evidence ledger and `docs/MONO_VALIDATION.md` for values.
+See the evidence ledger and `docs/KOBBER_VALIDATION.md` for values.
 **Done when:** reference convergence and filtering error are documented for
 the chosen 1x feasibility cases. **Remaining:** filter transition-band
 and between-grid response, higher-factor full-render convergence, independent
@@ -896,7 +899,7 @@ input, controls, raw output and validated reference tap. Evaluate linear
 gain/phase, overload harmonics/IMD, self-oscillation, modulation, worst
 unexpected host-band components and fallback. Document unblinded listening
 on representative patches and settings drawn from
-`docs/MONO_VALIDATION.md`, preserving unmatched originals; record reviewer,
+`docs/KOBBER_VALIDATION.md`, preserving unmatched originals; record reviewer,
 conditions, differences, preference and confidence. Do not claim a
 hardware-accuracy winner from these tests.
 **Stop/go:** if no 1x sound merits complete-path measurement, revisit model
@@ -980,7 +983,7 @@ supersede or explicitly revise product scope. The ordinary host-created engine
 has already changed; verify normal Release formats, effective quality and
 latency, project/preset recall, gain/headroom, render comparisons, live-device
 behavior and full regression results. Record build IDs and limitations in
-`docs/MONO_VALIDATION.md`. A failed gate blocks release, not implementation.
+`docs/KOBBER_VALIDATION.md`. A failed gate blocks release, not implementation.
 **Remaining:** coupled sign-off and Release host/regression validation.
 
 #### Historical staged cutover and rollback proposal (27 September 2026; superseded)
@@ -1048,5 +1051,5 @@ behavior and full regression results. Record build IDs and limitations in
 
 These works motivate controlled comparisons, not a claim that the current
 candidate implements their methods or that any newer model is universally
-more accurate, cheaper or more musical. `docs/MONO_VALIDATION.md` remains
+more accurate, cheaper or more musical. `docs/KOBBER_VALIDATION.md` remains
 the detailed evidence log; ADR 0005 remains the authoritative decision.

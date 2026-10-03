@@ -1,5 +1,8 @@
 # ADR 0001: Oversampling Quality
 
+> Kobber was called **Mono** until 3 October 2026. Dated entries and records below keep the names of their time
+> (Mono, `vekt::mono`, `plugins/vekt_mono`, `[mono]`, test names "Mono ...").
+
 ## Status
 
 Accepted
@@ -30,7 +33,7 @@ Oversampling** (used only when the host reports offline processing) choices,
 defined once in `vekt/dsp/OversamplingChoices.h`: Off, 2x/4x minimum-phase IIR
 and 2x/4x/8x/16x linear-phase FIR. This includes 16x for Mono, in real time
 too, reversing the 27 September Mono scope below; 16x with many voices is
-CPU-heavy (see the Release screen in MONO_VALIDATION.md: it needs Multicore and
+CPU-heavy (see the Release screen in KOBBER_VALIDATION.md: it needs Multicore and
 few voices in real time), and Mono's editor says so. Mono's single `quality` parameter is
 replaced by the two shared parameters (pre-release; its frozen parameter and
 state fixtures were replaced). Defaults stay per product: Rav and Glimmer track

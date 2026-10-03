@@ -6,7 +6,7 @@ Dependencies point toward small reusable modules. These are the CMake targets
 (`framework/<module>`), each linking only what it lists:
 
 ```text
-plugins (Rav, Glimmer, Mono, Flint) -> plugin_support, preset_ui, ui, presets, state, dsp
+plugins (Rav, Glimmer, Kobber, Flint) -> plugin_support, preset_ui, ui, presets, state, dsp
 plugin_support                      -> presets, state, dsp
 preset_ui                           -> presets, ui
 ui                                  -> dsp
@@ -20,7 +20,7 @@ link the products' Core libraries.
 `vekt_dsp` never includes plugin, editor, preset, or product-specific headers.
 Plugin processors are composition roots: they connect parameters, reusable DSP,
 state, and format wrappers but do not contain signal-processing algorithms.
-Mono's processor, the largest, composes separately tested parts in its
+Kobber's processor, the largest, composes separately tested parts in its
 `Source/`: `MonoSettingsSnapshot` (the one mapping from parameters to voice
 settings, shared with tests), `MonoVoiceAllocator` (polyphonic reuse and
 stealing, the monophonic modes, note priority, held-key return and the sustain
@@ -44,7 +44,7 @@ hard ownership boundary. A generic runtime effect graph is outside version 1.
 - `QualitySelection` creates the shared Tracking and Offline oversampling
   parameters, turns them into the quality the audio thread activates at the
   next block, and publishes the active quality for the editor (all three
-  products; Mono also re-prepares its voices on a change).
+  products; Kobber also re-prepares its voices on a change).
 - `requireParameter` resolves a parameter's value once, so no block looks a
   parameter up by name. It returns a reference; an identifier the state does
   not hold stops in every build.
@@ -75,7 +75,7 @@ The products consume the same `vekt::ui` controls:
   existing preset session and shared browser; it performs no storage operations.
 - `QualitySettings` is the anchored Settings pop-over with the shared Tracking
   and Offline choices, bound through the APVTS to the product's two quality
-  parameters; the product places its toggle and sets its bounds (Rav, Mono).
+  parameters; the product places its toggle and sets its bounds (Rav, Kobber).
 - `addChoiceItems` fills a combo box from its choice parameter's own list;
   every parameter menu uses it, so no editor keeps a copy of a choice list. An
   identifier that names no choice parameter stops in every build.
@@ -98,7 +98,7 @@ The products consume the same `vekt::ui` controls:
   through the slider's range and skew (wrapped on endless controls; past
   either end of a bounded travel it draws an overflow mark). Products supply
   the range in parameter units, already limited to what the processor reaches;
-  the pointer and readout keep the base value. Mono derives ranges and limits
+  the pointer and readout keep the base value. Kobber derives ranges and limits
   from `LfoDestinations.h`, the same table its processor uses to scale LFO
   depths, and cutoff limits from `FilterLimits.h`, which the voice uses too, so
   display and sound cannot drift.
@@ -107,7 +107,7 @@ The products consume the same `vekt::ui` controls:
   `DisplayTimeline`, which shows them a short, self-adjusting delay back so
   motion stays smooth whatever the host's block size; see [UI_UX.md](UI_UX.md)
   for its behaviour and measurements.
-- The timeline lives in the framework with Mono as its only consumer, an
+- The timeline lives in the framework with Kobber as its only consumer, an
   exception to the two-consumer rule: it is part of the reusable modulation
   display (any product animating a live dot needs it), built for reuse from the
   start.
@@ -139,11 +139,11 @@ The audio may drop or click at the switch; no smooth transition is required.
 ## DSP Contracts
 
 - Effects (Rav, Glimmer) process stereo input to stereo output in version 1;
-  instruments (Mono, Flint) take MIDI and produce stereo output.
+  instruments (Kobber, Flint) take MIDI and produce stereo output.
 - Every product offers the same Tracking and Offline oversampling choices
   (`vekt/dsp/OversamplingChoices.h`, ADR 0001): Off, 2x/4x minimum-phase IIR and
   2x/4x/8x/16x linear-phase FIR. Defaults are per product: Rav and Glimmer track
-  at 4x IIR and render offline at 16x FIR; Mono tracks Off and renders at 4x FIR;
+  at 4x IIR and render offline at 16x FIR; Kobber tracks Off and renders at 4x FIR;
   Flint tracks and renders Off, so a bounce matches playback.
 - Per-sample recursions must stay correct at the highest internal rate,
   `vekt::dsp::maximumInternalSampleRate` (192 kHz x16). A state that steps toward
@@ -165,8 +165,8 @@ The audio may drop or click at the switch; no smooth transition is required.
 
 Product signal paths and their contracts belong to the product documents:
 [Rav](RAV_VALIDATION.md), [Glimmer](GLIMMER_VALIDATION.md) (its `RotaryEngine`,
-model switching and latency), [Mono](MONO_VALIDATION.md) and
-[Flint](FLINT_VALIDATION.md) (its engine host and model sheets, ADR 0011); Mono's
+model switching and latency), [Kobber](KOBBER_VALIDATION.md) and
+[Flint](FLINT_VALIDATION.md) (its engine host and model sheets, ADR 0011); Kobber's
 quality scope is recorded in ADR 0001.
 
 ## Compatibility
@@ -212,7 +212,7 @@ separate mutable editor-facing source, are listed in natural sort order, and
 cannot shadow a case-insensitively matching factory name.
 Standalone, VST3, and AUv2 user presets resolve beneath
 `~/Library/Audio/Presets/Thomas Vaags/<product name>` (`Rav`, `Glimmer`,
-`Mono` or `Flint`). File-access failures must remain visible; a shared desktop path
+`Kobber` or `Flint`). File-access failures must remain visible; a shared desktop path
 does not establish sandbox access in every host. Validate save/load and native
 choosers in actual hosts before making that claim.
 

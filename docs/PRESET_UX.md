@@ -46,7 +46,7 @@ stored preset, whereas Save As captures the live sound.
 ## Storage and file access
 
 - VST3, Standalone, and AUv2 use `~/Library/Audio/Presets/Thomas Vaags/<product name>`:
-  `Rav`, `Glimmer`, or `Mono`. Each product has a separate library.
+  `Rav`, `Glimmer`, or `Kobber`. Each product has a separate library.
 - Actual host sandbox access is a manual gate. Report file-access errors rather
   than silently selecting another storage location or claiming sandbox safety.
 - File chooser import/export is message-thread-only. Validate imported content

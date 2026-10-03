@@ -1,5 +1,8 @@
 # ADR 0005: Mono Ladder Model
 
+> Kobber was called **Mono** until 3 October 2026. Dated entries and records below keep the names of their time
+> (Mono, `vekt::mono`, `plugins/vekt_mono`, `[mono]`, test names "Mono ...").
+
 ## Status
 
 Proposed
@@ -49,7 +52,7 @@ explicit C++ development-build constructor at 1x. The normal host entry point
 and other factors, including 16x, remain on legacy; the existing quality
 parameter/state contract is unchanged. This is an intentionally limited
 development experiment, not the final separate playback/offline controls.
-Record results and regressions in `docs/MONO_LADDER_ACCEPTANCE_PLAN.md`.
+Record results and regressions in `docs/KOBBER_LADDER_ACCEPTANCE_PLAN.md`.
 
 **Historical replacement direction (27 September 2026; superseded by the
 implementation decision above):** Thomas chose the coupled
@@ -117,7 +120,7 @@ solver accepts `c` in `0 .. 0.5`. The term vanishes exactly for zero input, but
 changes driven saturation. *28 September 2026 (`eed5d6d`):* the constant 0.5
 replaced the earlier `c(r) = 0.20 clamp(r, 0, 1)` after listening found too little
 low-end restoration at full resonance. Thomas then judged the bass restoration
-adequate (see `docs/MONO_VALIDATION.md`). It is still provisional, not an approved
+adequate (see `docs/KOBBER_VALIDATION.md`). It is still provisional, not an approved
 setting. Old Q-Comp-On presets change sound; the parameter ID and default-off
 project recall are preserved.
 Master Output 0 dB means unity, not peak protection: floating-point outputs
@@ -317,7 +320,7 @@ This is a fitted calibration requiring full sound and reference review.
 **Removed (28 September 2026, `d25815a`):** the processor voice path no longer
 multiplies its post-envelope, post-pan signal by `1 + 0.6 t² (3 - 2t)`. That
 voice-level ramp was removed to isolate the ladder's own contribution to the
-97–100% loudness jump (see `docs/MONO_VALIDATION.md`); the feedback extension
+97–100% loudness jump (see `docs/KOBBER_VALIDATION.md`); the feedback extension
 `k` above is unchanged. There is no post-ladder resonance boost.
 
 ## Discretization
@@ -476,7 +479,7 @@ product reviewer must approve representative cases, boundary combinations,
 operating limits and any exclusions before evidence is treated as acceptance.
 On 26 September 2026 Thomas identified himself as the product owner and single
 developer for this decision. The review sheet in
-`docs/MONO_LADDER_ACCEPTANCE_PLAN.md` tracks approved targets separately from
+`docs/KOBBER_LADDER_ACCEPTANCE_PLAN.md` tracks approved targets separately from
 candidate measurements and remaining decisions.
 Thomas approved 48 kHz, 257-sample blocks and eight active voices on the
 physical M1 Pro as the **first measurement-only 1x candidate-processor pilot**
@@ -572,7 +575,7 @@ the requested offline quality; a saved override has its own value and can
 be cleared back to follow. This is an unimplemented product contract, not
 evidence of safe switching or latency negotiation.
 On 26 September 2026 Thomas approved the **1x artifact review method** in
-`docs/MONO_LADDER_ACCEPTANCE_PLAN.md`: compare same-input, raw-tap candidate
+`docs/KOBBER_LADDER_ACCEPTANCE_PLAN.md`: compare same-input, raw-tap candidate
 and converged, band-limited reference renders across planned rates, drive,
 resonance and modulation; attribute the largest excess host-band components,
 then document unblinded listening checks with a named listener on
@@ -604,21 +607,21 @@ mandatory listening gates. No higher-mode listening result has been recorded.
    device glitches. Test preset/project recall, older normalized snapshots,
    quality/latency negotiation and audible transitions in real hosts.
 4. Record source/build IDs, evidence and remaining limitations in
-   `docs/MONO_VALIDATION.md`. Only accept this ADR and claim release readiness
+   `docs/KOBBER_VALIDATION.md`. Only accept this ADR and claim release readiness
    after all retained paths and the final quality-control contract pass, or
    explicitly revise ADR 0001/0005. Do not reinstate legacy by default.
 
 ### Historical staged cutover proposal (27 September 2026; superseded 28 September 2026)
 
 Track the current step statuses, evidence and next action in
-`docs/MONO_LADDER_ACCEPTANCE_PLAN.md`. Update that live plan when evidence
+`docs/KOBBER_LADDER_ACCEPTANCE_PLAN.md`. Update that live plan when evidence
 or a product decision changes; this ADR remains the authoritative decision.
 
 1. Approve or revise the product contract: name the reviewer; record the 1x
    audible/alias policy, overload and modulation limits, stopband tolerance,
    resonance/startup limits, solver fallback policy, latency and the supported
    rate/block/voice envelope on physical target hardware. The numerical targets
-   in `docs/MONO_VALIDATION.md` are proposals until signed off. Retained
+   in `docs/KOBBER_VALIDATION.md` are proposals until signed off. Retained
    2x/4x/8x choices still require per-path evidence under explicitly
    approved conditions. Selectability alone guarantees no real-time performance
    at every rate, block size and voice count.
@@ -680,7 +683,7 @@ verified coupled production build, legacy deletion requires a second recorded
 decision and full production regressions; restore and revalidate the archived
 legacy revision if rollback is needed after cleanup. Detailed staged checkpoints
 and the per-quality evidence audit live in
-`docs/MONO_LADDER_ACCEPTANCE_PLAN.md`.
+`docs/KOBBER_LADDER_ACCEPTANCE_PLAN.md`.
 
 **Historical 27 September gate (superseded by the 28 September pre-alpha
 implementation decision):** Measurement-only integration for step 3 could
@@ -707,7 +710,7 @@ noise-seeded startup and full-spectrum purity remain open. A separate 48 kHz
 resonance-0.98 impulse decays while resonance 1.0 retains a roughly 10 Hz
 tail, with no solver fallback; exact digital silence remains silent after
 reset. These observations are not approved quality-path limits or a
-noise-seeded startup test (see `docs/MONO_VALIDATION.md`).
+noise-seeded startup test (see `docs/KOBBER_VALIDATION.md`).
 A separate deterministic 48 kHz, two-second noise-seeded 1 kHz probe
 through Off/2x/4x shows late-window growth at resonance 1.0 without
 solver fallback. It does not establish a 10 Hz onset or an approved
@@ -792,7 +795,7 @@ Thus the improvement is not uniform across rates/bins. A separate
 five-rate normalized-frequency scan shows improvement with four offline
 substeps at resonance 0.5/0.98 and +12/+24 dB; its scaled frequencies
 cannot substitute for independent absolute-frequency coverage. See
-`docs/MONO_VALIDATION.md` for the measured maxima and scope.
+`docs/KOBBER_VALIDATION.md` for the measured maxima and scope.
 
 The product permits investigating replacement of 2x with a better-
 validated candidate quality path; it has **not** approved any replacement
@@ -815,7 +818,7 @@ even 4x FIR with 8 filters costs about `3017 us` median against a
 not real callback-miss counts or an approved CPU limit, but rule out
 claiming that the current unoptimized 8x/16x replacement meets the
 proposed performance gate on this hardware. Full results and caveats
-are in `docs/MONO_VALIDATION.md`. The earlier proposed CPU target was a
+are in `docs/KOBBER_VALIDATION.md`. The earlier proposed CPU target was a
 *hypothetical* Apple M5 Pro, assumed to offer 2x M1 Pro single-core
 speed and ten usable cores. Neither those assumptions nor callback
 tails have been measured on such hardware. The product subsequently
@@ -842,7 +845,7 @@ The final development test binary, including the 8x/16x plateau and
 upsampled input-level checks, passes 243 cases and 6,627,140 assertions
 (exit 0). This verifies the test run, not the spectral, complete candidate-
 processor CPU, listening or product approval gates. Use the bounded
-feasibility/stop-go workflow in `docs/MONO_VALIDATION.md` before expanding
+feasibility/stop-go workflow in `docs/KOBBER_VALIDATION.md` before expanding
 the full matrix. It changes the order of evaluation, not ADR 0001's
 selectable paths or this ADR's Proposed status.
 An experimental persistent-worker, filter-only 4/10-lane Release
@@ -850,9 +853,9 @@ probe reduces median cost on larger blocks but is not a production
 real-time renderer: it uses blocking waits, and 1/16-sample tail
 times remain variable and can exceed deadlines even on the M1 Pro.
 It does not make hypothetical 10-core/M5 Pro scaling an accepted
-CPU budget. See `docs/MONO_VALIDATION.md` for protocol and results.
+CPU budget. See `docs/KOBBER_VALIDATION.md` for protocol and results.
 Proposed, explicitly unapproved numerical review targets and the revised unblinded
-listening checks are recorded under "Proposed Acceptance Package" in `docs/MONO_VALIDATION.md`.
+listening checks are recorded under "Proposed Acceptance Package" in `docs/KOBBER_VALIDATION.md`.
 Neither that proposal nor the passing development-reference regression grants
 production integration. Product approval of targets, measured results, documented
 listening and a production-path Release CPU budget is still required.

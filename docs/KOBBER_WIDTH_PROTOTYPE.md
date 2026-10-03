@@ -1,5 +1,8 @@
 # General Width prototype (29 September 2026)
 
+> Kobber was called **Mono** until 3 October 2026. Dated entries and records below keep the names of their time
+> (Mono, `vekt::mono`, `plugins/vekt_mono`, `[mono]`, test names "Mono ...").
+
 The existing `osc*PulseWidth` host IDs and 5–95% range are unchanged. The host
 parameter is displayed as **Width** and now warps phase for all four Morph anchors.
 At 50%, the previous waveform renderer is used without modification. At other

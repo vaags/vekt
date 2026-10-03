@@ -1,7 +1,7 @@
 # Vekt
 
 Vekt is a reusable C++20/JUCE framework for macOS audio effects and instruments.
-Rav, Glimmer, and Mono, made by Thomas Vaags, use its shared DSP, state,
+Rav, Glimmer, and Kobber, made by Thomas Vaags, use its shared DSP, state,
 preset, and native editor infrastructure.
 
 ## Requirements
