@@ -602,7 +602,7 @@ TEST_CASE("Mono renders finite stereo MIDI output", "[mono][processor]")
 TEST_CASE("Mono coupled engine renders deterministically at 1x and 8x", "[mono][processor][ladder-coupled]")
 {
 	vekt::mono::PluginProcessor first, rerun, oversampled, oversampledRerun;
-	REQUIRE(first.getName() == "Vekt Mono");
+	REQUIRE(first.getName() == "Mono");
 	for (auto* processor : { &first, &rerun, &oversampled, &oversampledRerun })
 	{
 		initializeDryVoice(*processor);

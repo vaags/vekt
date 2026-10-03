@@ -34,12 +34,12 @@ set(vekt_rav_formats Standalone VST3 AU)
 
 juce_add_plugin(VektRav
 	VERSION ${PROJECT_VERSION}
-	COMPANY_NAME Vekt
-	BUNDLE_ID com.vekt.rav
-	PLUGIN_MANUFACTURER_CODE Vekt
+	COMPANY_NAME "${VEKT_MAKER_NAME}"
+	BUNDLE_ID ${VEKT_BUNDLE_ID_PREFIX}.rav
+	PLUGIN_MANUFACTURER_CODE ${VEKT_MAKER_CODE}
 	PLUGIN_CODE Ravv
 	FORMATS ${vekt_rav_formats}
-	PRODUCT_NAME "Vekt Rav"
+	PRODUCT_NAME "Rav"
 	DESCRIPTION "A six-mode multiband saturation effect"
 	IS_SYNTH FALSE
 	NEEDS_MIDI_INPUT FALSE
@@ -58,3 +58,5 @@ target_link_libraries(VektRav PRIVATE
 	juce::juce_dsp)
 
 vekt_adhoc_seal_bundle(VektRav_AU)
+vekt_adhoc_seal_bundle(VektRav_VST3)
+vekt_adhoc_seal_bundle(VektRav_Standalone)

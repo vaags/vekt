@@ -21,7 +21,7 @@ cd "${0:A:h}/.."
 pluginval=$(command -v pluginval || print /Applications/pluginval.app/Contents/MacOS/pluginval)
 [[ -x $pluginval ]] || { print -u2 "pluginval not found"; exit 69; }
 
-typeset -A names=(rav "Vekt Rav" glimmer "Vekt Glimmer" mono "Vekt Mono")
+typeset -A names=(rav Rav glimmer Glimmer mono Mono)
 typeset -A targets=(rav VektRav glimmer VektGlimmer mono VektMono)
 build_targets=()
 for product in $products; do build_targets+=("${targets[$product]}_VST3"); done

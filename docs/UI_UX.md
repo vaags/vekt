@@ -216,7 +216,7 @@ retain APVTS attachments/gestures and stable bounds during state changes.
 
 ## Audio Lab Input
 
-- Vekt Mono is the only live input. The on-screen keyboard and MIDI input selector
+- Mono is the only live input. The on-screen keyboard and MIDI input selector
   drive Mono; the selected rack route can process its output through RAV and Glimmer.
 - The compact header keeps Restart App and input/output peak, latency, CPU, and
   output device diagnostics together on one row above the on-screen keyboard.

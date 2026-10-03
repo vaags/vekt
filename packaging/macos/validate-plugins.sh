@@ -7,10 +7,13 @@ if (( $# != 3 )); then
 fi
 
 product=$1
+# The maker identity from the root CMakeLists.txt (docs/PRODUCT_NAMING.md).
+au_manufacturer=Tava
+bundle_id_prefix=com.thomasvaags
 case "$product" in
 rav) au_type=aufx; au_subtype=Ravv; au_category=Effects ;;
 glimmer) au_type=aufx; au_subtype=Glmr; au_category=Effects ;;
-mono) au_type=aumu; au_subtype=Mono; au_category=Synths ;;
+mono) au_type=aumu; au_subtype=Kobr; au_category=Synths ;;
 *) print -u2 "Unknown product: $product"; exit 64 ;;
 esac
 vst3_path=${2:A}
@@ -30,12 +33,12 @@ read_plist()
 [[ "$vst3_path" == *.vst3 && -d "$vst3_path" ]] || fail "VST3 bundle not found: $vst3_path"
 [[ "$au_path" == *.component && -d "$au_path" ]] || fail "AU component not found: $au_path"
 for bundle in "$vst3_path" "$au_path"; do
-	[[ "$(read_plist "$bundle" CFBundleIdentifier)" == "com.vekt.${product}" ]] \
+	[[ "$(read_plist "$bundle" CFBundleIdentifier)" == "${bundle_id_prefix}.${product}" ]] \
 		|| fail "Bundle product mismatch: $bundle"
 done
 [[ "$(read_plist "$au_path" AudioComponents.0.type)" == "$au_type" \
 	&& "$(read_plist "$au_path" AudioComponents.0.subtype)" == "$au_subtype" \
-	&& "$(read_plist "$au_path" AudioComponents.0.manufacturer)" == Vekt ]] \
+	&& "$(read_plist "$au_path" AudioComponents.0.manufacturer)" == "$au_manufacturer" ]] \
 	|| fail "AU component identity mismatch: $au_path"
 
 installed_components=()
@@ -43,7 +46,7 @@ for candidate in "$HOME/Library/Audio/Plug-Ins/Components/"*.component(N) \
 	/Library/Audio/Plug-Ins/Components/*.component(N); do
 	if [[ "$(read_plist "$candidate" AudioComponents.0.type 2>/dev/null || true)" == "$au_type" \
 		&& "$(read_plist "$candidate" AudioComponents.0.subtype 2>/dev/null || true)" == "$au_subtype" \
-		&& "$(read_plist "$candidate" AudioComponents.0.manufacturer 2>/dev/null || true)" == Vekt ]]; then
+		&& "$(read_plist "$candidate" AudioComponents.0.manufacturer 2>/dev/null || true)" == "$au_manufacturer" ]]; then
 		installed_components+=("$candidate")
 	fi
 done
@@ -73,11 +76,11 @@ codesign --verify --deep --strict --verbose=2 "$au_path"
 registration_timeout=${VEKT_AU_REGISTRATION_TIMEOUT:-30}
 for (( waited = 0; ; ++waited )); do
 	registered=("${(@f)$(auval -a 2>/dev/null || true)}")
-	(( ${registered[(I)${au_type} ${au_subtype} Vekt *]} )) && break
+	(( ${registered[(I)${au_type} ${au_subtype} ${au_manufacturer} *]} )) && break
 	(( waited < registration_timeout )) \
-		|| fail "$product AU ($au_type $au_subtype Vekt) not registered after ${registration_timeout}s. Registration/cache changes require separate approval."
+		|| fail "$product AU ($au_type $au_subtype $au_manufacturer) not registered after ${registration_timeout}s. Registration/cache changes require separate approval."
 	/bin/sleep 1
 done
-"$pluginval_tool" --validate "AudioUnit:${au_category}/${au_type},${au_subtype},Vekt" --strictness-level 10
-auval -v "$au_type" "$au_subtype" Vekt
+"$pluginval_tool" --validate "AudioUnit:${au_category}/${au_type},${au_subtype},${au_manufacturer}" --strictness-level 10
+auval -v "$au_type" "$au_subtype" "$au_manufacturer"
 print "PASS: $product validators and signature integrity; manual host/distribution gates remain separate."

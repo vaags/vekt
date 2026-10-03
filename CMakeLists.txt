@@ -48,6 +48,11 @@ include(cmake/VektFactoryPresets.cmake)
 include(cmake/VektPluginSigning.cmake)
 include(cmake/VektWarnings.cmake)
 
+# The maker of every product (docs/PRODUCT_NAMING.md). Vekt names only the framework. The code is frozen at release.
+set(VEKT_MAKER_NAME "Thomas Vaags")
+set(VEKT_MAKER_CODE Tava)
+set(VEKT_BUNDLE_ID_PREFIX com.thomasvaags)
+
 add_subdirectory(framework/juce)
 add_subdirectory(framework/dsp)
 add_subdirectory(framework/state)

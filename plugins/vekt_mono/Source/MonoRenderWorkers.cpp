@@ -11,7 +11,7 @@ namespace vekt::mono
 class MonoRenderWorkers::Worker final : public juce::Thread
 {
 public:
-	explicit Worker(MonoRenderWorkers& pool, int index) : juce::Thread("Vekt Mono render " + juce::String(index)), owner(pool) {}
+	explicit Worker(MonoRenderWorkers& pool, int index) : juce::Thread("Mono render " + juce::String(index)), owner(pool) {}
 
 	void run() override
 	{

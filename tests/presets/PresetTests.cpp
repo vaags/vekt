@@ -1,3 +1,5 @@
+#include <vekt/glimmer/Parameters.h>
+#include <vekt/mono/Parameters.h>
 #include <vekt/rav/FactoryPresets.h>
 #include <vekt/rav/Parameters.h>
 #include <vekt/rav/PluginProcessor.h>
@@ -9,6 +11,9 @@
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+
+#include <array>
+#include <utility>
 
 namespace
 {
@@ -219,12 +224,16 @@ TEST_CASE("Preset catalogs own user preset lifecycle and navigation", "[presets]
 TEST_CASE("Desktop user preset paths are product-specific", "[presets]")
 {
 	const auto root = juce::File::getSpecialLocation(juce::File::userHomeDirectory)
-		.getChildFile("Library/Audio/Presets/Vekt");
-	for (const auto& product : juce::StringArray { "Vekt Rav", "Vekt Glimmer", "Vekt Mono" })
+		.getChildFile("Library/Audio/Presets/Thomas Vaags");
+	const std::array<std::pair<const char*, const char*>, 3> products { {
+		{ vekt::rav::parameters::productName, "Rav" },
+		{ vekt::glimmer::parameters::productName, "Glimmer" },
+		{ vekt::mono::parameters::productName, "Mono" } } };
+	for (const auto& [productName, expected] : products)
 	{
-		const auto directory = vekt::presets::PresetPaths::desktop(product);
-		REQUIRE(directory == root.getChildFile(product));
-		REQUIRE(directory.getFileName() == product);
+		const auto directory = vekt::presets::PresetPaths::desktop(productName);
+		REQUIRE(directory == root.getChildFile(expected));
+		REQUIRE(directory.getFileName() == expected);
 	}
 }
 

@@ -32,12 +32,12 @@ set(vekt_glimmer_formats Standalone VST3 AU)
 
 juce_add_plugin(VektGlimmer
 	VERSION ${PROJECT_VERSION}
-	COMPANY_NAME Vekt
-	BUNDLE_ID com.vekt.glimmer
-	PLUGIN_MANUFACTURER_CODE Vekt
+	COMPANY_NAME "${VEKT_MAKER_NAME}"
+	BUNDLE_ID ${VEKT_BUNDLE_ID_PREFIX}.glimmer
+	PLUGIN_MANUFACTURER_CODE ${VEKT_MAKER_CODE}
 	PLUGIN_CODE Glmr
 	FORMATS ${vekt_glimmer_formats}
-	PRODUCT_NAME "Vekt Glimmer"
+	PRODUCT_NAME "Glimmer"
 	DESCRIPTION "A stereo rotary speaker effect"
 	IS_SYNTH FALSE
 	NEEDS_MIDI_INPUT FALSE
@@ -55,3 +55,5 @@ target_link_libraries(VektGlimmer PRIVATE
 	juce::juce_dsp)
 
 vekt_adhoc_seal_bundle(VektGlimmer_AU)
+vekt_adhoc_seal_bundle(VektGlimmer_VST3)
+vekt_adhoc_seal_bundle(VektGlimmer_Standalone)

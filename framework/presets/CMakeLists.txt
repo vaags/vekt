@@ -3,6 +3,7 @@ add_library(vekt_presets STATIC
 	src/FilePresetRepository.cpp
 	src/PresetCatalog.cpp
 	src/PresetJsonCodec.cpp
+	src/PresetPaths.cpp
 	src/PresetSchema.cpp)
 add_library(vekt::presets ALIAS vekt_presets)
 
@@ -10,3 +11,7 @@ target_include_directories(vekt_presets PUBLIC include)
 target_link_libraries(vekt_presets PUBLIC
 	vekt_project_options
     vekt::juce_headers)
+if(NOT VEKT_MAKER_NAME)
+	message(FATAL_ERROR "VEKT_MAKER_NAME must be set before framework/presets: it names the user preset folder")
+endif()
+target_compile_definitions(vekt_presets PRIVATE "VEKT_MAKER_NAME=\"${VEKT_MAKER_NAME}\"")

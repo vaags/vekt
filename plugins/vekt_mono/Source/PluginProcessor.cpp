@@ -183,7 +183,7 @@ PluginProcessor::CachedParameters PluginProcessor::cacheParameters(juce::AudioPr
 PluginProcessor::PluginProcessor()
 	: AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
 	  parameterState(*this, &undoManager, parameters::stateType, parameters::createLayout()),
-	  presetHost(parameterState, { parameters::presetProductIdentifier, "Vekt Mono", parameters::presetSoundSchemaVersion }, {
+	  presetHost(parameterState, { parameters::presetProductIdentifier, parameters::productName, parameters::presetSoundSchemaVersion }, {
 		[this](const juce::String& name)
 		{
 			auto preset = presets::PresetSchema::create(parameters::presetProductIdentifier, name, parameterState, parameters::soundParameterIds);
@@ -209,7 +209,7 @@ PluginProcessor::PluginProcessor()
 	const auto factoryResult = addFactoryPresets(presetHost.catalog());
 	jassert(factoryResult.wasOk());
 	juce::ignoreUnused(factoryResult);
-	juce::ignoreUnused(presetHost.configureUserPresetDirectory(presets::PresetPaths::desktop("Vekt Mono")));
+	juce::ignoreUnused(presetHost.configureUserPresetDirectory(presets::PresetPaths::desktop(parameters::productName)));
 	presets::Preset initialPreset;
 	if (presetHost.catalog().loadFactoryPreset(0, initialPreset).wasOk()
 		&& presetHost.session().prepare(initialPreset).wasOk()

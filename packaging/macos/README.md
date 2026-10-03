@@ -5,13 +5,18 @@ Build AUv2 components and matching Release VST3 bundles:
 ```sh
 zsh scripts/build-au.sh --release
 cmake --build --preset release --target VektRav_VST3 VektGlimmer_VST3 VektMono_VST3
+zsh scripts/verify-bundles.sh --release
 ```
+
+`verify-bundles.sh` runs `codesign --verify --deep --strict` on every built Standalone, VST3 and AU bundle;
+`scripts/build-dev.sh` runs it for Debug.
 
 AU components are at
 `build/release/plugins/vekt_<product>/<Target>_artefacts/Release/AU/<Product Name>.component`.
-Each AU build is ad-hoc sealed after linking with JUCE's bundle-signing check, as
-JUCE already does for VST3, so strict signature verification can pass. It uses no
-identity and is not release signing.
+Each Standalone, VST3 and AU build is ad-hoc sealed after JUCE's post-build steps
+(`cmake/VektSealBundle.cmake`) when it fails strict signature verification, and the
+build fails if the bundle still fails afterwards. It uses no identity and is not
+release signing.
 After separately approved installation in `~/Library/Audio/Plug-Ins/Components`
 and registration, run from the repository root:
 
@@ -29,9 +34,9 @@ register before failing:
 
 | Product | AU tuple |
 | --- | --- |
-| Rav | `aufx Ravv Vekt` |
-| Glimmer | `aufx Glmr Vekt` |
-| Mono | `aumu Mono Vekt` |
+| Rav | `aufx Ravv Tava` |
+| Glimmer | `aufx Glmr Tava` |
+| Mono | `aumu Kobr Tava` |
 
 Pluginval is resolved from PATH or
 `/Applications/pluginval.app/Contents/MacOS/pluginval`. Missing tools and failed

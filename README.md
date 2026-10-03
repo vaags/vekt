@@ -1,8 +1,8 @@
 # Vekt
 
 Vekt is a reusable C++20/JUCE framework for macOS audio effects and instruments.
-Vekt Rav, Vekt Glimmer, and Vekt Mono use its shared DSP, state, preset, and
-native editor infrastructure.
+Rav, Glimmer, and Mono, made by Thomas Vaags, use its shared DSP, state,
+preset, and native editor infrastructure.
 
 ## Requirements
 
@@ -93,7 +93,7 @@ preset, install the bundle in the user VST3 directory:
 ```
 
 In Ableton Live, open **Settings > Plug-Ins**, enable **Use VST3 Plug-In
-System Folders**, then trigger a plug-in rescan. Find **Vekt Rav** under the
+System Folders**, then trigger a plug-in rescan. Find **Rav** under the
 Audio Effects browser and drag it onto an audio track.
 
 Development builds may be ad-hoc signed and can be rejected by Gatekeeper or

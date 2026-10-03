@@ -34,7 +34,7 @@ PluginProcessor::PluginProcessor()
 	: AudioProcessor(BusesProperties().withInput("Input", juce::AudioChannelSet::stereo(), true)
 		.withOutput("Output", juce::AudioChannelSet::stereo(), true)),
 	  parameterState(*this, &undoManager, parameters::stateType, parameters::createLayout()),
-	  presetHost(parameterState, { parameters::presetProductIdentifier, "Vekt Glimmer", parameters::presetSoundSchemaVersion }, {
+	  presetHost(parameterState, { parameters::presetProductIdentifier, parameters::productName, parameters::presetSoundSchemaVersion }, {
 		[this](const juce::String& name) { return createPreset(name); },
 		[](presets::Preset& preset)
 		{
@@ -71,7 +71,7 @@ PluginProcessor::PluginProcessor()
 	const auto factoryResult = addFactoryPresets(presetHost.catalog());
 	jassert(factoryResult.wasOk());
 	juce::ignoreUnused(factoryResult);
-	juce::ignoreUnused(configureUserPresetDirectory(presets::PresetPaths::desktop("Vekt Glimmer")));
+	juce::ignoreUnused(configureUserPresetDirectory(presets::PresetPaths::desktop(parameters::productName)));
 	presets::Preset initialPreset;
 	if (presetHost.catalog().loadFactoryPreset(0, initialPreset).wasOk() && matchesPresetSound(initialPreset))
 		presetHost.session().adopt(initialPreset, presets::PresetOrigin::factory);

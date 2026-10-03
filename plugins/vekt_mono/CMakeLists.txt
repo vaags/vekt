@@ -49,12 +49,12 @@ set(vekt_mono_formats Standalone VST3 AU)
 
 juce_add_plugin(VektMono
 	VERSION ${PROJECT_VERSION}
-	COMPANY_NAME Vekt
-	BUNDLE_ID com.vekt.mono
-	PLUGIN_MANUFACTURER_CODE Vekt
-	PLUGIN_CODE Mono
+	COMPANY_NAME "${VEKT_MAKER_NAME}"
+	BUNDLE_ID ${VEKT_BUNDLE_ID_PREFIX}.mono
+	PLUGIN_MANUFACTURER_CODE ${VEKT_MAKER_CODE}
+	PLUGIN_CODE Kobr
 	FORMATS ${vekt_mono_formats}
-	PRODUCT_NAME "Vekt Mono"
+	PRODUCT_NAME "Mono"
 	DESCRIPTION "A three-oscillator ladder synthesizer"
 	IS_SYNTH TRUE
 	NEEDS_MIDI_INPUT TRUE
@@ -72,3 +72,5 @@ target_link_libraries(VektMono PRIVATE
 	juce::juce_dsp)
 
 vekt_adhoc_seal_bundle(VektMono_AU)
+vekt_adhoc_seal_bundle(VektMono_VST3)
+vekt_adhoc_seal_bundle(VektMono_Standalone)

@@ -8,6 +8,8 @@ namespace vekt::mono::parameters
 {
 inline constexpr auto stateType = "VektMonoParameters";
 inline constexpr auto presetProductIdentifier = "com.vekt.mono";
+// The product name hosts, preset banks and the user preset folder show.
+inline constexpr auto productName = "Mono";
 // The preset sound schema this build writes and loads.
 inline constexpr int presetSoundSchemaVersion = 12;
 

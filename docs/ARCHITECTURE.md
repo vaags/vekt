@@ -186,8 +186,8 @@ when a user preset or no preset is selected (ADR 0010). User presets remain a
 separate mutable editor-facing source, are listed in natural sort order, and
 cannot shadow a case-insensitively matching factory name.
 Standalone, VST3, and AUv2 user presets resolve beneath
-`~/Library/Audio/Presets/Vekt/<product name>` (`Vekt Rav`, `Vekt Glimmer`, or
-`Vekt Mono`). File-access failures must remain visible; a shared desktop path
+`~/Library/Audio/Presets/Thomas Vaags/<product name>` (`Rav`, `Glimmer`, or
+`Mono`). File-access failures must remain visible; a shared desktop path
 does not establish sandbox access in every host. Validate save/load and native
 choosers in actual hosts before making that claim.
 

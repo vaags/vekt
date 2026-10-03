@@ -40,7 +40,7 @@ public:
 
 	[[nodiscard]] juce::AudioProcessorEditor* createEditor() override;
 	[[nodiscard]] bool hasEditor() const override { return true; }
-	[[nodiscard]] const juce::String getName() const override { return "Vekt Glimmer"; }
+	[[nodiscard]] const juce::String getName() const override { return parameters::productName; }
 	[[nodiscard]] bool acceptsMidi() const override { return false; }
 	[[nodiscard]] bool producesMidi() const override { return false; }
 	[[nodiscard]] bool isMidiEffect() const override { return false; }

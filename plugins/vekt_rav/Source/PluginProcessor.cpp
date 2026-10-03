@@ -19,7 +19,7 @@ PluginProcessor::PluginProcessor()
 						 .withInput("Input", juce::AudioChannelSet::stereo(), true)
 						 .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
 	  parameterState(*this, &undoManager, parameters::stateType, parameters::createLayout()),
-	  presetHost(parameterState, { parameters::presetProductIdentifier, "Vekt Rav", parameters::presetSoundSchemaVersion }, {
+	  presetHost(parameterState, { parameters::presetProductIdentifier, parameters::productName, parameters::presetSoundSchemaVersion }, {
 		[this](const juce::String& name) { return createPreset(name); },
 		[](presets::Preset& preset)
 		{
@@ -76,7 +76,7 @@ PluginProcessor::PluginProcessor()
 	}
 	if (wrapperType == wrapperType_VST3 || wrapperType == wrapperType_Standalone
 		|| wrapperType == wrapperType_AudioUnit)
-		juce::ignoreUnused(configureUserPresetDirectory(presets::PresetPaths::desktop("Vekt Rav")));
+		juce::ignoreUnused(configureUserPresetDirectory(presets::PresetPaths::desktop(parameters::productName)));
 }
 
 PluginProcessor::~PluginProcessor() = default;
@@ -350,7 +350,7 @@ juce::AudioProcessorEditor* PluginProcessor::createEditor()
 }
 
 bool PluginProcessor::hasEditor() const { return true; }
-const juce::String PluginProcessor::getName() const { return "Vekt Rav"; }
+const juce::String PluginProcessor::getName() const { return parameters::productName; }
 bool PluginProcessor::acceptsMidi() const { return false; }
 bool PluginProcessor::producesMidi() const { return false; }
 bool PluginProcessor::isMidiEffect() const { return false; }

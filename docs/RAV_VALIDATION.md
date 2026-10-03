@@ -1,4 +1,4 @@
-# Vekt Rav Validation
+# Rav Validation
 
 This document defines the repeatable quality gates for the five-mode Rav processor.
 
@@ -72,7 +72,7 @@ Record:
 - Switching quality updates reported latency and preserves bypass alignment.
 - 8x and 16x FIR are available for offline rendering but are not selected for tracking by default.
 
-Host validation remains separate: run `pluginval` at strictness 10, `auval -v aufx Ravv Vekt`, and DAW smoke tests in Ableton Live, Logic Pro, and GarageBand against the matching installed AUv2 component and VST3 bundle. Signing and installation require separate approval; see [macOS release gates](../packaging/macos/README.md).
+Host validation remains separate: run `pluginval` at strictness 10, `auval -v aufx Ravv Tava`, and DAW smoke tests in Ableton Live, Logic Pro, and GarageBand against the matching installed AUv2 component and VST3 bundle. Signing and installation require separate approval; see [macOS release gates](../packaging/macos/README.md).
 
 ## Development Audio Lab
 

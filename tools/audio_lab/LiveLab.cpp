@@ -104,7 +104,7 @@ public:
 			static_cast<juce::Component*>(&orderButton), static_cast<juce::Component*>(&midiInputBox) })
 			addAndMakeVisible(*component);
 		addAndMakeVisible(keyboard);
-		orderButton.setTooltip("Process Vekt Mono through this rack route.");
+		orderButton.setTooltip("Process Mono through this rack route.");
 		productTabs.addItem("Mono", 1);
 		productTabs.addItem("RAV", 2);
 		productTabs.addItem("Glimmer", 3);

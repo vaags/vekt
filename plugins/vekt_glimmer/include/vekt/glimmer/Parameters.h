@@ -33,6 +33,8 @@ inline constexpr auto speedPosition = "speedPosition";
 
 inline constexpr auto stateType = "VektGlimmerState";
 inline constexpr auto presetProductIdentifier = "com.vekt.glimmer";
+// The product name hosts, preset banks and the user preset folder show.
+inline constexpr auto productName = "Glimmer";
 // The preset sound schema this build writes and loads.
 inline constexpr int presetSoundSchemaVersion = 1;
 

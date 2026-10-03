@@ -1,6 +1,6 @@
 # Glimmer Validation
 
-Vekt Glimmer is a stereo-input/stereo-output rotary effect with three models:
+Glimmer is a stereo-input/stereo-output rotary effect with three models:
 
 - Classic: dual rotors, restrained cabinet bandwidth, contrasting rotor inertia
   and opposite rotation directions.
@@ -175,14 +175,14 @@ The installed macOS app can be invoked without adding it to `PATH`:
 ```sh
 /Applications/pluginval.app/Contents/MacOS/pluginval \
   --strictness-level 10 --random-seed 12345 \
-  --validate "build/dev/plugins/vekt_glimmer/VektGlimmer_artefacts/Debug/VST3/Vekt Glimmer.vst3"
+  --validate "build/dev/plugins/vekt_glimmer/VektGlimmer_artefacts/Debug/VST3/Glimmer.vst3"
 ```
 
 Before release, audition level-matched organ, guitar, electric piano, stereo pads, and drums
 at 44.1, 48, and 96 kHz. Confirm angle wrapping, distance behavior, slow/fast
 transitions, Auto-mode hysteresis, bypass, and project-state restoration in a
 host. Run available `pluginval`, `auval`, and DAW smoke checks separately.
-For AUv2, use `auval -v aufx Glmr Vekt` against the matching installed component
+For AUv2, use `auval -v aufx Glmr Tava` against the matching installed component
 with the [macOS release gates](../packaging/macos/README.md).
 Confirm Wide is musically distinct from merely increasing Width. Public pedal
 demos are qualitative references, not controlled A/B measurements. Also verify

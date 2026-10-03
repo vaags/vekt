@@ -8,9 +8,9 @@ if (( $# != 1 && $# != 3 )); then
 fi
 product=$1
 case "$product" in
-rav) target=VektRav; product_name="Vekt Rav" ;;
-glimmer) target=VektGlimmer; product_name="Vekt Glimmer" ;;
-mono) target=VektMono; product_name="Vekt Mono" ;;
+rav) target=VektRav; product_name=Rav ;;
+glimmer) target=VektGlimmer; product_name=Glimmer ;;
+mono) target=VektMono; product_name=Mono ;;
 *) print -u2 "Unknown product: $product"; exit 64 ;;
 esac
 

@@ -39,6 +39,8 @@ inline constexpr std::array stageEnabledIds {
 
 inline constexpr auto stateType = "VektRavState";
 inline constexpr auto presetProductIdentifier = "com.vekt.rav";
+// The product name hosts, preset banks and the user preset folder show.
+inline constexpr auto productName = "Rav";
 // The preset sound schema this build writes and loads.
 inline constexpr int presetSoundSchemaVersion = 4;
 inline constexpr std::array soundParameterIds {
