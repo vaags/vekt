@@ -5,6 +5,21 @@
 > `VektMono*` (now `VektKobber*`), `VEKT_MONO_*` variables (now `VEKT_KOBBER_*`), and the Audio Lab tools
 > `VektRavAudioLab` and `VektRavRender` (now `VektAudioLab` and `VektRender`).
 
+# Kobber auval stress cost (3 October 2026)
+
+`auval -strict -stress 20 -v aumu Kobr Tava` on the installed Release AU passed in 59.7 s (59.1 s user), against Rav
+2.3 s, Glimmer 0.6 s and Flint 0.3 s; earlier runs took 6.5-41 s. The stress test renders 20 s of audio in 512-sample
+blocks after setting every parameter to a random value. A 10 s `sample` of that run spent all of auval's main thread
+rendering sounding voices (Width oscillator anchor reads first, then tanh and the ladder), with the seven helper threads
+idle and anchor rebuilds (`makeWidthAnchorShape`) negligible. `VektKobberProcessorCost stress 1723 <seed> notes=8 once`
+(random parameters once, notes held, Release) reproduces the spread: 20 s of audio in 1.5-3.1 s when the draw gives 2x
+and 12.4-18.4 s at 8x, with one or two voices sounding. Off the random path (`VektKobberProcessorCost 44100 256 8
+<factor> 3 [multicore]`, 5.80 ms deadline) 8 voices take a median 0.72, 1.49, 2.96, 7.66 and 10.51 ms single-threaded
+at 1x, 2x, 4x, 8x and 16x, and 0.20, 0.44, 0.92, 1.67 and 3.05 ms with Multicore. So the time is the documented cost of
+Tracking 8x and 16x without Multicore, which auval's random draw reaches; the first preparation's Width wavetable
+(about 0.3 s once per process), instance lifecycle (2 ms; 10-14 ms with Multicore's helpers) and re-preparation at
+other rates (under 1 ms) are not the cause. Nothing changed in Kobber.
+
 # Mono processor split (3 October 2026)
 
 The processor was split into `MonoSettingsSnapshot`, `MonoVoiceAllocator` and `MonoRenderPlan` (ARCHITECTURE.md), and

@@ -3,6 +3,7 @@
 #include "CallbackAllocationProbe.h"
 #include "KobberCostTimingRule.h"
 #include "KobberParameterChoices.h"
+#include "WidthOscillator.h"
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_events/juce_events.h>
@@ -230,13 +231,160 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 	processor.releaseResources();
 	return std::isfinite(sumSquares) && sumSquares > 0.0 && callbackNewCalls == 0 ? 0 : 1;
 }
+// auval -stress style: every iteration sets each parameter to a random value, then renders one block of a random size
+// up to 512, with notes held. Parameters named in skip keep their defaults, so a cost can be traced to its parameter.
+// once: randomise only before the first block and render fixed 512-sample blocks, as auval's 20-second stress render
+// does, so held notes keep sounding.
+int runStress(int iterations, unsigned seed, const std::vector<std::string>& skip, int notes, bool once)
+{
+	// The Width wavetable is built once per process, on first use.
+	const auto tableStart = Clock::now();
+	juce::ignoreUnused(vekt::kobber::WidthWavetable::instance());
+	const auto tableUs = std::chrono::duration<double, std::micro>(Clock::now() - tableStart).count();
+	const auto constructStart = Clock::now();
+	vekt::kobber::PluginProcessor processor;
+	const auto constructUs = std::chrono::duration<double, std::micro>(Clock::now() - constructStart).count();
+	const auto prepareStart = Clock::now();
+	processor.prepareToPlay(44'100.0, 512);
+	const auto prepareUs = std::chrono::duration<double, std::micro>(Clock::now() - prepareStart).count();
+	juce::Random random(static_cast<juce::int64>(seed));
+	juce::AudioBuffer<float> buffer(2, 512);
+	juce::MidiBuffer midi;
+	std::vector<juce::AudioProcessorParameter*> randomised;
+	for (auto* parameter : static_cast<juce::AudioProcessor&>(processor).getParameters())
+	{
+		const auto* withId = dynamic_cast<juce::AudioProcessorParameterWithID*>(parameter);
+		if (withId == nullptr || std::find(skip.begin(), skip.end(), withId->paramID.toStdString()) == skip.end())
+			randomised.push_back(parameter);
+	}
+	const auto holdNotes = [&midi, notes]
+	{
+		for (int note = 0; note < notes; ++note) midi.addEvent(juce::MidiMessage::noteOn(1, 48 + 3 * note, 0.8f), 0);
+	};
+	if (once)
+	{
+		for (auto* parameter : randomised) parameter->setValueNotifyingHost(random.nextFloat());
+		// The first block applies voice count and quality, which cuts sounding voices; the notes follow it.
+		juce::AudioBuffer<float> first(buffer.getArrayOfWritePointers(), 2, 512);
+		processor.processBlock(first, midi);
+	}
+	holdNotes();
+	double setUs {}, renderUs {}, maximumRenderUs {};
+	std::int64_t samples {};
+	const auto start = Clock::now();
+	for (int iteration = 0; iteration < iterations; ++iteration)
+	{
+		const auto setStart = Clock::now();
+		if (!once)
+			for (auto* parameter : randomised) parameter->setValueNotifyingHost(random.nextFloat());
+		const auto renderStart = Clock::now();
+		setUs += std::chrono::duration<double, std::micro>(renderStart - setStart).count();
+		const auto blockSize = once ? 512 : 1 + random.nextInt(512);
+		juce::AudioBuffer<float> block(buffer.getArrayOfWritePointers(), 2, blockSize);
+		processor.processBlock(block, midi);
+		midi.clear();
+		samples += blockSize;
+		const auto elapsed = std::chrono::duration<double, std::micro>(Clock::now() - renderStart).count();
+		renderUs += elapsed;
+		maximumRenderUs = std::max(maximumRenderUs, elapsed);
+	}
+	const auto totalUs = std::chrono::duration<double, std::micro>(Clock::now() - start).count();
+	const auto soundingVoices = processor.getSoundingVoiceCount();
+	const auto activeFactor = processor.getActiveQuality().multiplier();
+	const auto helpers = processor.getRenderHelperCount();
+	processor.releaseResources();
+	// A host re-initialises between tests; time a second preparation of the same instance.
+	const auto reprepareStart = Clock::now();
+	processor.prepareToPlay(44'100.0, 512);
+	const auto reprepareUs = std::chrono::duration<double, std::micro>(Clock::now() - reprepareStart).count();
+	processor.releaseResources();
+	// auval opens a fresh instance for each test; time a second instance's first preparation in the same process.
+	const auto secondStart = Clock::now();
+	{
+		vekt::kobber::PluginProcessor second;
+		second.prepareToPlay(44'100.0, 512);
+		second.releaseResources();
+	}
+	const auto secondInstanceUs = std::chrono::duration<double, std::micro>(Clock::now() - secondStart).count();
+	// An instance with Multicore on starts its helper threads in prepareToPlay and stops them when destroyed.
+	std::cout << "multicore_lifecycle_us";
+	for (int pass = 0; pass < 5; ++pass)
+	{
+		const auto lifecycleStart = Clock::now();
+		std::chrono::duration<double, std::micro> destroyUs {};
+		{
+			auto multicoreInstance = std::make_unique<vekt::kobber::PluginProcessor>();
+			setParameter(*multicoreInstance, vekt::kobber::parameters::multicore, 1.0f);
+			multicoreInstance->prepareToPlay(44'100.0, 512);
+			juce::AudioBuffer<float> multicoreBlock(2, 512);
+			juce::MidiBuffer multicoreMidi;
+			multicoreMidi.addEvent(juce::MidiMessage::noteOn(1, 60, 0.8f), 0);
+			for (int block = 0; block < 20; ++block)
+			{
+				multicoreInstance->processBlock(multicoreBlock, multicoreMidi);
+				multicoreMidi.clear();
+			}
+			if (pass == 0) std::cout << " helpers=" << multicoreInstance->getRenderHelperCount();
+			multicoreInstance->releaseResources();
+			const auto destroyStart = Clock::now();
+			multicoreInstance.reset();
+			destroyUs = Clock::now() - destroyStart;
+		}
+		std::cout << ' ' << std::chrono::duration<double, std::micro>(Clock::now() - lifecycleStart).count() << '('
+				  << destroyUs.count() << ')';
+	}
+	std::cout << '\n';
+	// auval also re-initialises at other rates and block sizes.
+	std::cout << "rate_prepare_us";
+	for (const auto [rate, block] : { std::pair { 48'000.0, 512 }, std::pair { 96'000.0, 512 }, std::pair { 22'050.0, 1'024 },
+			 std::pair { 44'100.0, 4'096 }, std::pair { 48'000.0, 512 } })
+	{
+		const auto rateStart = Clock::now();
+		processor.prepareToPlay(rate, block);
+		processor.releaseResources();
+		std::cout << ' ' << rate << '/' << block << '='
+				  << std::chrono::duration<double, std::micro>(Clock::now() - rateStart).count();
+	}
+	std::cout << '\n';
+	std::cout << std::fixed << std::setprecision(1) << "stress iterations=" << iterations << " seed=" << seed
+			  << " randomised_parameters=" << randomised.size() << " width_table_us=" << tableUs << " construct_us=" << constructUs
+			  << " prepare_us=" << prepareUs << " reprepare_us=" << reprepareUs << " second_instance_us=" << secondInstanceUs << " total_ms=" << totalUs * 0.001 << " set_ms=" << setUs * 0.001
+			  << " render_ms=" << renderUs * 0.001 << " maximum_render_us=" << maximumRenderUs
+			  << " audio_ms=" << static_cast<double>(samples) * 1'000.0 / 44'100.0 << " notes=" << notes
+			  << " sounding_voices=" << soundingVoices << " factor=" << activeFactor << " helpers=" << helpers << '\n';
+	return 0;
+}
 }
 
 int main(int argc, char** argv)
 {
+	if (argc >= 2 && std::string_view(argv[1]) == "stress")
+	{
+		// stress iterations seed [skip=id,id,...] [notes=N] [once]
+		if (argc < 4) return 64;
+		std::vector<std::string> skip;
+		int notes = 1;
+		bool once {};
+		for (int index = 4; index < argc; ++index)
+		{
+			const std::string_view option(argv[index]);
+			if (option.starts_with("skip="))
+			{
+				juce::StringArray identifiers;
+				identifiers.addTokens(juce::String(std::string(option.substr(5))), ",", "");
+				for (const auto& identifier : identifiers) skip.push_back(identifier.toStdString());
+			}
+			else if (option.starts_with("notes=")) notes = std::stoi(std::string(option.substr(6)));
+			else if (option == "once") once = true;
+			else return 64;
+		}
+		if (notes < 0 || notes > 16) return 64;
+		juce::ScopedJuceInitialiser_GUI juceInitialiser;
+		return runStress(std::stoi(argv[2]), static_cast<unsigned>(std::stoul(argv[3])), skip, notes, once);
+	}
 	if (argc < 6 || argc > 11)
 	{
-		std::cerr << "Usage: VektKobberProcessorCost rate block_size voices(8|12|16) factor(1|2|4|8|16) seconds [work|transitions|cpu] [unison=1|2|4] [multicore] [svf|k35] [mode=-1..1]\n";
+		std::cerr << "Usage: VektKobberProcessorCost stress iterations seed [skip=id,...] [notes=N] [once]\n       VektKobberProcessorCost rate block_size voices(8|12|16) factor(1|2|4|8|16) seconds [work|transitions|cpu] [unison=1|2|4] [multicore] [svf|k35] [mode=-1..1]\n";
 		return 64;
 	}
 	try
