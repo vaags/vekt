@@ -24,6 +24,6 @@ fi
 vekt_require_fswatch
 cmake --preset "$preset"
 printf 'Watching Audio Lab sources. Press Ctrl+C to stop.\n'
-VEKT_WATCH_BUILD_COMMAND=(cmake --build --preset "$preset" --target VektRavAudioLab)
+VEKT_WATCH_BUILD_COMMAND=(cmake --build --preset "$preset" --target VektAudioLab)
 vekt_run_watch_build
 vekt_watch 'Change detected, rebuilding Vekt Audio Lab...' "${watch_paths[@]}"

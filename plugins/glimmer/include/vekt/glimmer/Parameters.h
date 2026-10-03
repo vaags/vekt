@@ -31,7 +31,7 @@ inline constexpr auto stereoWidth = "stereoWidth";
 inline constexpr auto manualSpeedEnabled = "manualSpeedEnabled";
 inline constexpr auto speedPosition = "speedPosition";
 
-inline constexpr auto stateType = "VektGlimmerState";
+inline constexpr auto stateType = "GlimmerParameters";
 inline constexpr auto presetProductIdentifier = "com.vekt.glimmer";
 // The product name hosts, preset banks and the user preset folder show.
 inline constexpr auto productName = "Glimmer";

@@ -109,8 +109,8 @@ shared cases. Record the executed test count.
 
 | Product | Standalone target | VST3 target | AUv2 target | Offline renderer |
 | --- | --- | --- | --- | --- |
-| Rav | `Rav_Standalone` | `Rav_VST3` | `Rav_AU` | `VektRavRender --product rav` |
-| Glimmer | `Glimmer_Standalone` | `Glimmer_VST3` | `Glimmer_AU` | `VektRavRender --product glimmer` |
+| Rav | `Rav_Standalone` | `Rav_VST3` | `Rav_AU` | `VektRender --product rav` |
+| Glimmer | `Glimmer_Standalone` | `Glimmer_VST3` | `Glimmer_AU` | `VektRender --product glimmer` |
 | Kobber | `Kobber_Standalone` | `Kobber_VST3` | `Kobber_AU` | `VektKobberRender --fixture <name>` |
 | Flint | `Flint_Standalone` | `Flint_VST3` | `Flint_AU` | none yet; `VektFlintCost` measures cost (A19) |
 
@@ -151,9 +151,9 @@ script builds multiple fixtures and a prototype. For a focused Release render:
 
 ```sh
 cmake --preset audio-lab-release
-cmake --build --preset audio-lab-release --target VektRavRender
+cmake --build --preset audio-lab-release --target VektRender
 output_directory=$(mktemp -d "${TMPDIR:-/tmp}/vekt-validation.XXXXXX")
-build/audio-lab-release/tools/audio_lab/VektRavRender \
+build/audio-lab-release/tools/audio_lab/VektRender \
   --product glimmer --source sine --seconds 1 --warmup 0.25 \
   --profile tracking --quality 2 --frequency 440 \
   --sample-rate 48000 --block-size 127 --seed 1299148399 \

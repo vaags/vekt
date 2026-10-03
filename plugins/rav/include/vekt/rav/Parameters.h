@@ -37,7 +37,7 @@ inline constexpr std::array stageEnabledIds {
 	stageEnabledCircuitFuzz, stageEnabledGatedFuzz
 };
 
-inline constexpr auto stateType = "VektRavState";
+inline constexpr auto stateType = "RavParameters";
 inline constexpr auto presetProductIdentifier = "com.vekt.rav";
 // The product name hosts, preset banks and the user preset folder show.
 inline constexpr auto productName = "Rav";

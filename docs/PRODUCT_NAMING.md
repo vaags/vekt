@@ -57,13 +57,15 @@ A product is named after a natural material in Norwegian:
 
 - **Mono was renamed Kobber** (decided by Thomas and done 3 October 2026): product name, editor title, bundle ID
   `com.thomasvaags.kobber`, folder `plugins/kobber`, targets `Kobber`/`KobberCore`, namespace `vekt::kobber`, types
-  `Kobber*`, test tag `[kobber]`, and, while pre-release, the persisted keys (`com.vekt.kobber`, state type
-  `KobberParameters`, factory preset IDs `kobber-*`). Its `PLUGIN_CODE` was already `Kobr`. Musical "Mono" (the
+  `Kobber*`, test tag `[kobber]`, and, while pre-release, the persisted keys (product identifier
+  `com.vekt.kobber`, factory preset IDs `kobber-*`). Its `PLUGIN_CODE` was already `Kobr`. Musical "Mono" (the
   Poly | Mono | Mono Legato performance modes, Mono Priority) is not the product and keeps its name.
 - No product carries the Vekt prefix (3 October 2026): folders `plugins/<product>`, plugin targets `<Product>`
   (`Rav_VST3`), editor titles (`RAV`). Namespaces stay `vekt::<product>` because Vekt is the framework they belong
-  to; the Audio Lab tools keep `Vekt` for the same reason (`VektKobberRender`, `VektFlintCost`). The persisted keys of
-  Rav and Glimmer (`com.vekt.<product>`, `VektRavState`, `VektGlimmerState`) are Vekt data-format keys and stay.
+  to; the Audio Lab tools keep `Vekt` for the same reason (`VektAudioLab`, `VektRender`, `VektKobberRender`,
+  `VektFlintCost`). Parameter-state types follow the product (`RavParameters`, `GlimmerParameters`,
+  `KobberParameters`, `FlintParameters`); they name the in-memory tree only and are not saved. What is saved is the
+  product identifier `com.vekt.<product>` in presets and project state, a Vekt data-format key.
 - Known risk (3 October 2026): JUCE names the Standalone settings file after the product, at the top of
   `~/Library/Application Support` (`Rav.settings`, `Kobber.settings`), so another app with the same file name would
   share it. Not yet resolved: a `Thomas Vaags` subfolder needs a custom Standalone wrapper in the framework, its own

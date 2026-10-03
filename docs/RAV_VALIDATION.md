@@ -113,8 +113,8 @@ Run performance comparisons in Release mode:
 
 ```sh
 cmake --preset audio-lab-release
-cmake --build --preset audio-lab-release --target VektRavRender
-build/audio-lab-release/tools/audio_lab/VektRavRender \
+cmake --build --preset audio-lab-release --target VektRender
+build/audio-lab-release/tools/audio_lab/VektRender \
   --source two-tone --profile tracking --quality 2 --mode 3 \
   --stages 00010 --block-size 32 --warmup 0.2 --seconds 5 \
   --report /tmp/rav-circuit-fuzz.json

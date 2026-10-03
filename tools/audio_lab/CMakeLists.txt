@@ -1,9 +1,9 @@
-add_executable(VektRavRender
+add_executable(VektRender
 	main.cpp)
 
-add_executable(VektRavAudioLab
+add_executable(VektAudioLab
 	LiveLab.cpp)
-set_target_properties(VektRavAudioLab PROPERTIES MACOSX_BUNDLE TRUE)
+set_target_properties(VektAudioLab PROPERTIES MACOSX_BUNDLE TRUE)
 
 add_executable(VektKobberRender
 	KobberRender.cpp
@@ -94,14 +94,14 @@ target_link_libraries(VektFlintCost PRIVATE
 	vekt::juce_runtime
 	vekt_project_options)
 
-target_link_libraries(VektRavRender PRIVATE
+target_link_libraries(VektRender PRIVATE
 	RavCore
 	GlimmerCore
     vekt::juce_headers
 	vekt::juce_runtime
 	vekt_project_options)
 
-target_link_libraries(VektRavAudioLab PRIVATE
+target_link_libraries(VektAudioLab PRIVATE
 	RavCore
 	GlimmerCore
 	KobberCore

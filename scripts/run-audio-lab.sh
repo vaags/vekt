@@ -9,5 +9,5 @@ if [[ "${1:-}" == "--debug" ]]; then
 	preset=audio-lab
 fi
 cmake --preset "$preset"
-cmake --build --preset "$preset" --target VektRavAudioLab
-open -a "$(pwd)/build/$preset/tools/audio_lab/VektRavAudioLab.app"
+cmake --build --preset "$preset" --target VektAudioLab
+open -a "$(pwd)/build/$preset/tools/audio_lab/VektAudioLab.app"

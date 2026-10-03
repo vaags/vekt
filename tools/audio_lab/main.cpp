@@ -537,7 +537,7 @@ int main(int argc, char** argv)
 	Options options;
 	if (!parseOptions(argc, argv, options))
 	{
-		std::cerr << "Usage: VektRavRender [--product rav|glimmer] [--rack rav,glimmer|glimmer,rav] [--source sine|sawtooth|sweep|impulse|noise|kick|unison|two-tone] "
+		std::cerr << "Usage: VektRender [--product rav|glimmer] [--rack rav,glimmer|glimmer,rav] [--source sine|sawtooth|sweep|impulse|noise|kick|unison|two-tone] "
 					 "[--input path] "
 					 "[--profile tracking|offline] [--quality 0-6] [--sample-rate Hz] [--block-size samples] "
 					 "[--seconds duration] [--warmup duration] [--frequency Hz] [--mode 0-4] "
