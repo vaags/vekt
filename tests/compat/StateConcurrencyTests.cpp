@@ -1,6 +1,6 @@
 // A host may save, restore and switch programs from any thread, at the same time (AU hosts and auval's stress test do):
-// every product's state has to survive it. These tests race the three; a ThreadSanitizer build makes any data race in
-// the state path visible even when it does not crash (docs/ARCHITECTURE.md, Plugin Support).
+// every product's state has to survive it. These tests race the three; a ThreadSanitizer build also reports data races
+// that do not crash (docs/ARCHITECTURE.md, Plugin Support), though not every one: see the Rav rendering case.
 
 #include <vekt/flint/PluginProcessor.h>
 #include <vekt/glimmer/PluginProcessor.h>
@@ -83,6 +83,9 @@ TEST_CASE("Flint state survives concurrent save, restore and program changes", "
 	checkConcurrentState(processor);
 }
 
+// Guards rendering against crashes while the order changes. It does not show the stage-order race to TSan: with the
+// audio thread reading the chain directly (no snapshot), TSan reported nothing here while a plain race in the same loop
+// was reported (3 October 2026), so the lock-free snapshot rests on review and RavStageChain's static checks.
 TEST_CASE("Rav keeps rendering while its stage order is restored and reordered", "[rav][state]")
 {
 	vekt::rav::PluginProcessor processor;
