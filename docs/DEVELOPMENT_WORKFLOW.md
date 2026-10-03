@@ -87,9 +87,8 @@ are CTest labels. Every test case carries an owner tag (a product, or a framewor
 module such as `[dsp]` or `[ui]`), and a case named after a product carries that
 product's tag; the `Every test case carries a product or framework tag` test
 enforces it (3 October 2026). A product label selects only the cases tagged with
-the product, not the preset, editor and framework tests that also exercise it:
-`scripts/test-affected.sh` adds those from the test files that use the changed
-code, and still works at label and file granularity. Relevant slow tests must run even during
+the product, not the preset, editor and framework tests that also exercise it,
+so name those too; T1 runs the whole suite. Relevant slow tests must run even during
 an otherwise quick iteration. A zero-test run fails.
 
 ### Tests and Builds
@@ -121,7 +120,7 @@ cmake --build --preset dev --target Glimmer_VST3
 ```
 
 Choose the tier from [verification speed](VERIFICATION_SPEED.md):
-`scripts/test-affected.sh` for a change's owning tests, `./scripts/test.sh --t2`
+`./scripts/test.sh --opt` before reporting a change, `./scripts/test.sh --t2`
 at milestones and `./scripts/test.sh` for the full Debug suite when required. `dev-quick` is a test
 preset, not a configure preset; it excludes `[slow]`. `release` and
 `audio-lab-release` disable tests. Serialize builds using the same build tree;
@@ -134,7 +133,7 @@ in [verification speed](VERIFICATION_SPEED.md).
 ### Test Cost and Speed
 
 [Verification speed](VERIFICATION_SPEED.md) owns the verification tiers (T0
-focused, T1 `scripts/test-affected.sh`, T2 `scripts/test.sh --t2` with
+focused, T1 `scripts/test.sh --opt`, T2 `scripts/test.sh --t2` with
 `scripts/lint-changed.sh` and `scripts/pluginval-dev.sh`, T3 the full Debug
 suite), the choice of build, test-time budgets and how to write cheap tests.
 Pick the tier there; this document's matrix decides what the evidence must cover.

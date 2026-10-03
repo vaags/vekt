@@ -4,7 +4,7 @@ set -euo pipefail
 # Usage: scripts/test.sh [--quick] [--opt] [--t2]
 # Tiers are in docs/VERIFICATION_SPEED.md. Without options this is the full Debug suite (release-level, T3).
 # --quick skips tests tagged [slow] (long ladder/DSP sweeps).
-# --opt   builds and runs the optimised dev-opt tests (about 5x faster), without the reference renders, which are
+# --opt   T1: builds and runs the optimised dev-opt tests (about 5x faster), without the reference renders, which are
 #         captured from and compared in the Debug build.
 # --t2    the milestone check: the Debug suite without [slow] tests (assertions on, reference renders included), then
 #         the [slow] tests optimised. About half the full Debug suite's time; Debug assertions in the slow tests

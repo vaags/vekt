@@ -6,6 +6,7 @@
 #include <array>
 #include <cmath>
 #include <complex>
+#include <map>
 #include <numbers>
 #include <vector>
 
@@ -109,7 +110,9 @@ inline KobberWidthReference renderMonoWidthReference(double morph, double width,
 	std::vector<juce::dsp::Complex<float>> values(static_cast<std::size_t>(size)), transform(static_cast<std::size_t>(size));
 	for (int index = 0; index < size; ++index)
 		values[static_cast<std::size_t>(index)] = { static_cast<float>(kobberWidthIdealWave((index + 0.5) / size, morph, width, zeroCentered)), 0.0f };
-	juce::dsp::FFT(resolutionOrder).perform(values.data(), transform.data(), false);
+	// Planning a 2^16-point FFT costs more than performing it, and table builds render hundreds of references.
+	thread_local std::map<int, juce::dsp::FFT> plans;
+	plans.try_emplace(resolutionOrder, resolutionOrder).first->second.perform(values.data(), transform.data(), false);
 	KobberWidthReference result;
 	const auto maximumHarmonic = std::min(size / 2 - 1,
 		static_cast<int>(std::ceil(sampleRate / (2.0 * frequency))) - 1);

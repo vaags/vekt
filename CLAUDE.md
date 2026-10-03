@@ -58,7 +58,7 @@ Surface specification/code conflicts rather than silently changing a contract.
 - After a substantive edit, run the cheapest meaningful check before expanding
   scope. Repair locally and rerun; reuse existing APIs, helpers, and tests.
 - Verify by tier (docs/VERIFICATION_SPEED.md): T0 focused tests per edit, T1
-  `scripts/test-affected.sh` before reporting, T2 `scripts/test.sh --t2` plus
+  `scripts/test.sh --opt` before reporting, T2 `scripts/test.sh --t2` plus
   `scripts/lint-changed.sh` (and `scripts/pluginval-dev.sh` when wrappers,
   parameters, state or processing changed) at milestones, T3 the full Debug
   suite for release-level or build-wide changes. `dev-opt` has no `jassert`.

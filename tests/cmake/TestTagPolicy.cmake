@@ -1,5 +1,5 @@
 # Every registered Catch2 test case carries an owner tag (a product or framework module), and a case named after a
-# product ("Rav ...", "Glimmer ...", "Kobber ...", "Flint ...") carries that product's tag, so label selection (scripts/test-affected.sh,
+# product ("Rav ...", "Glimmer ...", "Kobber ...", "Flint ...") carries that product's tag, so label runs (ctest -L,
 # docs/VERIFICATION_SPEED.md) cannot miss it. A hidden case ([.] or [!hide]) must carry no owner tag: Catch2 runs a
 # hidden case whenever a tag it carries is named, so "vekt_dsp_tests [compat]" would otherwise run the capture cases
 # and rewrite the fixtures. A test macro the policy cannot parse fails it.

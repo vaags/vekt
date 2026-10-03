@@ -31,8 +31,8 @@ planning, not permission to implement.
 5. Give an actionable sequence of small edits and discriminating checks.
    Identify actual test names/tags, matching targets/configurations, relevant
    slow/shared cases, and any measured or manual gates. Give each check its
-   tier: T0 per edit, T1 `scripts/test-affected.sh` (with a `--dry-run`
-   selection), T2 at milestones, T3 only when release-level or build-wide.
+   tier: T0 per edit, T1 `scripts/test.sh --opt` (the whole suite, optimised),
+   T2 at milestones, T3 only when release-level or build-wide.
    Name the Debug run for anything relying on `jassert`. Product labels alone
    are not sufficient, and a zero-test selection cannot validate the change.
 6. Mark checks as planned, not passed. Explain missing infrastructure or

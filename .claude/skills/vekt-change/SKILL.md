@@ -34,7 +34,7 @@ approved scope, existing architecture, and approval boundaries throughout the ta
    nearest controlling boundary rather than opening unrelated work. Keep this
    edit/check discipline for subsequent edits.
 5. Use the `vekt-validate` skill for the agreed surface and remaining meaningful
-   gates: at least T1 (`scripts/test-affected.sh`) before reporting, and T2
+   gates: at least T1 (`scripts/test.sh --opt`) before reporting, and T2
    (`scripts/test.sh --t2`, `scripts/lint-changed.sh`, and
    `scripts/pluginval-dev.sh` when wrappers, parameters, state or processing
    changed) at the end of a plan step or before review. A change in several steps

@@ -22,8 +22,8 @@ reporting system.
    This invocation authorizes scoped validation, not implementation or fixes.
 2. Inspect nearby actual tests and configuration. Every test case carries an
    owner tag, but a product label omits the shared framework tests a change
-   affects; `scripts/test-affected.sh --dry-run` shows the T1 selection for the
-   changed paths. Use actual names/tags and affected shared consumers. Do not
+   affects, so T0 names them explicitly; T1 (`scripts/test.sh --opt`) runs the
+   whole suite. Use actual names/tags and affected shared consumers. Do not
    automatically substitute quick-suite success for relevant slow or
    compatibility tests.
 3. State the selected checks, their tier and purpose before executing. Choose

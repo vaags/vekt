@@ -10,24 +10,15 @@ replaces a required check: a skipped gate is reported as `SKIP` with its reason.
 | Tier | When | Command | Typical time (3 October 2026) |
 | --- | --- | --- | --- |
 | T0 | Every edit: the cheapest check that could disprove the change | Exact test names or tags, e.g. `ctest --preset dev-opt -R '<name>' --no-tests=error`; a focused build of one target | Seconds |
-| T1 | Before reporting a change: the tests of the changed code and of the code and tests that use it | `scripts/test-affected.sh` (`--dry-run` shows the selection and counts) | Rav 12 s (241 tests), Kobber 30 s (347 tests) |
+| T1 | Before reporting a change: the whole suite, optimised | `scripts/test.sh --opt` | 24 s (606 tests, build up to date) |
 | T2 | Milestones: end of a plan step, before review, before handing work back | `scripts/test.sh --t2`, `scripts/lint-changed.sh`, and `scripts/pluginval-dev.sh` when wrappers, parameters, state or processing changed | Tests 60 s; lint about 12 s; pluginval 5 s once built |
 | T3 | Release-level, a shared or build-wide change, or when the user asks | `scripts/test.sh` (the full Debug suite) plus the release gates in DEVELOPMENT_WORKFLOW.md | Tests 80–88 s |
 
-- **T1** maps changed paths (or `--base <rev>`, or explicit paths) to CTest labels:
-  - a product directory selects that product and the framework labels of every test file using the product (its
-    namespace or headers), such as the preset and editor tests that construct its processor;
-  - a framework module selects its own tag, the modules that link it (`framework/*/CMakeLists.txt`), every product,
-    and the labels of every test file using it;
-  - a test file selects its own owner tags; packaging and scripts select the script tests; anything unmapped (CMake,
-    presets, JUCE, external) or a deleted test file selects the full suite.
-
-  It runs the selection in `dev-opt`, slow tests included, and always the `[compat]` tests in Debug, where the
-  reference renders are captured and compared. Selection works at the granularity of labels and test files, so it
-  relies on every registered test case carrying an owner tag (enforced by the
-  `Every test case carries a product or framework tag` test). It can still miss a case whose only link to the
-  changed code is indirect (a helper in another test file, a product reached through a framework interface): when a
-  change's reach is unclear, run T2.
+- **T1** runs every test in `dev-opt`, `[slow]` ones included, and checks their time budgets. It omits Debug
+  assertions and the three reference-render comparisons, which run only in Debug (T2 and T3). T1 does not select
+  tests by changed path: CTest has no built-in way to, and a hand-written path-to-test map either over-selects or
+  misses tests (tried and removed 3 October 2026). Keep T1 fast by making slow tests cheaper instead: caching the
+  Width reference's FFT plan cut the full `dev-opt` run from about 31 s to 20 s.
 - **Hidden cases** (`[.]`) carry no owner tag: Catch2 runs a hidden case whenever a tag it carries is named, so
   `vekt_dsp_tests "[compat]"` would otherwise run the capture cases and rewrite the fixtures. The tag policy enforces
   this. Run hidden cases by their own tag or name only.
@@ -183,8 +174,7 @@ Apple Silicon, 10 cores. Times are wall-clock unless noted and swing with load; 
 | --- | --- |
 | Full Debug suite (T3), 501 tests | 79.8–88.3 s |
 | `scripts/test.sh --t2` (456 Debug, then 45 slow optimised) | 59.2–60.2 s |
-| `scripts/test-affected.sh` for a Kobber change | 30.3 s (347 tests, plus 12 compat in Debug) |
-| `scripts/test-affected.sh` for a Rav change | 12.0 s (241 tests, plus 12 compat in Debug) |
+| `scripts/test.sh --opt` (T1), 606 tests | 24.3 s (build up to date) |
 | `scripts/pluginval-dev.sh` (three products, parallel, bundles already built) | 4.8 s |
 | clang-tidy on every framework and plugin source | 28–31 s |
 | `scripts/lint-changed.sh` on 10 affected sources | 11–13 s |
