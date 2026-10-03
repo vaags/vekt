@@ -14,7 +14,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	  presetBrowser(newProcessor.getPresetSession())
 {
 	setLookAndFeel(&lookAndFeel);
-	title.setText("VEKT  GLIMMER", juce::dontSendNotification);
+	title.setText("GLIMMER", juce::dontSendNotification);
 	title.setFont(juce::FontOptions(24.0f).withStyle("Bold"));
 	modelHeader.setText("Model", juce::dontSendNotification);
 	historyControls.beforeAction = [this] { juce::ignoreUnused(pluginProcessor.getParameters().copyState()); };

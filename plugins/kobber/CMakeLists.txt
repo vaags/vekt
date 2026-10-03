@@ -1,12 +1,12 @@
 vekt_add_factory_presets(
 	TARGET KobberFactoryData
 	NAMESPACE KobberFactoryData
-	HEADER_NAME MonoBinaryData.h
+	HEADER_NAME KobberBinaryData.h
 	PRESET_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/Resources/Presets"
 	ORDER_FILE "${CMAKE_CURRENT_SOURCE_DIR}/Resources/Presets/factory-order.txt"
 	LOCK_FILE "${CMAKE_CURRENT_SOURCE_DIR}/Resources/Presets/factory-order.lock"
 	MANIFEST_HEADER KobberFactoryPresetManifest.h
-	MANIFEST_NAMESPACE vekt::mono::factory_presets)
+	MANIFEST_NAMESPACE vekt::kobber::factory_presets)
 
 add_library(KobberCore STATIC
 	Source/LadderPoleMix.h
@@ -22,15 +22,15 @@ add_library(KobberCore STATIC
 	Source/SimdLanes.h
 	Source/WidthOscillator.cpp
 	Source/WidthOscillator.h
-	Source/MonoRenderWorkers.cpp
-	Source/MonoRenderWorkers.h
-	Source/MonoSettingsSnapshot.cpp
-	Source/MonoSettingsSnapshot.h
-	Source/MonoVoiceAllocator.h
-	Source/MonoRenderPlan.h
+	Source/KobberRenderWorkers.cpp
+	Source/KobberRenderWorkers.h
+	Source/KobberSettingsSnapshot.cpp
+	Source/KobberSettingsSnapshot.h
+	Source/KobberVoiceAllocator.h
+	Source/KobberRenderPlan.h
 	Source/FactoryPresets.cpp
-	Source/MonoVoice.cpp
-	Source/MonoVoice.h
+	Source/KobberVoice.cpp
+	Source/KobberVoice.h
 	Source/Parameters.cpp
 	Source/PluginEditor.cpp
 	Source/PluginProcessor.cpp)

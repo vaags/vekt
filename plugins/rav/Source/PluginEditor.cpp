@@ -55,7 +55,7 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 	  historyControls(plugin.getUndoManager())
 {
 	setLookAndFeel(&lookAndFeel);
-	title.setText("VEKT  RAV", juce::dontSendNotification);
+	title.setText("RAV", juce::dontSendNotification);
 	title.setFont(juce::FontOptions(24.0f).withStyle("Bold"));
 	qualityLabel.setFont(juce::FontOptions(14.0f));
 	meterLabel.setFont(juce::FontOptions(14.0f));

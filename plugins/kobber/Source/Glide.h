@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-namespace vekt::mono
+namespace vekt::kobber
 {
 // Portamento in note space: a one-pole toward the target note with Glide Time as its time constant. Double, so it
 // reaches the note at every internal rate (ARCHITECTURE.md, DSP Contracts).

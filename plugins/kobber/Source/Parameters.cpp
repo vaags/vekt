@@ -1,14 +1,14 @@
-#include <vekt/mono/Parameters.h>
+#include <vekt/kobber/Parameters.h>
 
 #include <vekt/plugin_support/QualitySelection.h>
 
 #include "Lfo.h"
-#include "MonoParameterChoices.h"
+#include "KobberParameterChoices.h"
 #include "WidthOscillator.h"
 
 #include <memory>
 
-namespace vekt::mono::parameters
+namespace vekt::kobber::parameters
 {
 namespace
 {

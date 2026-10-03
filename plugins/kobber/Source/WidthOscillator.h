@@ -8,7 +8,7 @@
 #include <numbers>
 #include <vector>
 
-namespace vekt::mono
+namespace vekt::kobber
 {
 // Anchor gains: every anchor's fundamental is +sin(2 pi phase) and has the saw's RMS (1/sqrt 3) at neutral Width.
 inline constexpr double widthSineGain = 0.81649658;  // sqrt(2/3)
@@ -164,7 +164,7 @@ public:
 		std::vector<float> saw, parabola;
 	};
 
-	// Built on first use (~tens of ms); MonoVoice::prepare touches it off the audio thread.
+	// Built on first use (~tens of ms); KobberVoice::prepare touches it off the audio thread.
 	static const WidthWavetable& instance();
 
 	[[nodiscard]] const std::vector<Level>& levels() const noexcept { return bank; }

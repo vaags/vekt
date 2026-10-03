@@ -139,7 +139,7 @@ public:
 	}
 
 private:
-	mono::DelayedFeedbackLadder ladder;
+	kobber::DelayedFeedbackLadder ladder;
 	float sampleRate {};
 	std::uint64_t samples {}, nonFiniteSamples {};
 	float peak {};
@@ -714,7 +714,7 @@ LadderPrototypeResult renderLadderPrototype(double sampleRate, int blockSize)
 	const auto current = modelReport<CurrentProbe>(sampleRate, blockSize, nullptr);
 	auto* report = new juce::DynamicObject;
 	result.report = juce::var(report);
-	report->setProperty("product", "mono-ladder-comparison");
+	report->setProperty("product", "kobber-ladder-comparison");
 	report->setProperty("model", "four-stage-nonlinear-tpt-bounded-newton");
 	report->setProperty("sample_rate", sampleRate);
 	report->setProperty("block_size", blockSize);

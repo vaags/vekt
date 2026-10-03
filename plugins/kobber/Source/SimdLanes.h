@@ -8,7 +8,7 @@
 #include <simd/simd.h>
 #endif
 
-namespace vekt::mono
+namespace vekt::kobber
 {
 template <std::size_t Lanes>
 using SimdLaneValues = std::array<double, Lanes>;

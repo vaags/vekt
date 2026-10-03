@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace vekt::mono
+namespace vekt::kobber
 {
 // The SVF's Mode mix of its native outputs (ADR 0006), with the same easing as the ladder's pole mix:
 //   -1 .. 0   y = LP + e HP          (-1 LP, 0 Notch = LP + HP)

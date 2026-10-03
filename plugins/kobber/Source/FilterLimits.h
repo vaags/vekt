@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace vekt::mono
+namespace vekt::kobber
 {
 // The cutoff range a voice actually reaches once keyboard, contour, velocity and LFO offsets are applied. Wider than
 // the Cutoff knob (5 Hz to 20 kHz), so modulation can carry the filter past either end of its travel.

@@ -11,7 +11,7 @@
 #include <limits>
 #include <numbers>
 
-namespace vekt::mono
+namespace vekt::kobber
 {
 namespace
 {

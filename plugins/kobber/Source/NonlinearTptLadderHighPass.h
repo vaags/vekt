@@ -8,10 +8,10 @@
 #include <cstdint>
 #include <numbers>
 
-namespace vekt::mono
+namespace vekt::kobber
 {
 // The Ladder's high-pass (ADR 0009): a true high-pass ladder, four one-pole high-pass stages under global feedback, the
-// low-pass ladder's mirror. Mode crossfades from the low-pass ladder's Notch into it across Notch -> HP (MonoVoice).
+// low-pass ladder's mirror. Mode crossfades from the low-pass ladder's Notch into it across Notch -> HP (KobberVoice).
 //
 // The input saturates as a tanh(D x / a) with the SVF's knee a = 3, the stages are linear and only the feedback
 // saturates: u_1 = v - k tanh(y_4), u_(i+1) = y_i. Small-signal, y_4 = HP^4 / (1 + k HP^4) v with HP = s / (s + w): the
@@ -55,7 +55,7 @@ class NonlinearTptLadderHighPass
 public:
 	using Stages = std::array<double, 4>;
 
-	// A sample's coefficients, shared by filters at one rate and settings (MonoVoice computes them once per sample for
+	// A sample's coefficients, shared by filters at one rate and settings (KobberVoice computes them once per sample for
 	// every unison layer).
 	struct Coefficients
 	{

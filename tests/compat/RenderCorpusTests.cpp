@@ -5,7 +5,7 @@
 
 #include <vekt/flint/PluginProcessor.h>
 #include <vekt/glimmer/PluginProcessor.h>
-#include <vekt/mono/PluginProcessor.h>
+#include <vekt/kobber/PluginProcessor.h>
 #include <vekt/rav/PluginProcessor.h>
 
 #include <catch2/catch_test_macros.hpp>
@@ -26,7 +26,7 @@
 
 namespace
 {
-namespace mono = vekt::mono::parameters;
+namespace kobber = vekt::kobber::parameters;
 namespace rav = vekt::rav::parameters;
 namespace glimmer = vekt::glimmer::parameters;
 namespace flint = vekt::flint::parameters;
@@ -130,7 +130,7 @@ std::vector<CorpusCase> corpus()
 {
 	const auto ravProcessor = [] { return std::make_unique<vekt::rav::PluginProcessor>(); };
 	const auto glimmerProcessor = [] { return std::make_unique<vekt::glimmer::PluginProcessor>(); };
-	const auto monoProcessor = [] { return std::make_unique<vekt::mono::PluginProcessor>(); };
+	const auto kobberProcessor = [] { return std::make_unique<vekt::kobber::PluginProcessor>(); };
 	const auto flintProcessor = [] { return std::make_unique<vekt::flint::PluginProcessor>(); };
 	std::vector<CorpusCase> cases {
 		{ "rav-default", ravProcessor, {} },
@@ -151,66 +151,66 @@ std::vector<CorpusCase> corpus()
 		{ "glimmer-brake-driven", glimmerProcessor, { { glimmer::brake, 1.0f }, { glimmer::preampDrive, 18.0f } } },
 		{ "glimmer-offline-2x-fir", glimmerProcessor,
 		    { { glimmer::trackingOversampling, 0.0f }, { glimmer::offlineOversampling, 1.0f } }, {}, 256, true },
-		{ "kobber-ladder", monoProcessor, {}, twoNotes() },
-		{ "kobber-ladder-4x-fir", monoProcessor, { { mono::trackingOversampling, 4.0f } }, twoNotes() },
-		{ "kobber-ladder-hp", monoProcessor, { { mono::filterMode, 1.0f }, { mono::filterResonance, 60.0f } },
+		{ "kobber-ladder", kobberProcessor, {}, twoNotes() },
+		{ "kobber-ladder-4x-fir", kobberProcessor, { { kobber::trackingOversampling, 4.0f } }, twoNotes() },
+		{ "kobber-ladder-hp", kobberProcessor, { { kobber::filterMode, 1.0f }, { kobber::filterResonance, 60.0f } },
 		    twoNotes() },
-		{ "kobber-svf-2x-iir", monoProcessor,
-		    { { mono::filterType, 1.0f }, { mono::trackingOversampling, 1.0f }, { mono::filterMode, 0.0f },
-		        { mono::filterResonance, 50.0f } },
+		{ "kobber-svf-2x-iir", kobberProcessor,
+		    { { kobber::filterType, 1.0f }, { kobber::trackingOversampling, 1.0f }, { kobber::filterMode, 0.0f },
+		        { kobber::filterResonance, 50.0f } },
 		    twoNotes() },
-		{ "kobber-k35-8x-fir", monoProcessor,
-		    { { mono::filterType, 2.0f }, { mono::trackingOversampling, 5.0f }, { mono::filterResonance, 60.0f } },
+		{ "kobber-k35-8x-fir", kobberProcessor,
+		    { { kobber::filterType, 2.0f }, { kobber::trackingOversampling, 5.0f }, { kobber::filterResonance, 60.0f } },
 		    twoNotes() },
-		{ "kobber-osc-ranges", monoProcessor,
-		    { { mono::osc2Range, 0.0f }, { mono::osc2Level, 60.0f }, { mono::osc3Range, 4.0f },
-		        { mono::osc3Level, 40.0f } },
+		{ "kobber-osc-ranges", kobberProcessor,
+		    { { kobber::osc2Range, 0.0f }, { kobber::osc2Level, 60.0f }, { kobber::osc3Range, 4.0f },
+		        { kobber::osc3Level, 40.0f } },
 		    twoNotes() },
-		{ "kobber-white-noise", monoProcessor, { { mono::noiseType, 1.0f }, { mono::noiseLevel, 40.0f } }, twoNotes() },
-		{ "kobber-pink-noise", monoProcessor, { { mono::noiseType, 2.0f }, { mono::noiseLevel, 40.0f } }, twoNotes() },
+		{ "kobber-white-noise", kobberProcessor, { { kobber::noiseType, 1.0f }, { kobber::noiseLevel, 40.0f } }, twoNotes() },
+		{ "kobber-pink-noise", kobberProcessor, { { kobber::noiseType, 2.0f }, { kobber::noiseLevel, 40.0f } }, twoNotes() },
 		// Mono's startup sound is unison 2x at 12 cents, Mono Legato: the cases set what differs from it.
-		{ "kobber-unison-off", monoProcessor, { { mono::unison, 0.0f } }, twoNotes() },
-		{ "kobber-unison-4x-lfo", monoProcessor,
-		    { { mono::unison, 2.0f }, { mono::lfos[0].rate, 6.0f }, { mono::lfos[0].pitch[0], 2.0f },
-		        { mono::lfos[0].delay, 0.0f }, { mono::lfos[0].fade, 0.0f } },
+		{ "kobber-unison-off", kobberProcessor, { { kobber::unison, 0.0f } }, twoNotes() },
+		{ "kobber-unison-4x-lfo", kobberProcessor,
+		    { { kobber::unison, 2.0f }, { kobber::lfos[0].rate, 6.0f }, { kobber::lfos[0].pitch[0], 2.0f },
+		        { kobber::lfos[0].delay, 0.0f }, { kobber::lfos[0].fade, 0.0f } },
 		    twoNotes() },
-		{ "kobber-poly", monoProcessor, { { mono::performanceMode, 0.0f } }, fourNotes() },
-		{ "kobber-voice-stealing", monoProcessor, { { mono::performanceMode, 0.0f }, { mono::voiceCount, 0.0f } },
+		{ "kobber-poly", kobberProcessor, { { kobber::performanceMode, 0.0f } }, fourNotes() },
+		{ "kobber-voice-stealing", kobberProcessor, { { kobber::performanceMode, 0.0f }, { kobber::voiceCount, 0.0f } },
 		    fourNotes() },
-		{ "kobber-poly-sustain", monoProcessor, { { mono::performanceMode, 0.0f } }, sustainedNotes() },
-		{ "kobber-last-priority", monoProcessor, { { mono::performanceMode, 1.0f } }, priorityNotes() },
-		{ "kobber-low-priority", monoProcessor, { { mono::performanceMode, 1.0f }, { mono::notePriority, 1.0f } },
+		{ "kobber-poly-sustain", kobberProcessor, { { kobber::performanceMode, 0.0f } }, sustainedNotes() },
+		{ "kobber-last-priority", kobberProcessor, { { kobber::performanceMode, 1.0f } }, priorityNotes() },
+		{ "kobber-low-priority", kobberProcessor, { { kobber::performanceMode, 1.0f }, { kobber::notePriority, 1.0f } },
 		    priorityNotes() },
-		{ "kobber-legato-glide", monoProcessor,
-		    { { mono::performanceMode, 2.0f }, { mono::glideMode, 2.0f }, { mono::glideTime, 0.05f } },
+		{ "kobber-legato-glide", kobberProcessor,
+		    { { kobber::performanceMode, 2.0f }, { kobber::glideMode, 2.0f }, { kobber::glideTime, 0.05f } },
 		    priorityNotes() },
-		{ "kobber-no-held-key-return", monoProcessor, { { mono::performanceMode, 1.0f }, { mono::heldKeyReturn, 0.0f } },
+		{ "kobber-no-held-key-return", kobberProcessor, { { kobber::performanceMode, 1.0f }, { kobber::heldKeyReturn, 0.0f } },
 		    priorityNotes() },
-		{ "kobber-glide-always", monoProcessor, { { mono::glideMode, 1.0f }, { mono::glideTime, 0.08f } }, fourNotes() },
-		{ "kobber-mono-sustain", monoProcessor, { { mono::performanceMode, 1.0f } }, sustainedNotes() },
-		{ "kobber-bend-vibrato", monoProcessor, { { mono::vibratoDepth, 50.0f }, { mono::vibratoRate, 5.0f } },
+		{ "kobber-glide-always", kobberProcessor, { { kobber::glideMode, 1.0f }, { kobber::glideTime, 0.08f } }, fourNotes() },
+		{ "kobber-mono-sustain", kobberProcessor, { { kobber::performanceMode, 1.0f } }, sustainedNotes() },
+		{ "kobber-bend-vibrato", kobberProcessor, { { kobber::vibratoDepth, 50.0f }, { kobber::vibratoRate, 5.0f } },
 		    expressiveNote() },
 		// Multicore changes threads, not samples.
-		{ "kobber-multicore", monoProcessor, { { mono::performanceMode, 0.0f }, { mono::multicore, 1.0f } }, fourNotes(),
+		{ "kobber-multicore", kobberProcessor, { { kobber::performanceMode, 0.0f }, { kobber::multicore, 1.0f } }, fourNotes(),
 		    256, false, {}, "kobber-poly" },
-		{ "kobber-multicore-unison-off", monoProcessor,
-		    { { mono::performanceMode, 0.0f }, { mono::unison, 0.0f }, { mono::multicore, 1.0f } }, fourNotes() },
-		{ "kobber-controllers", monoProcessor,
-		    { { mono::performanceMode, 0.0f }, { mono::pitchBendRange, 12.0f }, { mono::vibratoDepth, 40.0f } },
+		{ "kobber-multicore-unison-off", kobberProcessor,
+		    { { kobber::performanceMode, 0.0f }, { kobber::unison, 0.0f }, { kobber::multicore, 1.0f } }, fourNotes() },
+		{ "kobber-controllers", kobberProcessor,
+		    { { kobber::performanceMode, 0.0f }, { kobber::pitchBendRange, 12.0f }, { kobber::vibratoDepth, 40.0f } },
 		    controllerNotes() },
-		{ "kobber-channel-2-sustain", monoProcessor, { { mono::performanceMode, 1.0f } }, channelTwoNotes() },
+		{ "kobber-channel-2-sustain", kobberProcessor, { { kobber::performanceMode, 1.0f } }, channelTwoNotes() },
 		// The startup sound delays and fades its LFOs in: the LFO cases start them at once.
-		{ "kobber-lfo-sync", monoProcessor,
-		    { { mono::lfos[0].sync, 1.0f }, { mono::lfos[0].pitch[0], 2.0f }, { mono::lfos[0].delay, 0.0f },
-		        { mono::lfos[0].fade, 0.0f } },
+		{ "kobber-lfo-sync", kobberProcessor,
+		    { { kobber::lfos[0].sync, 1.0f }, { kobber::lfos[0].pitch[0], 2.0f }, { kobber::lfos[0].delay, 0.0f },
+		        { kobber::lfos[0].fade, 0.0f } },
 		    twoNotes() },
 		// A parameter change between a note and the held-key return to an earlier one.
-		{ "kobber-change-before-return", monoProcessor, { { mono::performanceMode, 1.0f } }, priorityNotes(), 256, false,
-		    { { 10'000, mono::filterCutoff, 500.0f } } },
-		{ "kobber-odd-blocks", monoProcessor,
-		    { { mono::performanceMode, 0.0f }, { mono::unison, 2.0f }, { mono::unisonDetune, 20.0f } }, fourNotes(),
+		{ "kobber-change-before-return", kobberProcessor, { { kobber::performanceMode, 1.0f } }, priorityNotes(), 256, false,
+		    { { 10'000, kobber::filterCutoff, 500.0f } } },
+		{ "kobber-odd-blocks", kobberProcessor,
+		    { { kobber::performanceMode, 0.0f }, { kobber::unison, 2.0f }, { kobber::unisonDetune, 20.0f } }, fourNotes(),
 		    127 },
-		{ "kobber-offline-8x-fir", monoProcessor, { { mono::offlineOversampling, 3.0f } }, twoNotes(), 256, true },
+		{ "kobber-offline-8x-fir", kobberProcessor, { { kobber::offlineOversampling, 3.0f } }, twoNotes(), 256, true },
 		// Flint: Kick / Classic Analog with each Drive Type, Mallet / Bar, and a Mode change between hits.
 		{ "flint-kick", flintProcessor, { { flint::variation, 0.0f } }, hits() },
 		{ "flint-kick-hard-drive", flintProcessor,

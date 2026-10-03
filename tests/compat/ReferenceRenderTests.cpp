@@ -6,7 +6,7 @@
 #include "CompatFixtures.h"
 
 #include <vekt/glimmer/Parameters.h>
-#include <vekt/mono/Parameters.h>
+#include <vekt/kobber/Parameters.h>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -20,7 +20,7 @@ namespace
 {
 using namespace vekt::compat;
 namespace glimmer = vekt::glimmer::parameters;
-namespace mono = vekt::mono::parameters;
+namespace kobber = vekt::kobber::parameters;
 
 constexpr auto sampleRate = 48'000.0;
 constexpr auto blockSize = 256;
@@ -71,22 +71,22 @@ const std::vector<RenderCase>& renderCases()
 			{ "glimmer", "offline-4x-iir", { { glimmer::trackingOversampling, 0.0f }, { glimmer::offlineOversampling, 6.0f } }, true },
 
 			{ "kobber", "ladder", {} },
-			{ "kobber", "ladder-resonant-2x", { { mono::trackingOversampling, 1.0f }, { mono::filterResonance, 70.0f }, { mono::filterCutoff, 900.0f } } },
-			{ "kobber", "ladder-4x", { { mono::trackingOversampling, 4.0f } } },
-			{ "kobber", "ladder-8x", { { mono::trackingOversampling, 5.0f } } },
+			{ "kobber", "ladder-resonant-2x", { { kobber::trackingOversampling, 1.0f }, { kobber::filterResonance, 70.0f }, { kobber::filterCutoff, 900.0f } } },
+			{ "kobber", "ladder-4x", { { kobber::trackingOversampling, 4.0f } } },
+			{ "kobber", "ladder-8x", { { kobber::trackingOversampling, 5.0f } } },
 			// An offline render at the default Offline choice (4x FIR), not the tracking one (16x here; ADR 0001).
-			{ "kobber", "offline-default-resonant", { { mono::trackingOversampling, 6.0f }, { mono::filterResonance, 70.0f },
-				{ mono::filterCutoff, 900.0f } }, true },
-			{ "kobber", "svf-bandpass", { { mono::filterType, 1.0f }, { mono::filterMode, 0.0f }, { mono::filterResonance, 50.0f } } },
-			{ "kobber", "k35", { { mono::filterType, 2.0f }, { mono::filterResonance, 60.0f } } },
-			{ "kobber", "unison-noise-lfo", { { mono::unison, 2.0f }, { mono::noiseType, 2.0f }, { mono::noiseLevel, 30.0f },
-				{ mono::lfos[0].rate, 6.0f }, { mono::lfos[0].pitch[0], 2.0f } } },
-			{ "kobber", "legato-glide", { { mono::performanceMode, 2.0f }, { mono::glideMode, 1.0f }, { mono::glideTime, 0.05f } } },
+			{ "kobber", "offline-default-resonant", { { kobber::trackingOversampling, 6.0f }, { kobber::filterResonance, 70.0f },
+				{ kobber::filterCutoff, 900.0f } }, true },
+			{ "kobber", "svf-bandpass", { { kobber::filterType, 1.0f }, { kobber::filterMode, 0.0f }, { kobber::filterResonance, 50.0f } } },
+			{ "kobber", "k35", { { kobber::filterType, 2.0f }, { kobber::filterResonance, 60.0f } } },
+			{ "kobber", "unison-noise-lfo", { { kobber::unison, 2.0f }, { kobber::noiseType, 2.0f }, { kobber::noiseLevel, 30.0f },
+				{ kobber::lfos[0].rate, 6.0f }, { kobber::lfos[0].pitch[0], 2.0f } } },
+			{ "kobber", "legato-glide", { { kobber::performanceMode, 2.0f }, { kobber::glideMode, 1.0f }, { kobber::glideTime, 0.05f } } },
 			// Mono, low-note priority: the higher second note waits until the first is released (held-key return).
-			{ "kobber", "low-priority", { { mono::performanceMode, 1.0f }, { mono::notePriority, 1.0f } } },
+			{ "kobber", "low-priority", { { kobber::performanceMode, 1.0f }, { kobber::notePriority, 1.0f } } },
 			// Oscillators 2 and 3 sounding at 16' and 1'.
-			{ "kobber", "osc-ranges", { { mono::osc2Range, 0.0f }, { mono::osc2Level, 60.0f }, { mono::osc3Range, 4.0f },
-				{ mono::osc3Level, 40.0f } } },
+			{ "kobber", "osc-ranges", { { kobber::osc2Range, 0.0f }, { kobber::osc2Level, 60.0f }, { kobber::osc3Range, 4.0f },
+				{ kobber::osc3Level, 40.0f } } },
 		};
 		for (auto&& extra : oversamplingCases("rav", "trackingOversampling", 2)) all.push_back(extra);
 		for (auto&& extra : oversamplingCases("glimmer", glimmer::trackingOversampling, 2)) all.push_back(extra);

@@ -26,32 +26,32 @@ add_executable(vekt_dsp_tests
 	processor/ParametersTests.cpp
     processor/GlimmerParametersTests.cpp
     processor/GlimmerProcessorTests.cpp
-	processor/MonoParametersTests.cpp
-	processor/MonoProcessorTests.cpp
-	processor/MonoLfoTests.cpp
-	processor/MonoLfoRoutingTests.cpp
-	processor/MonoOscillatorTests.cpp
-	processor/MonoWidthRendererComparisonTests.cpp
-	processor/MonoUnisonTests.cpp
-	processor/MonoVoiceAllocatorTests.cpp
-	processor/MonoRenderPlanTests.cpp
-	processor/MonoReproducibilityTests.cpp
-	processor/MonoLadderBatchTests.cpp
-	processor/MonoLadderPoleMixTests.cpp
-	processor/MonoLadderHighPassTests.cpp
-	processor/MonoSvfTests.cpp
-	processor/MonoNonlinearSvfTests.cpp
-	processor/MonoKorg35Tests.cpp
-	processor/MonoFilterTypeTests.cpp
-	processor/MonoPrecisionTests.cpp
+	processor/KobberParametersTests.cpp
+	processor/KobberProcessorTests.cpp
+	processor/KobberLfoTests.cpp
+	processor/KobberLfoRoutingTests.cpp
+	processor/KobberOscillatorTests.cpp
+	processor/KobberWidthRendererComparisonTests.cpp
+	processor/KobberUnisonTests.cpp
+	processor/KobberVoiceAllocatorTests.cpp
+	processor/KobberRenderPlanTests.cpp
+	processor/KobberReproducibilityTests.cpp
+	processor/KobberLadderBatchTests.cpp
+	processor/KobberLadderPoleMixTests.cpp
+	processor/KobberLadderHighPassTests.cpp
+	processor/KobberSvfTests.cpp
+	processor/KobberNonlinearSvfTests.cpp
+	processor/KobberKorg35Tests.cpp
+	processor/KobberFilterTypeTests.cpp
+	processor/KobberPrecisionTests.cpp
 	processor/EditorLayoutTests.cpp
 	processor/ValueFormatTests.cpp
 	audio_lab/FileSourceTests.cpp
     audio_lab/LabSettingsTests.cpp
 	audio_lab/RackRoutingTests.cpp
 	audio_lab/MeasurementsTests.cpp
-	audio_lab/MonoRenderTests.cpp
-	../tools/audio_lab/MonoRender.cpp
+	audio_lab/KobberRenderTests.cpp
+	../tools/audio_lab/KobberRender.cpp
 	audio_lab/LadderPrototypeTests.cpp
 	../tools/audio_lab/LadderPrototype.cpp
     dsp/TanhStageTests.cpp

@@ -4,7 +4,7 @@
 #include <cmath>
 #include <cstdint>
 
-namespace vekt::mono
+namespace vekt::kobber
 {
 // Times denote 99% of the distance to the target. The remaining quiet tail
 // continues to 99.99% before snapping so the endpoint is effectively silent.

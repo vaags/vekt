@@ -12,7 +12,7 @@
 
 #include "SimdLanes.h"
 
-namespace vekt::mono
+namespace vekt::kobber
 {
 // A reduced model of the early (Korg35-based) MS-20 low-pass, Mono's K35 filter (ADR 0007). It follows
 // Stinchcombe's simplified Korg35 structure (A Study of the Korg MS10 & MS20 Filters, 2006, figure 3 and section 5):

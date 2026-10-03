@@ -1,5 +1,5 @@
 #include <audio_lab/LadderPrototype.h>
-#include <audio_lab/MonoCostTimingRule.h>
+#include <audio_lab/KobberCostTimingRule.h>
 #include <audio_lab/NonlinearTptLadderReference.h>
 #include <LadderResonance.h>
 
@@ -270,10 +270,10 @@ TEST_CASE("Coupled ladder seeded resonance tail agrees with the nested solver", 
 
 TEST_CASE("Coupled ladder grows into a stable tone above onset with a tighter reference", "[audio-lab][kobber][ladder-coupled][ladder-self-oscillation]")
 {
-	REQUIRE(vekt::mono::ladderFeedbackGain(0.98) == Catch::Approx(3.92));
-	REQUIRE(vekt::mono::ladderFeedbackGain(1.0) == Catch::Approx(4.6));
-	REQUIRE(vekt::mono::ladderResonanceTuning(0.98) == Catch::Approx(1.0));
-	REQUIRE(vekt::mono::ladderResonanceTuning(1.0) == Catch::Approx(1.0287));
+	REQUIRE(vekt::kobber::ladderFeedbackGain(0.98) == Catch::Approx(3.92));
+	REQUIRE(vekt::kobber::ladderFeedbackGain(1.0) == Catch::Approx(4.6));
+	REQUIRE(vekt::kobber::ladderResonanceTuning(0.98) == Catch::Approx(1.0));
+	REQUIRE(vekt::kobber::ladderResonanceTuning(1.0) == Catch::Approx(1.0287));
 	constexpr int rate = 48'000;
 	constexpr int burst = rate / 10;
 	constexpr int window = rate / 10;

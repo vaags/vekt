@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace vekt::mono
+namespace vekt::kobber
 {
 // Keep the established sub-98% response; the top of the control enters the
 // self-oscillating region rather than stopping at the small-signal boundary.

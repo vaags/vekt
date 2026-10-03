@@ -6,7 +6,7 @@
 #include <cmath>
 #include <numbers>
 
-namespace vekt::mono
+namespace vekt::kobber
 {
 constexpr float referenceOscillationFeedback = 4.58f;
 

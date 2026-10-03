@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <span>
 
-namespace vekt::mono
+namespace vekt::kobber
 {
 struct NonlinearTptLadderSettings
 {

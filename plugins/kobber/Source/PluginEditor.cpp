@@ -1,13 +1,13 @@
-#include <vekt/mono/PluginEditor.h>
+#include <vekt/kobber/PluginEditor.h>
 
 #include <vekt/dsp/OversamplingChoices.h>
 #include <vekt/ui/ChoiceItems.h>
 #include "LfoDestinations.h"
-#include "MonoParameterChoices.h"
+#include "KobberParameterChoices.h"
 
 #include <vector>
 
-namespace vekt::mono
+namespace vekt::kobber
 {
 namespace
 {
@@ -60,7 +60,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	  qualitySettings(newProcessor.getParameters(), parameters::trackingOversampling, parameters::offlineOversampling)
 {
 	setLookAndFeel(&lookAndFeel);
-	title.setText("VEKT  MONO", juce::dontSendNotification);
+	title.setText("KOBBER", juce::dontSendNotification);
 	title.setFont(juce::FontOptions(24.0f).withStyle("Bold"));
 	status.setJustificationType(juce::Justification::centredRight);
 	historyControls.beforeAction = [this] { juce::ignoreUnused(pluginProcessor.getParameters().copyState()); };

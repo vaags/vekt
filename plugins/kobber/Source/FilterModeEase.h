@@ -1,6 +1,6 @@
 #pragma once
 
-namespace vekt::mono
+namespace vekt::kobber
 {
 // The Mode control's easing, shared by both filter types: within each half (LP -> Notch, Notch -> HP) the blend
 // follows a smoothstep of the position, so the response eases in and out of each landmark and its slope is zero

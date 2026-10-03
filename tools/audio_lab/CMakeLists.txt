@@ -6,16 +6,16 @@ add_executable(VektRavAudioLab
 set_target_properties(VektRavAudioLab PROPERTIES MACOSX_BUNDLE TRUE)
 
 add_executable(VektKobberRender
-	MonoRender.cpp
-	MonoRenderMain.cpp)
+	KobberRender.cpp
+	KobberRenderMain.cpp)
 
 add_executable(VektKobberQCompMatrix
-	MonoRender.cpp
-	MonoQCompMatrixMain.cpp)
+	KobberRender.cpp
+	KobberQCompMatrixMain.cpp)
 
 add_executable(VektKobberQCompListening
-	MonoRender.cpp
-	MonoQCompListeningMain.cpp)
+	KobberRender.cpp
+	KobberQCompListeningMain.cpp)
 
 target_link_libraries(VektKobberQCompListening PRIVATE
 	KobberCore
@@ -24,7 +24,7 @@ target_link_libraries(VektKobberQCompListening PRIVATE
 	vekt::juce_runtime
 	vekt_project_options)
 
-add_executable(VektKobberIncrementalResonance MonoIncrementalResonanceMain.cpp)
+add_executable(VektKobberIncrementalResonance KobberIncrementalResonanceMain.cpp)
 target_link_libraries(VektKobberIncrementalResonance PRIVATE
 	KobberCore
 	vekt::audio_analysis
@@ -32,7 +32,7 @@ target_link_libraries(VektKobberIncrementalResonance PRIVATE
 	vekt::juce_runtime
 	vekt_project_options)
 
-add_executable(VektKobberAcPumpResponse MonoAcPumpResponseMain.cpp)
+add_executable(VektKobberAcPumpResponse KobberAcPumpResponseMain.cpp)
 target_link_libraries(VektKobberAcPumpResponse PRIVATE
 	KobberCore
 	vekt::audio_analysis
@@ -40,21 +40,21 @@ target_link_libraries(VektKobberAcPumpResponse PRIVATE
 	vekt::juce_runtime
 	vekt_project_options)
 
-add_executable(VektKobberResonanceOnset MonoResonanceOnsetMain.cpp)
+add_executable(VektKobberResonanceOnset KobberResonanceOnsetMain.cpp)
 target_link_libraries(VektKobberResonanceOnset PRIVATE
 	KobberCore
 	vekt::juce_headers
 	vekt::juce_runtime
 	vekt_project_options)
 
-add_executable(VektKobberResonanceMatrix MonoResonanceMatrixMain.cpp)
+add_executable(VektKobberResonanceMatrix KobberResonanceMatrixMain.cpp)
 target_link_libraries(VektKobberResonanceMatrix PRIVATE
 	KobberCore
 	vekt::juce_headers
 	vekt::juce_runtime
 	vekt_project_options)
 
-add_executable(VektKobberResonanceVoice MonoRender.cpp MonoResonanceVoiceMain.cpp)
+add_executable(VektKobberResonanceVoice KobberRender.cpp KobberResonanceVoiceMain.cpp)
 target_link_libraries(VektKobberResonanceVoice PRIVATE
 	KobberCore
 	vekt::audio_analysis
@@ -62,7 +62,7 @@ target_link_libraries(VektKobberResonanceVoice PRIVATE
 	vekt::juce_runtime
 	vekt_project_options)
 
-add_executable(VektKobberWidthPitchLevelListening MonoWidthPitchLevelListeningMain.cpp)
+add_executable(VektKobberWidthPitchLevelListening KobberWidthPitchLevelListeningMain.cpp)
 target_link_libraries(VektKobberWidthPitchLevelListening PRIVATE
 	KobberCore
 	vekt::dsp
@@ -70,7 +70,7 @@ target_link_libraries(VektKobberWidthPitchLevelListening PRIVATE
 	vekt::juce_runtime
 	vekt_project_options)
 
-add_executable(VektKobberAdditiveCost MonoAdditiveCostMain.cpp)
+add_executable(VektKobberAdditiveCost KobberAdditiveCostMain.cpp)
 target_link_libraries(VektKobberAdditiveCost PRIVATE
 	KobberCore
 	vekt::dsp
@@ -85,7 +85,7 @@ add_executable(VektLadderPrototype
 add_executable(VektLadderCost
 	LadderCostMain.cpp)
 
-add_executable(VektKobberProcessorCost MonoProcessorCostMain.cpp CallbackAllocationProbe.cpp)
+add_executable(VektKobberProcessorCost KobberProcessorCostMain.cpp CallbackAllocationProbe.cpp)
 
 add_executable(VektFlintCost FlintCostMain.cpp CallbackAllocationProbe.cpp)
 target_link_libraries(VektFlintCost PRIVATE

@@ -1,14 +1,14 @@
-#include <vekt/mono/PluginProcessor.h>
+#include <vekt/kobber/PluginProcessor.h>
 
-#include <vekt/mono/FactoryPresets.h>
+#include <vekt/kobber/FactoryPresets.h>
 #include "LfoDestinations.h"
-#include "MonoVoice.h"
-#include "MonoParameterChoices.h"
-#include "MonoRenderWorkers.h"
-#include "MonoSettingsSnapshot.h"
-#include "MonoVoiceAllocator.h"
-#include "MonoRenderPlan.h"
-#include <vekt/mono/PluginEditor.h>
+#include "KobberVoice.h"
+#include "KobberParameterChoices.h"
+#include "KobberRenderWorkers.h"
+#include "KobberSettingsSnapshot.h"
+#include "KobberVoiceAllocator.h"
+#include "KobberRenderPlan.h"
+#include <vekt/kobber/PluginEditor.h>
 
 #include <vekt/plugin_support/RequireParameter.h>
 #include <vekt/presets/PresetPaths.h>
@@ -18,7 +18,7 @@
 #include <array>
 #include <limits>
 
-namespace vekt::mono
+namespace vekt::kobber
 {
 PluginProcessor::PluginProcessor()
 	: AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
@@ -38,10 +38,10 @@ PluginProcessor::PluginProcessor()
 		[this](const presets::Preset& preset) { return applyPreset(preset); },
 		[this](const presets::Preset& preset) { return matchesPresetSound(preset); } }),
 	  qualitySelection(parameterState, parameters::trackingOversampling, parameters::offlineOversampling),
-	  cached(MonoParameterValues::resolve(parameterState))
+	  cached(KobberParameterValues::resolve(parameterState))
 {
 	for (std::size_t index = 0; index < voices.size(); ++index)
-		voices[index] = std::make_unique<MonoVoice>();
+		voices[index] = std::make_unique<KobberVoice>();
 	for (auto& clock : lfoClocks) clock = std::make_unique<LfoClock>();
 	vibratoClock = std::make_unique<LfoClock>();
 	const auto factoryResult = addFactoryPresets(presetHost.catalog());
@@ -80,10 +80,10 @@ void PluginProcessor::ensureRenderWorkers()
 	// prepareToPlay (a host thread) and the message thread can both get here; never the audio thread.
 	const std::scoped_lock lock(renderWorkerCreation);
 	if (renderWorkerPool != nullptr) return;
-	const auto helpers = MonoRenderWorkers::defaultThreadCount();
+	const auto helpers = KobberRenderWorkers::defaultThreadCount();
 	if (helpers <= 0) return;
 	// The helpers join whatever workgroup the mailbox holds when they first wake.
-	renderWorkerPool = std::make_unique<MonoRenderWorkers>(helpers, helperBlockSize.load(), helperSampleRate.load(), *workgroupMailbox);
+	renderWorkerPool = std::make_unique<KobberRenderWorkers>(helpers, helperBlockSize.load(), helperSampleRate.load(), *workgroupMailbox);
 	renderWorkers.store(renderWorkerPool.get(), std::memory_order_release);
 }
 
@@ -217,7 +217,7 @@ void PluginProcessor::renderJob(int job) noexcept
 			const std::array lfoPositions { lfoPositionBuffer[2 * static_cast<std::size_t>(sample)],
 				lfoPositionBuffer[2 * static_cast<std::size_t>(sample) + 1] };
 			const auto vibrato = vibratoBuffer[static_cast<std::size_t>(sample)];
-			const auto beginVoice = [&](MonoVoice& voice)
+			const auto beginVoice = [&](KobberVoice& voice)
 			{
 				const auto channelIndex = static_cast<std::size_t>(juce::jlimit(0, 15, voice.getChannel() - 1));
 				return voice.beginSample(settings, pitchBendByChannel[channelIndex], lfoPositions, vibrato,
@@ -346,7 +346,7 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
 	render(buffer, position, buffer.getNumSamples() - position);
 	outputMeter.publish(buffer);
 	outputScope.publish(buffer);
-	const MonoVoice* newest {};
+	const KobberVoice* newest {};
 	for (const auto& voice : voices)
 		if (voice->isActive() && (newest == nullptr || voice->getAge() > newest->getAge())) newest = voice.get();
 	for (std::size_t index = 0; index < lfoDisplayValues.size(); ++index)
@@ -405,7 +405,7 @@ void PluginProcessor::handleMidi(const juce::MidiMessage& message)
 	}
 }
 
-MonoVoiceAllocator<MonoVoice>::Rules PluginProcessor::allocationRules() const noexcept
+KobberVoiceAllocator<KobberVoice>::Rules PluginProcessor::allocationRules() const noexcept
 {
 	return { performanceModes.at(value(cached.performanceMode)), notePriorities.at(value(cached.notePriority)),
 		value(cached.heldKeyReturn) >= 0.5f, activeVoiceCount };
@@ -463,7 +463,7 @@ void PluginProcessor::render(juce::AudioBuffer<float>& buffer, int start, int co
 		for (auto& clock : lfoClocks) clock->advance();
 		vibratoClock->advance();
 	}
-	// Notes only start at segment boundaries, so the render plan (MonoRenderPlan.h) is fixed for the segment. Its units
+	// Notes only start at segment boundaries, so the render plan (KobberRenderPlan.h) is fixed for the segment. Its units
 	// fix the summing order below; the batched solves share only tanh, which is per lane, so a voice renders the same
 	// bits in any job.
 	segment.settings = &settings;

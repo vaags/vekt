@@ -1,9 +1,9 @@
-#include <vekt/mono/FactoryPresets.h>
+#include <vekt/kobber/FactoryPresets.h>
 
-#include <MonoBinaryData.h>
+#include <KobberBinaryData.h>
 #include <KobberFactoryPresetManifest.h>
 
-namespace vekt::mono
+namespace vekt::kobber
 {
 juce::Result addFactoryPresets(presets::PresetCatalog& catalog)
 {

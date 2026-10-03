@@ -2,7 +2,7 @@
 
 #include <juce_dsp/juce_dsp.h>
 
-namespace vekt::mono
+namespace vekt::kobber
 {
 namespace
 {

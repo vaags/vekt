@@ -3,7 +3,7 @@
 #include "FilterLimits.h"
 #include "Lfo.h"
 
-#include <vekt/mono/Parameters.h>
+#include <vekt/kobber/Parameters.h>
 
 #include <algorithm>
 #include <array>
@@ -11,7 +11,7 @@
 #include <cstddef>
 #include <limits>
 
-namespace vekt::mono
+namespace vekt::kobber
 {
 // Indices into parameters::LfoParameterIds::depths(); the per-oscillator destinations add the oscillator (0..2).
 namespace lfo_depth
@@ -25,7 +25,7 @@ enum class LfoTargetScale { linear, octaves };
 enum class LfoTargetLimit { knob, unbounded, cutoff };
 
 // How one LFO depth reaches the sound. At full Amount and full LFO output, a depth d moves its destination by
-// d * offsetPerDepth in the voice's own units (MonoModulation); the processor applies exactly these factors. For
+// d * offsetPerDepth in the voice's own units (KobberModulation); the processor applies exactly these factors. For
 // display, `target` is the knob whose value that offset moves. A linear target moves by offset * targetPerOffset in
 // the knob's units; an octaves target is multiplied by 2^offset.
 struct LfoDestination

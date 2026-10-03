@@ -1,7 +1,7 @@
 #include <vekt/rav/PluginEditor.h>
 #include <vekt/rav/Parameters.h>
 #include <vekt/glimmer/PluginEditor.h>
-#include <vekt/mono/PluginEditor.h>
+#include <vekt/kobber/PluginEditor.h>
 #include <vekt/flint/PluginEditor.h>
 #include <vekt/dsp/OversamplingChoices.h>
 #include <vekt/ui/QualitySettings.h>
@@ -229,8 +229,8 @@ TEST_CASE("Rav editor keeps its controls within the 16:10 canvas", "[processor][
 TEST_CASE("Kobber editor presents symmetric oscillator controls without overlap", "[processor][ui][kobber]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
-	vekt::mono::PluginProcessor processor;
-	vekt::mono::PluginEditor editor(processor);
+	vekt::kobber::PluginProcessor processor;
+	vekt::kobber::PluginEditor editor(processor);
 	const auto find = [&](const juce::String& name) -> juce::Component&
 	{
 		for (auto* child : editor.getContent().getChildren())
@@ -278,7 +278,7 @@ TEST_CASE("Kobber editor presents symmetric oscillator controls without overlap"
 		if (auto* box = dynamic_cast<juce::ComboBox*>(child); box != nullptr && box->getNumItems() == 3 && box->getItemText(1) == "White")
 			foundNoiseType = true;
 	REQUIRE(foundNoiseType);
-	REQUIRE(editor.getLogicalWidth() == vekt::mono::PluginEditor::editorWidth);
+	REQUIRE(editor.getLogicalWidth() == vekt::kobber::PluginEditor::editorWidth);
 	for (const auto scale : { 1.0, 1.5, 2.0 })
 	{
 		editor.setSize(juce::roundToInt(editor.getLogicalWidth() * scale), juce::roundToInt(editor.getLogicalHeight() * scale));
@@ -334,7 +334,7 @@ TEST_CASE("Kobber editor presents symmetric oscillator controls without overlap"
 				REQUIRE_FALSE(firstChild->getBounds().intersects(secondChild->getBounds()));
 			}
 	}
-	if (const auto* path = std::getenv("VEKT_MONO_SNAPSHOT"))
+	if (const auto* path = std::getenv("VEKT_KOBBER_SNAPSHOT"))
 	{
 		editor.resized();
 		writeSnapshot(editor, path);
@@ -344,8 +344,8 @@ TEST_CASE("Kobber editor presents symmetric oscillator controls without overlap"
 TEST_CASE("Kobber uses a secondary arc only for filter controls", "[processor][ui][kobber]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
-	vekt::mono::PluginProcessor processor;
-	vekt::mono::PluginEditor editor(processor);
+	vekt::kobber::PluginProcessor processor;
+	vekt::kobber::PluginEditor editor(processor);
 	const auto accent = juce::Colour::fromRGB(123, 191, 173);
 	for (auto* panel : editor.getContent().getChildren())
 	{
@@ -401,8 +401,8 @@ void checkMenusListParameterChoices(juce::AudioProcessor& processor, const std::
 TEST_CASE("Kobber editor menus list their parameters' choices", "[kobber][processor][ui]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
-	vekt::mono::PluginProcessor processor;
-	vekt::mono::PluginEditor editor(processor);
+	vekt::kobber::PluginProcessor processor;
+	vekt::kobber::PluginEditor editor(processor);
 	const auto menus = parameterMenus(editor);
 	REQUIRE(menus.size() >= 12);
 	checkMenusListParameterChoices(processor, menus);
@@ -429,8 +429,8 @@ TEST_CASE("Rav and Glimmer editor menus list their parameters' choices", "[rav][
 TEST_CASE("Kobber quality menus offer the shared tracking and offline choices", "[kobber][processor][ui][quality]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
-	vekt::mono::PluginProcessor processor;
-	vekt::mono::PluginEditor editor(processor);
+	vekt::kobber::PluginProcessor processor;
+	vekt::kobber::PluginEditor editor(processor);
 	// The shared Settings pop-over (vekt::ui::QualitySettings), opened from the header, holds both menus.
 	auto* settings = static_cast<vekt::ui::QualitySettings*>(nullptr);
 	for (auto* child : editor.getContent().getChildren())
@@ -457,8 +457,8 @@ TEST_CASE("Kobber quality menus offer the shared tracking and offline choices", 
 		return nullptr;
 	};
 	struct Menu { juce::String name; const char* identifier; juce::StringArray choices; int defaultIndex; };
-	for (const auto& menu : { Menu { "Tracking quality", vekt::mono::parameters::trackingOversampling, vekt::dsp::trackingQualityChoices(), 0 },
-			 Menu { "Offline quality", vekt::mono::parameters::offlineOversampling, vekt::dsp::offlineQualityChoices(), 2 } })
+	for (const auto& menu : { Menu { "Tracking quality", vekt::kobber::parameters::trackingOversampling, vekt::dsp::trackingQualityChoices(), 0 },
+			 Menu { "Offline quality", vekt::kobber::parameters::offlineOversampling, vekt::dsp::offlineQualityChoices(), 2 } })
 	{
 		INFO(menu.name);
 		auto* box = findBox(menu.name);
@@ -486,30 +486,30 @@ TEST_CASE("Kobber editor reports the active quality without a preview engine", "
 				label != nullptr && label->getText().contains(expected)) return true;
 		return false;
 	};
-	vekt::mono::PluginProcessor ordinary;
+	vekt::kobber::PluginProcessor ordinary;
 	ordinary.prepareToPlay(48'000.0, 128);
-	vekt::mono::PluginEditor ordinaryEditor(ordinary);
-	REQUIRE(hasLabel(ordinaryEditor.getContent(), "VEKT  MONO"));
+	vekt::kobber::PluginEditor ordinaryEditor(ordinary);
+	REQUIRE(hasLabel(ordinaryEditor.getContent(), "KOBBER"));
 	REQUIRE(hasLabel(ordinaryEditor.getContent(), "Quality: Off"));
-	vekt::mono::PluginProcessor high;
-	auto* highQuality = high.getParameters().getParameter(vekt::mono::parameters::trackingOversampling);
+	vekt::kobber::PluginProcessor high;
+	auto* highQuality = high.getParameters().getParameter(vekt::kobber::parameters::trackingOversampling);
 	REQUIRE(highQuality != nullptr);
 	highQuality->setValueNotifyingHost(highQuality->convertTo0to1(6.0f));
 	high.prepareToPlay(48'000.0, 128);
-	vekt::mono::PluginEditor highEditor(high);
+	vekt::kobber::PluginEditor highEditor(high);
 	REQUIRE(hasLabel(highEditor.getContent(), "Quality: 16x FIR"));
 }
 
 TEST_CASE("Kobber Q compensation checkbox binds the default-off sound parameter", "[kobber][processor][ui][qcomp]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
-	vekt::mono::PluginProcessor processor;
-	vekt::mono::PluginEditor editor(processor);
+	vekt::kobber::PluginProcessor processor;
+	vekt::kobber::PluginEditor editor(processor);
 	auto* button = findNamedButton(editor.getContent(), "Q Compensation");
 	REQUIRE(button != nullptr);
 	REQUIRE(button->isVisible());
 	REQUIRE_FALSE(button->getToggleState());
-	auto* parameter = processor.getParameters().getParameter(vekt::mono::parameters::filterQCompensation);
+	auto* parameter = processor.getParameters().getParameter(vekt::kobber::parameters::filterQCompensation);
 	REQUIRE(parameter != nullptr);
 	button->setToggleState(true, juce::sendNotificationSync);
 	REQUIRE(parameter->getValue() == Catch::Approx(1.0f));
@@ -527,15 +527,15 @@ TEST_CASE("Kobber Q compensation checkbox binds the default-off sound parameter"
 TEST_CASE("Kobber Filter Type tabs select the filter and disable the Ladder-only toggles", "[kobber][processor][ui][filter-type]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
-	vekt::mono::PluginProcessor processor;
-	vekt::mono::PluginEditor editor(processor);
+	vekt::kobber::PluginProcessor processor;
+	vekt::kobber::PluginEditor editor(processor);
 	auto* ladder = findNamedButton(editor.getContent(), "Filter Type Ladder");
 	auto* svf = findNamedButton(editor.getContent(), "Filter Type SVF");
 	auto* qCompensation = findNamedButton(editor.getContent(), "Q Compensation");
 	REQUIRE(ladder != nullptr);
 	REQUIRE(svf != nullptr);
 	REQUIRE(qCompensation != nullptr);
-	auto* parameter = processor.getParameters().getParameter(vekt::mono::parameters::filterType);
+	auto* parameter = processor.getParameters().getParameter(vekt::kobber::parameters::filterType);
 	REQUIRE(parameter != nullptr);
 	// Default: Ladder lit, its toggles enabled.
 	REQUIRE(ladder->getToggleState());
@@ -544,12 +544,12 @@ TEST_CASE("Kobber Filter Type tabs select the filter and disable the Ladder-only
 	// Clicking SVF selects it; the Ladder-only toggles stay visible but disabled, so the layout does not move.
 	// What a click runs (triggerClick() would post it asynchronously).
 	svf->onClick();
-	REQUIRE(processor.getParameters().getRawParameterValue(vekt::mono::parameters::filterType)->load() == 1.0f);
+	REQUIRE(processor.getParameters().getRawParameterValue(vekt::kobber::parameters::filterType)->load() == 1.0f);
 	REQUIRE(svf->getToggleState());
 	REQUIRE_FALSE(ladder->getToggleState());
 	REQUIRE(qCompensation->isVisible());
 	REQUIRE_FALSE(qCompensation->isEnabled());
-	if (const auto* path = std::getenv("VEKT_MONO_SNAPSHOT_SVF")) writeSnapshot(editor, path);
+	if (const auto* path = std::getenv("VEKT_KOBBER_SNAPSHOT_SVF")) writeSnapshot(editor, path);
 	// A parameter change from elsewhere (preset, automation, undo) shows on the tabs; on the message thread the
 	// attachment updates synchronously.
 	parameter->setValueNotifyingHost(0.0f);
@@ -570,8 +570,8 @@ TEST_CASE("Kobber Filter Type tabs select the filter and disable the Ladder-only
 TEST_CASE("Kobber filter tabs select the type in one undo step each, keep Mode and disable Q Comp for K35", "[kobber][processor][ui][filter-type][k35]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
-	vekt::mono::PluginProcessor processor;
-	vekt::mono::PluginEditor editor(processor);
+	vekt::kobber::PluginProcessor processor;
+	vekt::kobber::PluginEditor editor(processor);
 	auto* ladder = findNamedButton(editor.getContent(), "Filter Type Ladder");
 	auto* svf = findNamedButton(editor.getContent(), "Filter Type SVF");
 	auto* k35 = findNamedButton(editor.getContent(), "Filter Type K35");
@@ -592,24 +592,24 @@ TEST_CASE("Kobber filter tabs select the type in one undo step each, keep Mode a
 	flush();
 	k35->onClick();
 	flush();
-	REQUIRE(value(vekt::mono::parameters::filterType) == 2.0f);
+	REQUIRE(value(vekt::kobber::parameters::filterType) == 2.0f);
 	REQUIRE(k35->getToggleState());
 	REQUIRE_FALSE(svf->getToggleState());
 	REQUIRE_FALSE(ladder->getToggleState());
 	REQUIRE(mode->isVisible());
 	REQUIRE(mode->isEnabled());
 	REQUIRE_FALSE(qCompensation->isEnabled());
-	if (const auto* path = std::getenv("VEKT_MONO_SNAPSHOT_K35")) writeSnapshot(editor, path);
+	if (const auto* path = std::getenv("VEKT_KOBBER_SNAPSHOT_K35")) writeSnapshot(editor, path);
 	// Each click is one undo step.
 	REQUIRE(undo.undo());
-	REQUIRE(value(vekt::mono::parameters::filterType) == 1.0f);
+	REQUIRE(value(vekt::kobber::parameters::filterType) == 1.0f);
 	REQUIRE(svf->getToggleState());
 	REQUIRE(mode->isEnabled());
 	REQUIRE(undo.redo());
-	REQUIRE(value(vekt::mono::parameters::filterType) == 2.0f);
+	REQUIRE(value(vekt::kobber::parameters::filterType) == 2.0f);
 	REQUIRE(k35->getToggleState());
 	// Host automation moves the tabs.
-	state.getParameter(vekt::mono::parameters::filterType)->setValueNotifyingHost(0.0f);
+	state.getParameter(vekt::kobber::parameters::filterType)->setValueNotifyingHost(0.0f);
 	flush();
 	REQUIRE(ladder->getToggleState());
 	REQUIRE_FALSE(k35->getToggleState());
@@ -628,8 +628,8 @@ TEST_CASE("Kobber filter tabs select the type in one undo step each, keep Mode a
 TEST_CASE("Kobber Resonance knob writes its full range to the processor", "[kobber][processor][ui]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
-	vekt::mono::PluginProcessor processor;
-	vekt::mono::PluginEditor editor(processor);
+	vekt::kobber::PluginProcessor processor;
+	vekt::kobber::PluginEditor editor(processor);
 	auto* resonance = findRotary(editor.getContent(), "Resonance");
 	REQUIRE(resonance != nullptr);
 	auto& slider = resonance->getSlider();
@@ -637,15 +637,15 @@ TEST_CASE("Kobber Resonance knob writes its full range to the processor", "[kobb
 	REQUIRE(slider.getMaximum() == Catch::Approx(100.0));
 	slider.setValue(slider.getMaximum(), juce::sendNotificationSync);
 	REQUIRE(slider.getValue() == Catch::Approx(100.0));
-	REQUIRE(processor.getParameters().getRawParameterValue(vekt::mono::parameters::filterResonance)->load()
+	REQUIRE(processor.getParameters().getRawParameterValue(vekt::kobber::parameters::filterResonance)->load()
 		== Catch::Approx(100.0f));
 }
 
 TEST_CASE("Kobber LFO panel shows one LFO at a time with every destination", "[kobber][processor][ui][lfo]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
-	vekt::mono::PluginProcessor processor;
-	vekt::mono::PluginEditor editor(processor);
+	vekt::kobber::PluginProcessor processor;
+	vekt::kobber::PluginEditor editor(processor);
 	juce::Component* lfoPanel {};
 	for (auto* child : editor.getContent().getChildren())
 		if (child->getName() == "LFO") lfoPanel = child;
@@ -694,9 +694,9 @@ TEST_CASE("Kobber LFO panel shows one LFO at a time with every destination", "[k
 	const std::array destinations { "Osc 1 Pitch", "Osc 2 Pitch", "Osc 3 Pitch", "Osc 1 Morph", "Osc 2 Morph", "Osc 3 Morph",
 		"Osc 1 Width", "Osc 2 Width", "Osc 3 Width", "Osc 1 Level", "Osc 2 Level", "Osc 3 Level",
 		"Filter", "Amp", "Drive", "Noise", "Detune", "Spread", "Filter Mode" };
-	for (std::size_t lfo = 0; lfo < vekt::mono::parameters::lfos.size(); ++lfo)
+	for (std::size_t lfo = 0; lfo < vekt::kobber::parameters::lfos.size(); ++lfo)
 	{
-		const auto ids = vekt::mono::parameters::lfos[lfo].depths();
+		const auto ids = vekt::kobber::parameters::lfos[lfo].depths();
 		static_assert(ids.size() == destinations.size());
 		for (std::size_t depth = 0; depth < destinations.size(); ++depth)
 		{
@@ -719,7 +719,7 @@ TEST_CASE("Kobber LFO panel shows one LFO at a time with every destination", "[k
 	REQUIRE(find("LFO 2 Rate")->isVisible());
 	REQUIRE_FALSE(find("LFO 2 Division")->isVisible());
 	sync->setToggleState(true, juce::sendNotificationSync);
-	REQUIRE(processor.getParameters().getRawParameterValue(vekt::mono::parameters::lfos[1].sync)->load() == 1.0f);
+	REQUIRE(processor.getParameters().getRawParameterValue(vekt::kobber::parameters::lfos[1].sync)->load() == 1.0f);
 	REQUIRE_FALSE(find("LFO 2 Rate")->isVisible());
 	REQUIRE(find("LFO 2 Division")->isVisible());
 	REQUIRE(find("LFO 2 Division")->getBounds() == find("LFO 2 Rate")->getBounds());
@@ -728,7 +728,7 @@ TEST_CASE("Kobber LFO panel shows one LFO at a time with every destination", "[k
 	for (auto* child : find("LFO 2 Phase")->getChildren())
 		if (auto* label = dynamic_cast<juce::Label*>(child); label != nullptr && label->getName().endsWith("value"))
 			REQUIRE(label->getText() == "0.0");
-	if (const auto* path = std::getenv("VEKT_MONO_LFO_SNAPSHOT"))
+	if (const auto* path = std::getenv("VEKT_KOBBER_LFO_SNAPSHOT"))
 	{
 		editor.setSize(editor.getLogicalWidth(), editor.getLogicalHeight());
 		writeSnapshot(editor, path);
@@ -738,8 +738,8 @@ TEST_CASE("Kobber LFO panel shows one LFO at a time with every destination", "[k
 TEST_CASE("Kobber vibrato panel sits beside Performance with its controls and controller meter", "[kobber][processor][ui][vibrato]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
-	vekt::mono::PluginProcessor processor;
-	vekt::mono::PluginEditor editor(processor);
+	vekt::kobber::PluginProcessor processor;
+	vekt::kobber::PluginEditor editor(processor);
 	juce::Component* vibrato {};
 	juce::Component* performance {};
 	for (auto* child : editor.getContent().getChildren())
@@ -761,11 +761,11 @@ TEST_CASE("Kobber vibrato panel sits beside Performance with its controls and co
 	for (const auto* name : { "Vibrato Rate", "Vibrato Depth", "Vibrato Shape", "Vibrato Control" }) REQUIRE(find(name) != nullptr);
 	auto* depth = dynamic_cast<vekt::ui::RotaryControl*>(find("Vibrato Depth"));
 	depth->getSlider().setValue(80.0, juce::sendNotificationSync);
-	REQUIRE(processor.getParameters().getRawParameterValue(vekt::mono::parameters::vibratoDepth)->load() == Catch::Approx(80.0f));
+	REQUIRE(processor.getParameters().getRawParameterValue(vekt::kobber::parameters::vibratoDepth)->load() == Catch::Approx(80.0f));
 	// The controller bar is the on-screen mod wheel: a focusable slider on Vibrato Amount.
-	auto* wheel = dynamic_cast<vekt::mono::VibratoWheel*>(find("Vibrato Control"));
+	auto* wheel = dynamic_cast<vekt::kobber::VibratoWheel*>(find("Vibrato Control"));
 	REQUIRE(wheel != nullptr);
-	const auto amount = [&] { return processor.getParameters().getRawParameterValue(vekt::mono::parameters::vibratoAmount)->load(); };
+	const auto amount = [&] { return processor.getParameters().getRawParameterValue(vekt::kobber::parameters::vibratoAmount)->load(); };
 	REQUIRE(wheel->getWantsKeyboardFocus());
 	REQUIRE(wheel->getDoubleClickReturnValue() == 0.0);
 	wheel->setValue(60.0, juce::sendNotificationSync);
@@ -799,8 +799,8 @@ TEST_CASE("Kobber vibrato panel sits beside Performance with its controls and co
 TEST_CASE("Kobber shows how many voices are sounding beside the voice count", "[kobber][processor][ui]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
-	vekt::mono::PluginProcessor processor;
-	auto* mode = processor.getParameters().getParameter(vekt::mono::parameters::performanceMode);
+	vekt::kobber::PluginProcessor processor;
+	auto* mode = processor.getParameters().getParameter(vekt::kobber::parameters::performanceMode);
 	mode->setValueNotifyingHost(mode->convertTo0to1(0.0f));
 	processor.prepareToPlay(48'000.0, 256);
 	juce::AudioBuffer<float> buffer(2, 256);
@@ -809,7 +809,7 @@ TEST_CASE("Kobber shows how many voices are sounding beside the voice count", "[
 	processor.processBlock(buffer, chord);
 	REQUIRE(processor.getSoundingVoiceDisplay() == 3);
 
-	vekt::mono::PluginEditor editor(processor);
+	vekt::kobber::PluginEditor editor(processor);
 	juce::Label* active {};
 	for (auto* child : editor.getContent().getChildren())
 		if (child->getName() == "Performance")
@@ -1080,9 +1080,9 @@ TEST_CASE("Rotary numeric entry preserves precision and supports undo", "[ui]")
 
 TEST_CASE("Kobber knobs show the range their LFO depths reach", "[kobber][processor][ui][lfo][modulation]")
 {
-	namespace parameters = vekt::mono::parameters;
+	namespace parameters = vekt::kobber::parameters;
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
-	vekt::mono::PluginProcessor processor;
+	vekt::kobber::PluginProcessor processor;
 	const auto set = [&](const char* identifier, float value)
 	{
 		auto* parameter = processor.getParameters().getParameter(identifier);
@@ -1091,7 +1091,7 @@ TEST_CASE("Kobber knobs show the range their LFO depths reach", "[kobber][proces
 	for (auto* parameter : processor.juce::AudioProcessor::getParameters())
 		parameter->setValueNotifyingHost(parameter->getDefaultValue());
 	{
-		vekt::mono::PluginEditor editor(processor);
+		vekt::kobber::PluginEditor editor(processor);
 		for (const auto* name : { "Cutoff", "Osc 1 Morph", "Detune" })
 		{
 			INFO(name);
@@ -1115,7 +1115,7 @@ TEST_CASE("Kobber knobs show the range their LFO depths reach", "[kobber][proces
 	set(parameters::unisonDetune, 15.0f);
 	set(parameters::lfos[0].detune, 20.0f);
 	set(parameters::lfos[0].amp, 50.0f);
-	vekt::mono::PluginEditor editor(processor);
+	vekt::kobber::PluginEditor editor(processor);
 	const auto modulation = [&](const char* name)
 	{
 		auto* rotary = findRotary(editor.getContent(), name);
@@ -1144,7 +1144,7 @@ TEST_CASE("Kobber knobs show the range their LFO depths reach", "[kobber][proces
 	// Unmodulated knobs keep no ring.
 	REQUIRE_FALSE(modulation("Resonance").has_value());
 	REQUIRE_FALSE(modulation("Osc 3 Morph").has_value());
-	if (const auto* path = std::getenv("VEKT_MONO_SNAPSHOT"))
+	if (const auto* path = std::getenv("VEKT_KOBBER_SNAPSHOT"))
 	{
 		editor.resized();
 		writeSnapshot(editor, path);
@@ -1153,17 +1153,17 @@ TEST_CASE("Kobber knobs show the range their LFO depths reach", "[kobber][proces
 
 TEST_CASE("Kobber modulation dots follow the live LFO and fade when they move too fast to follow", "[kobber][processor][ui][lfo][modulation]")
 {
-	namespace parameters = vekt::mono::parameters;
+	namespace parameters = vekt::kobber::parameters;
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
 	// Peak speed is pi x rate x swing, as a share of the knob's travel: a +/-50 % level swing covers the whole knob.
-	const auto& level = vekt::mono::lfoDestinations[vekt::mono::lfo_depth::level];
+	const auto& level = vekt::kobber::lfoDestinations[vekt::kobber::lfo_depth::level];
 	const juce::NormalisableRange<float> percent { 0.0f, 100.0f };
-	REQUIRE(vekt::mono::lfoPeakTravelPerSecond(level, percent, 50.0, 0.5f, vekt::mono::LfoPolarity::bipolar, 2.0f)
+	REQUIRE(vekt::kobber::lfoPeakTravelPerSecond(level, percent, 50.0, 0.5f, vekt::kobber::LfoPolarity::bipolar, 2.0f)
 		== Catch::Approx(2.0 * juce::MathConstants<double>::pi));
-	REQUIRE(vekt::mono::lfoPeakTravelPerSecond(level, percent, 50.0, -0.5f, vekt::mono::LfoPolarity::unipolar, 2.0f)
+	REQUIRE(vekt::kobber::lfoPeakTravelPerSecond(level, percent, 50.0, -0.5f, vekt::kobber::LfoPolarity::unipolar, 2.0f)
 		== Catch::Approx(juce::MathConstants<double>::pi));
 
-	vekt::mono::PluginProcessor processor;
+	vekt::kobber::PluginProcessor processor;
 	const auto set = [&](const char* identifier, float value)
 	{
 		auto* parameter = processor.getParameters().getParameter(identifier);
@@ -1177,7 +1177,7 @@ TEST_CASE("Kobber modulation dots follow the live LFO and fade when they move to
 	set(parameters::ampSustain, 100.0f);
 	const auto cutoffModulation = [&]
 	{
-		vekt::mono::PluginEditor editor(processor);
+		vekt::kobber::PluginEditor editor(processor);
 		auto* rotary = findRotary(editor.getContent(), "Cutoff");
 		REQUIRE(rotary != nullptr);
 		return rotary->getModulationRing().getModulation();
@@ -1231,11 +1231,11 @@ TEST_CASE("Kobber modulation dots follow the live LFO and fade when they move to
 	modulation = cutoffModulation();
 	REQUIRE(modulation.has_value());
 	REQUIRE_FALSE(modulation->current.has_value());
-	if (const auto* path = std::getenv("VEKT_MONO_SNAPSHOT"))
+	if (const auto* path = std::getenv("VEKT_KOBBER_SNAPSHOT"))
 	{
 		set(parameters::lfos[0].rate, 1.0f);
 		processor.processBlock(buffer, none);
-		vekt::mono::PluginEditor editor(processor);
+		vekt::kobber::PluginEditor editor(processor);
 		editor.resized();
 		writeSnapshot(editor, path);
 	}
@@ -1244,9 +1244,9 @@ TEST_CASE("Kobber modulation dots follow the live LFO and fade when they move to
 
 TEST_CASE("Kobber modulation overflows the knob only where the voice does", "[kobber][processor][ui][lfo][modulation]")
 {
-	namespace parameters = vekt::mono::parameters;
+	namespace parameters = vekt::kobber::parameters;
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
-	vekt::mono::PluginProcessor processor;
+	vekt::kobber::PluginProcessor processor;
 	const auto set = [&](const char* identifier, float value)
 	{
 		auto* parameter = processor.getParameters().getParameter(identifier);
@@ -1277,7 +1277,7 @@ TEST_CASE("Kobber modulation overflows the knob only where the voice does", "[ko
 	for (int block = 0; block < 23; ++block) processor.processBlock(buffer, none);
 	REQUIRE(processor.getLfoDisplayValue(0) > 0.9f);
 
-	vekt::mono::PluginEditor editor(processor);
+	vekt::kobber::PluginEditor editor(processor);
 	const auto ring = [&](const char* name) -> const vekt::ui::ModulationRing&
 	{
 		auto* rotary = findRotary(editor.getContent(), name);
@@ -1301,7 +1301,7 @@ TEST_CASE("Kobber modulation overflows the knob only where the voice does", "[ko
 	REQUIRE(level.getModulation()->highest == Catch::Approx(100.0));
 	REQUIRE_FALSE(level.overflow().above);
 	REQUIRE_FALSE(level.isCurrentBeyondTravel());
-	if (const auto* path = std::getenv("VEKT_MONO_SNAPSHOT"))
+	if (const auto* path = std::getenv("VEKT_KOBBER_SNAPSHOT"))
 	{
 		editor.resized();
 		writeSnapshot(editor, path);
@@ -1311,9 +1311,9 @@ TEST_CASE("Kobber modulation overflows the knob only where the voice does", "[ko
 
 TEST_CASE("Kobber modulation dots keep moving in an open editor", "[kobber][processor][ui][lfo][modulation]")
 {
-	namespace parameters = vekt::mono::parameters;
+	namespace parameters = vekt::kobber::parameters;
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
-	vekt::mono::PluginProcessor processor;
+	vekt::kobber::PluginProcessor processor;
 	const auto set = [&](const char* identifier, float value)
 	{
 		auto* parameter = processor.getParameters().getParameter(identifier);
@@ -1325,7 +1325,7 @@ TEST_CASE("Kobber modulation dots keep moving in an open editor", "[kobber][proc
 	set(parameters::lfos[0].filter, 1.0f);
 	set(parameters::lfos[0].rate, 1.0f);
 	set(parameters::ampSustain, 100.0f);
-	vekt::mono::PluginEditor editor(processor);
+	vekt::kobber::PluginEditor editor(processor);
 	auto* cutoff = findRotary(editor.getContent(), "Cutoff");
 	REQUIRE(cutoff != nullptr);
 	const auto& ring = cutoff->getModulationRing();
@@ -1365,12 +1365,12 @@ TEST_CASE("Kobber modulation dots keep moving in an open editor", "[kobber][proc
 
 TEST_CASE("Kobber modulation dots follow the slow LFOs when a fast one shares the knob", "[kobber][processor][ui][lfo][modulation]")
 {
-	using vekt::mono::LfoDotContribution;
-	using vekt::mono::LfoPolarity;
+	using vekt::kobber::LfoDotContribution;
+	using vekt::kobber::LfoPolarity;
 	const auto combine = [](std::initializer_list<LfoDotContribution> lfos)
 	{
 		const std::vector<LfoDotContribution> list(lfos);
-		return vekt::mono::combineLfoDot(list);
+		return vekt::kobber::combineLfoDot(list);
 	};
 	REQUIRE(combine({}).opacity == Catch::Approx(0.0f));
 	// A followable LFO moves the dot fully. Half-way through its handover it moves the dot half as far, and the band
@@ -1395,9 +1395,9 @@ TEST_CASE("Kobber modulation dots follow the slow LFOs when a fast one shares th
 	REQUIRE(dot.blurHalfWidth == Catch::Approx(0.5f * 1.0f + 0.75f * 2.0f));
 	REQUIRE(dot.opacity == Catch::Approx(0.5f));
 
-	namespace parameters = vekt::mono::parameters;
+	namespace parameters = vekt::kobber::parameters;
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
-	vekt::mono::PluginProcessor processor;
+	vekt::kobber::PluginProcessor processor;
 	const auto set = [&](const char* identifier, float value)
 	{
 		auto* parameter = processor.getParameters().getParameter(identifier);
@@ -1415,7 +1415,7 @@ TEST_CASE("Kobber modulation dots follow the slow LFOs when a fast one shares th
 	// The same pair on a compact oscillator knob, for the snapshot.
 	set(parameters::lfos[0].width[0], 40.0f);
 	set(parameters::lfos[1].width[0], 20.0f);
-	vekt::mono::PluginEditor editor(processor);
+	vekt::kobber::PluginEditor editor(processor);
 	processor.prepareToPlay(48'000.0, 512);
 	juce::AudioBuffer<float> buffer(2, 512);
 	juce::MidiBuffer note;
@@ -1445,7 +1445,7 @@ TEST_CASE("Kobber modulation dots follow the slow LFOs when a fast one shares th
 	const auto heard = 1'000.0 * std::exp2(static_cast<double>(processor.getLfoDisplayValue(0)) + 2.0 * static_cast<double>(processor.getLfoDisplayValue(1)));
 	REQUIRE(heard >= modulation.blur->lowest * std::exp2(-displayedLfoTolerance));
 	REQUIRE(heard <= modulation.blur->highest * std::exp2(displayedLfoTolerance));
-	if (const auto* path = std::getenv("VEKT_MONO_SNAPSHOT"))
+	if (const auto* path = std::getenv("VEKT_KOBBER_SNAPSHOT"))
 	{
 		editor.resized();
 		writeSnapshot(editor, path);
@@ -1473,12 +1473,12 @@ TEST_CASE("Kobber modulation dots follow the slow LFOs when a fast one shares th
 
 TEST_CASE("Kobber modulation blur bands always contain the value heard", "[kobber][ui][lfo][modulation]")
 {
-	using vekt::mono::LfoDotContribution;
-	using vekt::mono::LfoPolarity;
+	using vekt::kobber::LfoDotContribution;
+	using vekt::kobber::LfoPolarity;
 	const auto combine = [](std::initializer_list<LfoDotContribution> lfos)
 	{
 		const std::vector<LfoDotContribution> list(lfos);
-		return vekt::mono::combineLfoDot(list);
+		return vekt::kobber::combineLfoDot(list);
 	};
 	// A followable LFO needs no band; a fast one beside a slow one adds its swing: all of it bipolar, half unipolar.
 	REQUIRE(combine({ { 2.0f, 0.5f, LfoPolarity::bipolar, 1.0f } }).blurHalfWidth == Catch::Approx(0.0f));
@@ -1504,7 +1504,7 @@ TEST_CASE("Kobber modulation blur bands always contain the value heard", "[kobbe
 			lfo.opacity = random.nextBool() ? 1.0f : random.nextFloat();
 			heard += lfo.offset * lfo.output;
 		}
-		const auto dot = vekt::mono::combineLfoDot(lfos);
+		const auto dot = vekt::kobber::combineLfoDot(lfos);
 		INFO("Trial " << trial);
 		REQUIRE(std::abs(heard - dot.offset) <= dot.blurHalfWidth + 1.0e-5f);
 	}

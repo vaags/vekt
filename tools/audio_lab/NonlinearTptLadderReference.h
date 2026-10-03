@@ -81,9 +81,9 @@ public:
 			const auto hostIntegrationGain = std::tan(std::numbers::pi * cutoff / sampleRate);
 			// wc = 2 * sampleRate * hostIntegrationGain; at N times the rate,
 			// trapezoidal integration uses wc / (2 * N * sampleRate).
-			const auto integrationGain = hostIntegrationGain * mono::ladderResonanceTuning(resonance)
+			const auto integrationGain = hostIntegrationGain * kobber::ladderResonanceTuning(resonance)
 				/ static_cast<double>(substeps);
-			const auto feedbackGain = mono::ladderFeedbackGain(resonance);
+			const auto feedbackGain = kobber::ladderFeedbackGain(resonance);
 			const auto driveGain = std::pow(10.0, driveDecibels / 20.0);
 			const auto compensation = std::clamp(previousSettings.inputFeedbackCompensation
 				+ fraction * (settings.inputFeedbackCompensation - previousSettings.inputFeedbackCompensation), 0.0, 0.5);
@@ -247,11 +247,11 @@ private:
 {
 	const auto cutoff = std::clamp(settings.cutoffHz, 10.0, sampleRate * 0.45);
 	const auto warpedCutoffRadians = 2.0 * sampleRate
-		* std::tan(std::numbers::pi * cutoff / sampleRate) * mono::ladderResonanceTuning(settings.resonance);
+		* std::tan(std::numbers::pi * cutoff / sampleRate) * kobber::ladderResonanceTuning(settings.resonance);
 	const std::complex<double> s { 0.0, 2.0 * std::numbers::pi * frequencyHz };
 	const auto stage = warpedCutoffRadians / (s + warpedCutoffRadians);
 	const auto cascade = stage * stage * stage * stage;
-	const auto feedbackGain = mono::ladderFeedbackGain(settings.resonance);
+	const auto feedbackGain = kobber::ladderFeedbackGain(settings.resonance);
 	const auto driveGain = std::pow(10.0, settings.driveDecibels / 20.0);
 	const auto wrapperGain = settings.driveCompensation ? std::sqrt(driveGain) : driveGain;
 	return wrapperGain * (1.0 + feedbackGain * std::clamp(settings.inputFeedbackCompensation, 0.0, 0.5))
@@ -263,13 +263,13 @@ private:
 {
 	const auto cutoff = std::clamp(settings.cutoffHz, 10.0, sampleRate * 0.45);
 	const auto warpedCutoffRadians = 2.0 * sampleRate
-		* std::tan(std::numbers::pi * cutoff / sampleRate) * mono::ladderResonanceTuning(settings.resonance);
+		* std::tan(std::numbers::pi * cutoff / sampleRate) * kobber::ladderResonanceTuning(settings.resonance);
 	const auto warpedProbeRadians = 2.0 * sampleRate
 		* std::tan(std::numbers::pi * frequencyHz / sampleRate);
 	const std::complex<double> s { 0.0, warpedProbeRadians };
 	const auto stage = warpedCutoffRadians / (s + warpedCutoffRadians);
 	const auto cascade = stage * stage * stage * stage;
-	const auto feedbackGain = mono::ladderFeedbackGain(settings.resonance);
+	const auto feedbackGain = kobber::ladderFeedbackGain(settings.resonance);
 	const auto driveGain = std::pow(10.0, settings.driveDecibels / 20.0);
 	const auto wrapperGain = settings.driveCompensation ? std::sqrt(driveGain) : driveGain;
 	return wrapperGain * (1.0 + feedbackGain * std::clamp(settings.inputFeedbackCompensation, 0.0, 0.5))
@@ -281,13 +281,13 @@ private:
 {
 	const auto cutoff = std::clamp(settings.cutoffHz, 10.0, sampleRate * 0.45);
 	const auto integrationGain = std::tan(std::numbers::pi * cutoff / sampleRate)
-		* mono::ladderResonanceTuning(settings.resonance);
+		* kobber::ladderResonanceTuning(settings.resonance);
 	const auto zInverse = std::exp(std::complex<double> {
 		0.0, -2.0 * std::numbers::pi * frequencyHz / sampleRate });
 	const auto stage = integrationGain * (1.0 + zInverse)
 		/ ((1.0 + integrationGain) + (integrationGain - 1.0) * zInverse);
 	const auto cascade = stage * stage * stage * stage;
-	const auto feedbackGain = mono::ladderFeedbackGain(settings.resonance);
+	const auto feedbackGain = kobber::ladderFeedbackGain(settings.resonance);
 	const auto driveGain = std::pow(10.0, settings.driveDecibels / 20.0);
 	const auto wrapperGain = settings.driveCompensation ? std::sqrt(driveGain) : driveGain;
 	return wrapperGain * (1.0 + feedbackGain * std::clamp(settings.inputFeedbackCompensation, 0.0, 0.5))

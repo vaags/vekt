@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace vekt::mono
+namespace vekt::kobber
 {
 // K35 voicing (ADR 0007), accepted after the real-synth audition (30 September 2026).
 //

@@ -7,7 +7,7 @@
 #include <numbers>
 #include <utility>
 
-namespace vekt::mono
+namespace vekt::kobber
 {
 enum class LfoShape { sine, triangle, sawUp, sawDown, square, smoothRandom };
 enum class LfoPolarity { bipolar, unipolar };

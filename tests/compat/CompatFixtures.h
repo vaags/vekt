@@ -6,7 +6,7 @@
 
 #include <vekt/rav/PluginProcessor.h>
 #include <vekt/glimmer/PluginProcessor.h>
-#include <vekt/mono/PluginProcessor.h>
+#include <vekt/kobber/PluginProcessor.h>
 #include <vekt/flint/PluginProcessor.h>
 
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -67,7 +67,7 @@ inline const std::vector<Product>& products()
 			describeProgram,
 			[](juce::AudioProcessor&) {} },
 		{ "kobber", true,
-			[] { return std::make_unique<mono::PluginProcessor>(); },
+			[] { return std::make_unique<kobber::PluginProcessor>(); },
 			describeProgram,
 			[](juce::AudioProcessor&) {} },
 		{ "flint", true,

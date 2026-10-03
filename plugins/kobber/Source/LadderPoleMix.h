@@ -6,7 +6,7 @@
 #include <array>
 #include <cmath>
 
-namespace vekt::mono
+namespace vekt::kobber
 {
 // Output tap coefficients [u, y1, y2, y3, y4] for the continuous LP -> Notch -> HP pole mix, where u is the
 // feedback-solved input to stage 1 (before its tanh) and y1..y4 are the stage outputs. Feedback always comes from
