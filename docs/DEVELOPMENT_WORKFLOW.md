@@ -138,8 +138,8 @@ focused, T1 `scripts/test.sh --opt`, T2 `scripts/test.sh --t2` with
 suite), the choice of build, test-time budgets and how to write cheap tests.
 Pick the tier there; this document's matrix decides what the evidence must cover.
 
-`zsh scripts/build-dev.sh` builds all nine supported development wrappers.
-`zsh scripts/build-au.sh [--release]` builds all three AUv2 components with the
+`zsh scripts/build-dev.sh` builds all twelve supported development wrappers.
+`zsh scripts/build-au.sh [--release]` builds all four AUv2 components with the
 existing Ninja presets, without installing plugins. Xcode remains optional.
 
 ### Audio Evidence
