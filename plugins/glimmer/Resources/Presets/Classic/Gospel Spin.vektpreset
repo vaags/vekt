@@ -5,6 +5,7 @@
   "product": "com.vekt.glimmer",
   "soundSchemaVersion": 1,
   "name": "Gospel Spin",
+  "description": "Classic cabinet at fast speed with a driven preamp and wider stereo for energetic gospel organ.",
   "tags": ["Organ", "Fast", "Driven"],
   "parameters": {
     "inputGain": 0, "preampDrive": 6, "hornDrumBalance": 15,

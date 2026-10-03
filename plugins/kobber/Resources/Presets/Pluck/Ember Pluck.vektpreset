@@ -5,6 +5,7 @@
   "product": "com.vekt.kobber",
   "soundSchemaVersion": 12,
   "name": "Ember Pluck",
+  "description": "A resonant, woody pluck with a quick filter snap.",
   "tags": [
     "Pluck",
     "Wood",

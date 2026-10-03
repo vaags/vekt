@@ -5,6 +5,7 @@
   "product": "com.vekt.kobber",
   "soundSchemaVersion": 12,
   "name": "Entropy FX",
+  "description": "Heavily detuned, drifting oscillators and noise through a resonant filter for chaotic, experimental textures.",
   "tags": [
     "FX",
     "Noise",

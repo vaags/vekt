@@ -76,13 +76,15 @@ public:
 	}
 
 	[[nodiscard]] juce::Result save(const juce::String& name, const juce::String& folder,
-		const juce::StringArray& tags, PresetSaveMode mode = PresetSaveMode::createOnly)
+		const juce::StringArray& tags, const juce::String& description = {},
+		PresetSaveMode mode = PresetSaveMode::createOnly)
 	{
 		const auto locked = lock();
 		if (!adapter.capture) return juce::Result::fail("Sound capture is unavailable");
 		auto preset = adapter.capture(name);
 		preset.folder = folder;
 		preset.tags = normaliseTags(tags);
+		preset.description = description.trim();
 		preset.productIdentifier = product.identifier;
 		preset.soundSchemaVersion = product.soundSchemaVersion;
 		preset.identifier = juce::Uuid().toString();
@@ -149,16 +151,23 @@ public:
 		adopt(preset, originName == "factory" ? PresetOrigin::factory : PresetOrigin::user);
 		return juce::Result::ok();
 	}
-	[[nodiscard]] juce::Result updateTags(const juce::String& id, const juce::StringArray& tags)
+	// Rewrites a user preset's tags and description without touching its sound or the live parameters.
+	[[nodiscard]] juce::Result updateDetails(
+		const juce::String& id, const juce::StringArray& tags, const juce::String& description)
 	{
 		const auto locked = lock();
 		const auto index = catalog.findById(id, PresetOrigin::user);
-		if (!index) return juce::Result::fail("Select a user preset to edit its tags");
+		if (!index) return juce::Result::fail("Select a user preset to edit its details");
 		Preset preset;
 		if (const auto result = catalog.load(*index, preset); result.failed()) return result;
 		preset.tags = normaliseTags(tags);
+		preset.description = description.trim();
 		if (const auto result = catalog.saveUserPreset(preset, PresetSaveMode::replaceExisting); result.failed()) return result;
-		if (snapshot && snapshot->identifier == id) snapshot->tags = preset.tags;
+		if (snapshot && loadedOrigin == PresetOrigin::user && snapshot->identifier == id)
+		{
+			snapshot->tags = preset.tags;
+			snapshot->description = preset.description;
+		}
 		return juce::Result::ok();
 	}
 	// Deletes a user preset. Deleting the selected one keeps the current sound but clears the selection (PRESET_UX).

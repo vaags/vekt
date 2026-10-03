@@ -5,6 +5,7 @@
   "product": "com.vekt.kobber",
   "soundSchemaVersion": 12,
   "name": "Nocturne Pad",
+  "description": "A dark, textured pad with drifting oscillators and a slowly moving filter.",
   "tags": [
     "Pad",
     "Dark",

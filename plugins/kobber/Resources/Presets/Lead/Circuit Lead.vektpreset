@@ -5,6 +5,7 @@
   "product": "com.vekt.kobber",
   "soundSchemaVersion": 12,
   "name": "Circuit Lead",
+  "description": "A mono lead with narrow pulse waves and filter drive for a gritty, cutting tone.",
   "tags": [
     "Lead",
     "Driven",

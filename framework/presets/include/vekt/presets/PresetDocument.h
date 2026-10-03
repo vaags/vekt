@@ -10,6 +10,7 @@ struct PresetDocument final
 {
 	inline static constexpr auto format = "vekt.preset";
 	inline static constexpr int version = 2;
+	inline static constexpr int maxDescriptionLength = 280;
 
 	[[nodiscard]] static juce::Result validate(const Preset& preset)
 	{
@@ -32,6 +33,10 @@ struct PresetDocument final
 		for (const auto& tag : preset.tags)
 			if (tag.trim().isEmpty() || tag.length() > 80)
 				return juce::Result::fail("Tags must contain between 1 and 80 characters");
+		if (preset.description.length() > maxDescriptionLength || preset.description != preset.description.trim()
+			|| preset.description.containsAnyOf(juce::CharPointer_UTF8("\r\n\v\f\xc2\x85\xe2\x80\xa8\xe2\x80\xa9")))
+			return juce::Result::fail("Descriptions must be a single trimmed line of at most "
+				+ juce::String(maxDescriptionLength) + " characters");
 		return juce::Result::ok();
 	}
 };

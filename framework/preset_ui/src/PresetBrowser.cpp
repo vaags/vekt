@@ -17,9 +17,9 @@ PresetBrowser::PresetBrowser(presets::PresetSession& controller) : session(contr
 	setTitle("Preset browser");
 	setWantsKeyboardFocus(true);
 	for (juce::Component* component : std::initializer_list<juce::Component*> {
-		&list, &search, &tagFilter, &name, &destination, &tags, &folders, &status, &heading,
+		&list, &search, &tagFilter, &name, &destination, &tags, &description, &folders, &status, &heading,
 		&close, &loadButton, &saveButton, &replaceButton, &newFolder, &moveButton, &deleteButton, &refreshButton,
-		&updateTags, &importButton, &exportButton })
+		&updateDetails, &importButton, &exportButton })
 		addAndMakeVisible(component);
 	heading.setText(session.descriptor().displayName + " presets", juce::dontSendNotification);
 	auto configure = [](juce::TextEditor& editor, const juce::String& title)
@@ -32,6 +32,8 @@ PresetBrowser::PresetBrowser(presets::PresetSession& controller) : session(contr
 	configure(name, "Preset name");
 	configure(destination, "User folder (empty = root)");
 	configure(tags, "Preset tags (comma separated)");
+	configure(description, "Preset description (one line)");
+	description.setInputRestrictions(presets::PresetDocument::maxDescriptionLength);
 	folders.setTitle("Library folder");
 	search.onTextChange = tagFilter.onTextChange = [this] { filter(); };
 	folders.onChange = [this] { filter(); };
@@ -40,11 +42,11 @@ PresetBrowser::PresetBrowser(presets::PresetSession& controller) : session(contr
 	saveButton.onClick = [this] { save(false); };
 	replaceButton.onClick = [this] { save(true); };
 	refreshButton.onClick = [this] { refresh(); };
-	updateTags.onClick = [this]
+	updateDetails.onClick = [this]
 	{
 		if (const auto entry = selected())
 		{
-			const auto result = session.updateTags(entry->identifier, parseTags(tags.getText()));
+			const auto result = session.updateDetails(entry->identifier, parseTags(tags.getText()), description.getText());
 			if (result.wasOk()) refresh();
 			showResult(result);
 		}
@@ -211,12 +213,15 @@ void PresetBrowser::selectedRowsChanged(int)
 	loadButton.setEnabled(entry && entry->error.isEmpty());
 	const auto user = entry && entry->origin == presets::PresetOrigin::user;
 	deleteButton.setEnabled(user); moveButton.setEnabled(user); replaceButton.setEnabled(user);
-	updateTags.setEnabled(user); exportButton.setEnabled(entry && entry->error.isEmpty());
+	updateDetails.setEnabled(user); exportButton.setEnabled(entry && entry->error.isEmpty());
+	// Factory descriptions are immutable; the field stays editable for user presets and new saves.
+	description.setReadOnly(entry && !user);
 	if (entry)
 	{
 		name.setText(entry->name, false);
 		destination.setText(entry->folder, false);
 		tags.setText(entry->tags.joinIntoString(", "), false);
+		description.setText(entry->description, false);
 	}
 }
 
@@ -236,20 +241,23 @@ void PresetBrowser::save(bool replace)
 		juce::Component::SafePointer<PresetBrowser> safe(this);
 		const auto presetName = name.getText().trim(), folder = destination.getText().trim();
 		const auto presetTags = parseTags(tags.getText());
+		const auto presetDescription = description.getText();
 		juce::AlertWindow::showAsync(juce::MessageBoxOptions().withTitle("Replace preset?")
 			.withMessage("Replace " + presetName + " with the current sound?")
 			.withButton("Replace").withButton("Cancel").withAssociatedComponent(this),
-			[safe, presetName, folder, presetTags](int result)
+			[safe, presetName, folder, presetTags, presetDescription](int result)
 		{
 			if (!safe || result != 1) return;
-			const auto saved = safe->session.save(presetName, folder, presetTags, presets::PresetSaveMode::replaceExisting);
+			const auto saved = safe->session.save(
+				presetName, folder, presetTags, presetDescription, presets::PresetSaveMode::replaceExisting);
 			if (saved.wasOk()) safe->refresh();
 			safe->showResult(saved);
 			if (safe->onSoundChanged) safe->onSoundChanged();
 		});
 		return;
 	}
-	const auto result = session.save(name.getText(), destination.getText().trim(), parseTags(tags.getText()));
+	const auto result = session.save(
+		name.getText(), destination.getText().trim(), parseTags(tags.getText()), description.getText());
 	if (result.wasOk()) refresh();
 	showResult(result);
 	if (onSoundChanged) onSoundChanged();
@@ -293,8 +301,10 @@ void PresetBrowser::resized()
 	moveButton.setBounds(organisation.removeFromRight(130)); organisation.removeFromRight(8);
 	destination.setBounds(organisation);
 	area.removeFromBottom(8);
+	description.setBounds(area.removeFromBottom(32));
+	area.removeFromBottom(8);
 	auto fields = area.removeFromBottom(32);
-	updateTags.setBounds(fields.removeFromRight(108)); fields.removeFromRight(8);
+	updateDetails.setBounds(fields.removeFromRight(108)); fields.removeFromRight(8);
 	name.setBounds(fields.removeFromLeft(fields.getWidth() / 2)); fields.removeFromLeft(8); tags.setBounds(fields);
 	area.removeFromBottom(8); list.setBounds(area);
 }

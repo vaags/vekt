@@ -5,6 +5,7 @@
   "product": "com.vekt.kobber",
   "soundSchemaVersion": 12,
   "name": "Subway Bass",
+  "description": "Low-octave oscillators through a dark filter for a round, clean sub bass.",
   "tags": [
     "Bass",
     "Sub",

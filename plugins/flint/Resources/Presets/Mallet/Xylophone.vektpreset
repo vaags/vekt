@@ -5,6 +5,7 @@
   "product": "com.vekt.flint",
   "soundSchemaVersion": 1,
   "name": "Xylophone",
+  "description": "Hard mallets on wooden bars with a short decay for a bright, dry xylophone.",
   "tags": [
     "Mallet",
     "Bar",

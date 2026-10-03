@@ -9,6 +9,7 @@ namespace
 inline const juce::Identifier schemaVersionProperty { "schemaVersion" };
 inline const juce::Identifier productProperty { "product" };
 inline const juce::Identifier nameProperty { "name" };
+inline const juce::Identifier descriptionProperty { "description" };
 inline const juce::Identifier parametersProperty { "parameters" };
 inline const juce::Identifier metadataProperty { "metadata" };
 
@@ -38,6 +39,8 @@ juce::Result PresetJsonCodec::encode(const Preset& preset, juce::String& destina
 	root->setProperty(schemaVersionProperty, preset.schemaVersion);
 	root->setProperty(productProperty, preset.productIdentifier);
 	root->setProperty(nameProperty, preset.name);
+	if (preset.description.isNotEmpty())
+		root->setProperty(descriptionProperty, preset.description);
 
 	auto parameters = std::make_unique<juce::DynamicObject>();
 	for (const auto& parameter : preset.parameters)
@@ -81,15 +84,18 @@ juce::Result PresetJsonCodec::decode(const juce::String& json, Preset& destinati
 	const auto soundVersion = root->getProperty("soundSchemaVersion");
 	const auto tags = root->getProperty("tags");
 	const auto soundState = root->getProperty("soundState");
+	const auto description = root->getProperty(descriptionProperty);
 	if (root->getProperty("format").toString() != PresetDocument::format
 		|| !id.isString() || !soundVersion.isInt() || !tags.isArray()
-		|| (!soundState.isVoid() && !soundState.isObject()))
+		|| (!soundState.isVoid() && !soundState.isObject())
+		|| (!description.isVoid() && !description.isString()))
 		return juce::Result::fail("Invalid Vekt preset envelope");
 
 	Preset preset;
 	preset.schemaVersion = static_cast<int>(schemaVersion);
 	preset.productIdentifier = product.toString();
 	preset.name = name.toString();
+	preset.description = description.toString();
 	preset.identifier = id.toString();
 	preset.soundSchemaVersion = static_cast<int>(soundVersion);
 	for (const auto& tag : *tags.getArray())

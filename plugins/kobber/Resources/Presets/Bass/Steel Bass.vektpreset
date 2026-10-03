@@ -5,6 +5,7 @@
   "product": "com.vekt.kobber",
   "soundSchemaVersion": 12,
   "name": "Steel Bass",
+  "description": "Detuned unison oscillators and filter drive for a hard-edged modern bass.",
   "tags": [
     "Bass",
     "Driven",

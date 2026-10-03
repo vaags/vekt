@@ -27,7 +27,7 @@ The `.vektpreset` UTF-8 JSON format is global, not a Rav format:
 - `id`: opaque stable identity
 - `product`: stable compatible product ID
 - `soundSchemaVersion`: independently versioned product payload
-- `name`, `tags`, optional `metadata`
+- `name`, `tags`, optional `description` (one trimmed line, at most 280 characters) and `metadata`
 - `parameters`: numeric parameter values keyed by stable IDs
 - `soundState`: optional structured, product-validated sound information
 
@@ -48,12 +48,12 @@ different folders. Names are case-insensitively unique per folder. Factory
 names remain reserved. Catalogs are product-scoped; incompatible presets are
 not offered. Ambiguous IDs are unavailable rather than resolved arbitrarily.
 
-Search matches name, folder and tags. Folder scopes include descendants. Tags
+Search matches name, folder, tags and description. Folder scopes include descendants. Tags
 are trimmed and case-insensitively deduplicated. Selected tags all must match.
 Selection is separate from loading. Enter, double-click or Load applies sound;
 toolbar navigation continues across the whole catalog.
 
-Tag updates preserve stored sound and do not clear the live sound's modified
+Detail (tag and description) updates preserve stored sound and do not clear the live sound's modified
 state. Import adds a validated copy without applying it. Export writes the
 selected stored preset. Save As captures current sound with a new identity.
 Replacement and deletion require confirmation in the browser.

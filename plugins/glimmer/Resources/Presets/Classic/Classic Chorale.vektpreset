@@ -5,6 +5,7 @@
   "product": "com.vekt.glimmer",
   "soundSchemaVersion": 1,
   "name": "Classic Chorale",
+  "description": "Classic cabinet at slow speed with a clean preamp, for the gentle chorale swirl of a rotary organ speaker.",
   "tags": ["Organ", "Slow", "Clean"],
   "parameters": {
     "inputGain": 0, "preampDrive": 0, "hornDrumBalance": 0,

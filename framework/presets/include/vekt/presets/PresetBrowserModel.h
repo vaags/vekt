@@ -22,7 +22,7 @@ public:
 			bool matches = true;
 			for (const auto& tag : normaliseTags(tags))
 				if (!entry.tags.contains(tag, true)) matches = false;
-			const auto text = entry.name + " " + entry.folder + " " + entry.tags.joinIntoString(" ");
+			const auto text = entry.name + " " + entry.folder + " " + entry.tags.joinIntoString(" ") + " " + entry.description;
 			juce::StringArray words;
 			words.addTokens(search.trim(), true);
 			for (const auto& word : words)

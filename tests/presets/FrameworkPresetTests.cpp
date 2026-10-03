@@ -101,6 +101,34 @@ TEST_CASE("Global preset format round trips independent product schemas", "[pres
 	}
 }
 
+TEST_CASE("Preset descriptions are optional single-line text that round trips", "[presets][framework]")
+{
+	const TestProduct product { "test.drive", "gain" };
+	auto source = product.capture("Example");
+	juce::String json;
+	REQUIRE(vekt::presets::PresetJsonCodec::encode(source, json).wasOk());
+	REQUIRE_FALSE(json.contains("\"description\""));
+	vekt::presets::Preset restored;
+	REQUIRE(vekt::presets::PresetJsonCodec::decode(json, restored).wasOk());
+	REQUIRE(restored.description.isEmpty());
+
+	source.description = "Gentle saturation that thickens without losing clarity.";
+	REQUIRE(vekt::presets::PresetJsonCodec::encode(source, json).wasOk());
+	REQUIRE(vekt::presets::PresetJsonCodec::decode(json, restored).wasOk());
+	REQUIRE(restored.description == source.description);
+
+	source.description = juce::String::repeatedString("a", vekt::presets::PresetDocument::maxDescriptionLength + 1);
+	REQUIRE(vekt::presets::PresetJsonCodec::encode(source, json).failed());
+	for (const auto* invalid : { "First line\nSecond line", "First\xe2\x80\xa8Second", " Padded", " " })
+	{
+		source.description = juce::String::fromUTF8(invalid);
+		REQUIRE(vekt::presets::PresetJsonCodec::encode(source, json).failed());
+	}
+	REQUIRE(vekt::presets::PresetJsonCodec::decode(
+		R"({"format":"vekt.preset","schemaVersion":2,"id":"x","product":"test.drive","soundSchemaVersion":1,)"
+		R"("name":"X","tags":[],"description":7,"parameters":{"gain":0.5}})", restored).failed());
+}
+
 TEST_CASE("Preset documents from before version 2 are rejected without changing the destination", "[presets][framework]")
 {
 	vekt::presets::Preset preset;
@@ -160,7 +188,7 @@ TEST_CASE("Shared sessions isolate products and migrate sounds independently", "
 	const auto id = driveSession.loaded()->identifier;
 	drive.value = 0.75f;
 	REQUIRE(driveSession.modified());
-	REQUIRE(driveSession.save("Drive", "Bass", { "Warm", "Bass" }, vekt::presets::PresetSaveMode::replaceExisting).wasOk());
+	REQUIRE(driveSession.save("Drive", "Bass", { "Warm", "Bass" }, {}, vekt::presets::PresetSaveMode::replaceExisting).wasOk());
 	REQUIRE(driveSession.loaded()->identifier == id);
 	REQUIRE_FALSE(driveSession.modified());
 	REQUIRE(repository.move("Bass/Drive", "Moved/Drive").wasOk());
@@ -175,26 +203,30 @@ TEST_CASE("Browser filters combine folder descendants search and all tags", "[pr
 {
 	vekt::presets::PresetBrowserModel model;
 	std::vector<vekt::presets::PresetEntry> entries {
-		{ "Soft", vekt::presets::PresetOrigin::user, "1", "Bass/Sub/Soft", "Bass/Sub", { "Warm", "Bass" }, {} },
-		{ "Hard", vekt::presets::PresetOrigin::user, "2", "Drums/Hard", "Drums", { "Warm" }, {} }
+		{ "Soft", vekt::presets::PresetOrigin::user, "1", "Bass/Sub/Soft", "Bass/Sub", { "Warm", "Bass" }, {}, {} },
+		{ "Hard", vekt::presets::PresetOrigin::user, "2", "Drums/Hard", "Drums", { "Warm" }, {}, "Punchy transient grit" }
 	};
+	model.search = "transient";
+	REQUIRE(model.filter(entries).size() == 1);
 	model.folder = "Bass"; model.tags = { "warm", "bass" }; model.search = "soft";
 	REQUIRE(model.filter(entries).size() == 1);
 	model.tags.add("Bright");
 	REQUIRE(model.filter(entries).empty());
 }
 
-TEST_CASE("Tag editing and library import do not apply live sound", "[presets][framework]")
+TEST_CASE("Detail editing and library import do not apply live sound", "[presets][framework]")
 {
 	Directory directory;
 	vekt::presets::FilePresetRepository repository(directory.root);
 	vekt::presets::PresetCatalog catalog(repository);
 	TestProduct product { "test.drive", "gain" };
 	vekt::presets::PresetSession session(catalog, { product.id, "Drive", 1 }, product.adapter());
-	REQUIRE(session.save("Original", {}, { "Warm" }).wasOk());
+	REQUIRE(session.save("Original", {}, { "Warm" }, "Before").wasOk());
+	REQUIRE(session.loaded()->description == "Before");
 	const auto id = session.loaded()->identifier;
 	product.value = 0.9f;
-	REQUIRE(session.updateTags(id, { "Bass" }).wasOk());
+	REQUIRE(session.updateDetails(id, { "Bass" }, "After").wasOk());
+	REQUIRE(session.loaded()->description == "After");
 	REQUIRE(session.modified());
 	REQUIRE(product.value == Catch::Approx(0.9f));
 	vekt::presets::Preset saved;
@@ -202,6 +234,7 @@ TEST_CASE("Tag editing and library import do not apply live sound", "[presets][f
 	REQUIRE(saved.folder.isEmpty());
 	REQUIRE(saved.parameters[0].value == Catch::Approx(0.5f));
 	REQUIRE(saved.tags.contains("Bass"));
+	REQUIRE(saved.description == "After");
 	const auto exported = directory.root.getChildFile("export.json");
 	REQUIRE(session.exportFile(id, vekt::presets::PresetOrigin::user, exported).wasOk());
 	REQUIRE(session.importFile(exported, "Imported").wasOk());
@@ -210,6 +243,25 @@ TEST_CASE("Tag editing and library import do not apply live sound", "[presets][f
 	REQUIRE(product.value == Catch::Approx(0.9f));
 	REQUIRE(session.loaded()->identifier == id);
 	REQUIRE(session.modified());
+}
+
+TEST_CASE("Editing a user preset's details leaves a loaded factory preset with the same identity unchanged", "[presets][framework]")
+{
+	Directory directory;
+	vekt::presets::FilePresetRepository repository(directory.root);
+	vekt::presets::PresetCatalog catalog(repository);
+	TestProduct product { "test.drive", "gain" };
+	vekt::presets::PresetSession session(catalog, { product.id, "Drive", 1 }, product.adapter());
+	auto copy = product.capture("Copy");
+	copy.identifier = "shared";
+	REQUIRE(repository.save(copy).wasOk());
+	REQUIRE(catalog.addFactoryPreset(
+		R"({"format":"vekt.preset","schemaVersion":2,"id":"shared","product":"test.drive","soundSchemaVersion":1,)"
+		R"("name":"Factory","description":"Factory text","tags":[],"parameters":{"gain":0.5}})").wasOk());
+	REQUIRE(session.load("shared", vekt::presets::PresetOrigin::factory).wasOk());
+	REQUIRE(session.updateDetails("shared", { "Edited" }, "User text").wasOk());
+	REQUIRE(session.loaded()->description == "Factory text");
+	REQUIRE(session.loaded()->tags.isEmpty());
 }
 
 TEST_CASE("Ambiguous preset identities are unavailable instead of loading the wrong file", "[presets][framework]")
@@ -234,12 +286,13 @@ TEST_CASE("Selection restore preserves live sound without requiring the library 
 	vekt::presets::PresetCatalog catalog(repository);
 	TestProduct product { "test.drive", "gain" };
 	vekt::presets::PresetSession session(catalog, { product.id, "Drive", 1 }, product.adapter());
-	REQUIRE(session.save("Saved", {}, {}).wasOk());
+	REQUIRE(session.save("Saved", {}, {}, "Stored description").wasOk());
 	const auto state = session.selectionState();
 	REQUIRE(repository.remove("Saved").wasOk());
 	catalog.refresh(); session.clear(); product.value = 0.9f;
 	REQUIRE(session.restoreSelection(state).wasOk());
 	REQUIRE(session.loaded()->name == "Saved");
+	REQUIRE(session.loaded()->description == "Stored description");
 	REQUIRE_FALSE(session.currentIndex());
 	REQUIRE(session.modified());
 	REQUIRE(product.value == Catch::Approx(0.9f));

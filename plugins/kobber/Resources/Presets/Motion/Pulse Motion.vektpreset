@@ -5,6 +5,7 @@
   "product": "com.vekt.kobber",
   "soundSchemaVersion": 12,
   "name": "Pulse Motion",
+  "description": "A tempo-synced LFO pulses a resonant filter for rhythmic, sequence-like parts.",
   "tags": [
     "Motion",
     "Resonant",

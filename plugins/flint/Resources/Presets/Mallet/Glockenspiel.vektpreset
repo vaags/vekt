@@ -5,6 +5,7 @@
   "product": "com.vekt.flint",
   "soundSchemaVersion": 1,
   "name": "Glockenspiel",
+  "description": "Hard mallets on bright metal bars with a long ring and no resonator, like a glockenspiel.",
   "tags": [
     "Mallet",
     "Bar",

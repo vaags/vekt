@@ -5,6 +5,7 @@
   "product": "com.vekt.kobber",
   "soundSchemaVersion": 12,
   "name": "Tide Motion",
+  "description": "Very slow LFOs shift the filter and oscillator shape for organic, evolving movement.",
   "tags": [
     "Motion",
     "Slow",

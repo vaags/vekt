@@ -253,7 +253,7 @@ TEST_CASE("Rav user preset services do not change its host program bank", "[pres
 	REQUIRE(session.save("My Drive", {}, {}).wasOk());
 	REQUIRE_FALSE(session.modified());
 	REQUIRE(session.save("My Drive", {}, {}).failed());
-	REQUIRE(session.save("my drive", {}, {}, vekt::presets::PresetSaveMode::replaceExisting).failed());
+	REQUIRE(session.save("my drive", {}, {}, {}, vekt::presets::PresetSaveMode::replaceExisting).failed());
 	setParameter(processor, vekt::rav::parameters::drive, 24.0f);
 	REQUIRE(session.modified());
 	REQUIRE(session.save("Other Drive", {}, {}).wasOk());
@@ -331,6 +331,11 @@ TEST_CASE("Rav factory library groups instrument presets with useful tags", "[pr
 	const auto& entries = processor.getPresetSession().library().entries();
 	REQUIRE(entries.size() == 22);
 	REQUIRE(processor.getNumPrograms() == 22);
+	for (const auto& entry : entries)
+	{
+		INFO(entry.location.toStdString());
+		REQUIRE(entry.description.isNotEmpty());
+	}
 	REQUIRE(processor.getPresetSession().library().folders(vekt::presets::PresetOrigin::factory)
 		== juce::StringArray { "Bass", "Drums", "Guitar", "Keys", "Mastering" });
 

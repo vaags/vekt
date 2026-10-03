@@ -5,6 +5,7 @@
   "product": "com.vekt.kobber",
   "soundSchemaVersion": 12,
   "name": "Foundation Bass",
+  "description": "A deep, sub-octave three-oscillator bass with a short filter envelope for solid low end.",
   "tags": [
     "Bass",
     "Classic",

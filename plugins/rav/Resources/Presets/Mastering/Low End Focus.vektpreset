@@ -5,6 +5,7 @@
   "product": "com.vekt.rav",
   "soundSchemaVersion": 4,
   "name": "Low End Focus",
+  "description": "Low-level saturation applied mostly to the low band to firm up the bottom of a mix.",
   "tags": [
     "Mastering",
     "Low End",

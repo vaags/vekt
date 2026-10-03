@@ -5,6 +5,7 @@
   "product": "com.vekt.rav",
   "soundSchemaVersion": 4,
   "name": "Parallel Grit",
+  "description": "Saturation and distortion blended in parallel to add aggressive grit under the dry signal.",
   "tags": [
     "Parallel",
     "Grit",

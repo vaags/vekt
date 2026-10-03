@@ -5,6 +5,7 @@
   "product": "com.vekt.flint",
   "soundSchemaVersion": 1,
   "name": "Vibraphone",
+  "description": "Metal bars over a resonator with a long decay for a mellow, sustaining vibraphone.",
   "tags": [
     "Mallet",
     "Bar",

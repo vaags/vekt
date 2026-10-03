@@ -5,6 +5,7 @@
   "product": "com.vekt.rav",
   "soundSchemaVersion": 4,
   "name": "Circuit Parallel",
+  "description": "Circuit fuzz blended under the dry drums for gritty, textured highs with an intact low end.",
   "tags": ["Drums", "Circuit Fuzz", "Parallel", "Grit"],
   "soundState": {"stageOrder": "3,2,0,1,4"},
   "parameters": {

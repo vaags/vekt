@@ -5,6 +5,7 @@
   "product": "com.vekt.kobber",
   "soundSchemaVersion": 12,
   "name": "Copper Pluck",
+  "description": "A short, bright pluck with a fast filter envelope for melodic arpeggios.",
   "tags": [
     "Pluck",
     "Short",

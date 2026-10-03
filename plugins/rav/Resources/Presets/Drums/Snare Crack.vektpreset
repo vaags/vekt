@@ -5,6 +5,7 @@
   "product": "com.vekt.rav",
   "soundSchemaVersion": 4,
   "name": "Snare Crack",
+  "description": "Bright overdrive and distortion focused above the lows to make snares and toms crack.",
   "tags": [
     "Drums",
     "Snare",

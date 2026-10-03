@@ -22,6 +22,7 @@ struct PresetEntry final
 	juce::String folder;
 	juce::StringArray tags;
 	juce::String error;
+	juce::String description;
 };
 
 class PresetCatalog final

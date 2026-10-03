@@ -5,6 +5,7 @@
   "product": "com.vekt.flint",
   "soundSchemaVersion": 1,
   "name": "Distorted Sub",
+  "description": "A long sub kick through fold drive for a dirty, saturated low end.",
   "tags": [
     "Kick",
     "Classic Analog",

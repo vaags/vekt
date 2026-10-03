@@ -5,6 +5,7 @@
   "product": "com.vekt.rav",
   "soundSchemaVersion": 4,
   "name": "Warm Push",
+  "description": "Gentle saturation into light overdrive with a darker tone for warm, vintage-style push.",
   "tags": [
     "Warm",
     "Drive",

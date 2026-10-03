@@ -5,6 +5,7 @@
   "product": "com.vekt.kobber",
   "soundSchemaVersion": 12,
   "name": "Voyager Lead",
+  "description": "Two detuned oscillators with wide unison and gentle vibrato for a big, classic lead.",
   "tags": [
     "Lead",
     "Classic",

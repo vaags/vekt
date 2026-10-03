@@ -5,6 +5,7 @@
   "product": "com.vekt.rav",
   "soundSchemaVersion": 4,
   "name": "Drum Bus Glue",
+  "description": "Light saturation and overdrive blended in on the drum bus to glue the kit together and add punch.",
   "tags": [
     "Drums",
     "Bus",

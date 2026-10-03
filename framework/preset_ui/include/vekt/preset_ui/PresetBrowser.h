@@ -34,12 +34,12 @@ private:
 	presets::PresetBrowserModel model;
 	std::vector<presets::PresetEntry> rows;
 	juce::ListBox list { "Presets", this };
-	juce::TextEditor search, tagFilter, name, destination, tags;
+	juce::TextEditor search, tagFilter, name, destination, tags, description;
 	juce::ComboBox folders;
 	juce::Label status, heading;
 	juce::TextButton close { "Close" }, loadButton { "Load" }, saveButton { "Save As" },
 		replaceButton { juce::String::fromUTF8("Replace…") }, newFolder { "New folder" }, moveButton { "Move to folder" },
-		deleteButton { juce::String::fromUTF8("Delete…") }, refreshButton { "Refresh" }, updateTags { "Update tags" },
+		deleteButton { juce::String::fromUTF8("Delete…") }, refreshButton { "Refresh" }, updateDetails { "Update details" },
 		importButton { juce::String::fromUTF8("Import…") }, exportButton { juce::String::fromUTF8("Export…") };
 	std::unique_ptr<juce::FileChooser> chooser;
 };

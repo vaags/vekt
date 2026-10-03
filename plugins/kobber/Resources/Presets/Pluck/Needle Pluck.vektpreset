@@ -5,6 +5,7 @@
   "product": "com.vekt.kobber",
   "soundSchemaVersion": 12,
   "name": "Needle Pluck",
+  "description": "A very short, sharp pluck with a bright filter for fast, precise lines.",
   "tags": [
     "Pluck",
     "Sharp",

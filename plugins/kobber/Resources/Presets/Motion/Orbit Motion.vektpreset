@@ -5,6 +5,7 @@
   "product": "com.vekt.kobber",
   "soundSchemaVersion": 12,
   "name": "Orbit Motion",
+  "description": "Slow LFOs morph the oscillators and spread the voices across a wide, drifting stereo field.",
   "tags": [
     "Motion",
     "Wide",

@@ -5,6 +5,7 @@
   "product": "com.vekt.rav",
   "soundSchemaVersion": 4,
   "name": "Crushed Chords",
+  "description": "Distortion and gated fuzz in parallel for lo-fi, crunchy chords and rhythmic keys.",
   "tags": [
     "Keys",
     "Lo-Fi",

@@ -66,8 +66,10 @@ TEST_CASE("Glimmer factory bank loads complete sound-only presets", "[glimmer][p
 		REQUIRE(catalog.loadFactoryPreset(index, preset).wasOk());
 		INFO(preset.name.toStdString());
 		REQUIRE(preset.parameters.size() == vekt::glimmer::parameters::soundParameterIds.size());
+		REQUIRE(preset.description.isNotEmpty());
 		REQUIRE(session.load(preset.identifier, vekt::presets::PresetOrigin::factory).wasOk());
 		REQUIRE(session.loaded()->name == preset.name);
+		REQUIRE(session.loaded()->description == preset.description);
 		REQUIRE(processor.getNumPrograms() == 6);
 		REQUIRE(processor.getCurrentProgram() == static_cast<int>(index));
 		REQUIRE(processor.getProgramName(static_cast<int>(index)) == preset.name);

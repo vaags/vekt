@@ -5,6 +5,7 @@
   "product": "com.vekt.kobber",
   "soundSchemaVersion": 12,
   "name": "Amber Pad",
+  "description": "A warm, slow-attack pad with gentle filter and waveform movement.",
   "tags": [
     "Pad",
     "Warm",

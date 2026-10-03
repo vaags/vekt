@@ -5,6 +5,7 @@
   "product": "com.vekt.kobber",
   "soundSchemaVersion": 12,
   "name": "Horizon Pad",
+  "description": "A wide, airy pad with a slow attack, long release and an open filter.",
   "tags": [
     "Pad",
     "Wide",

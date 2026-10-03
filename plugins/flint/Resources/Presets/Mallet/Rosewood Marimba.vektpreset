@@ -5,6 +5,7 @@
   "product": "com.vekt.flint",
   "soundSchemaVersion": 1,
   "name": "Rosewood Marimba",
+  "description": "Medium mallets on wooden bars over a resonator for a soft, warm marimba.",
   "tags": [
     "Mallet",
     "Bar",

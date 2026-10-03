@@ -5,6 +5,7 @@
   "product": "com.vekt.kobber",
   "soundSchemaVersion": 12,
   "name": "Slate Pluck",
+  "description": "A dark, muted pluck with a low filter for soft, percussive parts.",
   "tags": [
     "Pluck",
     "Muted",

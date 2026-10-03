@@ -5,6 +5,7 @@
   "product": "com.vekt.rav",
   "soundSchemaVersion": 4,
   "name": "Parallel Sheen",
+  "description": "A small parallel blend of saturation weighted to the high band for air and sheen.",
   "tags": [
     "Mastering",
     "Parallel",

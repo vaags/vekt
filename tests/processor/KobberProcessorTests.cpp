@@ -1732,6 +1732,13 @@ TEST_CASE("Kobber provides 26 categorized factory presets", "[kobber][processor]
 	processor.setCurrentProgram(23);
 	REQUIRE(processor.getCurrentProgram() == 23);
 	REQUIRE(processor.getProgramName(23) == "Transmission FX");
+	for (std::size_t index = 0; index < catalog.factoryPresetCount(); ++index)
+	{
+		vekt::presets::Preset preset;
+		REQUIRE(catalog.loadFactoryPreset(index, preset).wasOk());
+		INFO(preset.name.toStdString());
+		REQUIRE(preset.description.isNotEmpty());
+	}
 }
 
 TEST_CASE("Kobber factory presets load with their stored values, including LFO settings", "[kobber][processor][preset]")

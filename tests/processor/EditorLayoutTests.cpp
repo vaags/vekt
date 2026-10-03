@@ -943,9 +943,18 @@ TEST_CASE("Glimmer editor keeps stereo meters within its canvas", "[processor][u
 	REQUIRE(list != nullptr);
 	REQUIRE(load != nullptr);
 	REQUIRE(list->getListBoxModel()->getNumRows() == 6);
+	juce::TextEditor* description = nullptr;
+	for (auto* child : browser->getChildren())
+		if (auto* field = dynamic_cast<juce::TextEditor*>(child); field != nullptr && field->getTitle() == "Preset description (one line)")
+			description = field;
+	REQUIRE(description != nullptr);
+	REQUIRE_FALSE(description->isReadOnly());
 	list->selectRow(5);
+	REQUIRE(description->isReadOnly());
 	load->onClick();
 	REQUIRE(preset.getButtonText() == "Slow Panorama");
+	REQUIRE(preset.getTooltip().isNotEmpty());
+	REQUIRE(preset.getTooltip() == processor.getPresetSession().loaded()->description);
 	REQUIRE(wide.getToggleState());
 	for (const auto width : { 1120, 1680, 2240 })
 	{

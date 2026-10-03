@@ -5,6 +5,7 @@
   "product": "com.vekt.rav",
   "soundSchemaVersion": 4,
   "name": "Circuit Grind",
+  "description": "Circuit fuzz focused on the mids with a lighter low band, for rock bass that cuts through a busy mix.",
   "tags": ["Bass", "Circuit Fuzz", "Midrange", "Rock"],
   "soundState": {"stageOrder": "0,3,1,2,4"},
   "parameters": {

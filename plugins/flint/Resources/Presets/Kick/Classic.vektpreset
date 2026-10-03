@@ -5,6 +5,7 @@
   "product": "com.vekt.flint",
   "soundSchemaVersion": 1,
   "name": "Classic",
+  "description": "A plain analog kick with a medium decay: a neutral starting point for your own kick.",
   "tags": [
     "Kick",
     "Classic Analog",

@@ -5,6 +5,7 @@
   "product": "com.vekt.kobber",
   "soundSchemaVersion": 12,
   "name": "Polaris FX",
+  "description": "High oscillators and noise through a bright resonant filter for shimmering, airy effects.",
   "tags": [
     "FX",
     "High",

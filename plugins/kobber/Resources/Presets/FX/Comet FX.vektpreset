@@ -5,6 +5,7 @@
   "product": "com.vekt.kobber",
   "soundSchemaVersion": 12,
   "name": "Comet FX",
+  "description": "Wide unison oscillators and noise through a resonant filter, with a soft attack and long tail for sweeps.",
   "tags": [
     "FX",
     "Noise",

@@ -5,6 +5,7 @@
   "product": "com.vekt.rav",
   "soundSchemaVersion": 4,
   "name": "Analog Glow",
+  "description": "Soft saturation and overdrive with rolled-off highs that add analog warmth to pads and keys.",
   "tags": [
     "Keys",
     "Warm",

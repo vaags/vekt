@@ -5,6 +5,7 @@
   "product": "com.vekt.glimmer",
   "soundSchemaVersion": 1,
   "name": "Baffle Drive",
+  "description": "Drum cabinet at fast speed with a driven preamp and close mics, for gritty rotary guitar.",
   "tags": ["Guitar", "Fast", "Driven"],
   "parameters": {
     "inputGain": 0, "preampDrive": 10, "hornDrumBalance": 0,

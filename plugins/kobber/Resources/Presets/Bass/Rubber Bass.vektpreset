@@ -5,6 +5,7 @@
   "product": "com.vekt.kobber",
   "soundSchemaVersion": 12,
   "name": "Rubber Bass",
+  "description": "A resonant filter with a strong envelope sweep for a bouncy, punchy rubber bass.",
   "tags": [
     "Bass",
     "Resonant",

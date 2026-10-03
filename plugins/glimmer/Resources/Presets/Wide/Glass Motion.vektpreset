@@ -5,6 +5,7 @@
   "product": "com.vekt.glimmer",
   "soundSchemaVersion": 1,
   "name": "Glass Motion",
+  "description": "Wide cabinet with manual speed control and a bright horn, for shimmering electric piano.",
   "tags": ["Electric Piano", "Manual", "Bright"],
   "parameters": {
     "inputGain": 0, "preampDrive": 0, "hornDrumBalance": 20,

@@ -136,8 +136,10 @@ TEST_CASE("Flint factory bank loads complete sound-only presets that meet their 
 		INFO(preset.name.toStdString());
 		// Every sound parameter, the other mode's included, so a preset sounds the same whatever was set before.
 		REQUIRE(preset.parameters.size() == parameters::soundParameterIds.size());
+		REQUIRE(preset.description.isNotEmpty());
 		REQUIRE(session.load(preset.identifier, vekt::presets::PresetOrigin::factory).wasOk());
 		REQUIRE(session.loaded()->name == preset.name);
+		REQUIRE(session.loaded()->description == preset.description);
 		REQUIRE(processor.getCurrentProgram() == static_cast<int>(index));
 		REQUIRE(processor.getProgramName(static_cast<int>(index)) == preset.name);
 		REQUIRE_FALSE(session.modified());

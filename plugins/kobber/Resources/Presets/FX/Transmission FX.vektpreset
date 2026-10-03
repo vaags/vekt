@@ -5,6 +5,7 @@
   "product": "com.vekt.kobber",
   "soundSchemaVersion": 12,
   "name": "Transmission FX",
+  "description": "Noisy, detuned oscillators through a driven filter for radio-like, broken-transmission textures.",
   "tags": [
     "FX",
     "Radio",

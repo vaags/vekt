@@ -5,6 +5,7 @@
   "product": "com.vekt.rav",
   "soundSchemaVersion": 4,
   "name": "Transient Smash",
+  "description": "Saturation, distortion and gated fuzz in parallel for crushed, aggressive drums.",
   "tags": [
     "Drums",
     "Parallel",

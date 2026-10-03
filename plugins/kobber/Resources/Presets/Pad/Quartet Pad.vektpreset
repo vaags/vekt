@@ -5,6 +5,7 @@
   "product": "com.vekt.kobber",
   "soundSchemaVersion": 12,
   "name": "Quartet Pad",
+  "description": "A vintage ensemble-style pad with slow envelopes, drift and subtle filter movement.",
   "tags": [
     "Pad",
     "Vintage",

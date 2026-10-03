@@ -64,7 +64,7 @@ void PresetCatalog::refresh()
 	for (const auto& preset : factoryPresets)
 		catalogEntries.push_back({ preset.name, PresetOrigin::factory, preset.identifier,
 			preset.folder.isEmpty() ? preset.name : preset.folder + "/" + preset.name,
-			preset.folder, preset.tags, {} });
+			preset.folder, preset.tags, {}, preset.description });
 
 	for (const auto& location : userNames)
 	{
@@ -77,7 +77,7 @@ void PresetCatalog::refresh()
 		catalogEntries.push_back({ name, PresetOrigin::user,
 			result.wasOk() ? preset.identifier : "invalid:" + location, location,
 			location.containsChar('/') ? location.upToLastOccurrenceOf("/", false, false) : juce::String {}, preset.tags,
-			result.getErrorMessage() });
+			result.getErrorMessage(), preset.description });
 	}
 	// Never resolve an ambiguous ID to whichever file happens to sort first.
 	for (std::size_t i = 0; i < catalogEntries.size(); ++i)

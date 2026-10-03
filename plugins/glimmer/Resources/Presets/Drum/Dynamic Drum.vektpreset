@@ -5,6 +5,7 @@
   "product": "com.vekt.glimmer",
   "soundSchemaVersion": 1,
   "name": "Dynamic Drum",
+  "description": "Drum cabinet whose speed follows your playing dynamics, for warm, responsive guitar motion.",
   "tags": ["Guitar", "Auto", "Warm"],
   "parameters": {
     "inputGain": 0, "preampDrive": 3, "hornDrumBalance": 0,

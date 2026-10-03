@@ -11,7 +11,6 @@ public:
 	{
 		setName("Preset navigation");
 		presetButton.setName("Open preset browser");
-		presetButton.setTooltip("Browse, load and save presets");
 		previousButton.setTooltip("Previous preset");
 		nextButton.setTooltip("Next preset");
 		addAndMakeVisible(previousButton);
@@ -20,16 +19,17 @@ public:
 		presetButton.onClick = [this] { if (onBrowse) onBrowse(); };
 		previousButton.onClick = [this] { if (onPrevious) onPrevious(); };
 		nextButton.onClick = [this] { if (onNext) onNext(); };
-		setPreset("Untitled", false, false);
+		setPreset("Untitled", {}, false, false);
 	}
 
 	std::function<void()> onBrowse;
 	std::function<void()> onPrevious;
 	std::function<void()> onNext;
 
-	void setPreset(const juce::String& name, bool modified, bool canNavigate)
+	void setPreset(const juce::String& name, const juce::String& description, bool modified, bool canNavigate)
 	{
 		presetButton.setButtonText(name + (modified ? " *" : ""));
+		presetButton.setTooltip(description.isNotEmpty() ? description : "Browse, load and save presets");
 		previousButton.setEnabled(canNavigate);
 		nextButton.setEnabled(canNavigate);
 	}

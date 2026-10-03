@@ -5,6 +5,7 @@
   "product": "com.vekt.rav",
   "soundSchemaVersion": 4,
   "name": "Circuit Bloom",
+  "description": "Circuit fuzz blended under the keys for dynamic, textured grit.",
   "tags": ["Keys", "Circuit Fuzz", "Dynamic", "Texture"],
   "soundState": {"stageOrder": "3,1,0,2,4"},
   "parameters": {

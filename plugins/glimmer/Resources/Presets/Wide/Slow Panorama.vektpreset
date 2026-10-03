@@ -5,6 +5,7 @@
   "product": "com.vekt.glimmer",
   "soundSchemaVersion": 1,
   "name": "Slow Panorama",
+  "description": "Wide cabinet at slow speed with distant mics and gradual speed changes, for broad, drifting pads.",
   "tags": ["Pads", "Slow", "Wide"],
   "parameters": {
     "inputGain": 0, "preampDrive": 0, "hornDrumBalance": -10,

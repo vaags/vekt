@@ -5,6 +5,7 @@
   "product": "com.vekt.kobber",
   "soundSchemaVersion": 12,
   "name": "Aurora Lead",
+  "description": "A bright, expressive lead with delayed vibrato that fades in on held notes.",
   "tags": [
     "Lead",
     "Bright",

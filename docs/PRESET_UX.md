@@ -5,7 +5,7 @@ Preset interactions must follow these rules across Vekt products.
 The reusable implementation and current follow-up boundaries are described in
 `decisions/0003-framework-preset-browser.md`. The current browser opens from the
 preset-name button and provides folder scope, text search, all-tags filtering,
-Save As, confirmed replacement/deletion, tag editing, preset moves and file
+Save As, confirmed replacement/deletion, tag and description editing, preset moves and file
 import/export. The first version uses a folder selector and comma-separated tag
 fields. Import adds to the library without loading; export writes the selected
 stored preset, whereas Save As captures the live sound.
@@ -22,6 +22,15 @@ stored preset, whereas Save As captures the live sound.
   selection. Previous or next then starts from the corresponding list endpoint.
 - Host programs remain the immutable factory bank. User-preset navigation must
   not change the host's program count.
+
+## Descriptions
+
+- A preset may carry a `description`: one line of plain text, at most 280
+  characters, saying what the sound is and where it fits. Documents without one
+  stay valid; an empty description is not written.
+- The browser shows the selected preset's description, includes it in text
+  search, and lets Save As and "Update details" set it on user presets. The
+  preset-name button's tooltip shows the loaded preset's description.
 
 ## Saving and deletion
 
@@ -57,7 +66,8 @@ stored preset, whereas Save As captures the live sound.
 - Factory presets are immutable resources embedded in each plugin. Add a valid
   `.vektpreset` beneath that plugin's `Resources/Presets` directory; its parent
   directory becomes the factory folder and it appears after the next build and
-  launch.
+  launch. Every factory preset carries a description; each product's factory
+  preset test enforces this.
 - Existing host-program positions are locked by `factory-order.lock` and
   ordered by `factory-order.txt`. The released order must remain its exact
   prefix; removing, reordering, or inserting before a released entry is a

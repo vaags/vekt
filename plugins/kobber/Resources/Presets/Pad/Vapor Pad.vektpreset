@@ -5,6 +5,7 @@
   "product": "com.vekt.kobber",
   "soundSchemaVersion": 12,
   "name": "Vapor Pad",
+  "description": "A soft, heavily drifting pad with slow detune and waveform movement.",
   "tags": [
     "Pad",
     "Soft",

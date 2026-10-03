@@ -5,6 +5,7 @@
   "product": "com.vekt.rav",
   "soundSchemaVersion": 4,
   "name": "Parallel Punch",
+  "description": "Saturation and distortion blended in parallel, keeping the low end clean while adding punch and edge above it.",
   "tags": [
     "Bass",
     "Parallel",

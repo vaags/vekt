@@ -5,6 +5,7 @@
   "product": "com.vekt.flint",
   "soundSchemaVersion": 1,
   "name": "Tight",
+  "description": "A short analog kick with a pitch sweep and click for a hard, tight attack.",
   "tags": [
     "Kick",
     "Classic Analog",

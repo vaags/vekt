@@ -5,6 +5,7 @@
   "product": "com.vekt.kobber",
   "soundSchemaVersion": 12,
   "name": "Classic Three Bass",
+  "description": "Three detuned oscillators through a resonant filter with glide, for a classic mono synth bass.",
   "tags": [
     "Bass",
     "Classic",

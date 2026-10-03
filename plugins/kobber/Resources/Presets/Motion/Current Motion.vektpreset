@@ -5,6 +5,7 @@
   "product": "com.vekt.kobber",
   "soundSchemaVersion": 12,
   "name": "Current Motion",
+  "description": "A tempo-synced LFO sweeps the resonant filter while a slow second LFO shifts the pulse widths.",
   "tags": [
     "Motion",
     "Animated",

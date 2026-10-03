@@ -20,6 +20,8 @@ struct Preset final
 	juce::String productIdentifier;
 	juce::String name;
 	juce::StringArray tags;
+	// One line of plain text describing the sound and its use; optional, empty when absent.
+	juce::String description;
 	// Repository-relative folder, deliberately excluded from portable documents.
 	juce::String folder;
 	std::vector<ParameterValue> parameters;
