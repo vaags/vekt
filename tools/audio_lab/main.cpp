@@ -1,7 +1,8 @@
 #include "SignalSources.h"
 
-#include <PluginProcessor.h>
+#include <vekt/rav/PluginProcessor.h>
 #include <vekt/glimmer/PluginProcessor.h>
+#include <vekt/dsp/OversamplingChoices.h>
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_audio_formats/juce_audio_formats.h>
@@ -247,14 +248,6 @@ void setParameter(vekt::rav::PluginProcessor& processor, const char* identifier,
 {
 	if (auto* parameter = processor.getParameters().getParameter(identifier))
 		parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
-}
-
-[[nodiscard]] juce::String qualityName(vekt::dsp::OversamplingQuality quality)
-{
-	if (quality.factor == vekt::dsp::OversamplingFactor::off)
-		return "Off";
-	return juce::String(static_cast<int>(quality.multiplier())) + "x "
-		+ (quality.filter == vekt::dsp::OversamplingFilter::polyphaseFIR ? "FIR" : "IIR");
 }
 
 [[nodiscard]] juce::String sourceName(vekt::audio_lab::Source source)
@@ -718,7 +711,7 @@ int main(int argc, char** argv)
 		<< " peak_left=" << measurements[0].peak << " peak_right=" << measurements[1].peak
 		<< " dc_left=" << measurements[0].dc(totalSamples) << " dc_right=" << measurements[1].dc(totalSamples)
 		<< " latency=" << processor.getLatencySamples()
-		<< " quality=" << qualityName(processor.getActiveQuality())
+		<< " quality=" << vekt::dsp::qualityName(processor.getActiveQuality())
 		<< " cpu_percent=" << cpuPercent << " ns_per_sample=" << nanosecondsPerSample
 		<< " mean_block_us=" << meanBlockMicroseconds << " max_block_us=" << maximumBlockMicroseconds;
 	if (spectrumPeakDbfs)
@@ -741,7 +734,7 @@ int main(int argc, char** argv)
 			"  \"stage_order\": " + juce::JSON::toString(vekt::rav::RavStageChain::serialise(options.stageOrder)) + ",\n"
 			"  \"profile\": " + juce::JSON::toString(options.offlineProfile ? "offline" : "tracking") + ",\n"
 			"  \"requested_quality_index\": " + juce::String(options.qualityIndex) + ",\n"
-			"  \"quality\": " + juce::JSON::toString(qualityName(processor.getActiveQuality())) + ",\n"
+			"  \"quality\": " + juce::JSON::toString(vekt::dsp::qualityName(processor.getActiveQuality())) + ",\n"
 			"  \"parameters\": {\n"
 			"    \"input_gain_db\": " + juce::String(options.inputGainDb) + ",\n"
 			"    \"drive_db\": " + juce::String(options.drive) + ",\n"

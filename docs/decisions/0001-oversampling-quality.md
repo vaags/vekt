@@ -6,6 +6,9 @@ Accepted
 
 ## Decision
 
+The 3 October 2026 decision below (uniform quality choices) sets the current
+choices and defaults; this original decision is kept as history.
+
 Nonlinear processors may offer Off, 2x, and 4x oversampling. Both JUCE
 maximum-quality polyphase IIR and equiripple FIR paths are prepared in advance.
 The product labels these `Minimum Phase` and `Linear Phase` rather than ranking
@@ -19,9 +22,36 @@ Factors above 4x are excluded unless measurements show materially lower audible
 aliasing and documented listening checks demonstrate a useful benefit on supported
 hardware. Blinded comparisons are optional if the sound decision is uncertain.
 
+### Uniform quality choices (3 October 2026)
+
+**Current decision, Thomas, 3 October 2026:** every product offers the same
+non-automatable **Tracking Oversampling** (real-time) and **Offline
+Oversampling** (used only when the host reports offline processing) choices,
+defined once in `vekt/dsp/OversamplingChoices.h`: Off, 2x/4x minimum-phase IIR
+and 2x/4x/8x/16x linear-phase FIR. This includes 16x for Mono, in real time
+too, reversing the 27 September Mono scope below; 16x with many voices is
+CPU-heavy (see the Release screen in MONO_VALIDATION.md: it needs Multicore and
+few voices in real time), and Mono's editor says so. Mono's single `quality` parameter is
+replaced by the two shared parameters (pre-release; its frozen parameter and
+state fixtures were replaced). Defaults stay per product: Rav and Glimmer track
+at 4x IIR and render offline at 16x FIR; Mono tracks Off and renders offline at
+4x FIR. Mono's real-time default sound is unchanged, but a default offline
+render (bounce) now uses 4x FIR where the single control rendered at 1x, so
+bounces differ from playback and report the FIR latency. The "factors above 4x are excluded"
+rule above no longer describes the products, which have offered 8x and 16x.
+
+### Instant quality changes (2 October 2026)
+
+**Current decision, Thomas, 2 October 2026 (ADR 0010):** a quality change
+applies at the start of the next audio block in every product, during playback
+too; the audio may drop or click, and no smooth transition is required. This
+supersedes every rule below that defers a change until the transport stops, a
+"safe boundary", or sustain and release tails finish. Mono already switched at
+once; Rav and Glimmer stopped deferring on this date.
+
 ### Mono pre-alpha quality scope (26 September 2026)
 
-**Current Mono decision (27 September 2026; supersedes the offline-16x
+**Mono decision of 27 September 2026 (superseded on 3 October 2026; it superseded the offline-16x
 proposal below):** Remove 16x from both planned and selectable Mono quality.
 Keep 1x/2x/4x/8x (indices 0–3) in the existing single legacy control and in
 the candidate's planned Playback Quality and Offline Render Quality. Offline
@@ -61,7 +91,8 @@ Short M1 Pro cost probes do not justify real-time 16x, even on large blocks.
 with 1x default. Parameter indices
 0/1 retain 1x/2x; indices 2–4 currently add 4x/8x/16x. Legacy 2x is IIR,
 4x/8x/16x are FIR, and quality changes remain non-automatable and deferred
-until transport stops and voices/sustain finish. This interim availability
+until transport stops and voices/sustain finish (superseded: changes apply at
+the next block, 2 October 2026). This interim availability
 does not implement an offline-only restriction or integrate the candidate.
 The old normalized host value `1.0` can currently select 16x instead of the
 former two-choice "High" (2x). Mono has no pre-alpha compatibility promise;
@@ -106,8 +137,8 @@ may interrupt sound and is not an acceptable ordinary quality transition.
 Validate the guard and host eligibility before offering 16x; if a host fails
 the lifecycle tests, do not offer 16x there. Do not assume transport-stop
 status proves offline rendering.
-The present `isNonRealtime()` check only affects deferred quality switching;
-it does not guard rendering.
+The present `isNonRealtime()` check only selects which quality a change
+applies (tracking or offline); it does not guard rendering.
 Separate control identifiers/mappings require deliberate state/schema and
 preset updates; existing single-quality values must not silently become the
 offline override. Validate recall of the follow/override state and its value,
@@ -128,6 +159,7 @@ glitch-free operation at every rate, block size and voice count.
 
 - Quality paths consume memory because they are prepared before processing.
 - Quality changes alter latency and are non-automatable project settings.
-- Changes requested during confirmed playback are deferred.
+- Changes apply at the next audio block, during playback too, and may drop audio
+  (2 October 2026; previously deferred during confirmed playback).
 - Dry signals must be delayed by the active path's exact integer latency.
 - Every quality path requires frequency, aliasing, latency, and stability tests.

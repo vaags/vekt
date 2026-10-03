@@ -5,6 +5,8 @@
 #include <concepts>
 #include <span>
 
+#include <vekt/dsp/LinearRamp.h>
+
 #include <juce_audio_basics/juce_audio_basics.h>
 
 namespace vekt::dsp
@@ -37,8 +39,8 @@ public:
 
     [[nodiscard]] Sample processSample(Sample input) noexcept
     {
-        const auto smoothedDrive = drive.getNextValue();
-        const auto smoothedBias = bias.getNextValue();
+        const auto smoothedDrive = static_cast<Sample>(drive.getNextValue());
+        const auto smoothedBias = static_cast<Sample>(bias.getNextValue());
         return std::tanh((smoothedDrive * input) + smoothedBias) - std::tanh(smoothedBias);
     }
 
@@ -49,7 +51,7 @@ public:
     }
 
 private:
-    juce::SmoothedValue<Sample, juce::ValueSmoothingTypes::Linear> drive { Sample { 1 } };
-    juce::SmoothedValue<Sample, juce::ValueSmoothingTypes::Linear> bias;
+    LinearRamp drive { 1.0 };
+    LinearRamp bias;
 };
 }

@@ -4,7 +4,7 @@
 
 namespace vekt::ui
 {
-class Panel final : public juce::Component
+class Panel : public juce::Component
 {
 public:
 	explicit Panel(juce::String title = {});

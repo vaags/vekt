@@ -31,8 +31,9 @@ public:
 	void prepare(double processingSampleRate) noexcept
 	{
 		sampleRateHz = static_cast<float>(processingSampleRate);
-		stateRateScale = referenceProcessingRateHz / sampleRateHz;
-		fuzzToneCoefficient = timeCorrectedCoefficient(0.08f);
+		stateRateScale = referenceProcessingRateHz / processingSampleRate;
+		fuzzToneCoefficient = static_cast<float>(timeCorrectedCoefficient(0.08));
+		for (auto* coefficient : { &rollOffCoefficient, &highPassCoefficient, &envelopeCoefficient }) coefficient->invalidate();
 		drive.prepare(processingSampleRate, 0.02, 0.15);
 		bias.prepare(processingSampleRate, 0.02, 0.15);
 		shape.prepare(processingSampleRate, 0.02, 0.15);
@@ -47,9 +48,9 @@ public:
 	void reset() noexcept
 	{
 		previousOutput = 0.0f;
-		feedbackState = 0.0f;
-		envelope = 0.0f;
-		highPassState = 0.0f;
+		feedbackState = 0.0;
+		envelope = 0.0;
+		highPassState = 0.0;
 		fuzzToneState = 0.0f;
 		postStage.reset();
 		fuzzCircuit.reset();
@@ -107,9 +108,9 @@ private:
 		{
 			case RavMode::saturation:
 			{
-				const auto rollOff = timeCorrectedCoefficient(0.005f + dynamicsValue * 0.2f);
+				const auto rollOff = rollOffCoefficient.get(dynamicsValue, [&] { return timeCorrectedCoefficient(0.005 + dynamicsValue * 0.2); });
 				feedbackState += (previousOutput - feedbackState) * rollOff;
-				const auto memory = shapeValue * feedbackState;
+				const auto memory = shapeValue * static_cast<float>(feedbackState);
 				output = std::tanh(driven + memory + biasValue * textureValue)
 					- std::tanh(biasValue * textureValue);
 				previousOutput = output;
@@ -118,9 +119,9 @@ private:
 			case RavMode::overdrive:
 			{
 				const auto cutoffHz = 80.0f + dynamicsValue * 40.0f;
-				const auto hpCoefficient = 1.0f - std::exp(
-					-2.0f * juce::MathConstants<float>::pi * cutoffHz / sampleRateHz);
-				const auto highPassed = driven - highPassState;
+				const auto hpCoefficient = highPassCoefficient.get(dynamicsValue, [&] { return -std::expm1(
+					-2.0 * juce::MathConstants<double>::pi * cutoffHz / static_cast<double>(sampleRateHz)); });
+				const auto highPassed = static_cast<float>(driven - highPassState);
 				highPassState += (driven - highPassState) * hpCoefficient;
 				const auto asymmetricBias = biasValue + (shapeValue - 0.5f) * 0.8f;
 				const auto shaped = std::tanh(highPassed + asymmetricBias)
@@ -143,10 +144,11 @@ private:
 			}
 			case RavMode::gatedFuzz:
 			{
-				const auto envelopeRate = timeCorrectedCoefficient(0.001f + dynamicsValue * 0.08f);
+				const auto envelopeRate = envelopeCoefficient.get(dynamicsValue, [&] { return timeCorrectedCoefficient(0.001 + dynamicsValue * 0.08); });
 				envelope += (std::abs(driven) - envelope) * envelopeRate;
-				const auto starvation = biasValue + (0.5f - envelope) * shapeValue;
-				const auto threshold = textureValue * (0.05f + envelope);
+				const auto envelopeLevel = static_cast<float>(envelope);
+				const auto starvation = biasValue + (0.5f - envelopeLevel) * shapeValue;
+				const auto threshold = textureValue * (0.05f + envelopeLevel);
 				const auto transitionWidth = 0.01f + textureValue * 0.08f;
 				const auto gatePosition = std::clamp(
 					(std::abs(driven) - threshold + transitionWidth) /
@@ -169,9 +171,9 @@ private:
 		return postStage.process(output, postCutoffHz(mode, textureValue));
 	}
 
-	[[nodiscard]] float timeCorrectedCoefficient(float referenceCoefficient) const noexcept
+	[[nodiscard]] double timeCorrectedCoefficient(double referenceCoefficient) const noexcept
 	{
-		if (stateRateScale == 1.0f)
+		if (stateRateScale == 1.0)
 			return referenceCoefficient;
 		return -std::expm1(std::log1p(-referenceCoefficient) * stateRateScale);
 	}
@@ -198,12 +200,15 @@ private:
 	RavMode mode { RavMode::saturation };
 	inline static constexpr float referenceProcessingRateHz { 192'000.0f };
 	float sampleRateHz { 48'000.0f };
-	float stateRateScale { referenceProcessingRateHz / sampleRateHz };
-	float fuzzToneCoefficient { timeCorrectedCoefficient(0.08f) };
+	double stateRateScale { referenceProcessingRateHz / sampleRateHz };
+	float fuzzToneCoefficient { static_cast<float>(timeCorrectedCoefficient(0.08)) };
 	float previousOutput {};
-	float feedbackState {};
-	float envelope {};
-	float highPassState {};
+	// Double: these one-poles reach down to about 30 Hz, where float state is measurably off at the highest internal
+	// rate (ARCHITECTURE.md, DSP Contracts).
+	double feedbackState {};
+	double envelope {};
+	double highPassState {};
+	RavCachedCoefficient rollOffCoefficient, highPassCoefficient, envelopeCoefficient; // keyed on Dynamics
 	float fuzzToneState {};
 	RavFuzzCircuit fuzzCircuit;
 	RavPostStage postStage;

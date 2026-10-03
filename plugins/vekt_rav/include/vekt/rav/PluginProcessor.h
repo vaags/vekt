@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Parameters.h"
+#include <vekt/rav/Parameters.h>
 #include "RavModeStage.h"
 #include "RavStageChain.h"
 
@@ -15,11 +15,9 @@
 #include <vekt/dsp/StereoPeakMeter.h>
 #include <vekt/dsp/TanhStage.h>
 #include <vekt/dsp/ThreeBandCrossover.h>
-#include <vekt/presets/FilePresetRepository.h>
+#include <vekt/plugin_support/PresetHost.h>
+#include <vekt/plugin_support/QualitySelection.h>
 #include <vekt/presets/Preset.h>
-#include <vekt/presets/PresetCatalog.h>
-#include <vekt/presets/PresetSession.h>
-#include <vekt/state/StateManager.h>
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
@@ -32,8 +30,7 @@
 
 namespace vekt::rav
 {
-class PluginProcessor final : public juce::AudioProcessor,
-							  private juce::AudioProcessorValueTreeState::Listener
+class PluginProcessor final : public juce::AudioProcessor
 {
 public:
 	PluginProcessor();
@@ -69,19 +66,9 @@ public:
 		const juce::String& name, const juce::NamedValueSet& metadata = {}) const;
 	[[nodiscard]] juce::Result applyPreset(const presets::Preset& preset);
 	[[nodiscard]] juce::Result configureUserPresetDirectory(const juce::File& directory);
-	[[nodiscard]] juce::Result saveUserPreset(
-		const juce::String& name,
-		presets::PresetSaveMode mode = presets::PresetSaveMode::createOnly);
-	[[nodiscard]] juce::Result importPreset(const juce::File& source);
-	[[nodiscard]] juce::Result exportPreset(const juce::File& destination, const juce::String& name) const;
-	[[nodiscard]] juce::Result removeUserPreset(const juce::String& name);
-	[[nodiscard]] juce::Result loadPreset(std::size_t index);
 	[[nodiscard]] juce::Result loadNextPreset();
 	[[nodiscard]] juce::Result loadPreviousPreset();
-	[[nodiscard]] const std::vector<presets::PresetEntry>& getPresetEntries() const noexcept;
-	[[nodiscard]] std::optional<std::size_t> getCurrentPresetIndex() const noexcept;
-	[[nodiscard]] bool isCurrentPresetModified() const;
-	[[nodiscard]] presets::PresetSession& getPresetSession() noexcept { return presetSession; }
+	[[nodiscard]] presets::PresetSession& getPresetSession() noexcept { return presetHost.session(); }
 	[[nodiscard]] std::array<float, 2> consumeInputPeaks() noexcept;
 	[[nodiscard]] std::array<float, 2> consumeOutputPeaks() noexcept;
 	// The output after gain, for the editor's oscilloscope.
@@ -95,30 +82,19 @@ public:
 	[[nodiscard]] bool hasPendingQualityChange() const noexcept;
 
 private:
-	[[nodiscard]] static std::atomic<float>* requireParameter(
-		juce::AudioProcessorValueTreeState& state, const char* identifier);
 	static void assertMessageThread();
-	void parameterChanged(const juce::String& parameterId, float newValue) override;
-	void observeTransport() noexcept;
 	void processPreparedBlocks(
 		juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi, bool bypassed);
 	void processBypassedBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi);
 	void processEffectBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi);
 	void applyPendingQualityChange();
-	void restoreCurrentProgramFromMetadata();
-	[[nodiscard]] static juce::Result migratePresetSound(presets::Preset& preset);
 	[[nodiscard]] juce::Result validatePresetSound(const presets::Preset& preset) const;
 	[[nodiscard]] bool matchesPresetSound(const presets::Preset& preset) const;
 
 	juce::UndoManager undoManager;
 	juce::AudioProcessorValueTreeState parameterState;
-	state::StateManager stateManager;
-	std::unique_ptr<presets::FilePresetRepository> userPresetRepository;
-	presets::PresetCatalog presetCatalog;
-	presets::PresetSession presetSession;
-	std::optional<std::size_t> currentPresetIndex;
-	std::optional<presets::Preset> currentPresetSnapshot;
-	int currentProgram {};
+	plugin_support::PresetHost presetHost;
+	plugin_support::QualitySelection qualitySelection;
 
 	std::atomic<float>* inputGainParameter;
 	std::atomic<float>* driveParameter;
@@ -137,14 +113,7 @@ private:
 	std::atomic<float>* shapeParameter;
 	std::atomic<float>* dynamicsParameter;
 	std::atomic<float>* textureParameter;
-	std::atomic<float> *trackingOversamplingParameter;
-	std::atomic<float> *offlineOversamplingParameter;
 	std::array<std::atomic<float> *, RavStageChain::stageCount> stageEnabledParameters;
-	std::atomic<float> requestedTrackingOversampling{2.0f};
-	std::atomic<float> requestedOfflineOversampling{4.0f};
-	std::atomic<bool> qualityChangePending {};
-	std::atomic<bool> transportPlaying {};
-	std::atomic<bool> prepared {};
 	double preparedSampleRate {};
 	int maximumPreparedBlockSize {};
 

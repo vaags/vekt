@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../plugins/vekt_mono/Source/LadderResonance.h"
+#include <LadderResonance.h>
 
 #include <algorithm>
 #include <array>

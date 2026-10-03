@@ -15,7 +15,8 @@ TEST_CASE("Mono sound parameters exclude resource configuration", "[mono][parame
 	REQUIRE(std::find(soundParameterIds.begin(), soundParameterIds.end(), ampRelease) != soundParameterIds.end());
 	REQUIRE(std::find(soundParameterIds.begin(), soundParameterIds.end(), filterRelease) != soundParameterIds.end());
 	REQUIRE(std::find(soundParameterIds.begin(), soundParameterIds.end(), voiceCount) == soundParameterIds.end());
-	REQUIRE(std::find(soundParameterIds.begin(), soundParameterIds.end(), quality) == soundParameterIds.end());
+	REQUIRE(std::find(soundParameterIds.begin(), soundParameterIds.end(), trackingOversampling) == soundParameterIds.end());
+	REQUIRE(std::find(soundParameterIds.begin(), soundParameterIds.end(), offlineOversampling) == soundParameterIds.end());
 }
 
 TEST_CASE("Mono exposes only independent amp and filter release controls", "[mono][parameters][contour]")

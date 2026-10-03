@@ -43,8 +43,11 @@ Preset workflows are specified separately in [PRESET_UX.md](PRESET_UX.md).
   stand still. RAV places it above the channel strips, Glimmer beside its
   meters; Mono, whose I/O panel is narrow, stacks scope, a horizontal meter and
   a horizontal Master Output fader.
-- Tracking and Offline quality selectors open in an anchored Settings panel.
-  Active quality and pending changes remain visible in the I/O strip.
+- Tracking and Offline quality selectors offer the shared choices (ADR 0001).
+  Rav and Mono open them in the shared anchored Settings pop-over
+  (`vekt::ui::QualitySettings`): its toggle sits in the toolbar, opening focuses
+  Tracking and Close returns focus to the toggle. Glimmer shows them inline.
+  The active quality remains visible in the I/O strip.
 - Scale the logical canvas uniformly. Do not scale font sizes independently with
   viewport width or rearrange controls merely because the host changed size.
 - Use three stable regions: a compact command bar, the primary sound workspace,
@@ -119,6 +122,24 @@ Preset workflows are specified separately in [PRESET_UX.md](PRESET_UX.md).
   so there is never a moment with neither. A lone fast source ends with the
   band over its whole range and no dot, distinct from an idle arc while nothing
   sounds.
+- The editor computes the live dot from the processor's published LFO outputs,
+  a sounding-voice flag and effective rates, and refreshes it per display frame
+  through a `VBlankAttachment`. The outputs travel through
+  `vekt::dsp::DisplayHistory` (wait-free, one frame per block stamped with its
+  sample position) and `DisplayTimeline`, which shows them a short,
+  self-adjusting delay back, interpolated between blocks, so motion stays
+  smooth whatever the host's block size, burst pattern or display refresh rate.
+  The delay covers the longest recent publishing gap (capped at 250 ms) and
+  changes gradually. Hosts that render ahead of playback make the display lead
+  the sound by that amount; no plugin-side clock can see it. Measured in a
+  simulated 60 fps display: showing each block's latest value instead,
+  frame-to-frame steps vary by 32 % at 512-sample blocks, and at 1024 samples
+  22 % of frames freeze (61 % at 2048 or with bursty hosts, with steps up to
+  2.6x); with the timeline they vary by under 1.5 % and never freeze.
+- The dot's handover to the blur band assumes 60 drawn frames per second, what
+  JUCE delivers on macOS even on 120 Hz displays. Where frames are drawn faster
+  the handover is conservative (the dot gives way sooner than it must), not
+  wrong.
 - Context menus provide reset and direct value entry. Product-specific actions
   may be added only when they are meaningful for that parameter.
 
@@ -155,9 +176,8 @@ Preset workflows are specified separately in [PRESET_UX.md](PRESET_UX.md).
 - Label phase modes literally as `Minimum Phase` and `Linear Phase`; do not rank
   either as universally better.
 - Disable phase selection when oversampling is Off.
-- During playback, show a deferred quality request as pending while retaining a
-  clear indication of the active mode. Remove pending state only after the
-  processor applies the change and updates host latency.
+- A quality change applies at the next audio block, during playback too, so the
+  editor shows only the active mode; there is no pending quality state.
 
 ## Metering and status
 
@@ -235,5 +255,5 @@ retain APVTS attachments/gestures and stable bounds during state changes.
 - Test minimum, default, and maximum sizes at 1x and 2x scale. Verify no clipped
   text, overlap, layout shift, inaccessible controls, or out-of-bounds popups.
 - Exercise mouse, keyboard, VoiceOver, automation, undo/redo, host bypass,
-  deferred quality changes, preset modification state, and editor reopen/restore
+  quality changes during playback, preset modification state, and editor reopen/restore
   in Standalone, VST3, and AUv2 hosts.

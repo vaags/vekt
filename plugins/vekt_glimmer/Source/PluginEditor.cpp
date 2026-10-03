@@ -1,5 +1,6 @@
-#include "PluginEditor.h"
+#include <vekt/glimmer/PluginEditor.h>
 
+#include <vekt/dsp/OversamplingChoices.h>
 #include <vekt/ui/ValueFormat.h>
 
 namespace vekt::glimmer
@@ -117,8 +118,8 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	manualAttachment = std::make_unique<ButtonAttachment>(pluginProcessor.getParameters(), parameters::manualSpeedEnabled, manualButton);
 	speedAttachment = std::make_unique<SliderAttachment>(pluginProcessor.getParameters(), parameters::speedPosition, speedSlider);
 	widthAttachment = std::make_unique<SliderAttachment>(pluginProcessor.getParameters(), parameters::stereoWidth, widthSlider);
-	trackingQualityBox.addItemList({ "Off", "2x IIR", "4x IIR", "2x FIR", "4x FIR", "8x FIR", "16x FIR" }, 1);
-	offlineQualityBox.addItemList({ "Off", "2x FIR", "4x FIR", "8x FIR", "16x FIR", "2x IIR", "4x IIR" }, 1);
+	trackingQualityBox.addItemList(dsp::trackingQualityChoices(), 1);
+	offlineQualityBox.addItemList(dsp::offlineQualityChoices(), 1);
 	trackingQualityBox.setName("Tracking quality");
 	offlineQualityBox.setName("Offline quality");
 	trackingQualityBox.setTooltip("Oversampling used during real-time playback");
@@ -211,10 +212,7 @@ void PluginEditor::timerCallback()
 	status += drumOnly ? "\nD " + juce::String(std::abs(speeds[1]), 0) + " rpm"
 		: "\nH " + juce::String(std::abs(speeds[0]), 0) + " / D " + juce::String(std::abs(speeds[1]), 0) + " rpm";
 	autoTargetLabel.setText(status, juce::dontSendNotification);
-	const auto quality = pluginProcessor.getActiveQuality();
-	qualityLabel.setText("Quality: " + juce::String(static_cast<int>(quality.multiplier())) + "x "
-		+ (quality.filter == dsp::OversamplingFilter::polyphaseFIR ? "FIR" : "IIR")
-		+ (pluginProcessor.hasPendingQualityChange() ? " (pending)" : ""), juce::dontSendNotification);
+	qualityLabel.setText("Quality: " + dsp::qualityName(pluginProcessor.getActiveQuality()), juce::dontSendNotification);
 }
 
 void PluginEditor::paint(juce::Graphics& graphics)

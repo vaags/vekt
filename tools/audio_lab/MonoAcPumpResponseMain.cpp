@@ -1,4 +1,4 @@
-#include "../../plugins/vekt_mono/Source/NonlinearTptLadder.h"
+#include <NonlinearTptLadder.h>
 
 #include <vekt/audio_analysis/Measurements.h>
 

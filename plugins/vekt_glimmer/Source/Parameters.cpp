@@ -1,5 +1,7 @@
 #include <vekt/glimmer/Parameters.h>
 
+#include <vekt/plugin_support/QualitySelection.h>
+
 #include <memory>
 
 namespace vekt::glimmer::parameters
@@ -11,11 +13,6 @@ constexpr auto parameterVersion = 1;
 juce::NormalisableRange<float> decibelRange()
 {
 	return { -24.0f, 24.0f, 0.01f };
-}
-
-juce::AudioParameterChoiceAttributes qualityAttributes()
-{
-	return juce::AudioParameterChoiceAttributes {}.withAutomatable(false);
 }
 }
 
@@ -84,14 +81,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 	layout.add(std::make_unique<juce::AudioParameterFloat>(
 		juce::ParameterID { outputGain, parameterVersion }, "Output", decibelRange(), 0.0f,
 		juce::AudioParameterFloatAttributes {}.withLabel("dB")));
-	layout.add(std::make_unique<juce::AudioParameterChoice>(
-		juce::ParameterID { trackingOversampling, parameterVersion }, "Tracking Oversampling",
-		juce::StringArray { "Off", "2x IIR", "4x IIR", "2x FIR", "4x FIR", "8x FIR", "16x FIR" },
-		2, qualityAttributes()));
-	layout.add(std::make_unique<juce::AudioParameterChoice>(
-		juce::ParameterID { offlineOversampling, parameterVersion }, "Offline Oversampling",
-		juce::StringArray { "Off", "2x FIR", "4x FIR", "8x FIR", "16x FIR", "2x IIR", "4x IIR" },
-		4, qualityAttributes()));
+	layout.add(plugin_support::QualitySelection::makeTrackingParameter(trackingOversampling, parameterVersion, 2));
+	layout.add(plugin_support::QualitySelection::makeOfflineParameter(offlineOversampling, parameterVersion, 4));
 
 	layout.add(std::make_unique<juce::AudioParameterChoice>(
 		juce::ParameterID { cabinetModel, 2 }, "Model", juce::StringArray { "Classic", "Drum", "Wide" }, 0));
@@ -109,33 +100,5 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 		juce::AudioParameterFloatAttributes {}.withLabel("%")));
 
 	return layout;
-}
-
-dsp::OversamplingQuality trackingQualityFrom(float index) noexcept
-{
-	switch (juce::roundToInt(index))
-	{
-	case 0: return { dsp::OversamplingFactor::off, dsp::OversamplingFilter::polyphaseIIR };
-	case 1: return { dsp::OversamplingFactor::x2, dsp::OversamplingFilter::polyphaseIIR };
-	case 2: return { dsp::OversamplingFactor::x4, dsp::OversamplingFilter::polyphaseIIR };
-	case 3: return { dsp::OversamplingFactor::x2, dsp::OversamplingFilter::polyphaseFIR };
-	case 4: return { dsp::OversamplingFactor::x4, dsp::OversamplingFilter::polyphaseFIR };
-	case 5: return { dsp::OversamplingFactor::x8, dsp::OversamplingFilter::polyphaseFIR };
-	default: return { dsp::OversamplingFactor::x16, dsp::OversamplingFilter::polyphaseFIR };
-	}
-}
-
-dsp::OversamplingQuality offlineQualityFrom(float index) noexcept
-{
-	switch (juce::roundToInt(index))
-	{
-	case 0: return { dsp::OversamplingFactor::off, dsp::OversamplingFilter::polyphaseIIR };
-	case 1: return { dsp::OversamplingFactor::x2, dsp::OversamplingFilter::polyphaseFIR };
-	case 2: return { dsp::OversamplingFactor::x4, dsp::OversamplingFilter::polyphaseFIR };
-	case 3: return { dsp::OversamplingFactor::x8, dsp::OversamplingFilter::polyphaseFIR };
-	case 4: return { dsp::OversamplingFactor::x16, dsp::OversamplingFilter::polyphaseFIR };
-	case 5: return { dsp::OversamplingFactor::x2, dsp::OversamplingFilter::polyphaseIIR };
-	default: return { dsp::OversamplingFactor::x4, dsp::OversamplingFilter::polyphaseIIR };
-	}
 }
 }

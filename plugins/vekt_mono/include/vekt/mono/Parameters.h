@@ -8,12 +8,17 @@ namespace vekt::mono::parameters
 {
 inline constexpr auto stateType = "VektMonoParameters";
 inline constexpr auto presetProductIdentifier = "com.vekt.mono";
+// The preset sound schema this build writes and loads.
+inline constexpr int presetSoundSchemaVersion = 12;
 
 inline constexpr auto voiceCount = "voiceCount";
 inline constexpr auto performanceMode = "performanceMode";
 inline constexpr auto heldKeyReturn = "heldKeyReturn";
 inline constexpr auto notePriority = "notePriority";
-inline constexpr auto quality = "quality";
+// Oversampling for real-time playback and for offline rendering, the same choices as every product (ADR 0010).
+// Saved with the plugin state, not in presets; not automatable.
+inline constexpr auto trackingOversampling = "trackingOversampling";
+inline constexpr auto offlineOversampling = "offlineOversampling";
 // Render voices on helper threads too. Saved with the plugin state, not in presets; not automatable.
 inline constexpr auto multicore = "multicore";
 inline constexpr auto unison = "unison";

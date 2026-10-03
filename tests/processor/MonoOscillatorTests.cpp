@@ -1,7 +1,7 @@
 #include <vekt/mono/PluginProcessor.h>
 
 #include "MonoVoice.h"
-#include "../../tools/audio_lab/MonoWidthReference.h"
+#include <audio_lab/MonoWidthReference.h>
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>

@@ -14,7 +14,9 @@ add_library(VektRavCore STATIC
 	Source/PluginEditor.cpp
 	Source/PluginProcessor.cpp)
 
-target_include_directories(VektRavCore PUBLIC Source)
+target_include_directories(VektRavCore PUBLIC
+	include
+	Source)
 
 target_link_libraries(VektRavCore
 	PUBLIC
@@ -25,6 +27,7 @@ target_link_libraries(VektRavCore
 		vekt::presets
 		vekt::preset_ui
 		vekt::state
+		vekt::plugin_support
 		vekt_project_options)
 
 set(vekt_rav_formats Standalone VST3 AU)

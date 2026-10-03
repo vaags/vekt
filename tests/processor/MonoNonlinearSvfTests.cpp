@@ -1,3 +1,4 @@
+#include <vekt/dsp/OversamplingQuality.h>
 #include "FilterPrototypeSupport.h"
 #include "LinearTptSvf.h"
 #include "NonlinearTptLadder.h"
@@ -29,7 +30,7 @@ using vekt::mono::nonlinearTptSvfResidual;
 using vekt::mono::solveNonlinearTptSvf;
 
 // A random solver problem over the whole operating range: states well beyond any passband level, the saturated
-// input, g from the 2.5 Hz floor at 1.536 MHz to 0.45 fs, all damping the SVF allows, knees and damping curves around the
+// input, g from the 2.5 Hz floor at 3.072 MHz (192 kHz x16) to 0.45 fs, all damping the SVF allows, knees and damping curves around the
 // voicing.
 struct Problem
 {
@@ -43,7 +44,7 @@ Problem randomProblem(std::mt19937& random)
 	constexpr std::array knees { 1.0, 4.0, 8.0 };
 	constexpr std::array curves { 0.0, 0.25, 0.5, 1.0, 4.0 };
 	const auto knee = knees[random() % knees.size()];
-	const auto g = std::exp(between(std::log(5.0e-6), std::log(6.4)));
+	const auto g = std::exp(between(std::log(2.5e-6), std::log(6.4)));
 	const auto u = vekt::mono::nonlinearTptSvfSaturate(between(-24.0, 24.0), knee);
 	return { between(-40.0, 40.0) + g * (u - between(-40.0, 40.0)), g, between(0.0, 2.0), knee, curves[random() % curves.size()] };
 }
@@ -262,9 +263,9 @@ TEST_CASE("Mono nonlinear SVF decays to silence at maximum Resonance and Drive u
 
 TEST_CASE("Mono nonlinear SVF still decays at the lowest cutoff and highest effective rate", "[mono][filter][svf][svf-nonlinear]")
 {
-	// The 2.5 Hz floor at 192 kHz x8, where g is smallest: the envelope time constant is Q / (pi fc), about 2.5 s at
+	// The 2.5 Hz floor at 192 kHz x16, the highest internal rate, where g is smallest: the envelope time constant is Q / (pi fc), about 2.5 s at
 	// Q 20, so 7.5 seconds of tail should shed well over 90 % of its peak, without solver failures.
-	constexpr double sampleRate = 192'000.0 * 8.0;
+	constexpr double sampleRate = vekt::dsp::maximumInternalSampleRate;
 	NonlinearTptSvf svf;
 	svf.prepare(sampleRate);
 	const NonlinearTptSvfSettings settings { 2.5, vekt::mono::svfDamping(1.0), 24.0, vekt::mono::svfKnee, vekt::mono::svfDampingCurve };

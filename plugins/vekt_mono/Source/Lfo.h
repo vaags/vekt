@@ -87,8 +87,8 @@ public:
 		driftLevel = unitRandom(voiceSeed, 4);
 		cycles = 0.0;
 		delaySamplesRemaining = 0;
-		fadeGain = 0.0f;
-		fadeIncrement = 0.0f;
+		fadeGain = 0.0;
+		fadeIncrement = 0.0;
 		finished = false;
 		lastValue = 0.0f;
 	}
@@ -98,9 +98,9 @@ public:
 		cycles = 0.0;
 		finished = false;
 		delaySamplesRemaining = static_cast<std::int64_t>(std::llround(std::max(0.0f, parameters.delaySeconds) * sampleRate));
-		const auto fadeSamples = std::max(0.0f, parameters.fadeSeconds) * static_cast<float>(sampleRate);
-		fadeIncrement = fadeSamples >= 1.0f ? 1.0f / fadeSamples : 1.0f;
-		fadeGain = 0.0f;
+		const auto fadeSamples = static_cast<double>(std::max(0.0f, parameters.fadeSeconds)) * sampleRate;
+		fadeIncrement = fadeSamples >= 1.0 ? 1.0 / fadeSamples : 1.0;
+		fadeGain = 0.0;
 	}
 
 	[[nodiscard]] float getNextSample(double sharedClockPosition) noexcept
@@ -111,8 +111,8 @@ public:
 			--delaySamplesRemaining;
 			return 0.0f;
 		}
-		fadeGain = std::min(1.0f, fadeGain + fadeIncrement);
-		if (!freeRunning && finished) return lastValue * fadeGain;
+		fadeGain = std::min(1.0, fadeGain + fadeIncrement);
+		if (!freeRunning && finished) return lastValue * static_cast<float>(fadeGain);
 
 		const auto driftAmount = parameters.drift;
 		const auto phaseOffset = static_cast<double>(parameters.phase) + static_cast<double>(driftAmount * maximumPhaseDrift * driftPhase);
@@ -129,7 +129,7 @@ public:
 			// Tolerate accumulated rounding so the cycle cannot overrun by a sample.
 			if (parameters.mode == LfoMode::oneShot && cycles >= 1.0 - 1.0e-9) finished = true;
 		}
-		return value * fadeGain;
+		return value * static_cast<float>(fadeGain);
 	}
 
 	[[nodiscard]] bool isFinished() const noexcept { return finished; }
@@ -192,7 +192,8 @@ private:
 	Parameters parameters;
 	double sampleRate { 48'000.0 }, cycles {};
 	std::int64_t delaySamplesRemaining {};
-	float fadeGain {}, fadeIncrement {}, lastValue {};
+	double fadeGain {}, fadeIncrement {}; // double so a long fade keeps its time at every internal rate
+	float lastValue {};
 	float driftRate {}, driftPhase {}, driftSymmetry {}, driftLevel {};
 	std::uint32_t seed {}, commonSeed {};
 	bool finished {};

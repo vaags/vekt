@@ -1,5 +1,7 @@
 #include <vekt/mono/Parameters.h>
 
+#include <vekt/plugin_support/QualitySelection.h>
+
 #include "Lfo.h"
 #include "WidthOscillator.h"
 
@@ -97,7 +99,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 	juce::AudioProcessorValueTreeState::ParameterLayout layout;
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { voiceCount, version }, "Voice Count", juce::StringArray { "2", "4", "8", "12", "16" }, 2, nonAutomatable()));
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { performanceMode, version }, "Performance Mode", juce::StringArray { "Poly", "Mono", "Mono Legato" }, 0));
-	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { quality, version }, "Quality", juce::StringArray { "1x", "2x", "4x", "8x" }, 0, nonAutomatable()));
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { multicore, version }, "Multicore", juce::StringArray { "Off", "On" }, 0, nonAutomatable()));
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { unison, version }, "Unison", juce::StringArray { "1x", "2x", "4x" }, 0));
 	// Unison Detune is in cents and defaults to 15 so switching unison on thickens the sound straight away.
@@ -168,6 +169,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 	// Discrete filter topology (ADR 0005-0007). Not an LFO destination.
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { filterType, version }, "Filter Type",
 		juce::StringArray { "Ladder", "SVF", "K35" }, 0));
+	// Tracking defaults to Off (no oversampling) to keep the synth light; Offline to 4x FIR.
+	layout.add(plugin_support::QualitySelection::makeTrackingParameter(trackingOversampling, version, 0));
+	layout.add(plugin_support::QualitySelection::makeOfflineParameter(offlineOversampling, version, 2));
 	return layout;
 }
 }

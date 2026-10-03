@@ -1,6 +1,8 @@
 # Mono Ladder Acceptance Plan
 
-**Updated:** 2 October 2026 (high-pass ladder track added; the rest as of 28 September 2026)
+**Updated:** 3 October 2026 (quality scope: Mono now offers the shared Tracking and Offline choices, including 16x;
+ADR 0001. References below to the retained 1x/2x/4x/8x qualities and to unimplemented Playback/Offline controls are
+historical); 2 October 2026 (high-pass ladder track added; the rest as of 28 September 2026)
 
 **Decision:** ADR 0005 is Proposed. In pre-alpha with no users, Mono directly
 replaces legacy with coupled for the ordinary host-created plugin at every

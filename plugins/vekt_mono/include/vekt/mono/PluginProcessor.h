@@ -5,10 +5,8 @@
 #include <vekt/dsp/OversamplingBank.h>
 #include <vekt/dsp/ScopeTap.h>
 #include <vekt/dsp/StereoPeakMeter.h>
-#include <vekt/presets/FilePresetRepository.h>
-#include <vekt/presets/PresetCatalog.h>
-#include <vekt/presets/PresetSession.h>
-#include <vekt/state/StateManager.h>
+#include <vekt/plugin_support/PresetHost.h>
+#include <vekt/plugin_support/QualitySelection.h>
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
@@ -62,10 +60,11 @@ public:
 
 	[[nodiscard]] juce::AudioProcessorValueTreeState& getParameters() noexcept { return parameterState; }
 	[[nodiscard]] juce::UndoManager& getUndoManager() noexcept { return undoManager; }
-	[[nodiscard]] presets::PresetSession& getPresetSession() noexcept { return presetSession; }
+	[[nodiscard]] presets::PresetSession& getPresetSession() noexcept { return presetHost.session(); }
 	[[nodiscard]] juce::Result loadNextPreset();
 	[[nodiscard]] juce::Result loadPreviousPreset();
-	[[nodiscard]] int getActiveQuality() const noexcept { return activeQuality; }
+	// The oversampling quality in use. Safe from any thread.
+	[[nodiscard]] dsp::OversamplingQuality getActiveQuality() const noexcept { return qualitySelection.active(); }
 	// Voices currently producing sound, including release tails. Call from the audio thread or while stopped.
 	[[nodiscard]] int getSoundingVoiceCount() const noexcept;
 	struct CoupledWorkSnapshot
@@ -96,11 +95,13 @@ public:
 	[[nodiscard]] float getLfoDisplayRate(std::size_t index) const noexcept { return lfoDisplayRates[index].load(std::memory_order_relaxed); }
 	// Sounding voices (including release tails) after the latest block. Safe from any thread; for display.
 	[[nodiscard]] int getSoundingVoiceDisplay() const noexcept { return soundingVoiceDisplay.load(std::memory_order_relaxed); }
+	// The latency of the active quality, published with it. Safe from any thread; for display.
+	[[nodiscard]] int getLatencyDisplay() const noexcept { return latencyDisplay.load(std::memory_order_relaxed); }
 	// Highest mod wheel, aftertouch or Vibrato Amount currently applied (0..1). For display only.
 	[[nodiscard]] float getVibratoControlDisplay() const noexcept { return vibratoControlDisplay.load(std::memory_order_relaxed); }
 
 private:
-	[[nodiscard]] float value(const char* identifier) const noexcept;
+	[[nodiscard]] static float value(const std::atomic<float>* parameter) noexcept { return parameter->load(); }
 	[[nodiscard]] MonoVoiceSettings snapshotSettings() const;
 	void handleMidi(const juce::MidiMessage& message);
 	void noteOn(int channel, int note, float velocity);
@@ -117,22 +118,40 @@ private:
 	void ensureRenderWorkers();
 	void applyConfigurationChanges();
 	void readTransport();
-	void configureQuality(int quality);
+	void configureQuality(dsp::OversamplingQuality quality);
 	[[nodiscard]] juce::Result validatePresetSound(const presets::Preset& preset) const;
 	[[nodiscard]] juce::Result applyPreset(const presets::Preset& preset);
 	[[nodiscard]] bool matchesPresetSound(const presets::Preset& preset) const;
-	[[nodiscard]] juce::Result loadAdjacentPreset(bool next);
 	[[nodiscard]] MonoVoice& findVoiceForNote(int channel, int note);
 	[[nodiscard]] MonoVoice& monoVoiceForChannel(int channel);
 	void retargetMonophonicVoice(int channel, bool retrigger);
 	[[nodiscard]] int activeVoiceLimit() const noexcept;
 
+	// Every parameter the processor reads, resolved by ID once at construction so no block looks one up by name.
+	struct LfoParameters
+	{
+		std::atomic<float> *rate {}, *sync {}, *division {}, *shape {}, *polarity {}, *mode {}, *phase {}, *delay {}, *fade {}, *amount {};
+		std::array<std::atomic<float>*, 19> depths {}; // in parameters::LfoParameterIds::depths() order
+	};
+	struct CachedParameters
+	{
+		std::array<std::atomic<float>*, 3> range {}, semitone {}, fine {}, octave {}, level {}, morph {}, pulseWidth {};
+		std::atomic<float> *noiseType {}, *noiseLevel {}, *filterCutoff {}, *filterResonance {}, *filterKeyTracking {}, *filterEnvelopeAmount {};
+		std::atomic<float> *filterDrive {}, *filterQCompensation {}, *filterMode {}, *filterType {}, *ampAttack {}, *ampDecay {};
+		std::atomic<float> *ampSustain {}, *ampRelease {}, *filterAttack {}, *filterDecay {}, *filterSustain {}, *filterRelease {};
+		std::atomic<float> *ampVelocity {}, *filterVelocity {}, *calibration {}, *unison {}, *unisonDetune {}, *unisonSpread {};
+		std::atomic<float> *voiceWidth {}, *drift {}, *glideMode {}, *glideTime {}, *multicore {}, *voiceCount {};
+		std::atomic<float> *pitchBendRange {}, *performanceMode {}, *notePriority {}, *heldKeyReturn {}, *vibratoRate {};
+		std::atomic<float> *vibratoShape {}, *vibratoDepth {}, *vibratoAmount {}, *masterOutput {};
+		std::array<LfoParameters, 2> lfos {};
+	};
+	[[nodiscard]] static CachedParameters cacheParameters(juce::AudioProcessorValueTreeState& state);
+
 	juce::UndoManager undoManager;
 	juce::AudioProcessorValueTreeState parameterState;
-	state::StateManager stateManager;
-	std::unique_ptr<presets::FilePresetRepository> userPresetRepository;
-	presets::PresetCatalog presetCatalog;
-	presets::PresetSession presetSession;
+	plugin_support::PresetHost presetHost;
+	plugin_support::QualitySelection qualitySelection;
+	CachedParameters cached;
 	std::array<std::unique_ptr<MonoVoice>, 16> voices;
 	std::array<bool, 16> sustainByChannel {};
 	std::array<float, 16> pitchBendByChannel {};
@@ -151,14 +170,13 @@ private:
 	std::unique_ptr<LfoClock> vibratoClock;
 	std::array<float, 16> modWheelByChannel {}, pressureByChannel {};
 	std::atomic<float> vibratoControlDisplay {};
-	std::atomic<int> soundingVoiceDisplay {};
+	std::atomic<int> soundingVoiceDisplay {}, latencyDisplay {};
 	double transportBpm { 120.0 };
 	std::optional<double> transportPpq;
 	dsp::StereoPeakMeter outputMeter;
 	dsp::ScopeTap outputScope;
 	std::atomic<bool> pendingPresetReset {};
 	int activeVoiceCount { 8 };
-	int activeQuality {};
 	std::uint64_t noteAge {};
 	double sampleRateHz { 48'000.0 };
 	// Multicore: the pool is created on the message thread the first time Multicore is on, then kept.

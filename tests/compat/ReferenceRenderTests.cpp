@@ -71,9 +71,12 @@ const std::vector<RenderCase>& renderCases()
 			{ "glimmer", "offline-4x-iir", { { glimmer::trackingOversampling, 0.0f }, { glimmer::offlineOversampling, 6.0f } }, true },
 
 			{ "mono", "ladder", {} },
-			{ "mono", "ladder-resonant-2x", { { mono::quality, 1.0f }, { mono::filterResonance, 70.0f }, { mono::filterCutoff, 900.0f } } },
-			{ "mono", "ladder-4x", { { mono::quality, 2.0f } } },
-			{ "mono", "ladder-8x", { { mono::quality, 3.0f } } },
+			{ "mono", "ladder-resonant-2x", { { mono::trackingOversampling, 1.0f }, { mono::filterResonance, 70.0f }, { mono::filterCutoff, 900.0f } } },
+			{ "mono", "ladder-4x", { { mono::trackingOversampling, 4.0f } } },
+			{ "mono", "ladder-8x", { { mono::trackingOversampling, 5.0f } } },
+			// An offline render at the default Offline choice (4x FIR), not the tracking one (16x here; ADR 0001).
+			{ "mono", "offline-default-resonant", { { mono::trackingOversampling, 6.0f }, { mono::filterResonance, 70.0f },
+				{ mono::filterCutoff, 900.0f } }, true },
 			{ "mono", "svf-bandpass", { { mono::filterType, 1.0f }, { mono::filterMode, 0.0f }, { mono::filterResonance, 50.0f } } },
 			{ "mono", "k35", { { mono::filterType, 2.0f }, { mono::filterResonance, 60.0f } } },
 			{ "mono", "unison-noise-lfo", { { mono::unison, 2.0f }, { mono::noiseType, 2.0f }, { mono::noiseLevel, 30.0f },

@@ -1,5 +1,6 @@
-#include "PluginEditor.h"
+#include <vekt/mono/PluginEditor.h>
 
+#include <vekt/dsp/OversamplingChoices.h>
 #include "LfoDestinations.h"
 
 #include <vector>
@@ -53,7 +54,8 @@ LfoDot combineLfoDot(std::span<const LfoDotContribution> contributions) noexcept
 
 PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	: ScalableEditor(newProcessor, editorWidth, ui::ScalableEditor::logicalHeight), pluginProcessor(newProcessor), historyControls(newProcessor.getUndoManager()),
-	  presetBrowser(newProcessor.getPresetSession())
+	  presetBrowser(newProcessor.getPresetSession()),
+	  qualitySettings(newProcessor.getParameters(), parameters::trackingOversampling, parameters::offlineOversampling)
 {
 	setLookAndFeel(&lookAndFeel);
 	title.setText("VEKT  MONO", juce::dontSendNotification);
@@ -87,6 +89,8 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	getContent().addAndMakeVisible(historyControls);
 	getContent().addAndMakeVisible(presetNavigation);
 	getContent().addChildComponent(presetBrowser);
+	getContent().addAndMakeVisible(qualitySettings.getSettingsButton());
+	getContent().addChildComponent(qualitySettings);
 	// Each oscillator panel reads pitch, shape, then mixer level.
 	const std::array oscillatorNames { "Octave", "Fine", "Morph", "Width", "Level" };
 	const std::array oscillatorIds { parameters::osc1Octave, parameters::osc1Fine, parameters::osc1Morph, parameters::osc1PulseWidth, parameters::osc1Level,
@@ -209,12 +213,11 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	priorityBox.setTooltip("Mono note priority; low priority keeps the lowest held key sounding.");
 	performancePanel.addAndMakeVisible(heldKeyReturnButton);
 	heldKeyReturnAttachment = std::make_unique<ButtonAttachment>(pluginProcessor.getParameters(), parameters::heldKeyReturn, heldKeyReturnButton);
-	addChoice(performancePanel, qualityBox, { "1x", "2x", "4x", "8x" }, parameters::quality, qualityAttachment);
 	addChoice(performancePanel, unisonBox, { "1x", "2x", "4x" }, parameters::unison, unisonAttachment);
 	addChoice(performancePanel, glideBox, { "Off", "Always", "Legato" }, parameters::glideMode, glideAttachment);
 	addChoice(performancePanel, multicoreBox, { "Off", "On" }, parameters::multicore, multicoreAttachment);
 	multicoreBox.setTooltip("Render voices on up to seven extra CPU cores (one fewer than your performance cores). Helps from a few voices up, most with high Quality or unison; the sound is identical either way. Leave off if your host already spreads tracks across cores.");
-	const std::array performanceNames { "Voice count", "Mode", "Quality", "Unison", "Glide", "Multicore" };
+	const std::array performanceNames { "Voice count", "Mode", "Unison", "Glide", "Multicore" };
 	for (std::size_t index = 0; index < performanceLabels.size(); ++index)
 	{
 		performanceLabels[index].setText(performanceNames[index], juce::dontSendNotification);
@@ -227,7 +230,8 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	activeVoicesLabel.setTooltip("Voices sounding now, including release tails, out of the Voice count limit.");
 	performancePanel.addAndMakeVisible(activeVoicesLabel);
 	noiseBox.setTooltip("White or pink noise source.");
-	qualityBox.setTooltip("1x is the zero-oversampling default; 2x uses minimum-phase IIR, and 4x/8x use linear-phase FIR. Higher factors reduce filter aliasing on bright high notes but use more CPU and add latency. Changing it cuts any sounding notes.");
+	qualitySettings.getTrackingBox().setTooltip("Oversampling during real-time playback. Off is the light default; IIR is minimum phase, FIR linear phase. Higher factors reduce filter aliasing on bright high notes but use much more CPU and add latency; 16x with many voices is very heavy. Changing it cuts any sounding notes.");
+	qualitySettings.getOfflineBox().setTooltip("Oversampling used when the host renders offline (bounce or export). It can be higher than the tracking setting without affecting playback.");
 	performanceModeBox.setTooltip("Mono retriggers each note; Mono Legato keeps the envelope active while notes overlap.");
 	heldKeyReturnButton.setTooltip("When enabled, releasing the active mono note returns to the selected still-held key (last or lowest priority).");
 	glideBox.setTooltip("Always glides every note change; Legato glides only while another note is held.");
@@ -468,11 +472,8 @@ void PluginEditor::timerCallback()
 {
 	historyControls.refresh();
 	refreshPresetLabel();
-	const auto activeQuality = pluginProcessor.getActiveQuality();
-	const auto qualityName = activeQuality == 0 ? "1x" : activeQuality == 1 ? "2x IIR"
-		: activeQuality == 2 ? "4x FIR" : "8x FIR";
-	juce::String message = "Quality: " + juce::String(qualityName)
-		+ " • " + juce::String(pluginProcessor.getLatencySamples()) + " smp";
+	juce::String message = "Quality: " + dsp::qualityName(pluginProcessor.getActiveQuality())
+		+ " • " + juce::String(pluginProcessor.getLatencyDisplay()) + " smp";
 	status.setText(message, juce::dontSendNotification);
 	for (std::size_t index = 0; index < lfoTabs.size(); ++index) lfoTabs[index].setLevel(pluginProcessor.getLfoDisplayValue(index));
 	vibratoMeter.setLevel(pluginProcessor.getVibratoControlDisplay());
@@ -489,7 +490,7 @@ void PluginEditor::refreshPresetLabel()
 void PluginEditor::paint(juce::Graphics& graphics) { graphics.fillAll(juce::Colour::fromRGB(20, 24, 28)); }
 void PluginEditor::resized()
 {
-	ScalableEditor::resized(); auto& content = getContent(); title.setBounds(20, 16, 220, 40); presetNavigation.setBounds(260, 16, 320, 40); historyControls.setBounds(600, 16, 120, 40); status.setBounds(740, 16, editorWidth - 760, 40);
+	ScalableEditor::resized(); auto& content = getContent(); title.setBounds(20, 16, 220, 40); presetNavigation.setBounds(260, 16, 320, 40); historyControls.setBounds(600, 16, 120, 40); qualitySettings.getSettingsButton().setBounds(740, 18, 88, 36); status.setBounds(844, 16, editorWidth - 864, 40);
 	presetBrowser.setBounds(content.getLocalBounds().reduced(20));
 	// Columns match the ADSR/Performance row below: 348 px panels with 16 px gaps.
 	for (std::size_t index = 0; index < oscillatorPanels.size(); ++index) oscillatorPanels[index].setBounds(20 + static_cast<int>(index) * 364, 68, 348, 184);
@@ -511,7 +512,8 @@ void PluginEditor::resized()
 	outputScope.setBounds(12, 36, 123, 66);
 	outputMeter.setBounds(12, 106, 123, 18);
 	outputFader.setBounds(12, 128, 123, 44);
-	voiceCountBox.setBounds(12, 58, 154, 28); performanceModeBox.setBounds(184, 58, 154, 28); qualityBox.setBounds(12, 116, 154, 28); unisonBox.setBounds(184, 116, 154, 28); glideBox.setBounds(12, 174, 154, 28); multicoreBox.setBounds(184, 174, 154, 28);
+	voiceCountBox.setBounds(12, 58, 154, 28); performanceModeBox.setBounds(184, 58, 154, 28); unisonBox.setBounds(12, 116, 154, 28); glideBox.setBounds(184, 116, 154, 28); multicoreBox.setBounds(12, 174, 154, 28);
+	qualitySettings.setBounds(editorWidth - 20 - ui::QualitySettings::preferredWidth, 68, ui::QualitySettings::preferredWidth, ui::QualitySettings::preferredHeight);
 	lfoPanel.setBounds(1116, 68, 348, 380);
 	vibratoPanel.setBounds(1116, 464, 348, 216);
 	vibratoRateControl.setBounds(6, 38, 65, 140);
@@ -540,6 +542,6 @@ void PluginEditor::resized()
 	for (std::size_t row = 0; row < 3; ++row) lfoDestinationLabels[4 + row].setBounds(12, 214 + static_cast<int>(row) * 24, 44, 22);
 	for (std::size_t single = 0; single < lfoSingleSlots.size(); ++single)
 		lfoDestinationLabels[7 + single].setBounds(12 + lfoSingleSlots[single] % 4 * 84, 290 + lfoSingleSlots[single] / 4 * 42, 78, 14);
-	performanceLabels[0].setBounds(12, 38, 90, 18); activeVoicesLabel.setBounds(102, 38, 64, 18); performanceLabels[1].setBounds(184, 38, 50, 18); performanceLabels[2].setBounds(12, 96, 154, 18); performanceLabels[3].setBounds(184, 96, 154, 18); performanceLabels[4].setBounds(12, 154, 154, 18); performanceLabels[5].setBounds(184, 154, 154, 18); heldKeyReturnButton.setBounds(238, 34, 100, 22); priorityBox.setBounds(127, 5, 145, 26); juce::ignoreUnused(content);
+	performanceLabels[0].setBounds(12, 38, 90, 18); activeVoicesLabel.setBounds(102, 38, 64, 18); performanceLabels[1].setBounds(184, 38, 50, 18); performanceLabels[2].setBounds(12, 96, 154, 18); performanceLabels[3].setBounds(184, 96, 154, 18); performanceLabels[4].setBounds(12, 154, 154, 18); heldKeyReturnButton.setBounds(238, 34, 100, 22); priorityBox.setBounds(127, 5, 145, 26); juce::ignoreUnused(content);
 }
 }

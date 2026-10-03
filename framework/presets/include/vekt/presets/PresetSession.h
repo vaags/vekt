@@ -141,6 +141,16 @@ public:
 		if (snapshot && snapshot->identifier == id) snapshot->tags = preset.tags;
 		return juce::Result::ok();
 	}
+	// Deletes a user preset. Deleting the selected one keeps the current sound but clears the selection (PRESET_UX).
+	[[nodiscard]] juce::Result removeUserPreset(const PresetEntry& entry)
+	{
+		if (entry.origin != PresetOrigin::user) return juce::Result::fail("Select a user preset to delete");
+		const auto identifier = entry.identifier; // removing refreshes the catalog, which may own `entry`
+		const auto result = catalog.removeUserPreset(entry.location);
+		if (result.wasOk() && snapshot && loadedOrigin == PresetOrigin::user && snapshot->identifier == identifier)
+			clear();
+		return result;
+	}
 	[[nodiscard]] juce::Result importFile(const juce::File& file, const juce::String& folder)
 	{
 		if (!file.existsAsFile() || file.getSize() > 4 * 1024 * 1024)

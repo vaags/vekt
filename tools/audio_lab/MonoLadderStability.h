@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../../plugins/vekt_mono/Source/LadderResonance.h"
-#include "../../plugins/vekt_mono/Source/NonlinearTptLadder.h"
+#include <LadderResonance.h>
+#include <NonlinearTptLadder.h>
 
 #include <algorithm>
 #include <array>

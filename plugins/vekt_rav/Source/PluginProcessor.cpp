@@ -1,12 +1,12 @@
-#include "PluginProcessor.h"
+#include <vekt/rav/PluginProcessor.h>
 
-#include "PluginEditor.h"
+#include <vekt/rav/PluginEditor.h>
 
-#include "FactoryPresets.h"
+#include <vekt/rav/FactoryPresets.h>
 
+#include <vekt/plugin_support/RequireParameter.h>
 #include <vekt/presets/PresetPaths.h>
 #include <vekt/presets/PresetSchema.h>
-#include <vekt/presets/PresetJsonCodec.h>
 
 #include <juce_audio_utils/juce_audio_utils.h>
 
@@ -19,57 +19,48 @@ PluginProcessor::PluginProcessor()
 						 .withInput("Input", juce::AudioChannelSet::stereo(), true)
 						 .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
 	  parameterState(*this, &undoManager, parameters::stateType, parameters::createLayout()),
-	  stateManager(parameterState, parameters::presetProductIdentifier, 1),
-	  presetSession(presetCatalog, { parameters::presetProductIdentifier, "Vekt Rav", 4 }, {
+	  presetHost(parameterState, { parameters::presetProductIdentifier, "Vekt Rav", parameters::presetSoundSchemaVersion }, {
 		[this](const juce::String& name) { return createPreset(name); },
-		[](presets::Preset& preset) { return migratePresetSound(preset); },
+		[](presets::Preset& preset)
+		{
+			return preset.soundSchemaVersion == parameters::presetSoundSchemaVersion ? juce::Result::ok()
+				: juce::Result::fail("Unsupported Rav preset sound schema");
+		},
 		[this](const presets::Preset& preset) { return validatePresetSound(preset); },
 		[this](const presets::Preset& preset) { return applyPreset(preset); },
 		[this](const presets::Preset& preset) { return matchesPresetSound(preset); } }),
-	  inputGainParameter(requireParameter(parameterState, parameters::inputGain)),
-	  driveParameter(requireParameter(parameterState, parameters::drive)),
-	  toneParameter(requireParameter(parameterState, parameters::tone)),
-	  biasParameter(requireParameter(parameterState, parameters::bias)),
-	  autoGainParameter(requireParameter(parameterState, parameters::autoGain)),
-	  bypassParameter(requireParameter(parameterState, parameters::bypass)),
-	  mixParameter(requireParameter(parameterState, parameters::mix)),
-	  outputGainParameter(requireParameter(parameterState, parameters::outputGain)),
-	  lowBandMixParameter(requireParameter(parameterState, parameters::lowBandMix)),
-	  midBandMixParameter(requireParameter(parameterState, parameters::midBandMix)),
-	  highBandMixParameter(requireParameter(parameterState, parameters::highBandMix)),
-	  lowMidCutoffParameter(requireParameter(parameterState, parameters::lowMidCutoffHz)),
-	  midHighCutoffParameter(requireParameter(parameterState, parameters::midHighCutoffHz)),
-	  modeParameter(requireParameter(parameterState, parameters::mode)),
-	  shapeParameter(requireParameter(parameterState, parameters::shape)),
-	  dynamicsParameter(requireParameter(parameterState, parameters::dynamics)),
-	  textureParameter(requireParameter(parameterState, parameters::texture)),
-	  trackingOversamplingParameter(requireParameter(parameterState, parameters::trackingOversampling)),
-	offlineOversamplingParameter(requireParameter(parameterState, parameters::offlineOversampling)),
-	stageEnabledParameters { requireParameter(parameterState, parameters::stageEnabledSaturation),
-									 requireParameter(parameterState, parameters::stageEnabledOverdrive),
-									 requireParameter(parameterState, parameters::stageEnabledDistortion),
-										 requireParameter(parameterState, parameters::stageEnabledCircuitFuzz),
-										 requireParameter(parameterState, parameters::stageEnabledGatedFuzz) }
+	  qualitySelection(parameterState, parameters::trackingOversampling, parameters::offlineOversampling),
+	  inputGainParameter(plugin_support::requireParameter(parameterState, parameters::inputGain)),
+	  driveParameter(plugin_support::requireParameter(parameterState, parameters::drive)),
+	  toneParameter(plugin_support::requireParameter(parameterState, parameters::tone)),
+	  biasParameter(plugin_support::requireParameter(parameterState, parameters::bias)),
+	  autoGainParameter(plugin_support::requireParameter(parameterState, parameters::autoGain)),
+	  bypassParameter(plugin_support::requireParameter(parameterState, parameters::bypass)),
+	  mixParameter(plugin_support::requireParameter(parameterState, parameters::mix)),
+	  outputGainParameter(plugin_support::requireParameter(parameterState, parameters::outputGain)),
+	  lowBandMixParameter(plugin_support::requireParameter(parameterState, parameters::lowBandMix)),
+	  midBandMixParameter(plugin_support::requireParameter(parameterState, parameters::midBandMix)),
+	  highBandMixParameter(plugin_support::requireParameter(parameterState, parameters::highBandMix)),
+	  lowMidCutoffParameter(plugin_support::requireParameter(parameterState, parameters::lowMidCutoffHz)),
+	  midHighCutoffParameter(plugin_support::requireParameter(parameterState, parameters::midHighCutoffHz)),
+	  modeParameter(plugin_support::requireParameter(parameterState, parameters::mode)),
+	  shapeParameter(plugin_support::requireParameter(parameterState, parameters::shape)),
+	  dynamicsParameter(plugin_support::requireParameter(parameterState, parameters::dynamics)),
+	  textureParameter(plugin_support::requireParameter(parameterState, parameters::texture)),
+	stageEnabledParameters { plugin_support::requireParameter(parameterState, parameters::stageEnabledSaturation),
+									 plugin_support::requireParameter(parameterState, parameters::stageEnabledOverdrive),
+									 plugin_support::requireParameter(parameterState, parameters::stageEnabledDistortion),
+										 plugin_support::requireParameter(parameterState, parameters::stageEnabledCircuitFuzz),
+										 plugin_support::requireParameter(parameterState, parameters::stageEnabledGatedFuzz) }
 {
-	presetSession.onSelectionChanged = [this]
-	{
-		const auto index = presetSession.currentIndex();
-		if (index && presetSession.origin() == presets::PresetOrigin::factory)
-		{
-			currentProgram = static_cast<int>(*index);
-			stateManager.getMetadata().setProperty(parameters::currentFactoryPreset,
-				presetSession.loaded()->name, nullptr);
-		}
-	};
-	const auto factoryPresetResult = addFactoryPresets(presetCatalog);
+	const auto factoryPresetResult = addFactoryPresets(presetHost.catalog());
 	jassert(factoryPresetResult.wasOk());
 	juce::ignoreUnused(factoryPresetResult);
-	if (presetCatalog.factoryPresetCount() > 0)
+	if (presetHost.catalog().factoryPresetCount() > 0)
 	{
-		currentPresetIndex = 0;
 		presets::Preset initialPreset;
-		if (presetCatalog.loadFactoryPreset(0, initialPreset).wasOk()
-			&& presetSession.prepare(initialPreset).wasOk()
+		if (presetHost.catalog().loadFactoryPreset(0, initialPreset).wasOk()
+			&& presetHost.session().prepare(initialPreset).wasOk()
 			&& presets::PresetSchema::apply(initialPreset,
 				parameters::presetProductIdentifier, parameterState,
 				parameters::soundParameterIds).wasOk())
@@ -79,27 +70,16 @@ PluginProcessor::PluginProcessor()
 				initialPreset.soundState[RavStageChain::metadataPropertyName].toString(), initialOrder);
 			jassert(parsedOrder);
 			if (parsedOrder) juce::ignoreUnused(stageChain.setOrder(initialOrder));
-			stageChain.writeMetadata(stateManager.getMetadata());
-			currentPresetSnapshot = initialPreset;
-			presetSession.adopt(initialPreset, presets::PresetOrigin::factory);
+			stageChain.writeMetadata(presetHost.metadata());
+			presetHost.session().adopt(initialPreset, presets::PresetOrigin::factory);
 		}
-		stateManager.getMetadata().setProperty(
-			parameters::currentFactoryPreset, presetCatalog.factoryPresetName(0), nullptr);
 	}
-	requestedTrackingOversampling.store(trackingOversamplingParameter->load());
-	requestedOfflineOversampling.store(offlineOversamplingParameter->load());
-	parameterState.addParameterListener(parameters::trackingOversampling, this);
-	parameterState.addParameterListener(parameters::offlineOversampling, this);
 	if (wrapperType == wrapperType_VST3 || wrapperType == wrapperType_Standalone
 		|| wrapperType == wrapperType_AudioUnit)
 		juce::ignoreUnused(configureUserPresetDirectory(presets::PresetPaths::desktop("Vekt Rav")));
 }
 
-PluginProcessor::~PluginProcessor()
-{
-	parameterState.removeParameterListener(parameters::trackingOversampling, this);
-	parameterState.removeParameterListener(parameters::offlineOversampling, this);
-}
+PluginProcessor::~PluginProcessor() = default;
 
 void PluginProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
 {
@@ -112,12 +92,7 @@ void PluginProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
 	};
 
 	oversampling.prepare(static_cast<std::size_t>(maximumBlockSize));
-	requestedTrackingOversampling.store(trackingOversamplingParameter->load());
-	requestedOfflineOversampling.store(offlineOversamplingParameter->load());
-	const auto initialQuality = isNonRealtime()
-									? parameters::offlineQualityFrom(requestedOfflineOversampling.load())
-									: parameters::trackingQualityFrom(requestedTrackingOversampling.load());
-	oversampling.activate(initialQuality);
+	oversampling.activate(qualitySelection.prepare(isNonRealtime()));
 	toneStage.prepare(sampleRate, 2);
 	const auto effectiveFactor = oversampling.getActiveFactor();
 	const auto effectiveSampleRate = sampleRate * static_cast<double>(effectiveFactor);
@@ -174,13 +149,11 @@ void PluginProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
 	inputGain.setRampDurationSeconds(0.02);
 	outputGain.prepare(specification);
 	outputGain.setRampDurationSeconds(0.02);
-	qualityChangePending.store(false);
-	prepared.store(true);
 }
 
 void PluginProcessor::releaseResources()
 {
-	prepared.store(false);
+	qualitySelection.release();
 	maximumPreparedBlockSize = 0;
 }
 
@@ -192,9 +165,7 @@ bool PluginProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 
 void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
-	observeTransport();
-	if (!transportPlaying.load())
-		applyPendingQualityChange();
+	applyPendingQualityChange();
 	inputMeter.publish(buffer);
 	processPreparedBlocks(buffer, midi, bypassParameter->load() >= 0.5f);
 	outputMeter.publish(buffer);
@@ -203,9 +174,7 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
 
 void PluginProcessor::processBlockBypassed(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
-	observeTransport();
-	if (!transportPlaying.load())
-		applyPendingQualityChange();
+	applyPendingQualityChange();
 	inputMeter.publish(buffer);
 	processPreparedBlocks(buffer, midi, true);
 	outputMeter.publish(buffer);
@@ -390,52 +359,22 @@ juce::AudioProcessorParameter* PluginProcessor::getBypassParameter() const
 {
 	return parameterState.getParameter(parameters::bypass);
 }
-int PluginProcessor::getNumPrograms()
-{
-	return static_cast<int>(presetCatalog.factoryPresetCount());
-}
-
-int PluginProcessor::getCurrentProgram() { return currentProgram; }
-
-void PluginProcessor::setCurrentProgram(int index)
-{
-	if (index < 0)
-		return;
-
-	const auto factoryIndex = static_cast<std::size_t>(index);
-	if (factoryIndex < presetCatalog.factoryPresetCount())
-		juce::ignoreUnused(loadPreset(factoryIndex));
-}
-
-const juce::String PluginProcessor::getProgramName(int index)
-{
-	if (index < 0)
-		return {};
-	return presetCatalog.factoryPresetName(static_cast<std::size_t>(index));
-}
-
+int PluginProcessor::getNumPrograms() { return presetHost.numPrograms(); }
+int PluginProcessor::getCurrentProgram() { return presetHost.currentProgram(); }
+void PluginProcessor::setCurrentProgram(int index) { presetHost.selectProgram(index); }
+const juce::String PluginProcessor::getProgramName(int index) { return presetHost.programName(index); }
 void PluginProcessor::changeProgramName(int index, const juce::String& name) { juce::ignoreUnused(index, name); }
 
 void PluginProcessor::getStateInformation(juce::MemoryBlock& destination)
 {
-	stageChain.writeMetadata(stateManager.getMetadata());
-	stateManager.getMetadata().setProperty("vektPresetSelection", presetSession.selectionState(), nullptr);
-	stateManager.save(destination);
+	stageChain.writeMetadata(presetHost.metadata());
+	presetHost.save(destination);
 }
 
 void PluginProcessor::setStateInformation(const void* data, int size)
 {
-	if (stateManager.restore(data, size))
-	{
-		stageChain = RavStageChain::readMetadata(stateManager.getMetadata());
-		restoreCurrentProgramFromMetadata();
-		if (stateManager.getMetadata().hasProperty("vektPresetSelection"))
-		{
-			presetSession.clear();
-			juce::ignoreUnused(presetSession.restoreSelection(
-				stateManager.getMetadata().getProperty("vektPresetSelection")));
-		}
-	}
+	if (presetHost.restore(data, size))
+		stageChain = RavStageChain::readMetadata(presetHost.metadata());
 }
 
 presets::Preset PluginProcessor::createPreset(
@@ -447,7 +386,7 @@ presets::Preset PluginProcessor::createPreset(
 		parameterState,
 		parameters::soundParameterIds,
 		metadata);
-	preset.soundSchemaVersion = 4;
+	preset.soundSchemaVersion = parameters::presetSoundSchemaVersion;
 	preset.soundState.set(RavStageChain::metadataPropertyName, RavStageChain::serialise(stageChain.getOrder()));
 	return preset;
 }
@@ -455,7 +394,7 @@ presets::Preset PluginProcessor::createPreset(
 juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 {
 	assertMessageThread();
-	if (preset.soundSchemaVersion != 4)
+	if (preset.soundSchemaVersion != parameters::presetSoundSchemaVersion)
 		return juce::Result::fail("Unsupported Rav preset sound schema");
 	if (const auto result = validatePresetSound(preset); result.failed())
 		return result;
@@ -474,19 +413,10 @@ juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 	if (result.wasOk())
 	{
 		juce::ignoreUnused(stageChain.setOrder(order));
-		stageChain.writeMetadata(stateManager.getMetadata());
-		currentPresetIndex.reset();
-		currentPresetSnapshot.reset();
-		presetSession.clear();
+		stageChain.writeMetadata(presetHost.metadata());
+		presetHost.session().clear();
 	}
 	return result;
-}
-
-juce::Result PluginProcessor::migratePresetSound(presets::Preset& preset)
-{
-	if (preset.soundSchemaVersion == 4)
-		return juce::Result::ok();
-	return juce::Result::fail("Unsupported Rav preset sound schema");
 }
 
 juce::Result PluginProcessor::validatePresetSound(const presets::Preset& preset) const
@@ -511,150 +441,11 @@ bool PluginProcessor::matchesPresetSound(const presets::Preset& preset) const
 
 juce::Result PluginProcessor::configureUserPresetDirectory(const juce::File& directory)
 {
-	assertMessageThread();
-	if (directory == juce::File {})
-		return juce::Result::fail("User preset directory is empty");
-
-	std::optional<presets::PresetEntry> selectedEntry;
-	currentPresetIndex = presetSession.currentIndex();
-	if (currentPresetIndex && *currentPresetIndex < presetCatalog.entries().size())
-		selectedEntry = presetCatalog.entries()[*currentPresetIndex];
-	userPresetRepository = std::make_unique<presets::FilePresetRepository>(directory);
-	presetCatalog.setUserRepository(userPresetRepository.get());
-	currentPresetIndex = selectedEntry
-		? presetCatalog.findById(selectedEntry->identifier, selectedEntry->origin)
-		: std::nullopt;
-	if (!currentPresetIndex) { currentPresetSnapshot.reset(); presetSession.clear(); }
-	return juce::Result::ok();
+	return presetHost.configureUserPresetDirectory(directory);
 }
 
-juce::Result PluginProcessor::saveUserPreset(
-	const juce::String& name, presets::PresetSaveMode mode)
-{
-	assertMessageThread();
-	const auto tags = presetSession.loaded() ? presetSession.loaded()->tags : juce::StringArray {};
-	if (const auto result = presetSession.save(name, {}, tags, mode); result.failed())
-		return result;
-
-	currentPresetIndex = presetCatalog.find(name.trim(), presets::PresetOrigin::user);
-	currentPresetSnapshot = presetSession.loaded();
-	return juce::Result::ok();
-}
-
-juce::Result PluginProcessor::importPreset(const juce::File& source)
-{
-	assertMessageThread();
-	if (!source.existsAsFile())
-		return juce::Result::fail("Preset file does not exist");
-	presets::Preset preset;
-	if (const auto result = presets::PresetJsonCodec::decode(source.loadFileAsString(), preset); result.failed())
-		return result;
-	if (const auto result = presetSession.prepare(preset); result.failed())
-		return result;
-	return applyPreset(preset);
-}
-
-juce::Result PluginProcessor::exportPreset(const juce::File& destination, const juce::String& name) const
-{
-	assertMessageThread();
-	juce::String json;
-	auto preset = createPreset(name);
-	if (presetSession.loaded())
-	{
-		preset.tags = presetSession.loaded()->tags;
-		preset.metadata = presetSession.loaded()->metadata;
-	}
-	if (const auto result = presets::PresetJsonCodec::encode(preset, json); result.failed())
-		return result;
-	juce::TemporaryFile temporaryFile(destination);
-	if (!temporaryFile.getFile().replaceWithText(json)
-		|| !temporaryFile.overwriteTargetFileWithTemporary())
-		return juce::Result::fail("Could not write preset");
-	return juce::Result::ok();
-}
-
-juce::Result PluginProcessor::removeUserPreset(const juce::String& name)
-{
-	assertMessageThread();
-	std::optional<presets::PresetEntry> selectedEntry;
-	currentPresetIndex = presetSession.currentIndex();
-	if (currentPresetIndex && *currentPresetIndex < presetCatalog.entries().size())
-		selectedEntry = presetCatalog.entries()[*currentPresetIndex];
-	if (const auto result = presetCatalog.removeUserPreset(name); result.failed())
-		return result;
-
-	if (!selectedEntry
-		|| (selectedEntry->origin == presets::PresetOrigin::user
-			&& selectedEntry->location.equalsIgnoreCase(name)))
-		currentPresetIndex.reset();
-	else
-		currentPresetIndex = presetCatalog.findById(selectedEntry->identifier, selectedEntry->origin);
-	if (!currentPresetIndex)
-	{
-		currentPresetSnapshot.reset();
-		presetSession.clear();
-	}
-	return juce::Result::ok();
-}
-
-juce::Result PluginProcessor::loadPreset(std::size_t index)
-{
-	assertMessageThread();
-	if (index >= presetCatalog.entries().size())
-		return juce::Result::fail("Preset index is out of range");
-	const auto entry = presetCatalog.entries()[index];
-	if (const auto result = presetSession.load(entry.identifier, entry.origin); result.failed())
-		return result;
-
-	currentPresetIndex = index;
-	currentPresetSnapshot = presetSession.loaded();
-	if (entry.origin == presets::PresetOrigin::factory)
-	{
-		currentProgram = static_cast<int>(index);
-		stateManager.getMetadata().setProperty(
-			parameters::currentFactoryPreset, entry.name, nullptr);
-	}
-	return juce::Result::ok();
-}
-
-juce::Result PluginProcessor::loadNextPreset()
-{
-	currentPresetIndex = presetSession.currentIndex();
-	if (presetCatalog.entries().empty())
-		return juce::Result::fail("Preset catalog is empty");
-	if (!currentPresetIndex)
-		return loadPreset(0);
-
-	const auto next = presetCatalog.nextIndex(*currentPresetIndex);
-	return next ? loadPreset(*next) : juce::Result::fail("Current preset is unavailable");
-}
-
-juce::Result PluginProcessor::loadPreviousPreset()
-{
-	currentPresetIndex = presetSession.currentIndex();
-	if (presetCatalog.entries().empty())
-		return juce::Result::fail("Preset catalog is empty");
-	if (!currentPresetIndex)
-		return loadPreset(presetCatalog.entries().size() - 1);
-
-	const auto previous = presetCatalog.previousIndex(*currentPresetIndex);
-	return previous ? loadPreset(*previous) : juce::Result::fail("Current preset is unavailable");
-}
-
-const std::vector<presets::PresetEntry>& PluginProcessor::getPresetEntries() const noexcept
-{
-	return presetCatalog.entries();
-}
-
-std::optional<std::size_t> PluginProcessor::getCurrentPresetIndex() const noexcept
-{
-	return presetSession.currentIndex();
-}
-
-bool PluginProcessor::isCurrentPresetModified() const
-{
-	return presetSession.modified();
-}
+juce::Result PluginProcessor::loadNextPreset() { return presetHost.loadAdjacentPreset(true); }
+juce::Result PluginProcessor::loadPreviousPreset() { return presetHost.loadAdjacentPreset(false); }
 
 std::array<float, 2> PluginProcessor::consumeInputPeaks() noexcept
 {
@@ -678,7 +469,7 @@ juce::UndoManager& PluginProcessor::getUndoManager() noexcept
 
 juce::ValueTree& PluginProcessor::getProjectMetadata() noexcept
 {
-	return stateManager.getMetadata();
+	return presetHost.metadata();
 }
 
 RavStageChain::Order PluginProcessor::getStageOrder() const noexcept
@@ -690,54 +481,14 @@ bool PluginProcessor::reorderStage(std::size_t index, int delta) noexcept
 {
 	if (stageChain.moveStage(index, delta))
 	{
-		stageChain.writeMetadata(stateManager.getMetadata());
+		stageChain.writeMetadata(presetHost.metadata());
 		return true;
 	}
 	return false;
 }
 
-void PluginProcessor::restoreCurrentProgramFromMetadata()
-{
-	const auto name = stateManager.getMetadata()
-		.getProperty(parameters::currentFactoryPreset).toString();
-	if (const auto index = presetCatalog.findFactoryPreset(name))
-	{
-		currentProgram = static_cast<int>(*index);
-		currentPresetIndex = index;
-		presets::Preset preset;
-		currentPresetSnapshot = presetCatalog.loadFactoryPreset(*index, preset).wasOk()
-			? std::optional<presets::Preset> { std::move(preset) }
-			: std::nullopt;
-		if (currentPresetSnapshot) presetSession.adopt(*currentPresetSnapshot, presets::PresetOrigin::factory);
-	}
-	else
-	{
-		currentProgram = 0;
-		currentPresetIndex = presetCatalog.factoryPresetCount() > 0
-			? std::optional<std::size_t> { 0 }
-			: std::nullopt;
-		currentPresetSnapshot.reset();
-		presetSession.clear();
-	}
-}
-
-dsp::OversamplingQuality PluginProcessor::getActiveQuality() const noexcept
-{
-	return oversampling.getActiveQuality();
-}
-
-bool PluginProcessor::hasPendingQualityChange() const noexcept
-{
-	return qualityChangePending.load();
-}
-
-std::atomic<float>* PluginProcessor::requireParameter(
-	juce::AudioProcessorValueTreeState& state, const char* identifier)
-{
-	auto* parameter = state.getRawParameterValue(identifier);
-	jassert(parameter != nullptr);
-	return parameter;
-}
+dsp::OversamplingQuality PluginProcessor::getActiveQuality() const noexcept { return qualitySelection.active(); }
+bool PluginProcessor::hasPendingQualityChange() const noexcept { return qualitySelection.pending(); }
 
 void PluginProcessor::assertMessageThread()
 {
@@ -745,65 +496,32 @@ void PluginProcessor::assertMessageThread()
 		|| juce::MessageManager::getInstanceWithoutCreating()->isThisTheMessageThread());
 }
 
-void PluginProcessor::parameterChanged(const juce::String& parameterId, float newValue)
-{
-	if (parameterId == parameters::trackingOversampling)
-		requestedTrackingOversampling.store(newValue);
-	else if (parameterId == parameters::offlineOversampling)
-		requestedOfflineOversampling.store(newValue);
-	else
-		return;
-
-	qualityChangePending.store(true);
-}
-
-void PluginProcessor::observeTransport() noexcept
-{
-	auto isPlaying = false;
-	if (const auto* playHead = getPlayHead())
-		if (const auto position = playHead->getPosition())
-			isPlaying = position->getIsPlaying();
-
-	transportPlaying.store(isPlaying);
-}
-
 void PluginProcessor::applyPendingQualityChange()
 {
-	if (!qualityChangePending.load() || !prepared.load())
+	// Applies at once, during playback too; the audio may drop at the switch (ADR 0010).
+	const auto quality = qualitySelection.takeRequest(isNonRealtime());
+	if (!quality)
 		return;
 
-	if (transportPlaying.load())
-	{
-		return;
-	}
-
-	const auto quality = isNonRealtime()
-							 ? parameters::offlineQualityFrom(requestedOfflineOversampling.load())
-							 : parameters::trackingQualityFrom(requestedTrackingOversampling.load());
-	if (quality != oversampling.getActiveQuality())
-	{
-		oversampling.activate(quality);
-		const auto effectiveSampleRate = preparedSampleRate
-			* static_cast<double>(oversampling.getActiveFactor());
-		for (auto& band : bandStages)
-			for (auto& channel : band)
-				for (auto& stage : channel)
-						stage.prepare(effectiveSampleRate);
-		autoGain.prepare(effectiveSampleRate);
-		for (auto& bandMix : bandMixSmoothers)
-			bandMix.prepare(effectiveSampleRate);
-		crossover.prepare(
-			{ effectiveSampleRate, static_cast<juce::uint32>(maximumPreparedBlockSize * 4), 2 },
-			{ lowMidCutoffParameter->load(), midHighCutoffParameter->load() });
-		dryWetMixer.setWetLatency(oversampling.getActiveLatencySamples());
-		dryWetMixer.reset();
-		bypassDelay.setLatency(oversampling.getActiveLatencySamples());
-		bypassDelay.reset();
-		for (auto& dcBlocker : dcBlockers)
-			dcBlocker.reset();
-		setLatencySamples(oversampling.getActiveLatencySamples());
-	}
-
-	qualityChangePending.store(false);
+	oversampling.activate(*quality);
+	const auto effectiveSampleRate = preparedSampleRate
+		* static_cast<double>(oversampling.getActiveFactor());
+	for (auto& band : bandStages)
+		for (auto& channel : band)
+			for (auto& stage : channel)
+				stage.prepare(effectiveSampleRate);
+	autoGain.prepare(effectiveSampleRate);
+	for (auto& bandMix : bandMixSmoothers)
+		bandMix.prepare(effectiveSampleRate);
+	crossover.prepare(
+		{ effectiveSampleRate, static_cast<juce::uint32>(maximumPreparedBlockSize * 4), 2 },
+		{ lowMidCutoffParameter->load(), midHighCutoffParameter->load() });
+	dryWetMixer.setWetLatency(oversampling.getActiveLatencySamples());
+	dryWetMixer.reset();
+	bypassDelay.setLatency(oversampling.getActiveLatencySamples());
+	bypassDelay.reset();
+	for (auto& dcBlocker : dcBlockers)
+		dcBlocker.reset();
+	setLatencySamples(oversampling.getActiveLatencySamples());
 }
 }

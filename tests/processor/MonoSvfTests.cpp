@@ -1,3 +1,4 @@
+#include <vekt/dsp/OversamplingQuality.h>
 #include "LinearTptSvf.h"
 #include "SvfResponse.h"
 
@@ -136,9 +137,9 @@ TEST_CASE("Mono linear SVF passes DC through LP and Nyquist through HP", "[mono]
 
 TEST_CASE("Mono linear SVF stays exact at the lowest cutoff and highest effective rate", "[mono][filter][svf]")
 {
-	// The 5 Hz Cutoff minimum at 192 kHz x8: g = tan(pi 5 / 1.536 MHz) is about 1e-5. (Modulation can reach the
+	// The 5 Hz Cutoff minimum at 192 kHz x16, the highest internal rate: g = tan(pi 5 / 3.072 MHz) is about 5e-6. (Modulation can reach the
 	// 2.5 Hz floor; the impulse response this measures grows as fs / fc, so Q 0.5 only.)
-	constexpr double sampleRate = 192'000.0 * 8.0;
+	constexpr double sampleRate = vekt::dsp::maximumInternalSampleRate;
 	constexpr double cutoff = 5.0;
 	for (const auto k : { 2.0 })
 	{

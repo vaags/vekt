@@ -4,6 +4,8 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <array>
+#include <bit>
+#include <cstdint>
 #include <cmath>
 #include <vector>
 
@@ -222,4 +224,35 @@ TEST_CASE("Rav Fuzz supports artifact-safe Drive transitions", "[dsp][rav][drive
 
 	for (const auto sample : second)
 		REQUIRE(std::isfinite(sample));
+}
+
+TEST_CASE("Rav mode stage recomputes its cached coefficients after a rate change", "[dsp][rav][precision]")
+{
+	// A stage re-prepared at a new rate must match a fresh one there bit for bit, in every mode: its cached one-pole
+	// coefficients (keyed on Dynamics and Texture) belong to the old rate until prepare invalidates them.
+	for (auto modeIndex = 0; modeIndex < static_cast<int>(vekt::rav::ravModeCount); ++modeIndex)
+	{
+		CAPTURE(modeIndex);
+		const auto mode = static_cast<vekt::rav::RavMode>(modeIndex);
+		const auto input = [](std::size_t index) { return 0.6f * std::sin(0.013f * static_cast<float>(index)); };
+		vekt::rav::RavModeStage reprepared, fresh;
+		reprepared.prepare(48'000.0);
+		reprepared.setParameters(mode, 18.0f, 0.2f, 0.6f, 0.35f, 0.7f);
+		reprepared.reset();
+		std::vector<float> warmup(512);
+		for (std::size_t index = 0; index < warmup.size(); ++index) warmup[index] = input(index);
+		reprepared.process(warmup);
+		for (auto* stage : { &reprepared, &fresh })
+		{
+			stage->prepare(192'000.0);
+			stage->setParameters(mode, 18.0f, 0.2f, 0.6f, 0.35f, 0.7f);
+			stage->reset();
+		}
+		std::vector<float> first(512), second(512);
+		for (std::size_t index = 0; index < first.size(); ++index) first[index] = second[index] = input(index);
+		reprepared.process(first);
+		fresh.process(second);
+		for (std::size_t index = 0; index < first.size(); ++index)
+			REQUIRE(std::bit_cast<std::uint32_t>(first[index]) == std::bit_cast<std::uint32_t>(second[index]));
+	}
 }

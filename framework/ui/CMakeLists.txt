@@ -3,6 +3,7 @@ add_library(vekt_ui STATIC
 	src/ModulationRing.cpp
 	src/Oscilloscope.cpp
 	src/Panel.cpp
+	src/QualitySettings.cpp
 	src/RotaryControl.cpp
 	src/ScalableEditor.cpp
 	src/VektLookAndFeel.cpp)

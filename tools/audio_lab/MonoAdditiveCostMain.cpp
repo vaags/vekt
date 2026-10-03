@@ -19,7 +19,8 @@ void setParameter(vekt::mono::PluginProcessor& processor, const char* identifier
 	parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
 }
 
-float qualityChoice(int factor) { return factor == 4 ? 2.0f : factor == 2 ? 1.0f : 0.0f; }
+// The Tracking Oversampling choice for a factor: Off, 2x IIR or 4x FIR.
+float qualityChoice(int factor) { return factor == 4 ? 4.0f : factor == 2 ? 1.0f : 0.0f; }
 }
 
 int main()
@@ -67,7 +68,7 @@ int main()
 	{
 		vekt::mono::PluginProcessor processor;
 		constexpr int block = 256;
-		setParameter(processor, vekt::mono::parameters::quality, qualityChoice(factor));
+		setParameter(processor, vekt::mono::parameters::trackingOversampling, qualityChoice(factor));
 		processor.prepareToPlay(rate, block);
 		juce::AudioBuffer<float> buffer(2, block);
 		juce::MidiBuffer midi;
@@ -96,7 +97,7 @@ int main()
 					std::pair { vekt::mono::parameters::osc1Level, 100.0f }, std::pair { vekt::mono::parameters::osc2Level, 0.0f },
 					std::pair { vekt::mono::parameters::osc3Level, 0.0f }, std::pair { vekt::mono::parameters::noiseLevel, 0.0f },
 					std::pair { vekt::mono::parameters::ampSustain, 100.0f }, std::pair { vekt::mono::parameters::drift, 0.0f },
-					std::pair { vekt::mono::parameters::unison, 0.0f }, std::pair { vekt::mono::parameters::quality, qualityChoice(factor) } })
+					std::pair { vekt::mono::parameters::unison, 0.0f }, std::pair { vekt::mono::parameters::trackingOversampling, qualityChoice(factor) } })
 					setParameter(processor, identifier, value);
 				if (open)
 				{

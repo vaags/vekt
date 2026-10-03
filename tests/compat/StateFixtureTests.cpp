@@ -181,6 +181,10 @@ TEST_CASE("Every frozen project state restores what it held", "[compat][state]")
 			// What a restored project saves again must restore identically (no drift across sessions).
 			juce::MemoryBlock resaved;
 			fresh->getStateInformation(resaved);
+			// Older Rav and Glimmer projects also named the factory preset in a metadata key; the selection now
+			// comes from the preset session alone, so restoring drops the key (ADR 0010).
+			const std::string resavedText(static_cast<const char*>(resaved.getData()), resaved.getSize());
+			CHECK(resavedText.find("\"currentFactoryPreset\"") == std::string::npos);
 			auto reopened = product.create();
 			reopened->setStateInformation(resaved.getData(), static_cast<int>(resaved.getSize()));
 			const auto reopenedProblems = mismatches(*reopened, product, expectation);

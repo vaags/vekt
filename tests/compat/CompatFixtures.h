@@ -4,7 +4,7 @@
 // files on disk, and a small float WAV codec. Fixture files are deliberately framework-free (raw
 // host-state bytes, plain text, standard WAV) so they stay readable whatever the plugins are built on.
 
-#include "../../plugins/vekt_rav/Source/PluginProcessor.h"
+#include <vekt/rav/PluginProcessor.h>
 #include <vekt/glimmer/PluginProcessor.h>
 #include <vekt/mono/PluginProcessor.h>
 

@@ -14,7 +14,7 @@
 // much of the difference lies below 15 kHz, where the grouping adds nothing
 // before the ladder.
 #include "MonoWidthPitchLevels.h"
-#include "NonlinearTptLadder.h"
+#include "NonlinearTptLadderAliases.h"
 
 #include <vekt/dsp/OversamplingBank.h>
 

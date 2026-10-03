@@ -42,7 +42,8 @@ target_link_libraries(VektMonoCore PUBLIC
 	vekt::dsp
 	vekt::state
 	vekt::presets
-	vekt::preset_ui)
+	vekt::preset_ui
+	vekt::plugin_support)
 
 set(vekt_mono_formats Standalone VST3 AU)
 

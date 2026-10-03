@@ -1,7 +1,5 @@
 #pragma once
 
-#include <vekt/dsp/OversamplingQuality.h>
-
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include <array>
@@ -35,7 +33,8 @@ inline constexpr auto speedPosition = "speedPosition";
 
 inline constexpr auto stateType = "VektGlimmerState";
 inline constexpr auto presetProductIdentifier = "com.vekt.glimmer";
-inline constexpr auto currentFactoryPreset = "currentFactoryPreset";
+// The preset sound schema this build writes and loads.
+inline constexpr int presetSoundSchemaVersion = 1;
 
 inline constexpr std::array soundParameterIds {
 	inputGain,
@@ -62,6 +61,4 @@ inline constexpr std::array soundParameterIds {
 };
 
 [[nodiscard]] juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
-[[nodiscard]] dsp::OversamplingQuality trackingQualityFrom(float index) noexcept;
-[[nodiscard]] dsp::OversamplingQuality offlineQualityFrom(float index) noexcept;
 }

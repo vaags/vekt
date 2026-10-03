@@ -1,4 +1,4 @@
-#include "../../tools/audio_lab/LabSettings.h"
+#include <audio_lab/LabSettings.h>
 
 #include <catch2/catch_test_macros.hpp>
 

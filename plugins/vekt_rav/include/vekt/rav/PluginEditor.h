@@ -1,11 +1,12 @@
 #pragma once
 
-#include "PluginProcessor.h"
+#include <vekt/rav/PluginProcessor.h>
 
 #include <vekt/ui/LevelMeter.h>
 #include <vekt/ui/ModeButton.h>
 #include <vekt/ui/Oscilloscope.h>
 #include <vekt/ui/PresetNavigation.h>
+#include <vekt/ui/QualitySettings.h>
 #include <vekt/ui/UndoRedoControls.h>
 #include <vekt/ui/Panel.h>
 #include <vekt/ui/RotaryControl.h>
@@ -54,19 +55,13 @@ private:
 	ui::Panel bandMixPanel { "Band Mix" };
 	ui::Panel crossoverPanel { "Crossovers" };
 	ui::Panel outputPanel { "I/O" };
-	ui::Panel settingsPanel { "Quality settings" };
-	juce::Label trackingLabel;
-	juce::Label offlineLabel;
+	ui::QualitySettings qualitySettings;
 	juce::Label inputLabel;
 	juce::Label outputLabel;
-	juce::TextButton settingsButton { "Settings" };
-	juce::TextButton closeSettingsButton { "Close" };
 	juce::Label stageHeader;
 	ui::UndoRedoControls historyControls;
 	juce::ToggleButton bypassButton { "Bypass" };
 	juce::ToggleButton autoGainButton { "Auto gain" };
-    juce::ComboBox trackingBox;
-    juce::ComboBox offlineBox;
     juce::ComboBox modeBox;
 	std::array<StageBox, RavStageChain::stageCount> stageButtons { StageBox { "Saturation", true },
 		StageBox { "Overdrive", true }, StageBox { "Distortion", true }, StageBox { "Circuit Fuzz", true },
@@ -89,8 +84,6 @@ private:
 	std::unique_ptr<SliderAttachment> outputFaderAttachment;
 	std::unique_ptr<ButtonAttachment> bypassAttachment;
 	std::unique_ptr<ButtonAttachment> autoGainAttachment;
-    std::unique_ptr<ComboBoxAttachment> trackingAttachment;
-    std::unique_ptr<ComboBoxAttachment> offlineAttachment;
     std::unique_ptr<ComboBoxAttachment> modeAttachment;
 	RavStageChain::Order displayedStageOrder;
 };

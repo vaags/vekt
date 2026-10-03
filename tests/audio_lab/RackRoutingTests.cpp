@@ -1,7 +1,7 @@
-#include "../../tools/audio_lab/RackRouting.h"
+#include <audio_lab/RackRouting.h>
 
-#include <Parameters.h>
-#include <PluginProcessor.h>
+#include <vekt/rav/Parameters.h>
+#include <vekt/rav/PluginProcessor.h>
 #include <vekt/glimmer/Parameters.h>
 #include <vekt/glimmer/PluginProcessor.h>
 #include <vekt/mono/PluginProcessor.h>

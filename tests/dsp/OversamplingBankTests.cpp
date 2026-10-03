@@ -80,3 +80,15 @@ TEST_CASE("OversamplingBank processes finite stereo blocks without resizing", "[
                 REQUIRE(std::isfinite(buffer.getSample(channel, sample)));
     }
 }
+
+TEST_CASE("The highest internal rate follows the largest oversampling path", "[dsp][oversampling]")
+{
+	// Rate tests run at maximumInternalSampleRate, so it must track the bank's largest path.
+	vekt::dsp::OversamplingBank<float> bank(2);
+	bank.prepare(64);
+	bank.activate({ vekt::dsp::OversamplingFactor::x16, vekt::dsp::OversamplingFilter::polyphaseFIR });
+	REQUIRE(bank.getActiveFactor() == vekt::dsp::maximumOversamplingFactor);
+	REQUIRE(bank.getMaximumFactor() == vekt::dsp::maximumOversamplingFactor);
+	REQUIRE(vekt::dsp::OversamplingQuality { vekt::dsp::OversamplingFactor::x16 }.multiplier() == vekt::dsp::maximumOversamplingFactor);
+	REQUIRE(vekt::dsp::maximumInternalSampleRate == vekt::dsp::maximumHostSampleRate * 16.0);
+}

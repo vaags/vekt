@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../plugins/vekt_mono/Source/NonlinearTptLadder.h"
+#include <NonlinearTptLadder.h>
 
 namespace vekt::audio_lab
 {

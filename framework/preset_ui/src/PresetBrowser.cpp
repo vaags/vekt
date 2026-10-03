@@ -102,9 +102,7 @@ PresetBrowser::PresetBrowser(presets::PresetSession& controller) : session(contr
 			.withAssociatedComponent(this), [safe, entry](int result)
 		{
 			if (!safe || result != 1) return;
-			const auto removed = safe->session.library().removeUserPreset(entry->location);
-			if (removed.wasOk() && safe->session.loaded() && safe->session.loaded()->identifier == entry->identifier)
-				safe->session.clear();
+			const auto removed = safe->session.removeUserPreset(*entry);
 			safe->refresh(); safe->showResult(removed);
 			if (safe->onSoundChanged) safe->onSoundChanged();
 		});

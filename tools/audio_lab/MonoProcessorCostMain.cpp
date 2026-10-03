@@ -42,8 +42,9 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 {
 	if (!vekt::audio_lab::callback_allocation_probe::verify()) return 1;
 	vekt::mono::PluginProcessor processor;
-	const auto qualityIndex = factor == 1 ? 0 : factor == 2 ? 1 : factor == 4 ? 2 : 3;
-	setParameter(processor, vekt::mono::parameters::quality, static_cast<float>(qualityIndex));
+	// Tracking Oversampling choices: Off, 2x IIR, 4x IIR, 2x FIR, 4x FIR, 8x FIR, 16x FIR (2x IIR and FIR above, as before).
+	const auto qualityIndex = factor == 1 ? 0 : factor == 2 ? 1 : factor == 4 ? 4 : factor == 8 ? 5 : 6;
+	setParameter(processor, vekt::mono::parameters::trackingOversampling, static_cast<float>(qualityIndex));
 	setParameter(processor, vekt::mono::parameters::unison, static_cast<float>(unison == 1 ? 0 : unison == 2 ? 1 : 2));
 	// Voice Count choices are 2, 4, 8, 12, 16.
 	setParameter(processor, vekt::mono::parameters::voiceCount, static_cast<float>(voices == 8 ? 2 : voices == 12 ? 3 : 4));
@@ -57,7 +58,7 @@ int run(double rate, int blockSize, int voices, int factor, double seconds, bool
 	setParameter(processor, vekt::mono::parameters::filterType, korg35 ? 2.0f : svf ? 1.0f : 0.0f);
 	setParameter(processor, vekt::mono::parameters::filterMode, mode);
 	processor.prepareToPlay(rate, blockSize);
-	if (processor.getActiveQuality() != qualityIndex) return 1;
+	if (processor.getActiveQuality().multiplier() != static_cast<std::size_t>(factor)) return 1;
 	juce::AudioBuffer<float> buffer(2, blockSize);
 	juce::MidiBuffer midi;
 	std::array<int, 16> activeNotes {};
@@ -234,7 +235,7 @@ int main(int argc, char** argv)
 {
 	if (argc < 6 || argc > 11)
 	{
-		std::cerr << "Usage: VektMonoProcessorCost rate block_size voices(8|12|16) factor(1|2|4|8) seconds [work|transitions|cpu] [unison=1|2|4] [multicore] [svf|k35] [mode=-1..1]\n";
+		std::cerr << "Usage: VektMonoProcessorCost rate block_size voices(8|12|16) factor(1|2|4|8|16) seconds [work|transitions|cpu] [unison=1|2|4] [multicore] [svf|k35] [mode=-1..1]\n";
 		return 64;
 	}
 	try
@@ -263,7 +264,7 @@ int main(int argc, char** argv)
 		}
 		if (!std::isfinite(rate) || rate < 44'100.0 || rate > 192'000.0
 			|| block < 1 || block > 257 || (voices != 8 && voices != 12 && voices != 16)
-			|| (factor != 1 && factor != 2 && factor != 4 && factor != 8)
+			|| (factor != 1 && factor != 2 && factor != 4 && factor != 8 && factor != 16)
 			|| !std::isfinite(seconds) || seconds <= 0.0 || seconds > 30.0
 			|| static_cast<int>(work) + static_cast<int>(transitions) + static_cast<int>(cpu) > 1
 			|| (unison != 1 && unison != 2 && unison != 4) || !std::isfinite(mode) || mode < -1.0f || mode > 1.0f) return 64;

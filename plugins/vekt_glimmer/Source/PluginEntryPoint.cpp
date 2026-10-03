@@ -1,4 +1,4 @@
-#include "PluginProcessor.h"
+#include <vekt/glimmer/PluginProcessor.h>
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "PluginProcessor.h"
+#include <vekt/glimmer/PluginProcessor.h>
 
 #include <vekt/ui/LevelMeter.h>
 #include <vekt/ui/ModeButton.h>

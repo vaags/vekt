@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vekt/dsp/LinearRamp.h>
+
 #include <juce_dsp/juce_dsp.h>
 
 #include <algorithm>
@@ -37,13 +39,13 @@ public:
 		if (policy == newPolicy)
 			return;
 		policy = newPolicy;
-		retarget(value.getTargetValue());
+		retarget(getTargetValue());
 	}
 
 	void setTargetValue(Sample target) noexcept { retarget(target); }
-	[[nodiscard]] Sample getCurrentValue() const noexcept { return value.getCurrentValue(); }
-	[[nodiscard]] Sample getTargetValue() const noexcept { return value.getTargetValue(); }
-	[[nodiscard]] Sample getNextValue() noexcept { return value.getNextValue(); }
+	[[nodiscard]] Sample getCurrentValue() const noexcept { return static_cast<Sample>(value.getCurrentValue()); }
+	[[nodiscard]] Sample getTargetValue() const noexcept { return static_cast<Sample>(value.getTargetValue()); }
+	[[nodiscard]] Sample getNextValue() noexcept { return static_cast<Sample>(value.getNextValue()); }
 	void setCurrentAndTargetValue(Sample target) noexcept { value.setCurrentAndTargetValue(target); }
 
 private:
@@ -57,7 +59,7 @@ private:
 
 	void retarget(Sample target) noexcept
 	{
-		const auto previousTarget = value.getTargetValue();
+		const auto previousTarget = static_cast<Sample>(value.getTargetValue());
 		const auto tolerance = std::numeric_limits<Sample>::epsilon()
 			* std::max(Sample { 1 }, std::abs(previousTarget));
 		if (std::abs(target - previousTarget) <= tolerance)
@@ -68,7 +70,8 @@ private:
 		value.setTargetValue(target);
 	}
 
-	juce::SmoothedValue<Sample> value;
+	LinearRamp value; // double whatever Sample is
+
 	double sampleRateHz { 48'000.0 };
 	double normalSeconds { 0.02 };
 	double artifactSafeSeconds { 0.15 };

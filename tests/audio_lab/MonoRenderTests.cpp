@@ -1,9 +1,9 @@
-#include "../../tools/audio_lab/MonoRender.h"
+#include <audio_lab/MonoRender.h>
 
 #include "NonlinearTptLadder.h"
-#include "../../tools/audio_lab/NonlinearTptLadderReference.h"
-#include "../../tools/audio_lab/MonoOnsetAnalysis.h"
-#include "../../tools/audio_lab/MonoLadderStability.h"
+#include <audio_lab/NonlinearTptLadderReference.h>
+#include <audio_lab/MonoOnsetAnalysis.h>
+#include <audio_lab/MonoLadderStability.h>
 #include <vekt/audio_analysis/Measurements.h>
 
 #include <catch2/catch_approx.hpp>

@@ -45,7 +45,7 @@ public:
             path->reset();
     }
 
-    // Call only while processing is suspended; changing paths resets filter state.
+    // Call from prepareToPlay or from the audio thread at a block boundary; switching paths resets filter state.
     void activate(OversamplingQuality newQuality) noexcept
     {
         activeQuality = newQuality;
@@ -65,7 +65,7 @@ public:
 
     [[nodiscard]] std::size_t getMaximumFactor() const noexcept
     {
-        return 16;
+        return maximumOversamplingFactor;
     }
 
     [[nodiscard]] int getActiveLatencySamples() const noexcept

@@ -1,7 +1,5 @@
 #pragma once
 
-#include <vekt/dsp/OversamplingQuality.h>
-
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include <array>
@@ -41,7 +39,8 @@ inline constexpr std::array stageEnabledIds {
 
 inline constexpr auto stateType = "VektRavState";
 inline constexpr auto presetProductIdentifier = "com.vekt.rav";
-inline constexpr auto currentFactoryPreset = "currentFactoryPreset";
+// The preset sound schema this build writes and loads.
+inline constexpr int presetSoundSchemaVersion = 4;
 inline constexpr std::array soundParameterIds {
 	inputGain,
 	drive,
@@ -57,8 +56,6 @@ inline constexpr std::array soundParameterIds {
 };
 
 [[nodiscard]] juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
-[[nodiscard]] dsp::OversamplingQuality trackingQualityFrom(float index) noexcept;
-[[nodiscard]] dsp::OversamplingQuality offlineQualityFrom(float index) noexcept;
 
 [[nodiscard]] inline float toneSlopeFromUserValue(float value) noexcept
 {

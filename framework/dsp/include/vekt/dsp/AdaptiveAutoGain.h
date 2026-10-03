@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vekt/dsp/LinearRamp.h>
+
 #include <juce_dsp/juce_dsp.h>
 
 #include <algorithm>
@@ -46,7 +48,7 @@ public:
 
 		for (std::size_t sample = 0; sample < wet.getNumSamples(); ++sample)
 		{
-			const auto currentGain = gain.getNextValue();
+			const auto currentGain = static_cast<Sample>(gain.getNextValue());
 			for (std::size_t channel = 0; channel < wet.getNumChannels(); ++channel)
 				wet.getChannelPointer(channel)[sample] *= currentGain;
 		}
@@ -74,6 +76,6 @@ private:
 
 	inline static constexpr Sample minimumGain { static_cast<Sample>(0.06309573444801933) };
 	inline static constexpr Sample minimumSignal { static_cast<Sample>(1.0e-9) };
-	juce::SmoothedValue<Sample, juce::ValueSmoothingTypes::Linear> gain { Sample { 1 } };
+	LinearRamp gain { 1.0 };
 };
 }

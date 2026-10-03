@@ -1,4 +1,5 @@
 #include <vekt/glimmer/Parameters.h>
+#include <vekt/dsp/OversamplingChoices.h>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -22,7 +23,7 @@ TEST_CASE("Glimmer sound parameters exclude host bypass and quality", "[glimmer]
 
 TEST_CASE("Glimmer quality mappings match the shared quality choices", "[glimmer][parameters]")
 {
-	using namespace vekt::glimmer::parameters;
+	using namespace vekt::dsp;
 
 	REQUIRE(trackingQualityFrom(2.0f).factor == vekt::dsp::OversamplingFactor::x4);
 	REQUIRE(trackingQualityFrom(2.0f).filter == vekt::dsp::OversamplingFilter::polyphaseIIR);

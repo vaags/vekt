@@ -4,6 +4,13 @@
 
 namespace vekt::dsp
 {
+// The largest oversampling factor any product offers, the highest host rate the products are tested at (not enforced:
+// a faster host runs outside it), and so the highest tested internal rate. Per-sample state must stay correct there
+// (ARCHITECTURE.md, DSP Contracts).
+inline constexpr std::size_t maximumOversamplingFactor = 16;
+inline constexpr double maximumHostSampleRate = 192'000.0;
+inline constexpr double maximumInternalSampleRate = maximumHostSampleRate * static_cast<double>(maximumOversamplingFactor);
+
 enum class OversamplingFactor
 {
     off,

@@ -10,6 +10,8 @@
 #include "NonlinearTptLadderHighPass.h"
 #include "WidthOscillator.h"
 #include "ContourEnvelope.h"
+#include <vekt/dsp/LinearRamp.h>
+#include "Glide.h"
 #include "FilterLimits.h"
 #include "Lfo.h"
 
@@ -133,28 +135,30 @@ inline constexpr float driftLevelScale = 0.035f;        // ~ +/-0.3 dB per voice
 
 // A smooth random walk in -1..1: a new random target every 1.5-4 s (divided by speed), followed through two
 // one-pole stages (0.6 s / speed each), so the motion stays below about 0.5 Hz x speed without steps.
+// Two one-poles toward a random target that changes every few seconds. Double, so the walk reaches its targets at
+// every internal rate (ARCHITECTURE.md, DSP Contracts).
 struct DriftWalk
 {
-	float value {}, stage {}, target {};
+	double value {}, stage {}, target {};
 	int samplesToNextTarget {};
 
-	void reset(juce::Random& random, float sampleRate) noexcept
+	void reset(juce::Random& random, double sampleRate) noexcept
 	{
 		target = random.nextFloat() * 2.0f - 1.0f;
 		stage = value = target;
-		samplesToNextTarget = static_cast<int>(random.nextFloat() * 4.0f * sampleRate);
+		samplesToNextTarget = static_cast<int>(random.nextFloat() * 4.0 * sampleRate);
 	}
 
-	float next(juce::Random& random, float sampleRate, float coefficient, float speed = 1.0f) noexcept
+	float next(juce::Random& random, double sampleRate, double coefficient, float speed = 1.0f) noexcept
 	{
 		if (--samplesToNextTarget <= 0)
 		{
 			target = random.nextFloat() * 2.0f - 1.0f;
-			samplesToNextTarget = static_cast<int>((1.5f + 2.5f * random.nextFloat()) * sampleRate / speed);
+			samplesToNextTarget = static_cast<int>((1.5 + 2.5 * random.nextFloat()) * sampleRate / speed);
 		}
 		stage += (target - stage) * coefficient;
 		value += (stage - value) * coefficient;
-		return value;
+		return static_cast<float>(value);
 	}
 };
 
@@ -165,8 +169,13 @@ public:
 	// the oscillator's spectral guard, which is defined at the host Nyquist.
 	void prepare(double newSampleRate, std::uint32_t seed, double hostSampleRate = 0.0)
 	{
-		sampleRate = static_cast<float>(newSampleRate);
+		sampleRate = newSampleRate;
 		hostRate = hostSampleRate > 0.0 ? hostSampleRate : newSampleRate;
+		// Noise is drawn at the host rate and held for each internal sample, and the pink filter keeps its host-rate
+		// corner, so noise level and colour match 1x at every quality (ADR 0010).
+		noiseHoldSamples = std::max(1, static_cast<int>(std::lround(newSampleRate / hostRate)));
+		jassert(std::abs(newSampleRate - hostRate * noiseHoldSamples) < 1.0e-6 * newSampleRate); // a whole factor
+		pinkCoefficient = std::pow(0.98, 1.0 / noiseHoldSamples);
 		driftCoefficientSpeed = -1.0f; // Drift walks' one-pole coefficient, recomputed when Drift's speed changes
 		juce::ignoreUnused(WidthWavetable::instance()); // build the shared tables before audio starts
 		for (auto& ladder : filterLadders) ladder.prepare(newSampleRate);
@@ -178,9 +187,9 @@ public:
 		voiceSeed = seed;
 		for (auto& lfo : lfos) lfo.setSampleRate(newSampleRate);
 		// About 1 ms of smoothing on each LFO output so square and saw edges do not click.
-		lfoSmoothing = 1.0f - std::exp(-1.0f / (0.001f * static_cast<float>(newSampleRate)));
+		lfoSmoothing = 1.0 - std::exp(-1.0 / (0.001 * newSampleRate));
 		// About 10 ms so the mod wheel's 128 steps do not step the vibrato depth audibly.
-		vibratoSmoothing = 1.0f - std::exp(-1.0f / (0.01f * static_cast<float>(newSampleRate)));
+		vibratoSmoothing = 1.0 - std::exp(-1.0 / (0.01 * newSampleRate));
 		amp.setSampleRate(newSampleRate);
 		filterEnvelope.setSampleRate(newSampleRate);
 		cutoffOctaves.reset(newSampleRate, 0.015);
@@ -220,6 +229,7 @@ public:
 		for (auto& layer : driftWalks)
 			for (auto& walk : layer) walk.reset(driftRandom, sampleRate);
 		pinkStates = {};
+		noiseHoldRemaining = 0;
 		unisonPhaseSpread = 0.0f;
 		for (std::size_t index = 0; index < lfos.size(); ++index)
 			lfos[index].reset(voiceSeed * 2'654'435'761u + static_cast<std::uint32_t>(index), lfoSharedSeeds[index]);
@@ -248,14 +258,15 @@ public:
 		const auto wasActive = active;
 		const auto target = static_cast<float>(newNote) + settings.calibration * 0.01f;
 		gliding = hasPitch && (settings.glideMode == 1 || (settings.glideMode == 2 && legato));
-		if (!gliding) currentNote = target;
+		if (gliding) glide.retarget(target);
+		else glide.jump(target);
 		hasPitch = true;
-		targetNote = target;
 		channel = newChannel; note = newNote; velocity = newVelocity; age = newAge;
 		velocityCurve = std::pow(juce::jlimit(0.0f, 1.0f, newVelocity), 0.65f); // shared by amp and filter velocity
 		polyPressure = 0.0f;
 		active = held = true; sustained = false;
 		fadeInSamples = wasActive ? 0 : transitionLength();
+		if (!wasActive) noiseHoldRemaining = 0; // a new note's noise holds start with it
 		if (!wasActive)
 		{
 			morphsInitialized = false;
@@ -413,20 +424,17 @@ public:
 		filterEnvelope.setParameters(filterEnvelopeParameters(settings));
 		auto modulation = nextModulation(settings, lfoClockPositions);
 		vibratoControl += (std::max(channelControl, polyPressure) - vibratoControl) * vibratoSmoothing;
-		for (auto& pitch : modulation.pitch) pitch += vibratoSemitones * vibratoControl;
-		const auto glideCoefficient = !gliding || settings.glideMode == 0 || settings.glideTime <= 0.0f
-			? 1.0f : 1.0f - std::exp(-1.0f / (settings.glideTime * sampleRate));
-		currentNote += (targetNote - currentNote) * glideCoefficient;
-		const auto playedNote = currentNote + bend;
+		for (auto& pitch : modulation.pitch) pitch += vibratoSemitones * static_cast<float>(vibratoControl);
+		const auto playedNote = glide.next(gliding && settings.glideMode != 0, settings.glideTime, sampleRate) + bend;
 		const auto baseHz = midiToHz(playedNote);
 		const auto unisonCount = settings.unison;
 		const auto filterEnvelopeValue = filterEnvelope.getNextSample();
 		updateFilterControlTargets(settings);
-		const auto filterCutoff = std::exp2(cutoffOctaves.getNextValue());
-		const auto filterResonance = resonance.getNextValue();
-		const auto filterDriveDb = juce::jlimit(0.0f, 24.0f, driveDecibels.getNextValue() + modulation.drive);
-		const auto inputCompensation = qInputCompensation.getNextValue();
-		const auto mode = juce::jlimit(-1.0f, 1.0f, filterMode.getNextValue() + modulation.filterMode);
+		const auto filterCutoff = std::exp2(nextOf(cutoffOctaves));
+		const auto filterResonance = nextOf(resonance);
+		const auto filterDriveDb = juce::jlimit(0.0f, 24.0f, nextOf(driveDecibels) + modulation.drive);
+		const auto inputCompensation = nextOf(qInputCompensation);
+		const auto mode = juce::jlimit(-1.0f, 1.0f, nextOf(filterMode) + modulation.filterMode);
 		// No post-ladder resonance boost: isolate the ladder's own onset.
 		// Q compensation still acts only on driven input inside its feedback equation.
 		const auto velocityGain = (1.0f - settings.ampVelocity) + settings.ampVelocity * velocityCurve;
@@ -438,7 +446,7 @@ public:
 		if (std::abs(wanderSpeed - driftCoefficientSpeed) > 0.0f)
 		{
 			driftCoefficientSpeed = wanderSpeed;
-			driftCoefficient = 1.0f - std::exp(-wanderSpeed / (0.6f * sampleRate));
+			driftCoefficient = 1.0 - std::exp(-static_cast<double>(wanderSpeed) / (0.6 * sampleRate));
 		}
 		const auto amplitude = amp.getNextSample() * velocityGain * allocationFade * juce::jlimit(0.0f, 1.0f, 1.0f + modulation.amp)
 			* (1.0f + drift * driftLevelScale * driftLevel);
@@ -451,10 +459,18 @@ public:
 			// Drift's per-layer wander separates the layers too, even at zero Detune; its depth is a typical
 			// pitch difference between two independent walks.
 			const auto neighbourCents = 2.0f * detune / static_cast<float>(unisonCount - 1) + drift * driftWanderCents;
-			unisonPhaseSpread = std::min(1.0f, unisonPhaseSpread + baseHz * (std::exp2(neighbourCents / 1'200.0f) - 1.0f) / sampleRate);
+			unisonPhaseSpread = std::min(1.0, unisonPhaseSpread + static_cast<double>(baseHz * (std::exp2(neighbourCents / 1'200.0f) - 1.0f)) / sampleRate);
 		}
-		const auto noiseCorrelation = unisonNoiseCorrelation(unisonCount, unisonPhaseSpread);
-		const auto sharedNoise = settings.noiseType != 0 ? random.nextFloat() * 2.0f - 1.0f : 0.0f;
+		const auto noiseCorrelation = unisonNoiseCorrelation(unisonCount, static_cast<float>(unisonPhaseSpread));
+		if (settings.noiseType == 0) noiseHoldRemaining = 0; // holds restart when noise is switched on
+		else if (--noiseHoldRemaining < 0)
+		{
+			noiseHoldRemaining = noiseHoldSamples - 1;
+			heldSharedNoise = random.nextFloat() * 2.0f - 1.0f;
+			for (int layer = 0; layer < unisonCount; ++layer)
+				heldLayerNoise[static_cast<std::size_t>(layer)] = noiseCorrelation < 1.0f ? random.nextFloat() * 2.0f - 1.0f : 0.0f;
+		}
+		const auto sharedNoise = settings.noiseType != 0 ? heldSharedNoise : 0.0f;
 		const auto unisonSpread = juce::jlimit(0.0f, 1.0f, settings.unisonSpread + modulation.spread);
 		const auto noiseLevel = juce::jlimit(0.0f, 1.0f, settings.noiseLevel + modulation.noise);
 		std::array<float, 3> levels {}, widths {};
@@ -466,15 +482,15 @@ public:
 			// Morph is cyclic: the ramp runs unwrapped and takes the short way round, so crossing the 4-to-0 wrap on
 			// the knob (e.g. 3.9 to 0.1) does not sweep back through saw and triangle.
 			if (!morphsInitialized) baseMorph.setCurrentAndTargetValue(settings.morph[oscillator]);
-			else if (const auto step = morphDistance(baseMorph.getTargetValue(), settings.morph[oscillator]); std::abs(step) > 1.0e-6f)
-				baseMorph.setTargetValue(baseMorph.getTargetValue() + step);
-			else if (!baseMorph.isSmoothing() && !juce::approximatelyEqual(baseMorph.getTargetValue(), settings.morph[oscillator]))
+			else if (const auto step = morphDistance(targetOf(baseMorph), settings.morph[oscillator]); std::abs(step) > 1.0e-6f)
+				baseMorph.setTargetValue(targetOf(baseMorph) + step);
+			else if (!baseMorph.isSmoothing() && !juce::approximatelyEqual(targetOf(baseMorph), settings.morph[oscillator]))
 				baseMorph.setCurrentAndTargetValue(settings.morph[oscillator]); // re-anchor after turns round the cycle
-			morphs[oscillator] = wrapMorph(baseMorph.getNextValue() + modulation.morph[oscillator]);
+			morphs[oscillator] = wrapMorph(nextOf(baseMorph) + modulation.morph[oscillator]);
 			auto& baseWidth = baseWidths[oscillator];
 			if (!morphsInitialized) baseWidth.setCurrentAndTargetValue(settings.pulseWidth[oscillator]);
-			else if (!juce::approximatelyEqual(baseWidth.getTargetValue(), settings.pulseWidth[oscillator])) baseWidth.setTargetValue(settings.pulseWidth[oscillator]);
-			widths[oscillator] = juce::jlimit(5.0f, 95.0f, baseWidth.getNextValue() + modulation.width[oscillator]);
+			else if (!juce::approximatelyEqual(targetOf(baseWidth), settings.pulseWidth[oscillator])) baseWidth.setTargetValue(settings.pulseWidth[oscillator]);
+			widths[oscillator] = juce::jlimit(5.0f, 95.0f, nextOf(baseWidth) + modulation.width[oscillator]);
 		}
 		morphsInitialized = true;
 		// All layers share one ladder setting; their ladders are solved together after the mixers are built.
@@ -499,7 +515,7 @@ public:
 				const auto frequency = baseHz * std::exp2(settings.range[static_cast<std::size_t>(oscillator)] - 1.0f
 					+ settings.octave[static_cast<std::size_t>(oscillator)]
 					+ (settings.semitone[static_cast<std::size_t>(oscillator)] + cents * 0.01f + modulation.pitch[static_cast<std::size_t>(oscillator)]) / 12.0f);
-				const auto phaseIncrement = frequency / sampleRate;
+				const auto phaseIncrement = static_cast<double>(frequency) / sampleRate;
 				auto& oscillatorPhase = phase[static_cast<std::size_t>(stack)][static_cast<std::size_t>(oscillator)];
 				oscillatorPhase += phaseIncrement;
 				oscillatorPhase -= std::floor(oscillatorPhase);
@@ -516,12 +532,12 @@ public:
 				// Layer noise has the same correlation the gain assumes; identical layers share one noise source.
 				auto noise = sharedNoise;
 				if (noiseCorrelation < 1.0f)
-					noise = std::sqrt(noiseCorrelation) * sharedNoise + std::sqrt(1.0f - noiseCorrelation) * (random.nextFloat() * 2.0f - 1.0f);
+					noise = std::sqrt(noiseCorrelation) * sharedNoise + std::sqrt(1.0f - noiseCorrelation) * heldLayerNoise[static_cast<std::size_t>(stack)];
 				if (settings.noiseType == 2)
 				{
 					auto& pink = pinkStates[static_cast<std::size_t>(stack)];
-					pink = 0.98f * pink + 0.02f * noise;
-					noise = pink;
+					pink = pinkCoefficient * pink + (1.0 - pinkCoefficient) * noise;
+					noise = static_cast<float>(pink);
 				}
 				mixer += noise * noiseLevel;
 			}
@@ -640,7 +656,7 @@ public:
 			voiceLeft += stackOutput * std::sqrt(0.5f * (1.0f - pans[stack]));
 			voiceRight += stackOutput * std::sqrt(0.5f * (1.0f + pans[stack]));
 		}
-		const auto layerGain = unisonGain(unisonCount, unisonPhaseSpread);
+		const auto layerGain = unisonGain(unisonCount, static_cast<float>(unisonPhaseSpread));
 		voiceLeft *= layerGain;
 		voiceRight *= layerGain;
 		if (continuityPending)
@@ -713,7 +729,7 @@ public:
 	[[nodiscard]] std::uint64_t getAge() const noexcept { return age; }
 	[[nodiscard]] int getChannel() const noexcept { return channel; }
 	void setPanPosition(float value) noexcept { panPosition = value; }
-	[[nodiscard]] float getLfoOutput(std::size_t index) const noexcept { return lfoOutputs[index]; }
+	[[nodiscard]] float getLfoOutput(std::size_t index) const noexcept { return static_cast<float>(lfoOutputs[index]); }
 	// Morph each oscillator used for the most recent sample, in [0, 4): the smoothed knob value plus LFO
 	// modulation, wrapped round the cycle.
 	[[nodiscard]] float getMorph(std::size_t oscillator) const noexcept { return lastMorphs[oscillator]; }
@@ -777,12 +793,16 @@ private:
 			filterControlsInitialized = true;
 			return;
 		}
-		if (!juce::approximatelyEqual(cutoffOctaves.getTargetValue(), cutoffTarget)) cutoffOctaves.setTargetValue(cutoffTarget);
-		if (!juce::approximatelyEqual(resonance.getTargetValue(), settings.resonance)) resonance.setTargetValue(settings.resonance);
-		if (!juce::approximatelyEqual(driveDecibels.getTargetValue(), settings.drive)) driveDecibels.setTargetValue(settings.drive);
-		if (!juce::approximatelyEqual(qInputCompensation.getTargetValue(), compensationTarget)) qInputCompensation.setTargetValue(compensationTarget);
-		if (!juce::approximatelyEqual(filterMode.getTargetValue(), settings.filterMode)) filterMode.setTargetValue(settings.filterMode);
+		if (!juce::approximatelyEqual(targetOf(cutoffOctaves), cutoffTarget)) cutoffOctaves.setTargetValue(cutoffTarget);
+		if (!juce::approximatelyEqual(targetOf(resonance), settings.resonance)) resonance.setTargetValue(settings.resonance);
+		if (!juce::approximatelyEqual(targetOf(driveDecibels), settings.drive)) driveDecibels.setTargetValue(settings.drive);
+		if (!juce::approximatelyEqual(targetOf(qInputCompensation), compensationTarget)) qInputCompensation.setTargetValue(compensationTarget);
+		if (!juce::approximatelyEqual(targetOf(filterMode), settings.filterMode)) filterMode.setTargetValue(settings.filterMode);
 	}
+
+	// The double ramps (dsp::LinearRamp) read as the float the voice works in.
+	[[nodiscard]] static float nextOf(dsp::LinearRamp& ramp) noexcept { return static_cast<float>(ramp.getNextValue()); }
+	[[nodiscard]] static float targetOf(const dsp::LinearRamp& ramp) noexcept { return static_cast<float>(ramp.getTargetValue()); }
 
 	[[nodiscard]] NonlinearTptLadderSettings filterSettings(const MonoVoiceSettings& settings, float envelopeValue, float baseCutoff,
 		float resonanceAmount, float driveDb, float inputCompensation, float mode, float playedNote, float lfoOctaves) const noexcept
@@ -805,8 +825,9 @@ private:
 		{
 			const auto& lfo = settings.lfo[index];
 			lfos[index].setParameters(lfo.source);
-			auto& output = lfoOutputs[index];
-			output += (lfos[index].getNextSample(clockPositions[index]) - output) * lfoSmoothing;
+			auto& smoothed = lfoOutputs[index];
+			smoothed += (lfos[index].getNextSample(clockPositions[index]) - smoothed) * lfoSmoothing;
+			const auto output = static_cast<float>(smoothed);
 			for (std::size_t oscillator = 0; oscillator < 3; ++oscillator)
 			{
 				modulation.pitch[oscillator] += lfo.pitch[oscillator] * output;
@@ -827,19 +848,21 @@ private:
 
 	static constexpr std::array<std::uint32_t, lfoCount> lfoSharedSeeds { 0x4c464f31u, 0x4c464f32u };
 
-	float sampleRate { 48'000.0f };
+	double sampleRate { 48'000.0 };
 	std::array<Lfo, lfoCount> lfos;
-	std::array<float, lfoCount> lfoOutputs {};
-	float lfoSmoothing { 1.0f }, vibratoSmoothing { 1.0f }, vibratoControl {}, polyPressure {};
+	// Per-sample state that steps toward a target is double (ARCHITECTURE.md, DSP Contracts).
+	std::array<double, lfoCount> lfoOutputs {};
+	double lfoSmoothing { 1.0 }, vibratoSmoothing { 1.0 }, vibratoControl {};
+	float polyPressure {};
 	std::uint32_t voiceSeed {};
 	int fadeInSamples {}, continuitySamples {};
 	juce::Random random;
 	ContourEnvelope amp, filterEnvelope;
-	juce::SmoothedValue<float> cutoffOctaves, resonance, driveDecibels, qInputCompensation, filterMode;
-	std::array<juce::SmoothedValue<float>, 3> baseMorphs, baseWidths;
+	dsp::LinearRamp cutoffOctaves, resonance, driveDecibels, qInputCompensation, filterMode;
+	std::array<dsp::LinearRamp, 3> baseMorphs, baseWidths;
 	std::array<float, 3> lastMorphs {};
 	bool morphsInitialized {};
-	std::array<std::array<float, 3>, 4> phase {};
+	std::array<std::array<double, 3>, 4> phase {}; // [unison layer][oscillator], cycles
 	std::array<NonlinearTptLadder, 4> filterLadders;
 	std::array<NonlinearTptSvf, 4> filterSvfs; // side by side with the ladders: only the selected type is run
 	std::array<NonlinearTptKorg35, 4> filterKorgs; // likewise
@@ -862,13 +885,19 @@ private:
 	} pending;
 	double hostRate { 48'000.0 };
 	std::array<float, 2> continuityOffset {}, lastOutput {};
-	std::array<float, 4> pinkStates {};
-	float unisonPhaseSpread {};
-	float currentNote {}, targetNote {}, velocity {}, velocityCurve {}, panPosition {};
+	std::array<double, 4> pinkStates {}; // per layer; double, corner fixed at the host rate
+	double pinkCoefficient { 0.98 };
+	int noiseHoldSamples { 1 }, noiseHoldRemaining {};
+	float heldSharedNoise {};
+	std::array<float, 4> heldLayerNoise {};
+	double unisonPhaseSpread {};
+	Glide glide;
+	float velocity {}, velocityCurve {}, panPosition {};
 	juce::Random driftRandom;
 	std::array<std::array<DriftWalk, 3>, 4> driftWalks {}; // [unison layer][oscillator]
 	std::array<float, 3> driftTuning {};
-	float driftCoefficient { 1.0f }, driftCoefficientSpeed { -1.0f };
+	double driftCoefficient { 1.0 };
+	float driftCoefficientSpeed { -1.0f };
 	float driftCutoff {}, driftAmpTime {}, driftFilterTime {}, driftLevel {};
 	int channel {}, note {};
 	std::uint64_t age {};

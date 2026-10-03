@@ -1,5 +1,5 @@
-#include "../../plugins/vekt_mono/Source/NonlinearTptLadder.h"
-#include "../../plugins/vekt_mono/Source/LadderResonance.h"
+#include <NonlinearTptLadder.h>
+#include <LadderResonance.h>
 #include "MonoOnsetAnalysis.h"
 
 #include <algorithm>

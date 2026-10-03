@@ -1,8 +1,8 @@
 #include "LabSettings.h"
 #include "RackRouting.h"
 
-#include <PluginProcessor.h>
-#include <PluginEditor.h>
+#include <vekt/rav/PluginProcessor.h>
+#include <vekt/rav/PluginEditor.h>
 #include <vekt/glimmer/PluginProcessor.h>
 #include <vekt/mono/PluginProcessor.h>
 

@@ -1,7 +1,7 @@
-#include "../../tools/audio_lab/LadderPrototype.h"
-#include "../../tools/audio_lab/MonoCostTimingRule.h"
-#include "../../tools/audio_lab/NonlinearTptLadderReference.h"
-#include "../../plugins/vekt_mono/Source/LadderResonance.h"
+#include <audio_lab/LadderPrototype.h>
+#include <audio_lab/MonoCostTimingRule.h>
+#include <audio_lab/NonlinearTptLadderReference.h>
+#include <LadderResonance.h>
 
 #include <vekt/audio_analysis/Measurements.h>
 #include <vekt/dsp/OversamplingBank.h>

@@ -1,3 +1,78 @@
+# Mono noise matches 1x at every quality (3 October 2026)
+
+ADR 0010 step 10. Noise is drawn at the host rate and held for each internal sample (a hold restarts with each new note
+and when noise is switched on), and the pink one-pole keeps its host-rate corner (coefficient 0.98^(1/factor), double).
+Before, white noise fell 4.7, 8.1, 11.2 and 14.2 dB at 2x, 4x, 8x and 16x and pink's tilt moved up to 12 dB, so a default
+4x offline bounce of a noise patch was quieter and brighter than playback. `Mono noise keeps its level and colour at
+every quality` ([slow], 24 s Debug) measures one voice through the open filter at 48 kHz up to 2 kHz: white, pink and
+pink with Unison 4x within 0.22 dB of 1x and tilt within 0.17 dB at every FIR factor; in 10-20 kHz the factors from 4x
+up agree within 0.5 dB. Driven white noise (+24 dB) is held to 2x within 0.5 dB, because the 1x ladder folds its
+distortion back into the band (2.0-2.4 dB more than any oversampled factor), so a driven noise patch still differs by
+about 2 dB between 1x playback and a 4x bounce.
+
+Above 2 kHz two things differ from 1x. The 1x ladder at a 20 kHz cutoff, warped against Nyquist, stays flatter than the
+oversampled one (estimated 0.9 dB at 5 kHz, 3.2 dB at 10 kHz). The hold itself shapes the noise by sinc^2(f / host
+rate): at 48 kHz -0.03 dB at 2 kHz, -0.16 at 5 kHz, -0.63 at 10 kHz, -1.4 at 15 kHz, -2.6 at 20 kHz (about -3.2 dB at
+20 kHz for 44.1 kHz), -1.1 dB over the whole band. Together they give the measured 10-20 kHz difference of 4.6-5.7 dB.
+**Decided by Thomas (3 October 2026): no gain.** The hold's top-octave roll-off is kept: a flat gain large enough to
+restore the broadband power (about +1 dB) would lift the band below 2 kHz past the 0.5 dB match, and a frequency-shaped
+correction (inverse-sinc pre-emphasis above 1x) was not wanted.
+
+At 1x the random draw order is unchanged (`unison-noise-lfo` still matches within 2e-5); the pink filter is double now,
+so 1x pink is no longer bit-identical. All Mono references stay within 2e-5 and were not recaptured. Not yet done:
+listening at 4x and 16x.
+
+# Mono per-sample state in double; quality in the shared Settings pop-over (3 October 2026)
+
+ADR 0010 step 9; rule in ARCHITECTURE.md (DSP Contracts). Mono's contour envelopes, glide (now `Glide.h`), drift walks,
+LFO fade, unison spread, LFO-output and vibrato smoothing, oscillator phase and voice rate are double. Before, in single
+precision: a 20 s decay never reached sustain even at 48 kHz; a 9 s attack stalled at 0.989 at 48 kHz x4 (the Offline
+default); a 1 s glide ended 9 cents short at 48 kHz; drift walks stopped short of their targets at every rate; a 10 s LFO
+fade took 8.1 s at 192 kHz x16; MIDI 24 at Octave -2 was more than 1 cent off at 192 kHz x16. New tests, each failing
+before the change: `Mono contours finish their longest stages on time at every internal rate`, `Mono glide reaches its
+note at every internal rate`, `Mono drift walks reach their targets at every internal rate`, `Mono LFO fades in on time
+at every internal rate`, `Mono low notes keep their pitch at the highest internal rate`, and `Mono coupled ladder solves
+a sustained resonant chord at the highest internal rate` (no unconverged or non-finite solves at 192 kHz x16). The
+attack now ends at its 99 % point within 1e-6 so a stage time still lands on its sample.
+
+The Mono reference renders changed by up to -49 dBFS (8x), -57 (4x), -65 (1x); with only the oscillator phase back in
+float the difference fell to about -90 dBFS, so the old float phase (its pitch error) caused it. References were
+recaptured (approved), and `offline-default-resonant` added (an offline render at the default Offline choice, Tracking at
+16x). Rav's fuzz-circuit and mode-stage one-poles (3-150 Hz) are double too: in float they were up to -86 dBFS off at
+192 kHz x16; Rav's references at 48 kHz did not change beyond 2e-5. Glimmer's preamp one-poles (1.2 and 15 kHz) stay
+float, measured -122 to -133 dBFS off. Release re-screen with double state (`VektMonoProcessorCost 48000 256 <voices>
+<factor> 10 [multicore]`): 16 voices at 16x 21.1 ms single-threaded and 4.2 ms with Multicore (198 of 1,875 late);
+16 voices at 8x 10.9 ms and 1.9 ms (none late); 8 voices at 16x 10.8 ms and 2.3 ms (none late): within run-to-run
+variation of the earlier screen, no callback allocation, no solver failure.
+
+Review follow-ups (same day): every linear parameter ramp now uses `vekt::dsp::LinearRamp` (double), in Mono's voice
+(cutoff, resonance, drive, Q compensation, Mode, Morph, Width) and inside the framework's `ControlTransition`,
+`AdaptiveAutoGain`, `MatchedToneStage` and `TanhStage`; a float ramp held still and then stepped at high rates (a
+0.01-octave cutoff move at 192 kHz x16 had not moved half way through its 15 ms ramp). The Width oscillator now takes the
+double phase, and the attack hand-off tolerance is 1e-8. Mono's references stayed within 2e-5.
+
+Mono's Tracking and Offline menus moved from the Performance panel into the shared Settings pop-over
+(`vekt::ui::QualitySettings`, also used by Rav), opened from the header; the Performance panel now holds Voice count,
+Mode, Unison, Glide and Multicore. Not yet done: a visual check of both editors at 1x and 2x, listening.
+
+# Mono quality: shared Tracking and Offline choices with 16x (3 October 2026)
+
+ADR 0001 (uniform quality choices). Mono's single `quality` parameter (1x, 2x IIR, 4x FIR, 8x FIR) is replaced by the
+shared Tracking and Offline Oversampling parameters (Off, 2x/4x IIR, 2x/4x/8x/16x FIR); Tracking defaults to Off and
+Offline to 4x FIR. The real-time default sound is unchanged (the Mono reference renders, all real time, still match);
+a default offline render now runs at 4x FIR where the single control rendered at 1x. Voice buffers are sized
+for the bank's highest factor (16x). Mono's processor tests sweep Off, 2x IIR, 4x FIR, 8x FIR and 16x FIR; every Tracking
+and Offline choice is activated once; the hostile K35 processor case runs at 16x; the SVF, high-pass ladder and DC
+blocker rate tests moved to the new highest internal rate (192 kHz x16).
+
+CPU screen (3 October 2026, Release `audio-lab-release`, Apple Silicon, one 10 s run each, not a timing gate):
+`VektMonoProcessorCost 48000 256 <voices> <factor> 10 [multicore]`, sustained resonant ladder voices, 5.33 ms deadline.
+16 voices at 16x: median 20.7 ms single-threaded (every callback late), 4.0 ms with Multicore (118 of 1,875 late,
+maximum 8.7 ms); at 8x the same load is 10.7 ms single-threaded (every callback late) and 2.0 ms with Multicore (none
+late). 8 voices at 16x: 10.6 ms single-threaded, 2.2 ms with Multicore (7 late, maximum 11.8 ms). Every run made no
+allocation in the callback and no unconverged or non-finite solver sample. So real-time 16x needs Multicore and few
+voices; it is mainly an offline choice. Not yet run: the 30 s timing gates, listening at 16x.
+
 # Mono Ladder: true high-pass ladder across Notch → HP (2 October 2026)
 
 ADR 0009. The Ladder's Mode keeps the tap mix from LP to Notch and crossfades from the ladder's Notch into a true

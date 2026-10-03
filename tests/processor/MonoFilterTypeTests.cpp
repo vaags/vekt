@@ -1,5 +1,6 @@
 #include <vekt/mono/PluginProcessor.h>
 
+#include "MonoQualitySweep.h"
 #include "FilterPrototypeSupport.h"
 #include "MonoVoice.h"
 
@@ -129,7 +130,7 @@ TEST_CASE("Mono dumps filter fixture renders", "[.][mono-dump]")
 		Case { 1, 0, 48'000.0, true, false, true } })
 	{
 		vekt::mono::PluginProcessor processor;
-		setParameter(processor, parameters::quality, static_cast<float>(quality));
+		setParameter(processor, parameters::trackingOversampling, monoQualitySweep[static_cast<std::size_t>(quality)]);
 		setParameter(processor, parameters::multicore, multicore ? 1.0f : 0.0f);
 		setParameter(processor, parameters::filterType, k35 ? 2.0f : svf ? 1.0f : 0.0f);
 		applyFixture(processor, fixture);
@@ -565,12 +566,12 @@ TEST_CASE("Mono K35 switches under a held note without a click", "[mono][filter]
 
 TEST_CASE("Mono K35 stays finite under hostile modulation through the processor", "[mono][filter][filter-type][k35]")
 {
-	for (const auto quality : { 0.0f, 3.0f })
+	for (const auto quality : { 0.0f, 6.0f }) // Off and 16x FIR, the highest internal rate
 		for (const auto multicore : { 0.0f, 1.0f })
 		{
 			INFO("quality " << quality << ", multicore " << multicore);
 			vekt::mono::PluginProcessor processor;
-			setParameter(processor, parameters::quality, quality);
+			setParameter(processor, parameters::trackingOversampling, quality);
 			setParameter(processor, parameters::multicore, multicore);
 			setParameter(processor, parameters::filterType, 2.0f);
 			setParameter(processor, parameters::filterResonance, 100.0f);
@@ -1090,8 +1091,8 @@ TEST_CASE("Mono Ladder output DC on short notes", "[.][mono-dc-short]")
 
 TEST_CASE("Mono filter-output DC blocker keeps the low end", "[mono][filter][filter-type][dc]")
 {
-	// First order at 5 Hz (ADR 0008): about -3 dB there and within 0.3 dB from 20 Hz up, at the base and at the 8x rate.
-	for (const auto sampleRate : { 48'000.0, 384'000.0 })
+	// First order at 5 Hz (ADR 0008): about -3 dB there and within 0.3 dB from 20 Hz up, at the base and at the 16x rate.
+	for (const auto sampleRate : { 48'000.0, vekt::dsp::maximumInternalSampleRate })
 	{
 		const auto gainAt = [sampleRate](double frequency)
 		{
@@ -1514,13 +1515,13 @@ TEST_CASE("Mono filters switch at a sensible level at Notch and HP", "[mono][fil
 TEST_CASE("Mono high-pass level stability on a held note", "[.][mono-hp-jitter]")
 {
 	// The startup preset (Classic Three Bass: three detuned oscillators).
-	for (const auto quality : { 0.0f, 3.0f })
+	for (const auto quality : { 0.0f, 5.0f }) // Off and 8x FIR
 		for (const auto type : { 0.0f, 1.0f, 2.0f })
 			for (const auto cutoff : { 1'000.0f, 3'000.0f })
 				for (const auto resonance : { 0.0f, 50.0f, 90.0f, 95.0f, 98.0f, 100.0f })
 				{
 					vekt::mono::PluginProcessor processor;
-					setParameter(processor, parameters::quality, quality);
+					setParameter(processor, parameters::trackingOversampling, quality);
 					setParameter(processor, parameters::filterType, type);
 					setParameter(processor, parameters::filterMode, 1.0f);
 					setParameter(processor, parameters::filterCutoff, cutoff);

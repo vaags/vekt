@@ -258,7 +258,7 @@ struct WidthOscillatorState
 // One sample of the Width oscillator. frequencyHz and hostRate set the guard (host Nyquist, whatever
 // the oversampled rate the voice runs at); zeroCenteredDc drops each anchor's frozen-Width mean. Morph
 // wraps, so any value is valid.
-inline float renderWidthOscillator(WidthOscillatorState& state, float phase, float frequencyHz, double hostRate,
+inline float renderWidthOscillator(WidthOscillatorState& state, double phase, float frequencyHz, double hostRate,
 	float morph, float width, bool zeroCenteredDc)
 {
 	const auto& table = WidthWavetable::instance();
@@ -270,7 +270,7 @@ inline float renderWidthOscillator(WidthOscillatorState& state, float phase, flo
 	auto value = zeroCenteredDc ? 0.0 : static_cast<double>((1.0f - blend) * from.dc + (to != nullptr ? blend * to->dc : 0.0f));
 	const auto pitch = static_cast<double>(std::abs(frequencyHz));
 	if (pitch <= 0.0) return static_cast<float>(value);
-	const auto x = static_cast<double>(phase);
+	const auto x = phase;
 	const auto anchorValue = [&](const WidthWavetable::Level& level, const WidthAnchorShape& shape)
 	{
 		const auto& primitive = shape.parabola ? level.parabola : level.saw;

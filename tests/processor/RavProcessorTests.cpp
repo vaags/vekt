@@ -1,5 +1,5 @@
-#include <Parameters.h>
-#include <PluginProcessor.h>
+#include <vekt/rav/Parameters.h>
+#include <vekt/rav/PluginProcessor.h>
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -505,7 +505,7 @@ TEST_CASE("Rav processor keeps audio flowing across tracking quality changes", "
 	}
 }
 
-TEST_CASE("Rav processor defers quality changes during playback", "[processor][quality]")
+TEST_CASE("Rav processor applies quality changes at the next block during playback", "[processor][quality]")
 {
 	vekt::rav::PluginProcessor processor;
 	TestPlayHead playHead;
@@ -521,15 +521,26 @@ TEST_CASE("Rav processor defers quality changes during playback", "[processor][q
 		vekt::rav::parameters::trackingOversampling);
 	REQUIRE(factor != nullptr);
 	factor->setValueNotifyingHost(0.0f);
-
 	REQUIRE(processor.getActiveQuality().factor == vekt::dsp::OversamplingFactor::x4);
-	REQUIRE(processor.hasPendingQualityChange());
 
-	playHead.playing = false;
+	// Quality switches at once, even while the host plays; the audio may drop at the switch.
+	for (auto sample = 0; sample < buffer.getNumSamples(); ++sample)
+		for (auto channel = 0; channel < 2; ++channel)
+			buffer.setSample(channel, sample, 0.5f * std::sin(static_cast<float>(sample) * 0.13f));
 	processor.processBlock(buffer, midi);
 
 	REQUIRE(processor.getActiveQuality().factor == vekt::dsp::OversamplingFactor::off);
 	REQUIRE(processor.getLatencySamples() == 0);
+	REQUIRE_FALSE(processor.hasPendingQualityChange());
+	for (auto channel = 0; channel < 2; ++channel)
+		for (auto sample = 0; sample < buffer.getNumSamples(); ++sample)
+			REQUIRE(std::isfinite(buffer.getSample(channel, sample)));
+
+	// The host-bypassed path switches the same way.
+	factor->setValueNotifyingHost(factor->convertTo0to1(2.0f));
+	processor.processBlockBypassed(buffer, midi);
+	REQUIRE(processor.getActiveQuality().factor == vekt::dsp::OversamplingFactor::x4);
+	REQUIRE(processor.getLatencySamples() > 0);
 	REQUIRE_FALSE(processor.hasPendingQualityChange());
 }
 

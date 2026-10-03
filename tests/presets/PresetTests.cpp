@@ -1,6 +1,6 @@
-#include <FactoryPresets.h>
-#include <Parameters.h>
-#include <PluginProcessor.h>
+#include <vekt/rav/FactoryPresets.h>
+#include <vekt/rav/Parameters.h>
+#include <vekt/rav/PluginProcessor.h>
 
 #include <vekt/presets/FilePresetRepository.h>
 #include <vekt/presets/PresetCatalog.h>
@@ -233,41 +233,41 @@ TEST_CASE("Rav user preset services do not change its host program bank", "[pres
 	ScopedTemporaryDirectory directory;
 	vekt::rav::PluginProcessor processor;
 	REQUIRE(processor.configureUserPresetDirectory(directory.get()).wasOk());
+	auto& session = processor.getPresetSession();
+	auto& library = session.library();
 	const auto hostProgramCount = processor.getNumPrograms();
-	REQUIRE(processor.getCurrentPresetIndex() == 0);
-	REQUIRE_FALSE(processor.isCurrentPresetModified());
+	REQUIRE(session.currentIndex() == 0);
+	REQUIRE_FALSE(session.modified());
 
 	setParameter(processor, vekt::rav::parameters::drive, 18.0f);
-	REQUIRE(processor.isCurrentPresetModified());
-	REQUIRE(processor.saveUserPreset("My Drive").wasOk());
-	REQUIRE_FALSE(processor.isCurrentPresetModified());
-	REQUIRE(processor.saveUserPreset("My Drive").failed());
-	REQUIRE(processor.saveUserPreset(
-		"my drive", vekt::presets::PresetSaveMode::replaceExisting).failed());
+	REQUIRE(session.modified());
+	REQUIRE(session.save("My Drive", {}, {}).wasOk());
+	REQUIRE_FALSE(session.modified());
+	REQUIRE(session.save("My Drive", {}, {}).failed());
+	REQUIRE(session.save("my drive", {}, {}, vekt::presets::PresetSaveMode::replaceExisting).failed());
 	setParameter(processor, vekt::rav::parameters::drive, 24.0f);
-	REQUIRE(processor.isCurrentPresetModified());
-	REQUIRE(processor.saveUserPreset("Other Drive").wasOk());
-	REQUIRE_FALSE(processor.isCurrentPresetModified());
+	REQUIRE(session.modified());
+	REQUIRE(session.save("Other Drive", {}, {}).wasOk());
+	REQUIRE_FALSE(session.modified());
+	REQUIRE(processor.getCurrentProgram() == 0);
 	REQUIRE(processor.configureUserPresetDirectory(directory.get()).wasOk());
-	REQUIRE(processor.getCurrentPresetIndex()
-		== processor.getPresetEntries().size() - 1);
-	REQUIRE_FALSE(processor.isCurrentPresetModified());
+	REQUIRE(session.currentIndex() == library.entries().size() - 1);
+	REQUIRE_FALSE(session.modified());
 	REQUIRE(processor.getNumPrograms() == hostProgramCount);
-	REQUIRE(processor.getPresetEntries().size()
-		== static_cast<std::size_t>(hostProgramCount + 2));
-	REQUIRE(processor.removeUserPreset("My Drive").wasOk());
-	REQUIRE_FALSE(processor.isCurrentPresetModified());
+	REQUIRE(library.entries().size() == static_cast<std::size_t>(hostProgramCount + 2));
+	REQUIRE(library.removeUserPreset("My Drive").wasOk());
+	REQUIRE_FALSE(session.modified());
 	REQUIRE(processor.loadNextPreset().wasOk());
-	REQUIRE_FALSE(processor.isCurrentPresetModified());
+	REQUIRE_FALSE(session.modified());
 	REQUIRE(getParameter(processor, vekt::rav::parameters::drive)
 		== Catch::Approx(6.0f));
 	REQUIRE(processor.getUndoManager().undo());
-	REQUIRE(processor.isCurrentPresetModified());
+	REQUIRE(session.modified());
 
 	processor.setCurrentProgram(0);
-	REQUIRE_FALSE(processor.isCurrentPresetModified());
+	REQUIRE_FALSE(session.modified());
 	REQUIRE(processor.loadPreviousPreset().wasOk());
-	REQUIRE_FALSE(processor.isCurrentPresetModified());
+	REQUIRE_FALSE(session.modified());
 	REQUIRE(getParameter(processor, vekt::rav::parameters::drive)
 		== Catch::Approx(24.0f));
 	REQUIRE(processor.loadNextPreset().wasOk());
@@ -275,11 +275,13 @@ TEST_CASE("Rav user preset services do not change its host program bank", "[pres
 		== Catch::Approx(6.0f));
 
 	REQUIRE(processor.loadPreviousPreset().wasOk());
-	REQUIRE(processor.removeUserPreset("Other Drive").wasOk());
-	REQUIRE_FALSE(processor.getCurrentPresetIndex().has_value());
-	REQUIRE_FALSE(processor.isCurrentPresetModified());
-	REQUIRE(processor.getPresetEntries().size()
-		== static_cast<std::size_t>(hostProgramCount));
+	const auto selected = library.find("Other Drive", vekt::presets::PresetOrigin::user);
+	REQUIRE(selected.has_value());
+	REQUIRE(session.removeUserPreset(library.entries()[*selected]).wasOk());
+	// Deleting the selected preset keeps the sound but clears the selection.
+	REQUIRE_FALSE(session.loaded().has_value());
+	REQUIRE(getParameter(processor, vekt::rav::parameters::drive) == Catch::Approx(24.0f));
+	REQUIRE(library.entries().size() == static_cast<std::size_t>(hostProgramCount));
 	REQUIRE(processor.getNumPrograms() == hostProgramCount);
 	REQUIRE(processor.configureUserPresetDirectory({}).failed());
 }
@@ -291,10 +293,10 @@ TEST_CASE("Direct preset application clears named preset selection", "[presets]"
 	const auto imported = source.createPreset("Imported");
 
 	vekt::rav::PluginProcessor processor;
-	REQUIRE(processor.getCurrentPresetIndex() == 0);
+	REQUIRE(processor.getPresetSession().currentIndex() == 0);
 	REQUIRE(processor.applyPreset(imported).wasOk());
-	REQUIRE_FALSE(processor.getCurrentPresetIndex().has_value());
-	REQUIRE_FALSE(processor.isCurrentPresetModified());
+	REQUIRE_FALSE(processor.getPresetSession().currentIndex().has_value());
+	REQUIRE_FALSE(processor.getPresetSession().modified());
 }
 
 TEST_CASE("Embedded Rav factory presets use the public preset schema", "[presets]")
@@ -317,7 +319,7 @@ TEST_CASE("Embedded Rav factory presets use the public preset schema", "[presets
 TEST_CASE("Rav factory library groups instrument presets with useful tags", "[presets]")
 {
 	vekt::rav::PluginProcessor processor;
-	const auto& entries = processor.getPresetEntries();
+	const auto& entries = processor.getPresetSession().library().entries();
 	REQUIRE(entries.size() == 22);
 	REQUIRE(processor.getNumPrograms() == 22);
 	REQUIRE(processor.getPresetSession().library().folders(vekt::presets::PresetOrigin::factory)
@@ -432,4 +434,14 @@ TEST_CASE("Rav restores its current factory program identity", "[presets]")
 	REQUIRE(restored.getProgramName(restored.getCurrentProgram()) == "Warm Push");
 	REQUIRE(getParameter(restored, vekt::rav::parameters::drive)
 		== Catch::Approx(12.0f));
+	REQUIRE_FALSE(restored.getPresetSession().modified());
+
+	// A project whose stage order differs from its preset restores as a modified preset.
+	REQUIRE(source.reorderStage(0, 1));
+	source.getStateInformation(state);
+	vekt::rav::PluginProcessor reordered;
+	reordered.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
+	REQUIRE(reordered.getStageOrder() == source.getStageOrder());
+	REQUIRE(reordered.getCurrentProgram() == 1);
+	REQUIRE(reordered.getPresetSession().modified());
 }

@@ -1,21 +1,21 @@
 # Architecture
 
-Mono quality scope as of 27 September 2026: selectable and planned modes end
-at 8x (1x/2x/4x/8x). Historical 16x/32x offline references remain diagnostic,
-not selectable quality modes.
-
 ## Dependency Direction
 
-Dependencies point toward small reusable modules:
+Dependencies point toward small reusable modules. These are the CMake targets
+(`framework/<module>`), each linking only what it lists:
 
 ```text
-plugins
-  -> plugin_support
-  -> ui
-  -> presets
-  -> state
-  -> dsp
+plugins (Rav, Glimmer, Mono)  -> plugin_support, preset_ui, ui, presets, state, dsp
+plugin_support                -> presets, state, dsp
+preset_ui                     -> presets, ui
+ui                            -> dsp
+presets, state, dsp           -> JUCE only
+audio_analysis                -> tests and the Audio Lab only, never a plugin
 ```
+
+Every module also uses the pinned JUCE headers; the Audio Lab tools and tests
+link the products' Core libraries.
 
 `vekt_dsp` never includes plugin, editor, preset, or product-specific headers.
 Plugin processors are composition roots: they connect parameters, reusable DSP,
@@ -24,9 +24,29 @@ state, and format wrappers but do not contain signal-processing algorithms.
 New abstractions must be justified by at least two concrete consumers or by a
 hard ownership boundary. A generic runtime effect graph is outside version 1.
 
+## Plugin Support
+
+`vekt::plugin_support` holds host integration that every product needs (ADR
+0010). Processors own its components and forward the host's calls to them:
+
+- `PresetHost` owns the preset catalog (factory presets plus the user folder),
+  the `PresetSession`, project state through `StateManager`, the host program
+  API and previous/next navigation. Products supply their preset descriptor,
+  sound adapter and extra metadata (Rav's stage order).
+- `QualitySelection` creates the shared Tracking and Offline oversampling
+  parameters, turns them into the quality the audio thread activates at the
+  next block, and publishes the active quality for the editor (all three
+  products; Mono also re-prepares its voices on a change).
+- `requireParameter` resolves a parameter's value pointer once, so no block
+  looks a parameter up by name.
+
+Product headers live in `include/vekt/<product>/` (processor, parameters,
+editor, factory presets) and are included by that path; a product's `Source/`
+holds only uniquely named internals.
+
 ## Shared Editor Controls
 
-RAV and Glimmer consume the same `vekt::ui` controls:
+The products consume the same `vekt::ui` controls:
 
 - `ModeButton` owns selection painting and optional drag/drop gestures. RAV
   enables reordering and binds individual stage toggles; Glimmer uses a radio
@@ -35,6 +55,9 @@ RAV and Glimmer consume the same `vekt::ui` controls:
 - `PresetNavigation` owns the preset-name/modified display, previous/next arrows,
   accessible names and focus restoration. Callbacks connect it to the product's
   existing preset session and shared browser; it performs no storage operations.
+- `QualitySettings` is the anchored Settings pop-over with the shared Tracking
+  and Offline choices, bound through the APVTS to the product's two quality
+  parameters; the product places its toggle and sets its bounds (Rav, Mono).
 - `UndoRedoControls` owns history buttons, availability and action tooltips.
   Products supply their UndoManager, a pre-action APVTS flush, and a post-action
   UI refresh. Pending parameter edits are also flushed before a new preset-load
@@ -58,28 +81,15 @@ RAV and Glimmer consume the same `vekt::ui` controls:
   from `LfoDestinations.h`, the same table its processor uses to scale LFO
   depths, and cutoff limits from `FilterLimits.h`, which the voice uses too, so
   display and sound cannot drift.
-  The live dot is computed in the editor from the processor's published LFO
-  outputs, a sounding-voice flag and effective rates, and is refreshed per
-  display frame by a `VBlankAttachment`. The outputs travel through
-  `vekt::dsp::DisplayHistory` (wait-free, one frame per block stamped with its
-  sample position) and `DisplayTimeline`, which shows them a short,
-  self-adjusting delay back, interpolated between blocks, so motion stays
-  smooth whatever the host's block size, burst pattern or display refresh
-  rate. The delay covers the longest recent publishing gap (capped at 250 ms)
-  and changes gradually. Hosts that render ahead of playback make the display
-  lead the sound by that amount; no plugin-side clock can see it.
+  The live dot follows the processor's published LFO outputs through
+  `vekt::dsp::DisplayHistory` (wait-free, one frame per block) and
+  `DisplayTimeline`, which shows them a short, self-adjusting delay back so
+  motion stays smooth whatever the host's block size; see [UI_UX.md](UI_UX.md)
+  for its behaviour and measurements.
 - The timeline lives in the framework with Mono as its only consumer, an
   exception to the two-consumer rule: it is part of the reusable modulation
-  display (any product animating a live dot needs it), which was built for
-  reuse from the start. Its requirement was measured in a simulated 60 fps
-  display: showing each block's latest value instead, frame-to-frame steps
-  vary by 32 % at 512-sample blocks, and at 1024 samples 22 % of frames freeze
-  (61 % at 2048 or with bursty hosts, with steps up to 2.6x); with the
-  timeline they vary by under 1.5 % and never freeze.
-- The dot's handover to the blur band assumes 60 drawn frames per second, what
-  JUCE delivers on macOS even on 120 Hz displays. Where frames are drawn faster
-  the handover is conservative (the dot gives way sooner than it must), not
-  wrong.
+  display (any product animating a live dot needs it), built for reuse from the
+  start.
 
 These controls are independent of product IDs and DSP. Both editors keep their
 own composition/layout and refresh the shared controls on their existing UI timer.
@@ -99,35 +109,40 @@ Buffers and filter paths are allocated during `prepareToPlay`. Parameters are
 read through cached atomics and continuous values are smoothed. UI meters use
 atomic scalar publication.
 
-Oversampling quality activation is not an audio-thread operation. The plugin
-support layer must defer requested changes while transport is known to be
-running, suspend processing on the message thread, activate and reset the
-prepared path, update dry latency and reported plugin latency, notify the host,
-and then resume processing.
+A requested oversampling quality applies at the start of the next audio block,
+during playback too (ADR 0010). Every quality path is prepared in advance, so
+activation only switches to it, resets the affected state and updates dry and
+reported latency; the format wrappers notify the host on the message thread.
+The audio may drop or click at the switch; no smooth transition is required.
 
 ## DSP Contracts
 
 - Processing uses stereo input and output in version 1.
-- Oversampling choices are Off, 2x, and 4x with minimum- or linear-phase filters.
-- The default is maximum-quality 4x minimum phase.
+- Every product offers the same Tracking and Offline oversampling choices
+  (`vekt/dsp/OversamplingChoices.h`, ADR 0001): Off, 2x/4x minimum-phase IIR and
+  2x/4x/8x/16x linear-phase FIR. Defaults are per product: Rav and Glimmer track
+  at 4x IIR and render offline at 16x FIR; Mono tracks Off and renders at 4x FIR.
+- Per-sample recursions must stay correct at the highest internal rate,
+  `vekt::dsp::maximumInternalSampleRate` (192 kHz x16). A state that steps toward
+  a target (envelope, glide, smoothing, drift) or accumulates a phase or a time
+  (oscillator, LFO fade) keeps its state, coefficients and rate in `double`, or
+  tracks the remaining distance so it converges; in single precision the steps
+  fall below rounding there and the state stalls or drifts. Linear parameter
+  ramps use `vekt::dsp::LinearRamp` (double), as `ControlTransition`,
+  `AdaptiveAutoGain`, `MatchedToneStage` and `TanhStage` do inside. Tests of such state
+  run at that constant rather than a hard-coded rate. Audio-rate filters whose
+  state follows the signal may stay in `float` when measured below the
+  reference-render tolerance.
 - Every path uses integer latency so host reporting and dry alignment agree.
 - Dry/wet interpolation is linear.
 - Input gain precedes the dry/wet split; output gain follows the mix.
 - Mix at 0% preserves the post-input-gain dry signal after active wet latency.
 - Host bypass preserves raw input after reported plugin latency.
 
-## Glimmer Engine
-
-Glimmer's product-local `RotaryEngine` owns cabinet profiles, tone/directivity
-filters and microphone geometry. Classic/Wide use separate horn and drum paths;
-Drum routes the full input through one rotating speaker. Model switching uses
-two preallocated instances with warmup and a linear crossfade, not duplicated
-algorithms. Raw stereo information is retained until an explicit wet-only Width
-transform. Only the preamp is oversampled, and Auto Gain acts before rotary
-modulation. Dry and bypass align to the fixed 8 ms pickup center plus active
-oversampling latency, independently of delay-buffer capacity. Intentional travel
-modulation and cabinet filter phase are not compensated away. See
-[GLIMMER_VALIDATION.md](GLIMMER_VALIDATION.md) for the signal and state contracts.
+Product signal paths and their contracts belong to the product documents:
+[Rav](RAV_VALIDATION.md), [Glimmer](GLIMMER_VALIDATION.md) (its `RotaryEngine`,
+model switching and latency) and [Mono](MONO_VALIDATION.md); Mono's quality
+scope is recorded in ADR 0001.
 
 ## Compatibility
 
@@ -165,7 +180,9 @@ provides the shared browser without product-header dependencies. ADR 0003
 specifies the global v2 format and the initial implementation's limitations.
 Factory presets are compiled into each product, decoded through the public JSON
 codec, and exposed as an immutable bank through the host program API. The
-selected factory name is persisted in project metadata. User presets remain a
+preset selection is persisted in project metadata as the preset session's
+`vektPresetSelection`; the host program is the selected factory preset, or 0
+when a user preset or no preset is selected (ADR 0010). User presets remain a
 separate mutable editor-facing source, are listed in natural sort order, and
 cannot shadow a case-insensitively matching factory name.
 Standalone, VST3, and AUv2 user presets resolve beneath

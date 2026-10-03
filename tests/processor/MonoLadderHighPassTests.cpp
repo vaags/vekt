@@ -1,3 +1,4 @@
+#include <vekt/dsp/OversamplingQuality.h>
 #include "FilterPrototypeSupport.h"
 #include "LadderPoleMix.h"
 #include "LadderResonance.h"
@@ -97,8 +98,8 @@ struct KWeighting
 TEST_CASE("Mono high-pass ladder is the low-pass ladder's mirror at small signals", "[mono][filter][ladder-hp]")
 {
 	// Exact for the linear reference; within 0.05 dB at 1e-4 for the non-linear filter. The rate enters only through the
-	// prewarped tan(pi fc / fs), so the lowest internal rate, 48 kHz and the highest (192 kHz at 8x) cover it.
-	for (const auto sampleRate : { 44'100.0, 48'000.0, 8.0 * 192'000.0 })
+	// prewarped tan(pi fc / fs), so the lowest internal rate, 48 kHz and the highest (192 kHz at 16x) cover it.
+	for (const auto sampleRate : { 44'100.0, 48'000.0, vekt::dsp::maximumInternalSampleRate })
 		for (const auto feedback : { 0.0, 2.0, 3.6 })
 			for (const auto ratio : { 0.125, 0.5, 1.0, 2.0, 8.0 })
 			{

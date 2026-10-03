@@ -40,6 +40,7 @@ add_executable(vekt_dsp_tests
 	processor/MonoNonlinearSvfTests.cpp
 	processor/MonoKorg35Tests.cpp
 	processor/MonoFilterTypeTests.cpp
+	processor/MonoPrecisionTests.cpp
 	processor/EditorLayoutTests.cpp
 	processor/ValueFormatTests.cpp
 	audio_lab/FileSourceTests.cpp
@@ -55,14 +56,17 @@ add_executable(vekt_dsp_tests
     ui/LevelMeterTests.cpp
     ui/OscilloscopeTests.cpp
     ui/RotaryControlTests.cpp
+	ui/QualitySettingsTests.cpp
 	compat/StateFixtureTests.cpp
 	compat/ReferenceRenderTests.cpp
-	compat/ParameterManifestTests.cpp)
+	compat/ParameterManifestTests.cpp
+	plugin_support/PluginSupportTests.cpp)
 
 target_link_libraries(vekt_dsp_tests PRIVATE
     vekt::dsp
 	vekt::audio_analysis
     vekt::ui
+	vekt::plugin_support
     VektRavCore
 	VektGlimmerCore
 	VektMonoCore
@@ -76,6 +80,9 @@ if(APPLE AND CMAKE_GENERATOR STREQUAL "Xcode")
         COMMENT "Ad-hoc signing vekt_dsp_tests for local execution"
         VERBATIM)
 endif()
+
+# Tests of the Audio Lab include its headers as <audio_lab/...>.
+target_include_directories(vekt_dsp_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools")
 
 # Compatibility fixtures live in the source tree; failing renders are written to the build tree.
 target_compile_definitions(vekt_dsp_tests PRIVATE

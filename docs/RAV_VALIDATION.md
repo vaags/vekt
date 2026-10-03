@@ -2,6 +2,25 @@
 
 This document defines the repeatable quality gates for the five-mode Rav processor.
 
+## Per-sample precision (3 October 2026)
+
+ADR 0010 step 9, ARCHITECTURE.md (DSP Contracts). The fuzz circuit's couplings and bias recovery (3-143 Hz) and the
+mode stage's saturation feedback, overdrive high-pass and gated-fuzz envelope are double; in float they were up to
+-86 dBFS off at 192 kHz x16 (a scratch float/double one-pole measurement). The post stage (4-18 kHz) and fuzz tone
+filter (about 2.4 kHz) stay float. `ControlTransition` now ramps in double: in float a bias move on the 1 s
+operating-point ramp held still and then stepped. The references changed (gated fuzz -47 dBFS, circuit fuzz -66 dBFS,
+the other cases -85 to -92 dBFS; with only `ControlTransition` back in float just `multiband-tone-mix` still differed,
+-87 dBFS, from the tone and auto-gain ramps) and were recaptured (approved). Release cost at 16x tracking, 48 kHz,
+256-sample blocks, one 10 s run each (`VektRavRender --profile tracking --quality 6 --mode <m>`): Saturation 16.1 % to
+17.5 %, Circuit Fuzz 24.4 % to 27.4 %, Gated Fuzz 14.9 % to 17.2 % of a core, float (HEAD) to double. The per-sample
+coefficient transcendentals are the cost. Since step 10 (same day) each is recomputed only when its control changes
+(`RavCachedCoefficient`); the output is bit-identical (references at zero tolerance), and `Rav mode stage recomputes
+its cached coefficients after a rate change` pins the invalidation. The same screen then gives Saturation 17.1 %,
+Circuit Fuzz 22.1 %, Gated Fuzz 12.8 %: the fuzz modes are below the float figures, Saturation stays about 6 % above
+(its remaining cost is outside the cached coefficients). These are single 10 s screens, not the 30 s timing gates, with
+static controls: while Dynamics or Texture ramp every sample still recomputes, so the step 9 figures above are the
+worst case (not measured under automation).
+
 ## Automated gates
 
 Configure the Debug Ninja preset and run:

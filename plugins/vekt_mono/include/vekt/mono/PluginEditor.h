@@ -9,6 +9,7 @@
 #include <vekt/ui/Panel.h>
 #include <vekt/ui/PresetNavigation.h>
 #include <vekt/ui/RotaryControl.h>
+#include <vekt/ui/QualitySettings.h>
 #include <vekt/ui/ScalableEditor.h>
 #include <vekt/ui/UndoRedoControls.h>
 #include <vekt/ui/VektLookAndFeel.h>
@@ -205,6 +206,7 @@ private:
 	ui::UndoRedoControls historyControls;
 	ui::PresetNavigation presetNavigation;
 	preset_ui::PresetBrowser presetBrowser;
+	ui::QualitySettings qualitySettings;
 	std::array<ui::Panel, 3> oscillatorPanels { ui::Panel { "Osc 1" }, ui::Panel { "Osc 2" }, ui::Panel { "Osc 3" } };
 	ui::Panel noisePanel { "Noise" };
 	ui::Panel filterPanel { "Filter" };
@@ -253,11 +255,11 @@ private:
 	ui::LevelMeter outputMeter { "OUT", juce::Colour::fromRGB(227, 156, 75), ui::LevelMeter::Orientation::horizontal };
 	ui::Oscilloscope outputScope { pluginProcessor.getOutputScope() };
 	std::unique_ptr<SliderAttachment> outputAttachment;
-	juce::ComboBox voiceCountBox, performanceModeBox, qualityBox, unisonBox, noiseBox, glideBox, priorityBox, multicoreBox;
+	juce::ComboBox voiceCountBox, performanceModeBox, unisonBox, noiseBox, glideBox, priorityBox, multicoreBox;
 	juce::ToggleButton heldKeyReturnButton { "Held return" };
-	std::array<juce::Label, 6> performanceLabels;
+	std::array<juce::Label, 5> performanceLabels;
 	juce::Label activeVoicesLabel;
-	std::unique_ptr<ComboBoxAttachment> voiceCountAttachment, performanceModeAttachment, qualityAttachment, unisonAttachment, noiseAttachment, glideAttachment, priorityAttachment, multicoreAttachment;
+	std::unique_ptr<ComboBoxAttachment> voiceCountAttachment, performanceModeAttachment, unisonAttachment, noiseAttachment, glideAttachment, priorityAttachment, multicoreAttachment;
 	std::unique_ptr<ButtonAttachment> heldKeyReturnAttachment;
 	dsp::DisplayTimeline<2> lfoTimeline;
 	// Moves the modulation dots once per display frame while the editor is showing. Last, so it stops first.

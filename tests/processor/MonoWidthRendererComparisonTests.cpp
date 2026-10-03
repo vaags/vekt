@@ -1,10 +1,10 @@
 #include "MonoVoice.h"
-#include "../../tools/audio_lab/MonoWidthReference.h"
-#include "../../tools/audio_lab/MonoWidthLongResidual.h"
-#include "../../tools/audio_lab/MonoWidthTablePrototype.h"
-#include "../../tools/audio_lab/MonoWidthAdaptiveKnots.h"
-#include "../../tools/audio_lab/MonoWidthPitchLevels.h"
-#include "../../tools/audio_lab/MonoAdditiveOscillator.h"
+#include <audio_lab/MonoWidthReference.h>
+#include <audio_lab/MonoWidthLongResidual.h>
+#include <audio_lab/MonoWidthTablePrototype.h>
+#include <audio_lab/MonoWidthAdaptiveKnots.h>
+#include <audio_lab/MonoWidthPitchLevels.h>
+#include <audio_lab/MonoAdditiveOscillator.h>
 
 #include <vekt/dsp/OversamplingBank.h>
 

@@ -1,4 +1,4 @@
-#include "../../plugins/vekt_mono/Source/NonlinearTptLadder.h"
+#include <NonlinearTptLadder.h>
 #include "MonoOnsetAnalysis.h"
 #include "MonoLadderStability.h"
 

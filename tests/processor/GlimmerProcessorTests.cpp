@@ -1,6 +1,6 @@
 #include <vekt/glimmer/Parameters.h>
 #include <vekt/glimmer/PluginProcessor.h>
-#include "../../plugins/vekt_rav/Source/PluginProcessor.h"
+#include <vekt/rav/PluginProcessor.h>
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -325,7 +325,7 @@ TEST_CASE("Glimmer live bypass crossfades then returns exact raw input", "[glimm
 	}
 }
 
-TEST_CASE("Glimmer quality stays deferred while transport plays", "[glimmer][processor][quality]")
+TEST_CASE("Glimmer applies quality changes at the next block during playback", "[glimmer][processor][quality]")
 {
 	class PlayHead final : public juce::AudioPlayHead
 	{
@@ -333,26 +333,31 @@ TEST_CASE("Glimmer quality stays deferred while transport plays", "[glimmer][pro
 		juce::Optional<PositionInfo> getPosition() const override
 		{
 			PositionInfo position;
-			position.setIsPlaying(playing);
+			position.setIsPlaying(true);
 			return position;
 		}
-		bool playing { true };
 	} playHead;
 	vekt::glimmer::PluginProcessor processor;
 	processor.setPlayHead(&playHead);
 	processor.prepareToPlay(48000, 128);
 	const auto originalLatency = processor.getLatencySamples();
-	setParameter(processor, vekt::glimmer::parameters::trackingOversampling, 6);
 	juce::AudioBuffer<float> buffer(2, 128);
 	buffer.clear();
 	juce::MidiBuffer midi;
 	processor.processBlock(buffer, midi);
-	REQUIRE(processor.hasPendingQualityChange());
-	REQUIRE(processor.getLatencySamples() == originalLatency);
-	playHead.playing = false;
+	setParameter(processor, vekt::glimmer::parameters::trackingOversampling, 6);
+
+	// Quality switches at once, even while the host plays; the audio may drop at the switch.
+	for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+		for (int channel = 0; channel < 2; ++channel)
+			buffer.setSample(channel, sample, 0.5f * std::sin(static_cast<float>(sample) * 0.13f));
 	processor.processBlock(buffer, midi);
 	REQUIRE_FALSE(processor.hasPendingQualityChange());
 	REQUIRE(processor.getActiveQuality().factor == vekt::dsp::OversamplingFactor::x16);
+	REQUIRE(processor.getLatencySamples() != originalLatency);
+	for (int channel = 0; channel < 2; ++channel)
+		for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+			REQUIRE(std::isfinite(buffer.getSample(channel, sample)));
 }
 
 TEST_CASE("Glimmer models and extremes remain stable across rates and qualities", "[glimmer][processor][matrix]")

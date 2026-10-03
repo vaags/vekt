@@ -1,6 +1,7 @@
-#include "PluginEditor.h"
+#include <vekt/rav/PluginEditor.h>
 
-#include "Parameters.h"
+#include <vekt/dsp/OversamplingChoices.h>
+#include <vekt/rav/Parameters.h>
 #include <vekt/ui/ValueFormat.h>
 
 namespace vekt::rav
@@ -49,6 +50,7 @@ constexpr int lowerPanelTop = headerTop + panelHeight + panelGap;
 
 PluginEditor::PluginEditor(PluginProcessor& plugin)
 	: ScalableEditor(plugin), pluginProcessor(plugin), presetBrowser(plugin.getPresetSession()),
+	  qualitySettings(plugin.getParameters(), parameters::trackingOversampling, parameters::offlineOversampling),
 	  historyControls(plugin.getUndoManager())
 {
 	setLookAndFeel(&lookAndFeel);
@@ -156,34 +158,8 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 	inputFader.getProperties().set("ioFader", true);
 	outputFader.getProperties().set("ioFader", true);
 	getContent().addAndMakeVisible(bypassButton);
-	getContent().addAndMakeVisible(settingsButton);
-	getContent().addChildComponent(settingsPanel);
-	trackingLabel.setText("Tracking", juce::dontSendNotification);
-	offlineLabel.setText("Offline", juce::dontSendNotification);
-	trackingBox.setName("Tracking quality");
-	offlineBox.setName("Offline quality");
-	for (auto* component : { static_cast<juce::Component*>(&trackingBox), static_cast<juce::Component*>(&offlineBox),
-		static_cast<juce::Component*>(&trackingLabel), static_cast<juce::Component*>(&offlineLabel),
-		static_cast<juce::Component*>(&closeSettingsButton) })
-		settingsPanel.addAndMakeVisible(*component);
-	settingsButton.setClickingTogglesState(true);
-	settingsButton.onClick = [this]
-	{
-		settingsPanel.setVisible(settingsButton.getToggleState());
-		if (settingsPanel.isVisible())
-		{
-			settingsPanel.toFront(false);
-			if (trackingBox.isShowing())
-				trackingBox.grabKeyboardFocus();
-		}
-	};
-	closeSettingsButton.onClick = [this]
-	{
-		settingsPanel.setVisible(false);
-		settingsButton.setToggleState(false, juce::dontSendNotification);
-		if (settingsButton.isShowing())
-			settingsButton.grabKeyboardFocus();
-	};
+	getContent().addAndMakeVisible(qualitySettings.getSettingsButton());
+	getContent().addChildComponent(qualitySettings);
 	for (auto* fader : { &inputFader, &outputFader })
 	{
 		fader->setSliderStyle(juce::Slider::LinearVertical);
@@ -197,23 +173,7 @@ PluginEditor::PluginEditor(PluginProcessor& plugin)
 	outputFader.setName("Output");
 	outputFader.setTooltip("Output gain");
 
-	trackingBox.addItem("Off", 1);
-	trackingBox.addItem("2x IIR", 2);
-	trackingBox.addItem("4x IIR", 3);
-	trackingBox.addItem("2x FIR", 4);
-	trackingBox.addItem("4x FIR", 5);
-	trackingBox.addItem("8x FIR", 6);
-	trackingBox.addItem("16x FIR", 7);
-	offlineBox.addItem("Off", 1);
-	offlineBox.addItem("2x FIR", 2);
-	offlineBox.addItem("4x FIR", 3);
-	offlineBox.addItem("8x FIR", 4);
-	offlineBox.addItem("16x FIR", 5);
-	offlineBox.addItem("2x IIR", 6);
-	offlineBox.addItem("4x IIR", 7);
 	modeBox.addItemList({"Saturation", "Overdrive", "Distortion", "Circuit Fuzz", "Gated Fuzz"}, 1);
-	trackingAttachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), parameters::trackingOversampling, trackingBox);
-	offlineAttachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), parameters::offlineOversampling, offlineBox);
 	modeAttachment = std::make_unique<ComboBoxAttachment>(pluginProcessor.getParameters(), parameters::mode, modeBox);
 	inputFaderAttachment = std::make_unique<SliderAttachment>(pluginProcessor.getParameters(), parameters::inputGain, inputFader);
 	outputFaderAttachment = std::make_unique<SliderAttachment>(pluginProcessor.getParameters(), parameters::outputGain, outputFader);
@@ -298,7 +258,7 @@ void PluginEditor::resized()
 	toolbar.items.add(juce::FlexItem(presetNavigation).withWidth(324.0f).withHeight(44.0f).withMargin({ 0.0f, 12.0f, 0.0f, 0.0f }));
 	toolbar.items.add(juce::FlexItem().withFlex(1.0f));
 	toolbar.items.add(juce::FlexItem(historyControls).withWidth(152.0f).withHeight(44.0f).withMargin({ 0.0f, 4.0f, 0.0f, 4.0f }));
-	toolbar.items.add(juce::FlexItem(settingsButton).withWidth(88.0f).withHeight(44.0f).withMargin({ 0.0f, 8.0f, 0.0f, 8.0f }));
+	toolbar.items.add(juce::FlexItem(qualitySettings.getSettingsButton()).withWidth(88.0f).withHeight(44.0f).withMargin({ 0.0f, 8.0f, 0.0f, 8.0f }));
 	toolbar.items.add(juce::FlexItem(bypassButton).withWidth(84.0f).withHeight(44.0f));
 	toolbar.performLayout(contentBounds.withX(layout::topBarMargin).withY(layout::topBarTop)
 		.withWidth(contentBounds.getWidth() - layout::topBarMargin * 2).withHeight(layout::topBarHeight).toFloat());
@@ -349,13 +309,8 @@ void PluginEditor::resized()
 	outputMeter.setBounds(outputFader.getBounds().withTrimmedTop(8).withTrimmedBottom(40)
 		.withX(outputStrip.getX() + 68).withWidth(32));
 
-	settingsPanel.setBounds(contentBounds.getWidth() - layout::margin - 380, 68, 380, 232);
-	const auto settingsContent = settingsPanel.getContentBounds();
-	trackingLabel.setBounds(settingsContent.withHeight(24));
-	trackingBox.setBounds(settingsContent.withTrimmedTop(24).withHeight(36));
-	offlineLabel.setBounds(settingsContent.withTrimmedTop(68).withHeight(24));
-	offlineBox.setBounds(settingsContent.withTrimmedTop(92).withHeight(36));
-	closeSettingsButton.setBounds(296, 4, 72, 28);
+	qualitySettings.setBounds(contentBounds.getWidth() - layout::margin - ui::QualitySettings::preferredWidth, 68,
+		ui::QualitySettings::preferredWidth, ui::QualitySettings::preferredHeight);
 	meterLabel.setVisible(false);
 	juce::ignoreUnused(content);
 }
@@ -368,18 +323,16 @@ void PluginEditor::timerCallback()
 	const auto newOutputPeaks = pluginProcessor.consumeOutputPeaks();
 	inputMeter.setStereoLevels(newInputPeaks);
 	outputMeter.setStereoLevels(newOutputPeaks);
-	const auto quality = pluginProcessor.getActiveQuality();
-	qualityLabel.setText("Quality: " + juce::String(static_cast<int>(quality.multiplier())) + "x " + (quality.filter == dsp::OversamplingFilter::polyphaseFIR ? "FIR" : "IIR") + (pluginProcessor.hasPendingQualityChange() ? " (pending)" : ""), juce::dontSendNotification);
+	qualityLabel.setText("Quality: " + dsp::qualityName(pluginProcessor.getActiveQuality()), juce::dontSendNotification);
 	historyControls.refresh();
 	repaint();
 }
 
 void PluginEditor::refreshPresetLabel()
 {
-	const auto index = pluginProcessor.getCurrentPresetIndex();
-	const auto& entries = pluginProcessor.getPresetEntries();
-	presetNavigation.setPreset(index && *index < entries.size() ? entries[*index].name : "Untitled",
-		pluginProcessor.isCurrentPresetModified(), !entries.empty());
+	auto& session = pluginProcessor.getPresetSession();
+	presetNavigation.setPreset(session.loaded() ? session.loaded()->name : "Untitled", session.modified(),
+		!session.library().entries().empty());
 }
 
 void PluginEditor::configureRotary(juce::Component& parent, ui::RotaryControl& control, const juce::String& name,

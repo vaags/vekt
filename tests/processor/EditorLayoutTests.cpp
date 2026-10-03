@@ -1,7 +1,9 @@
-#include <PluginEditor.h>
-#include <Parameters.h>
-#include "../../plugins/vekt_glimmer/Source/PluginEditor.h"
-#include "../../plugins/vekt_mono/Source/PluginEditor.h"
+#include <vekt/rav/PluginEditor.h>
+#include <vekt/rav/Parameters.h>
+#include <vekt/glimmer/PluginEditor.h>
+#include <vekt/mono/PluginEditor.h>
+#include <vekt/dsp/OversamplingChoices.h>
+#include <vekt/ui/QualitySettings.h>
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -359,33 +361,54 @@ TEST_CASE("Mono uses a secondary arc only for filter controls", "[processor][ui]
 	}
 }
 
-TEST_CASE("Mono quality menu exposes four selectable factors", "[mono][processor][ui][quality]")
+TEST_CASE("Mono quality menus offer the shared tracking and offline choices", "[mono][processor][ui][quality]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
 	vekt::mono::PluginProcessor processor;
 	vekt::mono::PluginEditor editor(processor);
-	auto& performance = [&editor]() -> juce::Component&
+	// The shared Settings pop-over (vekt::ui::QualitySettings), opened from the header, holds both menus.
+	auto* settings = static_cast<vekt::ui::QualitySettings*>(nullptr);
+	for (auto* child : editor.getContent().getChildren())
+		if (auto* candidate = dynamic_cast<vekt::ui::QualitySettings*>(child)) settings = candidate;
+	REQUIRE(settings != nullptr);
+	REQUIRE_FALSE(settings->isVisible());
+	auto& toggle = settings->getSettingsButton();
+	REQUIRE(toggle.getParentComponent() == &editor.getContent());
+	toggle.setToggleState(true, juce::dontSendNotification);
+	toggle.onClick();
+	REQUIRE(settings->isVisible());
+	checkVisibleBounds(editor.getContent());
+	// No quality menu is left in the Performance panel.
+	for (auto* child : editor.getContent().getChildren())
+		if (child->getName() == "Performance")
+			for (auto* inner : child->getChildren())
+				if (const auto* box = dynamic_cast<juce::ComboBox*>(inner))
+					for (int item = 0; item < box->getNumItems(); ++item)
+						REQUIRE(box->getItemText(item) != "16x FIR");
+	const auto findBox = [settings](const juce::String& name) -> juce::ComboBox*
 	{
-		for (auto* child : editor.getContent().getChildren())
-			if (child->getName() == "Performance") return *child;
-		FAIL("Missing Performance panel");
-		return editor;
-	}();
-	juce::ComboBox* quality = nullptr;
-	for (auto* child : performance.getChildren())
-		if (auto* box = dynamic_cast<juce::ComboBox*>(child);
-			box != nullptr && box->getTooltip().contains("uses minimum-phase IIR"))
-			quality = box;
-	REQUIRE(quality != nullptr);
-	REQUIRE(quality->getNumItems() == 4);
-	for (int index = 0; index < 4; ++index)
-		REQUIRE(quality->getItemText(index) == juce::String(1 << index) + "x");
-	REQUIRE(quality->getSelectedItemIndex() == 0); // 1x is the default
-	quality->setSelectedItemIndex(3, juce::sendNotificationSync);
-	const auto* parameter = dynamic_cast<juce::AudioParameterChoice*>(
-		processor.getParameters().getParameter(vekt::mono::parameters::quality));
-	REQUIRE(parameter != nullptr);
-	REQUIRE(parameter->getIndex() == 3);
+		for (auto* child : settings->getChildren())
+			if (auto* box = dynamic_cast<juce::ComboBox*>(child); box != nullptr && box->getName() == name) return box;
+		return nullptr;
+	};
+	struct Menu { juce::String name; const char* identifier; juce::StringArray choices; int defaultIndex; };
+	for (const auto& menu : { Menu { "Tracking quality", vekt::mono::parameters::trackingOversampling, vekt::dsp::trackingQualityChoices(), 0 },
+			 Menu { "Offline quality", vekt::mono::parameters::offlineOversampling, vekt::dsp::offlineQualityChoices(), 2 } })
+	{
+		INFO(menu.name);
+		auto* box = findBox(menu.name);
+		REQUIRE(box != nullptr);
+		REQUIRE(box->getNumItems() == menu.choices.size());
+		for (int index = 0; index < menu.choices.size(); ++index)
+			REQUIRE(box->getItemText(index) == menu.choices[index]);
+		REQUIRE(box->getSelectedItemIndex() == menu.defaultIndex); // Tracking Off, Offline 4x FIR
+		const auto highest = menu.choices.indexOf("16x FIR");
+		REQUIRE(highest >= 0);
+		box->setSelectedItemIndex(highest, juce::sendNotificationSync);
+		const auto* parameter = dynamic_cast<juce::AudioParameterChoice*>(processor.getParameters().getParameter(menu.identifier));
+		REQUIRE(parameter != nullptr);
+		REQUIRE(parameter->getIndex() == highest);
+	}
 }
 
 TEST_CASE("Mono editor reports the active quality without a preview engine", "[mono][processor][ui][quality]")
@@ -402,14 +425,14 @@ TEST_CASE("Mono editor reports the active quality without a preview engine", "[m
 	ordinary.prepareToPlay(48'000.0, 128);
 	vekt::mono::PluginEditor ordinaryEditor(ordinary);
 	REQUIRE(hasLabel(ordinaryEditor.getContent(), "VEKT  MONO"));
-	REQUIRE(hasLabel(ordinaryEditor.getContent(), "Quality: 1x"));
+	REQUIRE(hasLabel(ordinaryEditor.getContent(), "Quality: Off"));
 	vekt::mono::PluginProcessor high;
-	auto* highQuality = high.getParameters().getParameter(vekt::mono::parameters::quality);
+	auto* highQuality = high.getParameters().getParameter(vekt::mono::parameters::trackingOversampling);
 	REQUIRE(highQuality != nullptr);
-	highQuality->setValueNotifyingHost(highQuality->convertTo0to1(3.0f));
+	highQuality->setValueNotifyingHost(highQuality->convertTo0to1(6.0f));
 	high.prepareToPlay(48'000.0, 128);
 	vekt::mono::PluginEditor highEditor(high);
-	REQUIRE(hasLabel(highEditor.getContent(), "Quality: 8x FIR"));
+	REQUIRE(hasLabel(highEditor.getContent(), "Quality: 16x FIR"));
 }
 
 TEST_CASE("Mono Q compensation checkbox binds the default-off sound parameter", "[mono][processor][ui][qcomp]")

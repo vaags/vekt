@@ -1,3 +1,4 @@
+#include "MonoQualitySweep.h"
 #include <vekt/mono/PluginProcessor.h>
 
 #include "MonoVoice.h"
@@ -23,6 +24,8 @@
 #include <memory>
 #include <set>
 #include <thread>
+#include <tuple>
+#include <vector>
 
 namespace
 {
@@ -187,7 +190,7 @@ TEST_CASE("Mono input Q compensation is inert at zero resonance and changes driv
 					for (auto* processor : { &dry, &compensated })
 					{
 						initializeDryVoice(*processor);
-						setParameter(*processor, vekt::mono::parameters::quality, quality);
+						setParameter(*processor, vekt::mono::parameters::trackingOversampling, quality);
 						setParameter(*processor, vekt::mono::parameters::osc1Level, 100.0f);
 						setParameter(*processor, vekt::mono::parameters::filterCutoff, 1'000.0f);
 						setParameter(*processor, vekt::mono::parameters::filterResonance, emphasis);
@@ -607,14 +610,14 @@ TEST_CASE("Mono coupled engine renders deterministically at 1x and 8x", "[mono][
 		setParameter(*processor, vekt::mono::parameters::filterResonance, 85.0f);
 		setParameter(*processor, vekt::mono::parameters::filterDrive, 12.0f);
 	}
-	setParameter(first, vekt::mono::parameters::quality, 0.0f);
-	setParameter(rerun, vekt::mono::parameters::quality, 0.0f);
-	setParameter(oversampled, vekt::mono::parameters::quality, 3.0f);
-	setParameter(oversampledRerun, vekt::mono::parameters::quality, 3.0f);
+	setParameter(first, vekt::mono::parameters::trackingOversampling, 0.0f);
+	setParameter(rerun, vekt::mono::parameters::trackingOversampling, 0.0f);
+	setParameter(oversampled, vekt::mono::parameters::trackingOversampling, 5.0f); // 8x FIR
+	setParameter(oversampledRerun, vekt::mono::parameters::trackingOversampling, 5.0f);
 	for (auto* processor : { &first, &rerun, &oversampled, &oversampledRerun })
 		processor->prepareToPlay(48'000.0, 128);
 	REQUIRE(first.getLatencySamples() == 0);
-	REQUIRE(oversampled.getActiveQuality() == 3);
+	REQUIRE(oversampled.getActiveQuality() == vekt::dsp::trackingQualityFrom(5.0f));
 	REQUIRE(oversampled.getLatencySamples() == oversampledRerun.getLatencySamples());
 	juce::AudioBuffer<float> a(2, 128), b(2, 128), high(2, 128), highRerun(2, 128);
 	juce::MidiBuffer note;
@@ -690,7 +693,7 @@ TEST_CASE("Mono coupled ladder stays silent and finite across driven notes", "[m
 TEST_CASE("Mono coupled reprepare clears active audio at every retained quality", "[mono][processor][ladder-coupled][quality][reset]")
 {
 	for (const auto rate : { 44'100.0, 48'000.0, 96'000.0 })
-	for (int quality = 0; quality < 4; ++quality)
+	for (const auto quality : monoQualitySweep)
 	{
 		CAPTURE(rate, quality);
 		vekt::mono::PluginProcessor restarted, fresh;
@@ -700,7 +703,7 @@ TEST_CASE("Mono coupled reprepare clears active audio at every retained quality"
 			setParameter(*processor, vekt::mono::parameters::filterCutoff, 1'000.0f);
 			setParameter(*processor, vekt::mono::parameters::filterResonance, 85.0f);
 			setParameter(*processor, vekt::mono::parameters::filterDrive, 12.0f);
-			setParameter(*processor, vekt::mono::parameters::quality, static_cast<float>(quality));
+			setParameter(*processor, vekt::mono::parameters::trackingOversampling, static_cast<float>(quality));
 			processor->prepareToPlay(rate, 128);
 		}
 		juce::AudioBuffer<float> actual(2, 128), expected(2, 128);
@@ -714,7 +717,7 @@ TEST_CASE("Mono coupled reprepare clears active audio at every retained quality"
 		REQUIRE(stereoRms(actual) > 1.0e-4f);
 		restarted.releaseResources();
 		restarted.prepareToPlay(rate, 128);
-		REQUIRE(restarted.getActiveQuality() == quality);
+		REQUIRE(restarted.getActiveQuality() == vekt::dsp::trackingQualityFrom(quality));
 		REQUIRE(restarted.getLatencySamples() == fresh.getLatencySamples());
 		for (int block = 0; block < 4; ++block)
 		{
@@ -778,17 +781,17 @@ TEST_CASE("Mono coupled work counters track an ordinary driven processor", "[mon
 
 TEST_CASE("Mono coupled processor exercises every retained quality", "[mono][processor][ladder-coupled][quality]")
 {
-	for (int quality = 0; quality <= 3; ++quality)
+	for (const auto quality : monoQualitySweep)
 	{
 		vekt::mono::PluginProcessor coupled;
 		initializeDryVoice(coupled);
-		setParameter(coupled, vekt::mono::parameters::quality, static_cast<float>(quality));
+		setParameter(coupled, vekt::mono::parameters::trackingOversampling, static_cast<float>(quality));
 		setParameter(coupled, vekt::mono::parameters::filterCutoff, 1'000.0f);
 		setParameter(coupled, vekt::mono::parameters::filterResonance, 85.0f);
 		setParameter(coupled, vekt::mono::parameters::filterDrive, 12.0f);
 		coupled.prepareToPlay(48'000.0, 128);
 		INFO("quality=" << quality);
-		REQUIRE(coupled.getActiveQuality() == quality);
+		REQUIRE(coupled.getActiveQuality() == vekt::dsp::trackingQualityFrom(quality));
 		juce::AudioBuffer<float> actual(2, 128);
 		juce::MidiBuffer note;
 		note.addEvent(juce::MidiMessage::noteOn(1, 48, 0.8f), 0);
@@ -812,27 +815,21 @@ TEST_CASE("Mono coupled processor exercises every retained quality", "[mono][pro
 
 TEST_CASE("Mono coupled reports oversampling latency across retained rates and blocks", "[mono][processor][ladder-coupled][quality][latency]")
 {
-	const std::array paths {
-		vekt::dsp::OversamplingQuality { vekt::dsp::OversamplingFactor::off, vekt::dsp::OversamplingFilter::polyphaseIIR },
-		vekt::dsp::OversamplingQuality { vekt::dsp::OversamplingFactor::x2, vekt::dsp::OversamplingFilter::polyphaseIIR },
-		vekt::dsp::OversamplingQuality { vekt::dsp::OversamplingFactor::x4, vekt::dsp::OversamplingFilter::polyphaseFIR },
-		vekt::dsp::OversamplingQuality { vekt::dsp::OversamplingFactor::x8, vekt::dsp::OversamplingFilter::polyphaseFIR }
-	};
 	for (const auto rate : { 44'100.0, 48'000.0, 88'200.0, 96'000.0, 192'000.0 })
 	for (const auto blockSize : { 128, 257 })
 	{
 		vekt::dsp::OversamplingBank<float> expected(2);
 		expected.prepare(static_cast<std::size_t>(blockSize));
-		for (int quality = 0; quality < 4; ++quality)
+		for (const auto quality : monoQualitySweep)
 		{
 			CAPTURE(rate, blockSize, quality);
 			vekt::mono::PluginProcessor coupled;
 			initializeDryVoice(coupled);
-			setParameter(coupled, vekt::mono::parameters::quality, static_cast<float>(quality));
+			setParameter(coupled, vekt::mono::parameters::trackingOversampling, static_cast<float>(quality));
 			coupled.prepareToPlay(rate, blockSize);
-			expected.activate(paths[static_cast<std::size_t>(quality)]);
+			expected.activate(vekt::dsp::trackingQualityFrom(quality));
 			const auto latency = expected.getActiveLatencySamples();
-			REQUIRE(coupled.getActiveQuality() == quality);
+			REQUIRE(coupled.getActiveQuality() == vekt::dsp::trackingQualityFrom(quality));
 			REQUIRE(coupled.getLatencySamples() == latency);
 			juce::AudioBuffer<float> buffer(2, blockSize);
 			juce::MidiBuffer note;
@@ -849,11 +846,11 @@ TEST_CASE("Mono coupled reports oversampling latency across retained rates and b
 
 TEST_CASE("Mono coupled quality state recalls into the normal processor", "[mono][processor][ladder-coupled][quality][state]")
 {
-	for (int quality = 0; quality <= 3; ++quality)
+	for (const auto quality : monoQualitySweep)
 	{
 		vekt::mono::PluginProcessor source, restored;
 		initializeDryVoice(source);
-		setParameter(source, vekt::mono::parameters::quality, static_cast<float>(quality));
+		setParameter(source, vekt::mono::parameters::trackingOversampling, static_cast<float>(quality));
 		setParameter(source, vekt::mono::parameters::filterCutoff, 1'000.0f);
 		setParameter(source, vekt::mono::parameters::filterResonance, 85.0f);
 		setParameter(source, vekt::mono::parameters::filterDrive, 12.0f);
@@ -864,8 +861,8 @@ TEST_CASE("Mono coupled quality state recalls into the normal processor", "[mono
 		for (auto* processor : { &source, &restored })
 			processor->prepareToPlay(48'000.0, 128);
 		INFO("quality=" << quality);
-		REQUIRE(source.getActiveQuality() == quality);
-		REQUIRE(restored.getActiveQuality() == quality);
+		REQUIRE(source.getActiveQuality() == vekt::dsp::trackingQualityFrom(quality));
+		REQUIRE(restored.getActiveQuality() == vekt::dsp::trackingQualityFrom(quality));
 		REQUIRE(source.getLatencySamples() == restored.getLatencySamples());
 		juce::AudioBuffer<float> original(2, 128), recalled(2, 128);
 		juce::MidiBuffer note;
@@ -897,7 +894,7 @@ TEST_CASE("Mono coupled quality state recalls into the normal processor", "[mono
 
 TEST_CASE("Mono preset loads clear old audio while allowing new notes in the first callback", "[mono][processor][ladder-coupled][preset]")
 {
-	for (int quality = 0; quality <= 3; ++quality)
+	for (const auto quality : monoQualitySweep)
 	for (int route = 0; route < 5; ++route)
 	for (const bool immediateNote : { false, true })
 	{
@@ -921,7 +918,7 @@ TEST_CASE("Mono preset loads clear old audio while allowing new notes in the fir
 		}
 		for (auto* processor : { &changed, &fresh })
 		{
-			setParameter(*processor, vekt::mono::parameters::quality, static_cast<float>(quality));
+			setParameter(*processor, vekt::mono::parameters::trackingOversampling, static_cast<float>(quality));
 			processor->prepareToPlay(48'000.0, 128);
 		}
 		CAPTURE(quality, route, immediateNote);
@@ -965,7 +962,7 @@ TEST_CASE("Mono preset loads clear old audio while allowing new notes in the fir
 			REQUIRE(fresh.getCurrentProgram() == program);
 		}
 		else REQUIRE(changed.getPresetSession().origin() == vekt::presets::PresetOrigin::user);
-		REQUIRE(changed.getActiveQuality() == quality);
+		REQUIRE(changed.getActiveQuality() == vekt::dsp::trackingQualityFrom(quality));
 		REQUIRE(changed.getLatencySamples() == fresh.getLatencySamples());
 		REQUIRE(changed.getParameters().getRawParameterValue(vekt::mono::parameters::filterCutoff)->load()
 			== Catch::Approx(fresh.getParameters().getRawParameterValue(vekt::mono::parameters::filterCutoff)->load()));
@@ -1066,8 +1063,8 @@ TEST_CASE("Mono coupled callbacks remain finite across MIDI and control boundari
 
 TEST_CASE("Mono coupled quality changes cut sustained notes immediately", "[mono][processor][ladder-coupled][quality]")
 {
-	for (int initial = 0; initial < 4; ++initial)
-	for (int target = 0; target < 4; ++target)
+	for (const auto initial : monoQualitySweep)
+	for (const auto target : monoQualitySweep)
 	{
 		if (initial == target) continue;
 		CAPTURE(initial, target);
@@ -1079,7 +1076,7 @@ TEST_CASE("Mono coupled quality changes cut sustained notes immediately", "[mono
 			setParameter(*processor, vekt::mono::parameters::filterCutoff, 1'000.0f);
 			setParameter(*processor, vekt::mono::parameters::filterResonance, 85.0f);
 			setParameter(*processor, vekt::mono::parameters::filterDrive, 12.0f);
-			setParameter(*processor, vekt::mono::parameters::quality,
+			setParameter(*processor, vekt::mono::parameters::trackingOversampling,
 				static_cast<float>(processor == &fresh ? target : initial));
 			processor->prepareToPlay(48'000.0, 128);
 		}
@@ -1089,9 +1086,9 @@ TEST_CASE("Mono coupled quality changes cut sustained notes immediately", "[mono
 		held.addEvent(juce::MidiMessage::noteOn(1, 48, 0.8f), 0);
 		held.addEvent(juce::MidiMessage::noteOff(1, 48), 64);
 		renderBlock(coupled, actual, held);
-		setParameter(coupled, vekt::mono::parameters::quality, static_cast<float>(target));
+		setParameter(coupled, vekt::mono::parameters::trackingOversampling, static_cast<float>(target));
 		renderBlock(coupled, actual);
-		REQUIRE(coupled.getActiveQuality() == target);
+		REQUIRE(coupled.getActiveQuality() == vekt::dsp::trackingQualityFrom(target));
 		REQUIRE(coupled.getLatencySamples() == fresh.getLatencySamples());
 		for (int channel = 0; channel < 2; ++channel)
 			for (int sample = 0; sample < 128; ++sample)
@@ -1121,8 +1118,8 @@ TEST_CASE("Mono coupled quality changes cut sustained notes immediately", "[mono
 
 TEST_CASE("Mono coupled idle quality changes cover every ordered pair", "[mono][processor][ladder-coupled][quality]")
 {
-	for (int initial = 0; initial < 4; ++initial)
-	for (int target = 0; target < 4; ++target)
+	for (const auto initial : monoQualitySweep)
+	for (const auto target : monoQualitySweep)
 	{
 		if (initial == target) continue;
 		CAPTURE(initial, target);
@@ -1133,14 +1130,14 @@ TEST_CASE("Mono coupled idle quality changes cover every ordered pair", "[mono][
 			setParameter(*processor, vekt::mono::parameters::filterCutoff, 1'000.0f);
 			setParameter(*processor, vekt::mono::parameters::filterResonance, 85.0f);
 			setParameter(*processor, vekt::mono::parameters::filterDrive, 12.0f);
-			setParameter(*processor, vekt::mono::parameters::quality,
+			setParameter(*processor, vekt::mono::parameters::trackingOversampling,
 				static_cast<float>(processor == &fresh ? target : initial));
 			processor->prepareToPlay(48'000.0, 128);
 		}
 		juce::AudioBuffer<float> actual(2, 128), expected(2, 128);
-		setParameter(changed, vekt::mono::parameters::quality, static_cast<float>(target));
+		setParameter(changed, vekt::mono::parameters::trackingOversampling, static_cast<float>(target));
 		renderBlock(changed, actual);
-		REQUIRE(changed.getActiveQuality() == target);
+		REQUIRE(changed.getActiveQuality() == vekt::dsp::trackingQualityFrom(target));
 		REQUIRE(changed.getLatencySamples() == fresh.getLatencySamples());
 		for (int channel = 0; channel < 2; ++channel)
 			for (int sample = 0; sample < 128; ++sample)
@@ -1295,7 +1292,7 @@ TEST_CASE("Mono Ladder self-oscillates at maximum emphasis", "[mono][processor][
 			for (const auto cutoff : { 250.0f, 1'000.0f, 4'000.0f })
 		{
 			vekt::mono::PluginProcessor processor;
-			setParameter(processor, vekt::mono::parameters::quality, quality);
+			setParameter(processor, vekt::mono::parameters::trackingOversampling, quality);
 			setParameter(processor, vekt::mono::parameters::osc1Level, 0.0f);
 			setParameter(processor, vekt::mono::parameters::osc2Level, 0.0f);
 			setParameter(processor, vekt::mono::parameters::osc3Level, 0.0f);
@@ -1594,7 +1591,7 @@ TEST_CASE("Mono maximum resonance keeps floating-point peaks and obeys master tr
 				for (auto* processor : { &unity, &trimmed })
 				{
 					initializeDryVoice(*processor);
-					setParameter(*processor, vekt::mono::parameters::quality, quality);
+					setParameter(*processor, vekt::mono::parameters::trackingOversampling, quality);
 					setParameter(*processor, vekt::mono::parameters::osc1Level, 100.0f);
 					setParameter(*processor, vekt::mono::parameters::filterCutoff, 1'000.0f);
 					setParameter(*processor, vekt::mono::parameters::filterResonance, 100.0f);
@@ -1927,7 +1924,7 @@ TEST_CASE("Mono active-note transitions preserve the sample boundary", "[mono][p
 		setParameter(processor, vekt::mono::parameters::filterEnvelopeAmount, 0.0f);
 		setParameter(processor, vekt::mono::parameters::ampAttack, 0.0005f);
 		// Sample-exact boundary check: at 1x no resampling filter smears the voice's own crossfade.
-		setParameter(processor, vekt::mono::parameters::quality, 0.0f);
+		setParameter(processor, vekt::mono::parameters::trackingOversampling, 0.0f);
 		processor.prepareToPlay(48'000.0, 1'024);
 		juce::AudioBuffer<float> buffer(2, 1'024);
 		juce::MidiBuffer midi;
@@ -2105,7 +2102,7 @@ TEST_CASE("Mono modes isolate held-note stacks by MIDI channel", "[mono][process
 TEST_CASE("Mono High quality oversamples synthesis and reports latency", "[mono][processor][quality]")
 {
 	vekt::mono::PluginProcessor processor;
-	setParameter(processor, vekt::mono::parameters::quality, 1.0f);
+	setParameter(processor, vekt::mono::parameters::trackingOversampling, 1.0f);
 	processor.prepareToPlay(48'000.0, 512);
 	REQUIRE(processor.getLatencySamples() > 0);
 
@@ -2127,7 +2124,7 @@ TEST_CASE("Mono High quality oversamples synthesis and reports latency", "[mono]
 TEST_CASE("Mono High quality handles multiple note boundaries in one host block", "[mono][processor][quality][midi]")
 {
 	vekt::mono::PluginProcessor processor;
-	setParameter(processor, vekt::mono::parameters::quality, 1.0f);
+	setParameter(processor, vekt::mono::parameters::trackingOversampling, 1.0f);
 	setParameter(processor, vekt::mono::parameters::ampRelease, 0.005f);
 	processor.prepareToPlay(48'000.0, 512);
 	juce::AudioBuffer<float> buffer(2, 512);
@@ -2142,24 +2139,182 @@ TEST_CASE("Mono High quality handles multiple note boundaries in one host block"
 			REQUIRE(std::isfinite(buffer.getSample(channel, sample)));
 }
 
-TEST_CASE("Mono quality choices activate distinct oversampling paths and latency", "[mono][processor][quality]")
+TEST_CASE("Mono noise keeps its level and colour at every quality", "[mono][noise][precision][slow]")
 {
-	vekt::dsp::OversamplingBank<float> expected(2);
-	expected.prepare(257);
-	const std::array paths {
-		vekt::dsp::OversamplingQuality { vekt::dsp::OversamplingFactor::off, vekt::dsp::OversamplingFilter::polyphaseIIR },
-		vekt::dsp::OversamplingQuality { vekt::dsp::OversamplingFactor::x2, vekt::dsp::OversamplingFilter::polyphaseIIR },
-		vekt::dsp::OversamplingQuality { vekt::dsp::OversamplingFactor::x4, vekt::dsp::OversamplingFilter::polyphaseFIR },
-		vekt::dsp::OversamplingQuality { vekt::dsp::OversamplingFactor::x8, vekt::dsp::OversamplingFilter::polyphaseFIR }
-	};
-	for (std::size_t index = 0; index < paths.size(); ++index)
+	// Noise only through the open filter (20 kHz), one voice at 48 kHz: the level within 0.5 dB of 1x at every FIR
+	// factor and the tilt (100-300 Hz against 1.5-2.5 kHz) within 1 dB, for white and pink. With Drive +24 dB the 1x
+	// ladder folds its distortion back into the band (2.0-2.4 dB more than at any oversampled factor), so driven white
+	// noise is held to 2x instead, within 0.5 dB. Measured up to 2 kHz, where the ladder's response is the same at every rate: above it the 1x ladder,
+	// its 20 kHz cutoff warped against Nyquist, stays flatter than the oversampled one (1 dB at 5 kHz, 4 dB at 10 kHz),
+	// a filter difference, not a noise one. Before noise was held at the host rate, white fell 4.7-14.2 dB from 2x to
+	// 16x and pink's tilt moved up to 12 dB. Welch spectrum, 4096-point Hann segments, 50 % overlap, 1 s after 0.1 s.
+	constexpr double rate = 48'000.0;
+	constexpr int blockSize = 256;
+	struct Bands { double total {}, low {}, high {}, top {}; };
+	const auto measure = [&](float quality, float noiseType, float drive, float unison)
 	{
 		vekt::mono::PluginProcessor processor;
-		setParameter(processor, vekt::mono::parameters::quality, static_cast<float>(index));
+		initializeDryVoice(processor);
+		setParameter(processor, vekt::mono::parameters::unison, unison);
+		setParameter(processor, vekt::mono::parameters::osc1Level, 0.0f);
+		setParameter(processor, vekt::mono::parameters::noiseType, noiseType);
+		setParameter(processor, vekt::mono::parameters::noiseLevel, 50.0f);
+		setParameter(processor, vekt::mono::parameters::filterDrive, drive);
+		setParameter(processor, vekt::mono::parameters::trackingOversampling, quality);
+		processor.prepareToPlay(rate, blockSize);
+		const auto settle = static_cast<int>(0.1 * rate), length = static_cast<int>(1.0 * rate);
+		std::vector<float> output;
+		juce::AudioBuffer<float> buffer(2, blockSize);
+		juce::MidiBuffer note;
+		note.addEvent(juce::MidiMessage::noteOn(1, 60, 0.8f), 0);
+		for (int rendered = 0; rendered < settle + length; rendered += blockSize)
+		{
+			renderBlock(processor, buffer, note);
+			note.clear();
+			for (int sample = 0; sample < blockSize; ++sample)
+				if (rendered + sample >= settle) output.push_back(buffer.getSample(0, sample));
+		}
+		constexpr int order = 12, size = 1 << order;
+		juce::dsp::FFT fft(order);
+		std::vector<double> power(size / 2 + 1);
+		std::vector<float> frame(2 * size);
+		int segments {};
+		for (std::size_t start = 0; start + size <= output.size(); start += size / 2, ++segments)
+		{
+			std::fill(frame.begin(), frame.end(), 0.0f);
+			for (int index = 0; index < size; ++index)
+				frame[static_cast<std::size_t>(index)] = output[start + static_cast<std::size_t>(index)]
+					* static_cast<float>(0.5 - 0.5 * std::cos(2.0 * std::numbers::pi * index / size));
+			fft.performFrequencyOnlyForwardTransform(frame.data(), true);
+			for (std::size_t bin = 0; bin < power.size(); ++bin) power[bin] += static_cast<double>(frame[bin]) * frame[bin];
+		}
+		Bands bands;
+		for (std::size_t bin = 0; bin < power.size(); ++bin)
+		{
+			const auto hz = static_cast<double>(bin) * rate / size;
+			if (hz >= 20.0 && hz <= 2'000.0) bands.total += power[bin];
+			if (hz >= 100.0 && hz <= 300.0) bands.low += power[bin];
+			if (hz >= 1'500.0 && hz <= 2'500.0) bands.high += power[bin];
+			if (hz >= 10'000.0 && hz <= 20'000.0) bands.top += power[bin];
+		}
+		return bands;
+	};
+	const auto db = [](double ratio) { return 10.0 * std::log10(ratio); };
+	// Reference quality: Off (1x), or 2x FIR for driven noise; then 2x, 4x, 8x and 16x FIR. Pink also with Unison 4x,
+	// whose layers hold their own noise. Above 2 kHz (`top`, 10-20 kHz) the factors from 4x up agree within 0.5 dB.
+	for (const auto& [noiseType, drive, referenceQuality, unison] : { std::tuple { 1.0f, 0.0f, 0.0f, 0.0f },
+			 std::tuple { 2.0f, 0.0f, 0.0f, 0.0f }, std::tuple { 2.0f, 0.0f, 0.0f, 2.0f }, std::tuple { 1.0f, 24.0f, 3.0f, 0.0f } })
+	{
+		const auto reference = measure(referenceQuality, noiseType, drive, unison);
+		double topAt4x {};
+		for (const auto quality : { 3.0f, 4.0f, 5.0f, 6.0f })
+		{
+			if (quality == referenceQuality) continue;
+			const auto bands = measure(quality, noiseType, drive, unison);
+			const auto level = db(bands.total / reference.total);
+			const auto tilt = db((bands.low / bands.high) / (reference.low / reference.high));
+			const auto top = db(bands.top / reference.top); // for information: includes the filter difference
+			CAPTURE(noiseType, drive, unison, quality, level, tilt, top);
+			CHECK(std::abs(level) < 0.5);
+			CHECK(std::abs(tilt) < 1.0);
+			if (quality == 4.0f) topAt4x = top;
+			else if (quality > 4.0f) CHECK(std::abs(top - topAt4x) < 0.5);
+		}
+	}
+}
+
+TEST_CASE("Mono coupled ladder solves a sustained resonant chord at the highest internal rate", "[mono][processor][ladder-coupled][quality][precision][slow]")
+{
+	// 192 kHz host at 16x (vekt::dsp::maximumInternalSampleRate): four voices, full Resonance, +24 dB Drive, a
+	// cutoff sweep from 200 Hz to 8 kHz; every solve converges and nothing goes non-finite.
+	constexpr auto blockSize = 256;
+	vekt::mono::PluginProcessor processor;
+	initializeDryVoice(processor);
+	setParameter(processor, vekt::mono::parameters::trackingOversampling, 6.0f); // 16x FIR
+	setParameter(processor, vekt::mono::parameters::filterResonance, 100.0f);
+	setParameter(processor, vekt::mono::parameters::filterDrive, 24.0f);
+	setParameter(processor, vekt::mono::parameters::filterCutoff, 200.0f);
+	processor.prepareToPlay(vekt::dsp::maximumHostSampleRate, blockSize);
+	REQUIRE(processor.getActiveQuality().multiplier() == vekt::dsp::maximumOversamplingFactor);
+	juce::AudioBuffer<float> buffer(2, blockSize);
+	juce::MidiBuffer chord;
+	for (const auto note : { 36, 43, 48, 55 }) chord.addEvent(juce::MidiMessage::noteOn(1, note, 0.9f), 0);
+	constexpr int blocks = 150; // 0.2 s
+	float energy {};
+	for (int block = 0; block < blocks; ++block)
+	{
+		const auto position = static_cast<float>(block) / static_cast<float>(blocks - 1);
+		setParameter(processor, vekt::mono::parameters::filterCutoff, 200.0f * std::pow(40.0f, position));
+		renderBlock(processor, buffer, block == 0 ? chord : juce::MidiBuffer {});
+		for (int channel = 0; channel < 2; ++channel)
+			for (int sample = 0; sample < blockSize; ++sample)
+			{
+				REQUIRE(std::isfinite(buffer.getSample(channel, sample)));
+				energy += std::abs(buffer.getSample(channel, sample));
+			}
+	}
+	REQUIRE(energy > 1.0f);
+	const auto work = processor.coupledWorkSnapshot();
+	CAPTURE(work.samples, work.iterations, work.lineSearchTrials);
+	REQUIRE(work.samples > 0);
+	REQUIRE(work.unconverged == 0);
+	REQUIRE(work.nonFinite == 0);
+}
+
+TEST_CASE("Mono applies an Offline quality change at the next block of an offline render", "[mono][processor][quality]")
+{
+	vekt::mono::PluginProcessor processor;
+	processor.setNonRealtime(true);
+	processor.prepareToPlay(48'000.0, 128);
+	REQUIRE(processor.getActiveQuality() == vekt::dsp::offlineQualityFrom(2.0f)); // the 4x FIR default
+	juce::AudioBuffer<float> buffer(2, 128);
+	juce::MidiBuffer midi;
+	midi.addEvent(juce::MidiMessage::noteOn(1, 60, 0.8f), 0);
+	processor.processBlock(buffer, midi);
+	setParameter(processor, vekt::mono::parameters::offlineOversampling, 4.0f); // 16x FIR
+	setParameter(processor, vekt::mono::parameters::trackingOversampling, 5.0f); // not used while offline
+	midi.clear();
+	processor.processBlock(buffer, midi);
+	REQUIRE(processor.getActiveQuality() == vekt::dsp::offlineQualityFrom(4.0f));
+	vekt::dsp::OversamplingBank<float> expected(2);
+	expected.prepare(128);
+	expected.activate(vekt::dsp::offlineQualityFrom(4.0f));
+	REQUIRE(processor.getLatencySamples() == expected.getActiveLatencySamples());
+	REQUIRE(processor.getLatencyDisplay() == expected.getActiveLatencySamples());
+	midi.addEvent(juce::MidiMessage::noteOn(1, 64, 0.8f), 0);
+	float energy {};
+	for (int block = 0; block < 4; ++block)
+	{
+		processor.processBlock(buffer, midi);
+		midi.clear();
+		for (int channel = 0; channel < 2; ++channel)
+			for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+			{
+				REQUIRE(std::isfinite(buffer.getSample(channel, sample)));
+				energy += std::abs(buffer.getSample(channel, sample));
+			}
+	}
+	REQUIRE(energy > 1.0e-3f);
+}
+
+TEST_CASE("Mono quality choices activate distinct oversampling paths and latency", "[mono][processor][quality]")
+{
+	// Every shared Tracking choice in real time and every Offline choice when the host renders offline (ADR 0010).
+	vekt::dsp::OversamplingBank<float> expected(2);
+	expected.prepare(257);
+	for (const bool offline : { false, true })
+	for (int index = 0; index < (offline ? vekt::dsp::offlineQualityChoices() : vekt::dsp::trackingQualityChoices()).size(); ++index)
+	{
+		vekt::mono::PluginProcessor processor;
+		setParameter(processor, offline ? vekt::mono::parameters::offlineOversampling : vekt::mono::parameters::trackingOversampling,
+			static_cast<float>(index));
+		processor.setNonRealtime(offline);
 		processor.prepareToPlay(48'000.0, 257);
-		expected.activate(paths[index]);
-		CAPTURE(index, expected.getActiveFactor(), expected.getActiveLatencySamples());
-		REQUIRE(processor.getActiveQuality() == static_cast<int>(index));
+		const auto quality = offline ? vekt::dsp::offlineQualityFrom(static_cast<float>(index))
+			: vekt::dsp::trackingQualityFrom(static_cast<float>(index));
+		expected.activate(quality);
+		CAPTURE(offline, index, expected.getActiveFactor(), expected.getActiveLatencySamples());
+		REQUIRE(processor.getActiveQuality() == quality);
 		REQUIRE(processor.getLatencySamples() == expected.getActiveLatencySamples());
 		juce::AudioBuffer<float> buffer(2, 257);
 		juce::MidiBuffer midi;
@@ -2332,7 +2487,7 @@ TEST_CASE("Mono processor and extracted voice render identically", "[mono][proce
 		setParameter(processor, widths[oscillator], settings.pulseWidth[oscillator]);
 	}
 	setParameter(processor, vekt::mono::parameters::performanceMode, 1.0f);
-	setParameter(processor, vekt::mono::parameters::quality, 0.0f);
+	setParameter(processor, vekt::mono::parameters::trackingOversampling, 0.0f);
 	setParameter(processor, vekt::mono::parameters::unison, 1.0f);
 	setParameter(processor, vekt::mono::parameters::unisonDetune, settings.detune);
 	setParameter(processor, vekt::mono::parameters::unisonSpread, settings.unisonSpread * 100.0f);
@@ -2451,7 +2606,7 @@ TEST_CASE("Mono handles duplicate notes and channel panic messages without stuck
 	setParameter(processor, vekt::mono::parameters::performanceMode, 1.0f);
 	setParameter(processor, vekt::mono::parameters::ampRelease, 0.005f);
 	// MIDI logic only: at 1x the output is exactly silent after All Sound Off (no decimator tail).
-	setParameter(processor, vekt::mono::parameters::quality, 0.0f);
+	setParameter(processor, vekt::mono::parameters::trackingOversampling, 0.0f);
 	processor.prepareToPlay(48'000.0, 128);
 	juce::AudioBuffer<float> buffer(2, 128);
 	juce::MidiBuffer midi;
@@ -2484,7 +2639,7 @@ TEST_CASE("Mono Multicore renders exactly the same samples as single-threaded re
 				setParameter(*processor, vekt::mono::parameters::filterType, static_cast<float>(filter));
 				setParameter(*processor, vekt::mono::parameters::voiceCount, 4.0f); // 16 voices
 				setParameter(*processor, vekt::mono::parameters::unison, unison);
-				setParameter(*processor, vekt::mono::parameters::quality, quality);
+				setParameter(*processor, vekt::mono::parameters::trackingOversampling, quality);
 				setParameter(*processor, vekt::mono::parameters::ampRelease, 0.02f);
 				setParameter(*processor, vekt::mono::parameters::lfos[0].width[0], 30.0f);
 				setParameter(*processor, vekt::mono::parameters::lfos[0].rate, 7.0f);

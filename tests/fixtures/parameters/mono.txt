@@ -1,6 +1,5 @@
 voiceCount	v1	choice	2|4|8|12|16	default=2	fixed
 performanceMode	v1	choice	Poly|Mono|Mono Legato	default=0	automatable
-quality	v1	choice	1x|2x|4x|8x	default=0	fixed
 multicore	v1	choice	Off|On	default=0	fixed
 unison	v1	choice	1x|2x|4x	default=0	automatable
 unisonDetune	v1	float	range=0:50	interval=0.01	skew=1	default=15	automatable
@@ -117,3 +116,5 @@ lfo1FilterMode	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	aut
 lfo2FilterMode	v1	float	range=-100:100	interval=0	skew=1 symmetric	default=0	automatable
 filterType	v1	choice	Ladder|SVF|K35	default=0	automatable
 vibratoAmount	v1	float	range=0:100	interval=0.1	skew=1	default=0	automatable
+trackingOversampling	v1	choice	Off|2x IIR|4x IIR|2x FIR|4x FIR|8x FIR|16x FIR	default=0	fixed
+offlineOversampling	v1	choice	Off|2x FIR|4x FIR|8x FIR|16x FIR|2x IIR|4x IIR	default=2	fixed

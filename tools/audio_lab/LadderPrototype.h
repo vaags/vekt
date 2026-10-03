@@ -1,6 +1,6 @@
 #pragma once
 
-#include "NonlinearTptLadder.h"
+#include "NonlinearTptLadderAliases.h"
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_core/juce_core.h>

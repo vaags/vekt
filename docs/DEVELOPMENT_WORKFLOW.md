@@ -70,6 +70,7 @@ needed and no existing document fits; no contract pack is required for a small f
 | --- | --- |
 | Product-local DSP | Nearby primitive and processor assertions; relevant audio measurements and listening gates |
 | Shared DSP, state, or presets | Shared tests and all affected consumers; compatibility fixtures when relevant |
+| Plugin support (`framework/plugin_support`) | `-L plugin-support`, then every product's preset, state, quality and compat cases (`-L presets`, `-L state`, `-L quality`, `-L compat`) and the Rav/Glimmer/Mono processor tests |
 | Editor or shared control | Control, layout, and value-format tests; affected editor builds and relevant visual/interaction checks |
 | Parameters or host integration | Parameter/state/automation tests and matching format builds; runtime validator when required |
 | Build or wrapper configuration | Affected products and formats; no-op/reconfiguration checks when relevant |

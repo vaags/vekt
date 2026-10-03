@@ -116,7 +116,8 @@ TEST_CASE("Glimmer preset navigation and project recall preserve selection", "[g
 	REQUIRE(session.save("My Motion", "", { "Custom" }).wasOk());
 	REQUIRE(session.origin() == vekt::presets::PresetOrigin::user);
 	REQUIRE(processor.getNumPrograms() == 6);
-	REQUIRE(processor.getCurrentProgram() == 4);
+	// A user preset is not in the host's factory program bank (ADR 0010).
+	REQUIRE(processor.getCurrentProgram() == 0);
 	REQUIRE(processor.loadNextPreset().wasOk());
 	REQUIRE(session.loaded()->name == "Classic Chorale");
 	REQUIRE(processor.loadPreviousPreset().wasOk());
@@ -132,8 +133,10 @@ TEST_CASE("Glimmer preset navigation and project recall preserve selection", "[g
 	REQUIRE(restored.getPresetSession().origin() == vekt::presets::PresetOrigin::user);
 	REQUIRE(restored.getPresetSession().modified());
 	REQUIRE(getParameter(restored, vekt::glimmer::parameters::stereoWidth) == Catch::Approx(120));
-	REQUIRE(processor.getPresetSession().library().removeUserPreset("My Motion").wasOk());
-	session.clear();
+	const auto mine = session.library().find("My Motion", vekt::presets::PresetOrigin::user);
+	REQUIRE(mine.has_value());
+	REQUIRE(session.removeUserPreset(session.library().entries()[*mine]).wasOk());
+	REQUIRE_FALSE(session.loaded().has_value());
 	REQUIRE(processor.loadPreviousPreset().wasOk());
 	REQUIRE(session.loaded()->name == "Slow Panorama");
 }

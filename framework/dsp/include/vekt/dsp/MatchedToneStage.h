@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vekt/dsp/LinearRamp.h>
+
 #include <juce_dsp/juce_dsp.h>
 
 #include <algorithm>
@@ -121,14 +123,14 @@ private:
     void process(
         juce::dsp::AudioBlock<Sample> block,
         std::vector<State>& states,
-        juce::SmoothedValue<Sample, juce::ValueSmoothingTypes::Linear>& slope,
+        LinearRamp& slope,
         bool inverse) noexcept
     {
         jassert(block.getNumChannels() <= states.size());
 
         for (std::size_t sample = 0; sample < block.getNumSamples(); ++sample)
         {
-            const auto currentSlope = slope.getNextValue() * (inverse ? Sample { -1 } : Sample { 1 });
+            const auto currentSlope = static_cast<Sample>(slope.getNextValue()) * (inverse ? Sample { -1 } : Sample { 1 });
             const auto coefficients = coefficientsFor(currentSlope);
 
             for (std::size_t channel = 0; channel < block.getNumChannels(); ++channel)
@@ -148,8 +150,8 @@ private:
 
     std::vector<State> preStates;
     std::vector<State> postStates;
-    juce::SmoothedValue<Sample, juce::ValueSmoothingTypes::Linear> preSlope;
-    juce::SmoothedValue<Sample, juce::ValueSmoothingTypes::Linear> postSlope;
+    LinearRamp preSlope;
+    LinearRamp postSlope;
     Sample sampleRateHz { static_cast<Sample>(48'000) };
     Sample warpedPivot {};
     Sample warpSlope { 1 };

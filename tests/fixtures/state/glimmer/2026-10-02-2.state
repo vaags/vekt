@@ -1,0 +1,74 @@
+{
+  "format": "vekt.project",
+  "product": "com.vekt.glimmer",
+  "schemaVersion": 1,
+  "parameters": {
+    "accelerationTime": 8.340000152587891,
+    "autoGain": 1.0,
+    "brake": 1.0,
+    "bypass": 1.0,
+    "cabinetModel": 1.0,
+    "decelerationTime": 2.200000047683716,
+    "drumTone": 3.429999589920044,
+    "fastSpeed": 251.819992065429688,
+    "hornDrumBalance": 39.799995422363281,
+    "hornTone": -11.399999618530273,
+    "inputGain": 12.619998931884766,
+    "manualSpeedEnabled": 1.0,
+    "micAngle": 114.1199951171875,
+    "micDistance": 2.825000047683716,
+    "mix": 73.299995422363281,
+    "offlineOversampling": 5.0,
+    "outputGain": -7.15000057220459,
+    "preampDrive": 2.919999837875366,
+    "sensitivity": 87.900001525878906,
+    "slowSpeed": 75.299995422363281,
+    "speedMode": 1.0,
+    "speedPosition": 67.699996948242188,
+    "stereoWidth": 88.199996948242188,
+    "trackingOversampling": 3.0
+  },
+  "metadata": {
+    "vektPresetSelection": {
+      "origin": "factory",
+      "preset": {
+        "format": "vekt.preset",
+        "id": "glimmer-gospel-spin",
+        "soundSchemaVersion": 1,
+        "tags": [
+          "Driven",
+          "Fast",
+          "Organ"
+        ],
+        "soundState": {
+        },
+        "schemaVersion": 2,
+        "product": "com.vekt.glimmer",
+        "name": "Gospel Spin",
+        "parameters": {
+          "inputGain": 0.0,
+          "preampDrive": 6.0,
+          "hornDrumBalance": 15.0,
+          "micAngle": 25.0,
+          "micDistance": 0.649999976,
+          "slowSpeed": 42.0,
+          "fastSpeed": 420.0,
+          "accelerationTime": 1.399999976,
+          "decelerationTime": 5.0,
+          "hornTone": 2.0,
+          "drumTone": 1.0,
+          "speedMode": 1.0,
+          "sensitivity": 50.0,
+          "autoGain": 1.0,
+          "mix": 100.0,
+          "outputGain": -2.0,
+          "cabinetModel": 0.0,
+          "brake": 0.0,
+          "stereoWidth": 110.0,
+          "manualSpeedEnabled": 0.0,
+          "speedPosition": 0.0
+        }
+      }
+    }
+  }
+}

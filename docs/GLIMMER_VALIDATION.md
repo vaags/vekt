@@ -10,6 +10,9 @@ Vekt Glimmer is a stereo-input/stereo-output rotary effect with three models:
   separation. It is not simply a preset of the Width control.
 
 These are designed voicings, not measured emulations of named vintage cabinets.
+The product-local `RotaryEngine` owns the cabinet profiles, tone/directivity
+filters and microphone geometry; Classic and Wide run separate horn and drum
+paths, Drum routes the full input through one rotating speaker.
 User tone controls are now shelves rather than flat band gains. Pickup combines
 frequency-dependent directivity, amplitude variation and geometry-derived
 fractional delay. Angle rotates a model-specific mic pair and affects cabinet
@@ -59,7 +62,8 @@ The model selector uses RAV-style buttons with exclusive selection and no drag
 handles or reordering. The preset-name button opens the shared browser for
 folder/tag filtering, loading, saving, import and export. An asterisk marks a
 modified sound. Previous/next arrows wrap through the factory and user catalog;
-host programs expose only the six immutable factory entries. Project recall
+host programs expose only the six immutable factory entries, and report 0 while
+a user preset is selected (2 October 2026, ADR 0010). Project recall
 preserves the preset selection and its modified-state comparison baseline.
 
 | Model | Preset | Starting Point |

@@ -1,4 +1,4 @@
-#include "PluginProcessor.h"
+#include <vekt/rav/PluginProcessor.h>
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {

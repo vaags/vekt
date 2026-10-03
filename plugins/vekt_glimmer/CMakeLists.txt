@@ -25,7 +25,8 @@ target_link_libraries(VektGlimmerCore PUBLIC
 	vekt::dsp
 	vekt::state
 	vekt::presets
-	vekt::preset_ui)
+	vekt::preset_ui
+	vekt::plugin_support)
 
 set(vekt_glimmer_formats Standalone VST3 AU)
 
