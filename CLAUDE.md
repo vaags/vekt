@@ -19,6 +19,7 @@ of routine development.
 
 - [Architecture](docs/ARCHITECTURE.md): dependency direction, real-time and compatibility rules.
 - Product contracts: [Rav](docs/RAV_VALIDATION.md), [Glimmer](docs/GLIMMER_VALIDATION.md), [Mono](docs/MONO_VALIDATION.md).
+- [Product naming](docs/PRODUCT_NAMING.md): read before naming, scaffolding, or renaming a product.
 - Shared interactions: [UI](docs/UI_UX.md), [presets](docs/PRESET_UX.md).
 - [Development workflow](docs/DEVELOPMENT_WORKFLOW.md): check selection, commands, evidence, and approvals.
 - [Coding standards](docs/CODING_STANDARDS.md): read before writing or reviewing code.
