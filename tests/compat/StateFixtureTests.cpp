@@ -252,7 +252,7 @@ TEST_CASE("Project recall restores booleans after fractional host automation for
 				processor->getStateInformation(state);
 				parameter->setValueNotifyingHost(value < 0.5f ? 0.280552f : 0.719448f);
 				processor->setStateInformation(state.getData(), static_cast<int>(state.getSize()));
-				CHECK(parameter->getValue() == value);
+				CHECK(juce::exactlyEqual(parameter->getValue(), value));
 			}
 
 			// A project that predates the parameter restores its default the same way.
@@ -265,7 +265,7 @@ TEST_CASE("Project recall restores booleans after fractional host automation for
 			INFO(parameter->paramID << " omitted, default " << defaultValue);
 			parameter->setValueNotifyingHost(defaultValue < 0.5f ? 0.280552f : 0.719448f);
 			processor->setStateInformation(text.toRawUTF8(), static_cast<int>(text.getNumBytesAsUTF8()));
-			CHECK(parameter->getValue() == defaultValue);
+			CHECK(juce::exactlyEqual(parameter->getValue(), defaultValue));
 		}
 		REQUIRE(booleans > 0);
 	}

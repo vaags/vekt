@@ -39,7 +39,7 @@ bool identical(const juce::AudioBuffer<float>& first, const juce::AudioBuffer<fl
 {
 	for (int channel = 0; channel < 2; ++channel)
 		for (int sample = 0; sample < first.getNumSamples(); ++sample)
-			if (first.getSample(channel, sample) != second.getSample(channel, sample)) return false;
+			if (!juce::exactlyEqual(first.getSample(channel, sample), second.getSample(channel, sample))) return false;
 	return true;
 }
 

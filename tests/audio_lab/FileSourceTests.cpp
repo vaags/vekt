@@ -18,7 +18,7 @@ void writeFixture(const juce::File& file, juce::AudioFormat& format, int channel
 }
 }
 
-TEST_CASE("Audio Lab accepts only the four requested file formats", "[file-source]")
+TEST_CASE("Audio Lab accepts only the four requested file formats", "[file-source][audio-lab]")
 {
 	const auto directory = juce::File::getSpecialLocation(juce::File::tempDirectory);
 	for (const auto* extension : { "wav", "WAV", "mp3", "flac", "aiff", "aif" })
@@ -37,7 +37,7 @@ TEST_CASE("Audio Lab accepts only the four requested file formats", "[file-sourc
 	}
 }
 
-TEST_CASE("Audio Lab loops short mono and stereo files with rate correction", "[file-source]")
+TEST_CASE("Audio Lab loops short mono and stereo files with rate correction", "[file-source][audio-lab]")
 {
 	juce::ScopedJuceInitialiser_GUI initialise;
 	juce::WavAudioFormat wav;
@@ -79,7 +79,7 @@ TEST_CASE("Audio Lab loops short mono and stereo files with rate correction", "[
 		}
 }
 
-TEST_CASE("Audio Lab rejects multichannel files and can replace a playing file", "[file-source]")
+TEST_CASE("Audio Lab rejects multichannel files and can replace a playing file", "[file-source][audio-lab]")
 {
 	juce::ScopedJuceInitialiser_GUI initialise;
 	juce::WavAudioFormat wav;
@@ -102,7 +102,7 @@ TEST_CASE("Audio Lab rejects multichannel files and can replace a playing file",
 	}
 }
 
-TEST_CASE("Audio Lab decodes MP3 and the AIF alias", "[file-source][slow]")
+TEST_CASE("Audio Lab decodes MP3 and the AIF alias", "[file-source][slow][audio-lab]")
 {
 	juce::ScopedJuceInitialiser_GUI initialise;
 	const auto root = juce::File(__FILE__).getParentDirectory().getParentDirectory().getParentDirectory();

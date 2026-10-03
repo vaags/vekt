@@ -1,5 +1,7 @@
 #include "NonlinearTptLadder.h"
 
+#include <juce_core/juce_core.h>
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
@@ -124,7 +126,7 @@ TEST_CASE("Mono batched ladders prepared at different sample rates match their s
 			NonlinearTptLadder::processCoupled(std::span(batched.data(), lanes), std::span<const float>(inputs.data(), lanes),
 				std::span(outputs.data(), lanes), settings);
 			for (std::size_t lane = 0; lane < lanes; ++lane)
-				REQUIRE(outputs[lane] == scalar[lane].processCoupled(inputs[lane], settings));
+				REQUIRE(juce::exactlyEqual(outputs[lane], scalar[lane].processCoupled(inputs[lane], settings)));
 		}
 	}
 }

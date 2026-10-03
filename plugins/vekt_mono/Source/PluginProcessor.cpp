@@ -377,8 +377,8 @@ void PluginProcessor::renderJob(int job) noexcept
 	{
 		for (int sample = 0; sample < segment.samples; ++sample)
 		{
-			const std::array lfoPositions { lfoPositionBuffer[static_cast<std::size_t>(2 * sample)],
-				lfoPositionBuffer[static_cast<std::size_t>(2 * sample + 1)] };
+			const std::array lfoPositions { lfoPositionBuffer[2 * static_cast<std::size_t>(sample)],
+				lfoPositionBuffer[2 * static_cast<std::size_t>(sample) + 1] };
 			const auto vibrato = vibratoBuffer[static_cast<std::size_t>(sample)];
 			const auto beginVoice = [&](MonoVoice& voice)
 			{
@@ -717,8 +717,8 @@ void PluginProcessor::render(juce::AudioBuffer<float>& buffer, int start, int co
 	// The shared clocks advance once per sample for all voices; precompute them for the segment.
 	for (int sample = 0; sample < samples; ++sample)
 	{
-		lfoPositionBuffer[static_cast<std::size_t>(2 * sample)] = lfoClocks[0]->getPosition();
-		lfoPositionBuffer[static_cast<std::size_t>(2 * sample + 1)] = lfoClocks[1]->getPosition();
+		lfoPositionBuffer[2 * static_cast<std::size_t>(sample)] = lfoClocks[0]->getPosition();
+		lfoPositionBuffer[2 * static_cast<std::size_t>(sample) + 1] = lfoClocks[1]->getPosition();
 		vibratoBuffer[static_cast<std::size_t>(sample)] = Lfo::bipolarShape(vibratoShape, vibratoClock->getPosition(), 0) * vibratoDepthSemitones;
 		for (auto& clock : lfoClocks) clock->advance();
 		vibratoClock->advance();
@@ -765,7 +765,8 @@ void PluginProcessor::render(juce::AudioBuffer<float>& buffer, int start, int co
 			if (lanes < lanesPerVoice) continue;
 			const auto voicesPerJob = lanes / lanesPerVoice;
 			const auto jobs = (sounding + voicesPerJob - 1) / voicesPerJob;
-			const auto time = static_cast<float>((jobs + threads - 1) / threads) * cost;
+			const int rounds = (jobs + threads - 1) / threads; // whole rounds of jobs across the threads
+			const auto time = static_cast<float>(rounds) * cost;
 			if (time < bestTime)
 			{
 				bestLanes = lanes;

@@ -1,0 +1,26 @@
+# clang-tidy for Vekt sources (docs/CODING_STANDARDS.md), run through pre-commit (.pre-commit-config.yaml) at T2 and
+# on commit. Bug-prone patterns and performance first; a few modernize checks that match the codebase.
+# bugprone-pointer-arithmetic-on-polymorphic-object is off: clang-tidy 21 and 22 crash evaluating it on JUCE's
+# juce_Ranges.h (3 October 2026).
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  -bugprone-implicit-widening-of-multiplication-result,
+  -bugprone-pointer-arithmetic-on-polymorphic-object,
+  performance-*,
+  -performance-enum-size,
+  modernize-use-override,
+  modernize-use-nullptr,
+  modernize-use-using,
+  modernize-use-equals-default,
+  modernize-use-equals-delete,
+  modernize-make-unique,
+  modernize-make-shared,
+  modernize-deprecated-headers,
+  modernize-redundant-void-arg
+WarningsAsErrors: '*'
+HeaderFilterRegex: '.*/(framework|plugins|tests|tools)/.*'
+ExcludeHeaderFilterRegex: '.*/(external|build)/.*'
+SystemHeaders: false

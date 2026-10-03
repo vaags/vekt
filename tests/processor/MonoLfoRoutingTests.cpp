@@ -140,7 +140,7 @@ bool identical(const juce::AudioBuffer<float>& first, const juce::AudioBuffer<fl
 {
 	for (int channel = 0; channel < 2; ++channel)
 		for (int sample = 0; sample < first.getNumSamples(); ++sample)
-			if (first.getSample(channel, sample) != second.getSample(channel, sample)) return false;
+			if (!juce::exactlyEqual(first.getSample(channel, sample), second.getSample(channel, sample))) return false;
 	return true;
 }
 
@@ -207,7 +207,7 @@ TEST_CASE("Mono LFO source settings leave the sound unchanged at zero depth", "[
 	const auto actual = renderNote(configured, 12'000);
 	for (int channel = 0; channel < 2; ++channel)
 		for (int sample = 0; sample < expected.getNumSamples(); ++sample)
-			REQUIRE(actual.getSample(channel, sample) == expected.getSample(channel, sample));
+			REQUIRE(juce::exactlyEqual(actual.getSample(channel, sample), expected.getSample(channel, sample)));
 }
 
 TEST_CASE("Mono LFOs reach every destination", "[mono][lfo][slow]")
@@ -244,7 +244,7 @@ TEST_CASE("Mono LFO pitch depth is in semitones and scaled by Amount", "[mono][l
 		setParameter(processor, parameters::lfos[0].amount, amount);
 		const auto output = renderNote(processor, 24'480, 512, 69);
 		// Measure half a second after the 1 ms LFO smoothing and envelope attack have settled.
-		const auto measuredHz = zeroCrossings(output, 480, 24'480) / 2.0f / 0.5f;
+		const auto measuredHz = static_cast<float>(zeroCrossings(output, 480, 24'480)) / 2.0f / 0.5f;
 		REQUIRE(measuredHz == Catch::Approx(expectedHz).margin(3.0f));
 	}
 }
@@ -344,7 +344,7 @@ TEST_CASE("Mono vibrato reaches its depth in cents with the mod wheel up", "[mon
 	const auto output = renderEvents(processor, 134'400, {
 		{ juce::MidiMessage::controllerEvent(1, 1, 127), 0 }, { juce::MidiMessage::noteOn(1, 69, 0.8f), 0 } });
 	// Between 2.2 s and 2.8 s a 0.1 Hz sine is within 2% of its peak: about +99 cents above A440.
-	const auto measuredHz = zeroCrossings(output, 105'600, 134'400) / 2.0f / 0.6f;
+	const auto measuredHz = static_cast<float>(zeroCrossings(output, 105'600, 134'400)) / 2.0f / 0.6f;
 	REQUIRE(measuredHz == Catch::Approx(440.0f * std::exp2(1.0f / 12.0f)).margin(2.0f));
 	REQUIRE(processor.getVibratoControlDisplay() == Catch::Approx(1.0f));
 }

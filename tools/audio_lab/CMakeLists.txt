@@ -134,3 +134,7 @@ target_link_libraries(VektMonoProcessorCost PRIVATE
 	vekt::juce_headers
 	vekt::juce_runtime
 	vekt_project_options)
+
+# Every Audio Lab executable is built from Vekt sources.
+get_directory_property(vekt_audio_lab_targets BUILDSYSTEM_TARGETS)
+vekt_strict_warnings(${vekt_audio_lab_targets})

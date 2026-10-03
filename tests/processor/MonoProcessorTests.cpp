@@ -340,21 +340,21 @@ TEST_CASE("Mono contour engine measures analog timing and retrigger continuity",
 	envelope.setSampleRate(48'000.0);
 	envelope.setParameters({ 0.1f, 0.2f, 0.5f, 0.8f });
 	envelope.noteOn();
-	for (int i = 0; i < 4'800; ++i) envelope.getNextSample();
+	for (int i = 0; i < 4'800; ++i) static_cast<void>(envelope.getNextSample());
 	REQUIRE(envelope.isActive());
 	// At 100 ms the analog attack is at its defined 99% endpoint.
 	envelope.reset(); envelope.noteOn();
-	for (int i = 0; i < 4'799; ++i) envelope.getNextSample();
+	for (int i = 0; i < 4'799; ++i) static_cast<void>(envelope.getNextSample());
 	REQUIRE(envelope.getNextSample() == Catch::Approx(1.0f).margin(0.002f));
-	for (int i = 0; i < 9'600; ++i) envelope.getNextSample();
+	for (int i = 0; i < 9'600; ++i) static_cast<void>(envelope.getNextSample());
 	REQUIRE(envelope.getNextSample() == Catch::Approx(0.5f).margin(0.005f));
 	envelope.noteOff();
-	for (int i = 0; i < 76'802; ++i) envelope.getNextSample();
+	for (int i = 0; i < 76'802; ++i) static_cast<void>(envelope.getNextSample());
 	REQUIRE_FALSE(envelope.isActive());
 	envelope.noteOn();
-	for (int i = 0; i < 16'000; ++i) envelope.getNextSample();
+	for (int i = 0; i < 16'000; ++i) static_cast<void>(envelope.getNextSample());
 	envelope.noteOff();
-	for (int i = 0; i < 2'400; ++i) envelope.getNextSample();
+	for (int i = 0; i < 2'400; ++i) static_cast<void>(envelope.getNextSample());
 	const auto before = envelope.getNextSample();
 	envelope.noteOn();
 	const auto after = envelope.getNextSample();
@@ -369,12 +369,12 @@ TEST_CASE("Mono amp and filter contours use their independent release times", "[
 	amp.setParameters({ 0.01f, 0.3f, 1.0f, 0.1f });
 	filter.setParameters({ 0.01f, 0.1f, 1.0f, 0.3f });
 	amp.noteOn(); filter.noteOn();
-	for (int i = 0; i < 20; ++i) { amp.getNextSample(); filter.getNextSample(); }
+	for (int i = 0; i < 20; ++i) { static_cast<void>(amp.getNextSample()); static_cast<void>(filter.getNextSample()); }
 	amp.noteOff(); filter.noteOff();
-	for (int i = 0; i < 210; ++i) { amp.getNextSample(); filter.getNextSample(); }
+	for (int i = 0; i < 210; ++i) { static_cast<void>(amp.getNextSample()); static_cast<void>(filter.getNextSample()); }
 	REQUIRE_FALSE(amp.isActive());
 	REQUIRE(filter.isActive());
-	for (int i = 0; i < 410; ++i) filter.getNextSample();
+	for (int i = 0; i < 410; ++i) static_cast<void>(filter.getNextSample());
 	REQUIRE_FALSE(filter.isActive());
 }
 
@@ -384,16 +384,16 @@ TEST_CASE("Mono contour updates held sustain and release without resetting the l
 	envelope.setSampleRate(1'000.0);
 	envelope.setParameters({ 0.01f, 0.05f, 0.5f, 1.0f });
 	envelope.noteOn();
-	for (int i = 0; i < 200; ++i) envelope.getNextSample();
+	for (int i = 0; i < 200; ++i) static_cast<void>(envelope.getNextSample());
 	REQUIRE(envelope.getNextSample() == Catch::Approx(0.5f));
 	envelope.setParameters({ 0.01f, 0.05f, 0.8f, 1.0f });
 	REQUIRE(envelope.getNextSample() == Catch::Approx(0.8f));
 	envelope.noteOff();
-	for (int i = 0; i < 100; ++i) envelope.getNextSample();
+	for (int i = 0; i < 100; ++i) static_cast<void>(envelope.getNextSample());
 	const auto before = envelope.getNextSample();
 	envelope.setParameters({ 0.01f, 0.05f, 0.8f, 0.012f });
 	REQUIRE(envelope.getNextSample() < before);
-	for (int i = 0; i < 30; ++i) envelope.getNextSample();
+	for (int i = 0; i < 30; ++i) static_cast<void>(envelope.getNextSample());
 	REQUIRE_FALSE(envelope.isActive());
 }
 
@@ -1066,7 +1066,7 @@ TEST_CASE("Mono coupled quality changes cut sustained notes immediately", "[mono
 	for (const auto initial : monoQualitySweep)
 	for (const auto target : monoQualitySweep)
 	{
-		if (initial == target) continue;
+		if (juce::exactlyEqual(initial, target)) continue;
 		CAPTURE(initial, target);
 		vekt::mono::PluginProcessor coupled, fresh;
 		for (auto* processor : { &coupled, &fresh })
@@ -1121,7 +1121,7 @@ TEST_CASE("Mono coupled idle quality changes cover every ordered pair", "[mono][
 	for (const auto initial : monoQualitySweep)
 	for (const auto target : monoQualitySweep)
 	{
-		if (initial == target) continue;
+		if (juce::exactlyEqual(initial, target)) continue;
 		CAPTURE(initial, target);
 		vekt::mono::PluginProcessor changed, fresh;
 		for (auto* processor : { &changed, &fresh })
@@ -2209,7 +2209,7 @@ TEST_CASE("Mono noise keeps its level and colour at every quality", "[mono][nois
 		double topAt4x {};
 		for (const auto quality : { 3.0f, 4.0f, 5.0f, 6.0f })
 		{
-			if (quality == referenceQuality) continue;
+			if (juce::exactlyEqual(quality, referenceQuality)) continue;
 			const auto bands = measure(quality, noiseType, drive, unison);
 			const auto level = db(bands.total / reference.total);
 			const auto tilt = db((bands.low / bands.high) / (reference.low / reference.high));

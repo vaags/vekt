@@ -195,12 +195,12 @@ TEST_CASE("Mono Width DC policies follow the frozen-width analytical means", "[m
 	for (const auto width : { 5.0f, 20.0f, 50.0f, 80.0f, 95.0f })
 		for (int morphStep = 0; morphStep <= 16; ++morphStep)
 		{
-			const auto morph = morphStep * 0.25f;
+			const auto morph = static_cast<float>(morphStep) * 0.25f;
 			CAPTURE(width, morph);
 			double raw {}, centered {}, signal {};
 			for (int sample = 0; sample < samples; ++sample)
 			{
-				const auto phase = sample * step;
+				const auto phase = static_cast<float>(sample) * step;
 				const auto a = oscillator(phase, morph, width);
 				const auto b = oscillator(phase, morph, width, true);
 				raw += a; centered += b; signal += b * b;
@@ -220,12 +220,12 @@ TEST_CASE("Mono Width and Morph surface has finite fundamentals and continuous a
 	{
 		for (int index = 0; index <= 80; ++index)
 		{
-			const auto morph = index * 0.05f;
+			const auto morph = static_cast<float>(index) * 0.05f;
 			CAPTURE(width, morph);
 			double sine {}, cosine {}, power {};
 			for (int sample = 0; sample < samples; ++sample)
 			{
-				const auto phase = sample * step;
+				const auto phase = static_cast<float>(sample) * step;
 				const auto value = oscillator(phase, morph, width, true);
 				sine += value * std::sin(2.0 * std::numbers::pi * phase);
 				cosine += value * std::cos(2.0 * std::numbers::pi * phase);
@@ -675,7 +675,8 @@ TEST_CASE("Mono Drift walk is bounded, smooth and slow", "[mono][oscillator][dri
 	juce::Random random(1234);
 	vekt::mono::DriftWalk walk;
 	walk.reset(random, rate);
-	float previous = walk.value, minimum = walk.value, maximum = walk.value, largestStep {};
+	const auto start = static_cast<float>(walk.value);
+	float previous = start, minimum = start, maximum = start, largestStep {};
 	int signChanges {};
 	for (int sample = 0; sample < static_cast<int>(60.0f * rate); ++sample)
 	{
@@ -723,7 +724,7 @@ TEST_CASE("Mono Drift wanders each voice's pitch by a few cents", "[mono][oscill
 			voice.render(left, right, settings, 0.0f);
 			if (sample > 4'800 && previous <= 0.0f && left > 0.0f)
 			{
-				const auto crossing = sample - 1 + previous / (previous - left);
+				const auto crossing = static_cast<float>(sample - 1) + previous / (previous - left);
 				if (crossings == 0) firstCrossing = crossing;
 				lastCrossing = crossing;
 				++crossings;

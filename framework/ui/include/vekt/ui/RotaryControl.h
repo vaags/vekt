@@ -31,7 +31,7 @@ public:
 		return 144;
 	}
 
-	void setLabel(juce::String text);
+	void setLabel(const juce::String& text);
 	void setLayout(Size dialSize, int valueWidth);
 	void setWaveformGuide(bool shouldShow);
 	// Fills the arc from the parameter's zero instead of its minimum, for signed amounts.

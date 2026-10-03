@@ -23,7 +23,9 @@
       "inherits": "base",
       "generator": "Ninja",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Debug",
+        "VEKT_WARNINGS_AS_ERRORS": "ON",
+        "CMAKE_OSX_SYSROOT": "macosx"
       }
     },
     {
@@ -32,7 +34,8 @@
       "inherits": "base",
       "generator": "Ninja",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "VEKT_WARNINGS_AS_ERRORS": "ON"
       }
     },
     {
@@ -42,7 +45,8 @@
       "generator": "Ninja",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "VEKT_BUILD_TESTS": "OFF"
+        "VEKT_BUILD_TESTS": "OFF",
+        "VEKT_USE_CCACHE": "OFF"
       }
     },
     {
@@ -53,7 +57,8 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "VEKT_BUILD_TESTS": "OFF",
-        "VEKT_BUILD_AUDIO_LAB": "ON"
+        "VEKT_BUILD_AUDIO_LAB": "ON",
+        "VEKT_WARNINGS_AS_ERRORS": "ON"
       }
     },
     {

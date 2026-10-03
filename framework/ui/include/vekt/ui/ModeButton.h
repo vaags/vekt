@@ -7,8 +7,8 @@ namespace vekt::ui
 class ModeButton final : public juce::Button
 {
 public:
-	explicit ModeButton(juce::String name = {}, bool reorderable = false)
-		: Button(std::move(name)), canReorder(reorderable)
+	explicit ModeButton(const juce::String& name = {}, bool reorderable = false)
+		: Button(name), canReorder(reorderable)
 	{
 		setClickingTogglesState(true);
 		if (canReorder) setTooltip("Click to enable or disable; drag to reorder the signal path");

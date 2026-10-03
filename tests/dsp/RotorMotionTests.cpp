@@ -12,16 +12,16 @@ TEST_CASE("RotorMotion reaches the requested speed in the configured direction t
 	rotor.setMode(vekt::glimmer::RotarySpeedMode::fast);
 
 	for (int sample = 0; sample < 100; ++sample)
-		rotor.advance();
+		static_cast<void>(rotor.advance());
 	REQUIRE(rotor.getCurrentRpm() == Catch::Approx(120.0f));
 
 	rotor.setMode(vekt::glimmer::RotarySpeedMode::slow);
 	for (int sample = 0; sample < 100; ++sample)
-		rotor.advance();
+		static_cast<void>(rotor.advance());
 	REQUIRE(rotor.getCurrentRpm() == Catch::Approx(70.0f));
 
 	for (int sample = 0; sample < 100; ++sample)
-		rotor.advance();
+		static_cast<void>(rotor.advance());
 	REQUIRE(rotor.getCurrentRpm() == Catch::Approx(20.0f));
 }
 
@@ -32,7 +32,7 @@ TEST_CASE("RotorMotion changes targets without resetting phase", "[glimmer][roto
 	rotor.setSpeeds(60.0f, 120.0f);
 	rotor.setTransitionTimes(1.0f, 1.0f);
 
-	rotor.advance();
+	static_cast<void>(rotor.advance());
 	const auto phaseBeforeTransition = rotor.getPhaseTurns();
 	rotor.setMode(vekt::glimmer::RotarySpeedMode::fast);
 	const auto phaseAfterTransition = rotor.advance();
@@ -51,7 +51,7 @@ TEST_CASE("RotorMotion uses the auto target without changing the selected mode",
 	rotor.setAutoFast(true);
 
 	for (int sample = 0; sample < 10; ++sample)
-		rotor.advance();
+		static_cast<void>(rotor.advance());
 	REQUIRE(rotor.getCurrentRpm() == Catch::Approx(100.0f));
 	REQUIRE(rotor.getMode() == vekt::glimmer::RotarySpeedMode::autoMode);
 }

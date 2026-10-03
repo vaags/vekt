@@ -5,7 +5,7 @@
 
 #include <juce_audio_basics/juce_audio_basics.h>
 
-TEST_CASE("AdaptiveAutoGain attenuates a louder wet signal", "[processor][auto-gain]")
+TEST_CASE("AdaptiveAutoGain attenuates a louder wet signal", "[processor][auto-gain][dsp]")
 {
 	juce::AudioBuffer<float> reference(2, 2'048);
 	juce::AudioBuffer<float> wet(2, 2'048);
@@ -25,7 +25,7 @@ TEST_CASE("AdaptiveAutoGain attenuates a louder wet signal", "[processor][auto-g
 	REQUIRE(wet.getSample(1, 2'047) == Catch::Approx(0.25f));
 }
 
-TEST_CASE("AdaptiveAutoGain never boosts or changes disabled wet audio", "[processor][auto-gain]")
+TEST_CASE("AdaptiveAutoGain never boosts or changes disabled wet audio", "[processor][auto-gain][dsp]")
 {
 	juce::AudioBuffer<float> reference(2, 2'048);
 	juce::AudioBuffer<float> wet(2, 2'048);

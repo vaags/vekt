@@ -10,8 +10,10 @@ disable-model-invocation: true
 Work on: $ARGUMENTS
 
 Read [project instructions](../../../CLAUDE.md) and the
-[development workflow](../../../docs/DEVELOPMENT_WORKFLOW.md). Keep the approved
-scope, existing architecture, and approval boundaries throughout the task.
+[development workflow](../../../docs/DEVELOPMENT_WORKFLOW.md), and before
+writing code the [coding standards](../../../docs/CODING_STANDARDS.md); verify by
+the tiers of [verification speed](../../../docs/VERIFICATION_SPEED.md). Keep the
+approved scope, existing architecture, and approval boundaries throughout the task.
 
 1. Confirm the goal and approved acceptance criteria from the current user
    request or referenced plan. If approval is already explicit, do not ask for
@@ -25,13 +27,18 @@ scope, existing architecture, and approval boundaries throughout the task.
    editing. Use existing helpers, abstractions, tests, native controls, and
    scripts. Once the hypothesis and check are clear, make the smallest grounded
    edit rather than continuing broad exploration.
-4. Immediately run that check after a substantive edit. On a local defect,
+4. Immediately run that check (T0) after a substantive edit. Compiler warnings
+   are errors; fix them, never silence them. Give a new test an owner tag and
+   show it fails without the change. On a local defect,
    repair the same slice and rerun. If the hypothesis is disproved, move to the
    nearest controlling boundary rather than opening unrelated work. Keep this
    edit/check discipline for subsequent edits.
 5. Use the `vekt-validate` skill for the agreed surface and remaining meaningful
-   gates. Do not require a full suite after every edit or omit affected shared,
-   untagged, compatibility, or slow cases. A focused check can be executed
+   gates: at least T1 (`scripts/test-affected.sh`) before reporting, and T2
+   (`scripts/test.sh --t2`, `scripts/lint-changed.sh`, and
+   `scripts/pluginval-dev.sh` when wrappers, parameters, state or processing
+   changed) at the end of a plan step or before review. Do not require a full
+   suite after every edit or omit affected shared, compatibility, or slow cases. A focused check can be executed
    directly before invoking the skill; do not repeat completed checks unless
    code changes or an explicit gate require it.
 6. For substantial DSP, state, compatibility, or shared-framework changes,

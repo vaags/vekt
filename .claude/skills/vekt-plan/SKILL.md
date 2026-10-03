@@ -11,7 +11,10 @@ Plan this request: $ARGUMENTS
 
 Read [project instructions](../../../CLAUDE.md) and the
 [development workflow](../../../docs/DEVELOPMENT_WORKFLOW.md), then only the
-authority documents relevant to the touched surface. This invocation is
+authority documents relevant to the touched surface. When the plan changes
+code, follow the [coding standards](../../../docs/CODING_STANDARDS.md); plan
+checks by tier and new tests by the cost rules of
+[verification speed](../../../docs/VERIFICATION_SPEED.md). This invocation is
 planning, not permission to implement.
 
 1. Start from the named file, symbol, failing behavior, test, or command. If none
@@ -27,7 +30,10 @@ planning, not permission to implement.
    owner/consumers, compatibility impact, scope/exclusions, and focused checks.
 5. Give an actionable sequence of small edits and discriminating checks.
    Identify actual test names/tags, matching targets/configurations, relevant
-   slow/shared cases, and any measured or manual gates. Product labels alone
+   slow/shared cases, and any measured or manual gates. Give each check its
+   tier: T0 per edit, T1 `scripts/test-affected.sh` (with a `--dry-run`
+   selection), T2 at milestones, T3 only when release-level or build-wide.
+   Name the Debug run for anything relying on `jassert`. Product labels alone
    are not sufficient, and a zero-test selection cannot validate the change.
 6. Mark checks as planned, not passed. Explain missing infrastructure or
    evidence that prevents acceptance; do not substitute a build for listening,

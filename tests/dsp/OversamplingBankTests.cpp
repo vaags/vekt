@@ -90,5 +90,5 @@ TEST_CASE("The highest internal rate follows the largest oversampling path", "[d
 	REQUIRE(bank.getActiveFactor() == vekt::dsp::maximumOversamplingFactor);
 	REQUIRE(bank.getMaximumFactor() == vekt::dsp::maximumOversamplingFactor);
 	REQUIRE(vekt::dsp::OversamplingQuality { vekt::dsp::OversamplingFactor::x16 }.multiplier() == vekt::dsp::maximumOversamplingFactor);
-	REQUIRE(vekt::dsp::maximumInternalSampleRate == vekt::dsp::maximumHostSampleRate * 16.0);
+	REQUIRE(juce::exactlyEqual(vekt::dsp::maximumInternalSampleRate, vekt::dsp::maximumHostSampleRate * 16.0));
 }

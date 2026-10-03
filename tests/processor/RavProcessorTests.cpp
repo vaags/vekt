@@ -100,7 +100,7 @@ double renderAutoGainErrorDb(
 }
 }
 
-TEST_CASE("Rav processor defaults to quality-first oversampling", "[processor]")
+TEST_CASE("Rav processor defaults to quality-first oversampling", "[processor][rav]")
 {
 	vekt::rav::PluginProcessor processor;
 	processor.prepareToPlay(48'000.0, 128);
@@ -110,7 +110,7 @@ TEST_CASE("Rav processor defaults to quality-first oversampling", "[processor]")
 	REQUIRE(processor.getTotalNumOutputChannels() == 2);
 }
 
-TEST_CASE("Rav processor selects tracking and offline oversampling profiles", "[processor][quality]")
+TEST_CASE("Rav processor selects tracking and offline oversampling profiles", "[processor][quality][rav]")
 {
 	vekt::rav::PluginProcessor processor;
 	setParameter(processor, vekt::rav::parameters::trackingOversampling, 2.0f);
@@ -139,7 +139,7 @@ TEST_CASE("Rav processor selects tracking and offline oversampling profiles", "[
 	REQUIRE(processor.getActiveQuality().filter == vekt::dsp::OversamplingFilter::polyphaseIIR);
 }
 
-TEST_CASE("Rav processor produces finite stereo audio", "[processor]")
+TEST_CASE("Rav processor produces finite stereo audio", "[processor][rav]")
 {
 	vekt::rav::PluginProcessor processor;
 	juce::AudioBuffer<float> buffer(2, 128);
@@ -163,7 +163,7 @@ TEST_CASE("Rav processor produces finite stereo audio", "[processor]")
 			REQUIRE(std::isfinite(buffer.getSample(channel, sample)));
 }
 
-TEST_CASE("Rav saturation keeps identical noise channels aligned at bright tone", "[processor][stereo]")
+TEST_CASE("Rav saturation keeps identical noise channels aligned at bright tone", "[processor][stereo][rav]")
 {
 	vekt::rav::PluginProcessor processor;
 	juce::AudioBuffer<float> buffer(2, 512);
@@ -214,7 +214,7 @@ TEST_CASE("Rav processor renders every mode across tracking qualities", "[proces
 	}
 }
 
-TEST_CASE("Rav low-band wet control affects low-band input", "[processor][multiband]")
+TEST_CASE("Rav low-band wet control affects low-band input", "[processor][multiband][rav]")
 {
 	constexpr auto sampleRate = 48'000.0f;
 	constexpr auto blockSize = 128;
@@ -259,13 +259,13 @@ TEST_CASE("Rav low-band wet control affects low-band input", "[processor][multib
 	REQUIRE(lowBandDifference > 0.01);
 }
 
-TEST_CASE("Rav Fuzz Auto Gain stays near default loudness", "[processor][auto-gain]")
+TEST_CASE("Rav Fuzz Auto Gain stays near default loudness", "[processor][auto-gain][rav]")
 {
 	const auto fuzzErrorDb = renderAutoGainErrorDb(48'000.0, 2, 0, 6.0f, 0.0f, 3.0f);
 	REQUIRE(std::abs(fuzzErrorDb) < 2.5);
 }
 
-TEST_CASE("Rav processor bounds oversized host blocks", "[processor]")
+TEST_CASE("Rav processor bounds oversized host blocks", "[processor][rav]")
 {
 	constexpr auto preparedBlockSize = 64;
 	constexpr auto hostBlockSize = 257;
@@ -287,7 +287,7 @@ TEST_CASE("Rav processor bounds oversized host blocks", "[processor]")
 			REQUIRE(std::isfinite(buffer.getSample(channel, sample)));
 }
 
-TEST_CASE("Rav stage enable ramps from an all-disabled chain", "[processor][transition]")
+TEST_CASE("Rav stage enable ramps from an all-disabled chain", "[processor][transition][rav]")
 {
 	constexpr auto sampleRate = 48'000.0;
 	constexpr auto blockSize = 128;
@@ -322,7 +322,7 @@ TEST_CASE("Rav stage enable ramps from an all-disabled chain", "[processor][tran
 		REQUIRE(std::isfinite(buffer.getSample(0, sample)));
 }
 
-TEST_CASE("Rav processor state round trips parameters", "[processor][state]")
+TEST_CASE("Rav processor state round trips parameters", "[processor][state][rav]")
 {
 	vekt::rav::PluginProcessor source;
 	vekt::rav::PluginProcessor restored;
@@ -373,7 +373,7 @@ TEST_CASE("Rav processor state round trips parameters", "[processor][state]")
 	REQUIRE(static_cast<int>(restoredMetadata.getProperty("editorWidth")) == 900);
 }
 
-TEST_CASE("Rav projects restore parameters they predate to defaults", "[processor][state]")
+TEST_CASE("Rav projects restore parameters they predate to defaults", "[processor][state][rav]")
 {
 	// APVTS::replaceState provides this today; the test keeps it true if parameter state moves off APVTS.
 	vekt::rav::PluginProcessor source;
@@ -399,7 +399,7 @@ TEST_CASE("Rav projects restore parameters they predate to defaults", "[processo
 	REQUIRE(value(vekt::rav::parameters::stageEnabledGatedFuzz) == Catch::Approx(0.0f));
 }
 
-TEST_CASE("Rav processor bypass preserves reported latency across transitions", "[processor][bypass]")
+TEST_CASE("Rav processor bypass preserves reported latency across transitions", "[processor][bypass][rav]")
 {
 	constexpr auto blockSize = 128;
 	vekt::rav::PluginProcessor processor;
@@ -422,7 +422,7 @@ TEST_CASE("Rav processor bypass preserves reported latency across transitions", 
 	REQUIRE(buffer.getSample(1, latency - 1) == Catch::Approx(0.0f));
 }
 
-TEST_CASE("Rav bypass parameter returns latency-aligned raw input", "[processor][bypass]")
+TEST_CASE("Rav bypass parameter returns latency-aligned raw input", "[processor][bypass][rav]")
 {
 	constexpr auto blockSize = 128;
 	vekt::rav::PluginProcessor processor;
@@ -451,7 +451,7 @@ TEST_CASE("Rav bypass parameter returns latency-aligned raw input", "[processor]
 	REQUIRE(buffer.getSample(1, latency) == Catch::Approx(-0.5f));
 }
 
-TEST_CASE("Rav processor applies quality changes while stopped", "[processor][quality]")
+TEST_CASE("Rav processor applies quality changes while stopped", "[processor][quality][rav]")
 {
 	vekt::rav::PluginProcessor processor;
 	processor.prepareToPlay(48'000.0, 128);
@@ -469,7 +469,7 @@ TEST_CASE("Rav processor applies quality changes while stopped", "[processor][qu
 	REQUIRE_FALSE(processor.hasPendingQualityChange());
 }
 
-TEST_CASE("Rav processor keeps audio flowing across tracking quality changes", "[processor][quality]")
+TEST_CASE("Rav processor keeps audio flowing across tracking quality changes", "[processor][quality][rav]")
 {
 	constexpr auto blockSize = 128;
 	vekt::rav::PluginProcessor processor;
@@ -505,7 +505,7 @@ TEST_CASE("Rav processor keeps audio flowing across tracking quality changes", "
 	}
 }
 
-TEST_CASE("Rav processor applies quality changes at the next block during playback", "[processor][quality]")
+TEST_CASE("Rav processor applies quality changes at the next block during playback", "[processor][quality][rav]")
 {
 	vekt::rav::PluginProcessor processor;
 	TestPlayHead playHead;
@@ -544,7 +544,7 @@ TEST_CASE("Rav processor applies quality changes at the next block during playba
 	REQUIRE_FALSE(processor.hasPendingQualityChange());
 }
 
-TEST_CASE("Rav auto-gain holds reference loudness through the wet chain", "[processor][auto-gain][slow]")
+TEST_CASE("Rav auto-gain holds reference loudness through the wet chain", "[processor][auto-gain][slow][rav]")
 {
 	struct QualityMode
 	{
@@ -587,7 +587,7 @@ TEST_CASE("Rav auto-gain holds reference loudness through the wet chain", "[proc
 	}
 }
 
-TEST_CASE("Rav auto-gain preserves wet-chain spectral shape", "[processor][auto-gain]")
+TEST_CASE("Rav auto-gain preserves wet-chain spectral shape", "[processor][auto-gain][rav]")
 {
 	constexpr auto sampleRate = 48'000.0;
 	constexpr auto blockSize = 256;
@@ -651,7 +651,7 @@ TEST_CASE("Rav auto-gain preserves wet-chain spectral shape", "[processor][auto-
 	REQUIRE(std::sqrt(residualEnergy / compensatedEnergy) < 0.005);
 }
 
-TEST_CASE("Rav processor publishes and consumes stereo peak snapshots", "[processor][meter]")
+TEST_CASE("Rav processor publishes and consumes stereo peak snapshots", "[processor][meter][rav]")
 {
 	vekt::rav::PluginProcessor processor;
 	juce::AudioBuffer<float> buffer(2, 32);

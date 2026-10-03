@@ -21,6 +21,8 @@ of routine development.
 - Product contracts: [Rav](docs/RAV_VALIDATION.md), [Glimmer](docs/GLIMMER_VALIDATION.md), [Mono](docs/MONO_VALIDATION.md).
 - Shared interactions: [UI](docs/UI_UX.md), [presets](docs/PRESET_UX.md).
 - [Development workflow](docs/DEVELOPMENT_WORKFLOW.md): check selection, commands, evidence, and approvals.
+- [Coding standards](docs/CODING_STANDARDS.md): read before writing or reviewing code.
+- [Verification speed](docs/VERIFICATION_SPEED.md): check tiers, build choice, cheap tests.
 - For active Mono ladder work, consult [its acceptance plan](docs/MONO_LADDER_ACCEPTANCE_PLAN.md).
 
 Load the touched slice and its authority documents, not every document on
@@ -37,17 +39,33 @@ Surface specification/code conflicts rather than silently changing a contract.
 - Do not auto-commit, bump versions, install plugins, or alter permissions/hooks.
 - A small fix needs a brief inline plan, not a new contract pack or status registry.
 
+## Code Quality
+
+- Follow [the coding standards](docs/CODING_STANDARDS.md): clarity, smallest
+  correct change, one owner per fact, RAII and value semantics, `const`,
+  `[[nodiscard]]`, `noexcept` on audio paths, no narrowing or C-style casts, and
+  the real-time contract from the architecture.
+- Warnings are errors in Vekt targets and clang-tidy runs on commit; fix
+  findings rather than suppressing them. Match the file's existing style; new
+  files follow `.clang-format`. Do not mass-reformat.
+- Every test case carries an owner tag and is shown to fail without its change.
+
 ## Implementation and Checks
 
 - Start at the controlling code path and a nearby test. Form a local hypothesis
   and the smallest check that could disprove it, then edit.
 - After a substantive edit, run the cheapest meaningful check before expanding
   scope. Repair locally and rerun; reuse existing APIs, helpers, and tests.
-- Use the check-selection matrix in the development workflow. Product tags are
-  incomplete, especially Rav and editor cases; inspect actual selected tests.
+- Verify by tier (docs/VERIFICATION_SPEED.md): T0 focused tests per edit, T1
+  `scripts/test-affected.sh` before reporting, T2 `scripts/test.sh --t2` plus
+  `scripts/lint-changed.sh` (and `scripts/pluginval-dev.sh` when wrappers,
+  parameters, state or processing changed) at milestones, T3 the full Debug
+  suite for release-level or build-wide changes. `dev-opt` has no `jassert`.
+- Use the check-selection matrix in the development workflow and inspect the
+  actual selected tests; product labels omit the shared tests a change affects.
 - Reject zero-test selections. Cover shared consumers and relevant slow tests.
-- Keep new tests within the time budgets and test-cost rules of the development
-  workflow; run slow tests and measurement sweeps in the optimised `dev-opt` build.
+- Keep new tests within the time budgets and test-cost rules of the verification
+  speed document; run slow tests and measurement sweeps in the optimised `dev-opt` build.
 - Use Release for performance evidence. Renders and pluginval do not replace
   measured audio assertions, visual checks, listening, or host acceptance.
 - Report exact commands and `PASS`, `FAIL`, or `SKIP` with reasons. A required

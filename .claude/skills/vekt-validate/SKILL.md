@@ -11,24 +11,33 @@ Validate: $ARGUMENTS
 
 Read [project instructions](../../../CLAUDE.md) and the
 [development workflow](../../../docs/DEVELOPMENT_WORKFLOW.md), especially check
-selection, command recipes, runtime boundaries, and evidence rules. These are
-the command reference; do not invent another build or reporting system.
+selection, command recipes, runtime boundaries, and evidence rules, and
+[verification speed](../../../docs/VERIFICATION_SPEED.md) for tiers and build
+choice. These are the command reference; do not invent another build or
+reporting system.
 
 1. Establish the requested product/surface, acceptance criteria, and changed
    ownership/consumers. If arguments are absent, use the approved task and
    current scoped changes. Ask only when ambiguity affects check selection.
    This invocation authorizes scoped validation, not implementation or fixes.
-2. Inspect nearby actual tests and configuration. Product labels are incomplete:
-   Rav processor and Rav/Mono editor cases can lack product tags. Use actual
-   names/tags and affected shared consumers. Do not automatically substitute
-   quick-suite success for relevant slow or compatibility tests.
-3. State the selected checks and their purpose before executing. Choose the
-   cheapest meaningful check first and add only required risk-based gates.
+2. Inspect nearby actual tests and configuration. Every test case carries an
+   owner tag, but a product label omits the shared framework tests a change
+   affects; `scripts/test-affected.sh --dry-run` shows the T1 selection for the
+   changed paths. Use actual names/tags and affected shared consumers. Do not
+   automatically substitute quick-suite success for relevant slow or
+   compatibility tests.
+3. State the selected checks, their tier and purpose before executing. Choose
+   the cheapest meaningful check first and add only required risk-based gates:
+   T1 for a reported change, T2 (`scripts/test.sh --t2`,
+   `scripts/lint-changed.sh`, `scripts/pluginval-dev.sh` when wrappers,
+   parameters, state or processing changed) at milestones, T3
+   (`scripts/test.sh`) for release-level or build-wide changes.
    Reuse existing current results only when their revision, configuration,
    artifact, and check match; otherwise rerun. Do not run duplicate builds in
    a tree used by a watcher or another agent.
-4. Build `vekt_dsp_tests` with the `dev` presets when executable tests are
-   needed. Inspect matching CTest cases with `-N` using the same filter, then
+4. Build `vekt_dsp_tests` in `dev-opt` for speed or `dev` where Debug matters
+   (`jassert` is compiled out of `dev-opt`; reference renders run only in `dev`).
+   Inspect matching CTest cases with `-N` using the same filter, then
    execute with `--no-tests=error` and record the test count. Zero matches are
    a failed selection, not a pass; correct the filter before claiming coverage.
    Read current test/preset definitions instead of trusting an old recipe.

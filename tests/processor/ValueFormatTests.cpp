@@ -36,8 +36,8 @@ TEST_CASE("Rounded editor values retain precision on unchanged commits", "[ui]")
 	slider.setRange(40.0, 16000.0, 0.01);
 	slider.setValue(2501.23);
 	vekt::ui::configureValueFormat(slider, vekt::ui::ValueFormat::frequency);
-	REQUIRE(slider.getValueFromText(slider.getTextFromValue(slider.getValue())) == slider.getValue());
-	REQUIRE(slider.getValueFromText("invalid") == slider.getValue());
+	REQUIRE(juce::exactlyEqual(slider.getValueFromText(slider.getTextFromValue(slider.getValue())), slider.getValue()));
+	REQUIRE(juce::exactlyEqual(slider.getValueFromText("invalid"), slider.getValue()));
 	REQUIRE(static_cast<bool>(slider.getProperties()["valueEntryError"]));
 	slider.setValue(slider.getValueFromText("99 kHz"));
 	REQUIRE(slider.getValue() == 16000.0);

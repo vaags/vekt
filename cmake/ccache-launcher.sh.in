@@ -1,0 +1,7 @@
+#!/bin/sh
+# Compiler launcher, configured by CMakeLists.txt: ccache with the sloppiness that lets it cache translation units
+# built against precompiled headers. One executable path, so nested configures (JUCE's juceaide) accept it as a
+# launcher. time_macros lets __DATE__ and __TIME__ come from the cache, so release builds do not use it.
+CCACHE_SLOPPINESS=pch_defines,time_macros,include_file_mtime,include_file_ctime
+export CCACHE_SLOPPINESS
+exec "@VEKT_CCACHE@" "$@"

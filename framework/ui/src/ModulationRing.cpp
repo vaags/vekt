@@ -94,8 +94,9 @@ ModulationRing::Overflow ModulationRing::overflow() const
 
 bool ModulationRing::isCurrentBeyondTravel() const
 {
-	if (!currentAngle() || isEndless()) return false;
-	return *modulation->current < slider.getMinimum() || *modulation->current > slider.getMaximum();
+	if (!currentAngle() || isEndless() || !modulation) return false;
+	const auto& current = modulation->current;
+	return current && (*current < slider.getMinimum() || *current > slider.getMaximum());
 }
 
 float ModulationRing::angleOf(double value) const
@@ -201,7 +202,7 @@ void ModulationRing::paint(juce::Graphics& graphics)
 		graphics.setColour(colour.interpolatedWith(juce::Colours::white, 0.25f).withMultipliedAlpha(0.85f * opacity));
 		graphics.strokePath(blur, juce::PathStrokeType(blurStroke, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 	}
-	if (const auto angle = paintedAngle)
+	if (const auto angle = paintedAngle; angle && modulation)
 	{
 		// A lighter dot with a dark rim, so it stands out on the arc it travels along and reads apart from the
 		// white pointer inside the dial. Past the end of the travel it is pinned there and drawn hollow.

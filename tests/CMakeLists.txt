@@ -89,6 +89,19 @@ target_compile_definitions(vekt_dsp_tests PRIVATE
 	VEKT_COMPAT_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
 	VEKT_COMPAT_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/compat-actual")
 
+vekt_strict_warnings(vekt_dsp_tests)
+
+# Every test translation unit parses the JUCE and Catch2 headers; precompile them once (docs/VERIFICATION_SPEED.md).
+target_precompile_headers(vekt_dsp_tests PRIVATE
+	<juce_audio_processors/juce_audio_processors.h>
+	<juce_dsp/juce_dsp.h>
+	<juce_gui_basics/juce_gui_basics.h>
+	<catch2/catch_approx.hpp>
+	<catch2/catch_test_macros.hpp>)
+if(VEKT_USE_CCACHE AND VEKT_CCACHE)
+	target_compile_options(vekt_dsp_tests PRIVATE -Xclang -fno-pch-timestamp) # cacheable by ccache
+endif()
+
 include(Catch)
 catch_discover_tests(vekt_dsp_tests ADD_TAGS_AS_LABELS)
 
@@ -101,6 +114,10 @@ if(APPLE)
 	set_tests_properties("macOS plugin workflow scripts" PROPERTIES LABELS "cmake;scripts")
 endif()
 
+add_test(NAME "Every test case carries a product or framework tag"
+	COMMAND ${CMAKE_COMMAND} -DVEKT_TESTS_DIR=${CMAKE_CURRENT_SOURCE_DIR} -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/TestTagPolicy.cmake")
+set_tests_properties("Every test case carries a product or framework tag" PROPERTIES LABELS "cmake;scripts;compat")
+
 function(add_factory_preset_configure_test name fixtureCase)
     add_test(NAME "Factory preset configure: ${name}"
         COMMAND ${CMAKE_COMMAND}
@@ -108,6 +125,7 @@ function(add_factory_preset_configure_test name fixtureCase)
             -B "${CMAKE_CURRENT_BINARY_DIR}/cmake/factory_presets/${fixtureCase}"
             -DVEKT_SOURCE_DIR=${PROJECT_SOURCE_DIR}
             -DCASE=${fixtureCase})
+    set_tests_properties("Factory preset configure: ${name}" PROPERTIES LABELS "cmake;presets;scripts")
 endfunction()
 
 add_factory_preset_configure_test("valid manifest" valid)

@@ -1,6 +1,8 @@
 #include "Lfo.h"
 
 #include <catch2/catch_approx.hpp>
+#include <juce_core/juce_core.h>
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
@@ -55,7 +57,7 @@ TEST_CASE("Mono LFO shapes reach their named values", "[mono][lfo]")
 	REQUIRE(at(LfoShape::sawDown, 0.0) == Catch::Approx(1.0));
 	REQUIRE(at(LfoShape::sawDown, 0.5) == Catch::Approx(0.0));
 	REQUIRE(at(LfoShape::square, 0.25) == 1.0f);
-	REQUIRE(at(LfoShape::square, 0.75) == -1.0f);
+	REQUIRE(juce::exactlyEqual(at(LfoShape::square, 0.75), -1.0f));
 	// Shapes repeat every cycle.
 	for (const auto shape : { LfoShape::sine, LfoShape::triangle, LfoShape::sawUp, LfoShape::sawDown, LfoShape::square })
 		REQUIRE(at(shape, 3.3) == Catch::Approx(at(shape, 0.3)).margin(1.0e-5));
@@ -122,7 +124,7 @@ TEST_CASE("Mono LFO free mode follows the shared clock so voices stay in step", 
 	{
 		if (sample == 12'345) second.noteOn();
 		const auto position = clock.getPosition();
-		REQUIRE(first.getNextSample(position) == second.getNextSample(position));
+		REQUIRE(juce::exactlyEqual(first.getNextSample(position), second.getNextSample(position)));
 		clock.advance();
 	}
 
@@ -141,7 +143,7 @@ TEST_CASE("Mono LFO one shot runs one cycle and holds its final value", "[mono][
 	for (std::size_t index = 1; index < 12'000; ++index) REQUIRE(values[index] < values[index - 1]);
 	REQUIRE(lfo.isFinished());
 	REQUIRE(values[11'999] == Catch::Approx(0.0).margin(1.0e-3));
-	for (std::size_t index = 12'000; index < values.size(); ++index) REQUIRE(values[index] == values[11'999]);
+	for (std::size_t index = 12'000; index < values.size(); ++index) REQUIRE(juce::exactlyEqual(values[index], values[11'999]));
 
 	lfo.noteOn();
 	REQUIRE_FALSE(lfo.isFinished());

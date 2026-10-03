@@ -11,7 +11,10 @@ not its build system, WebView UI, lifecycle scripts, or plugin registry.
 and compatibility policy. Read the relevant product contract:
 [Rav](RAV_VALIDATION.md), [Glimmer](GLIMMER_VALIDATION.md), or
 [Mono](MONO_VALIDATION.md). Shared editor and preset interactions belong to
-[UI_UX.md](UI_UX.md) and [PRESET_UX.md](PRESET_UX.md).
+[UI_UX.md](UI_UX.md) and [PRESET_UX.md](PRESET_UX.md). How code is written
+(general, C++20 and JUCE practice) belongs to
+[CODING_STANDARDS.md](CODING_STANDARDS.md); how checks are run quickly, to
+[VERIFICATION_SPEED.md](VERIFICATION_SPEED.md).
 
 Inspect current code, tests, and command options before using a recipe. Dated
 measurements describe their recorded revision, not the present code. Surface
@@ -25,7 +28,10 @@ notarizing, or releasing artifacts. Preserve existing user changes. Approval
 must come from the user, not a subagent or a checkpoint file.
 
 These instructions guide Claude; they are not deterministic enforcement.
-No project hooks, permission bypasses, automatic commits, version bumps, or
+The enforced parts are compiler warnings as errors in Vekt targets and a git
+pre-commit hook that runs clang-tidy on staged framework and plugin sources
+(`.pre-commit-config.yaml`, installed per clone with `pre-commit install`).
+No Claude hooks, permission bypasses, automatic commits, version bumps, or
 installation side effects are part of this workflow.
 
 ## Commands
@@ -77,10 +83,14 @@ needed and no existing document fits; no contract pack is required for a small f
 | Documentation or customization | References, command/configuration validity, and discovery/behavior checks; no audio rebuild solely for Markdown |
 
 Select tests from nearby source and inspect the discovered matches. Catch2 tags
-are CTest labels, but product tags are incomplete: many Rav processor tests
-have only `[processor]`, and some Rav/Mono editor tests only `[processor][ui]`.
-Do not equate a product-label run with complete product coverage. Relevant slow
-tests must run even during an otherwise quick iteration. A zero-test run fails.
+are CTest labels. Every test case carries an owner tag (a product, or a framework
+module such as `[dsp]` or `[ui]`), and a case named after a product carries that
+product's tag; the `Every test case carries a product or framework tag` test
+enforces it (3 October 2026). A product label selects only the cases tagged with
+the product, not the preset, editor and framework tests that also exercise it:
+`scripts/test-affected.sh` adds those from the test files that use the changed
+code, and still works at label and file granularity. Relevant slow tests must run even during
+an otherwise quick iteration. A zero-test run fails.
 
 ### Tests and Builds
 
@@ -95,7 +105,7 @@ ctest --preset dev -R '^Glimmer preserves APVTS project state$' --no-tests=error
 
 This is one exact-name example, not a general Glimmer acceptance gate. Choose
 the actual nearby cases for the change. Use names or verified labels; include
-shared and untagged cases. Record the executed test count.
+shared cases. Record the executed test count.
 
 | Product | Standalone target | VST3 target | AUv2 target | Offline renderer |
 | --- | --- | --- | --- | --- |
@@ -109,43 +119,24 @@ Build only required wrappers, for example:
 cmake --build --preset dev --target VektGlimmer_VST3
 ```
 
-Use `./scripts/test.sh --quick` for broader fast regression and
-`./scripts/test.sh` for the full suite when required. `dev-quick` is a test
+Choose the tier from [verification speed](VERIFICATION_SPEED.md):
+`scripts/test-affected.sh` for a change's owning tests, `./scripts/test.sh --t2`
+at milestones and `./scripts/test.sh` for the full Debug suite when required. `dev-quick` is a test
 preset, not a configure preset; it excludes `[slow]`. `release` and
 `audio-lab-release` disable tests. Serialize builds using the same build tree;
 check for a running watcher before starting another build.
 
-`dev-opt` (`RelWithDebInfo`, `build/dev-opt`) builds the same tests optimised:
-they run 2-8x faster, about 5x typically (2 October 2026), so use it for slow
-tests, hidden measurement tags and repeated sweeps (`./scripts/test.sh --opt
-[--quick]`, or `ctest --preset dev-opt`). Its test presets exclude the reference
-renders: those are captured from and compared in the Debug build, and Rav's
-nonlinear chains amplify optimised rounding to about -57 dBFS at 16x FIR. Keep
-`dev` for debugging and assertions, and for the reference renders.
+`dev-opt` (`RelWithDebInfo`, `build/dev-opt`) builds the same tests optimised,
+without `jassert` and without the reference renders; when to use which build is
+in [verification speed](VERIFICATION_SPEED.md).
 
-### Test Cost
+### Test Cost and Speed
 
-`scripts/test.sh` writes a JUnit report and runs `scripts/check-test-budget.sh`:
-in a parallel `dev` run an always-run test must finish within 3 s and a `[slow]`
-one within 60 s, unless `tests/test-time-budget.txt` allows more with a reason.
-The suite's wall time is its longest test, and parallel load slows each test by
-up to 3x, so these budgets are tight on purpose. When writing a test:
-
-- Render at the lowest rate and length that exercise the behaviour. A rate
-  sweep covers the extremes (lowest internal rate, 48 kHz, highest internal
-  rate) unless the behaviour differs in between.
-- Size settling and windows from the physics: decay time constants or cutoff
-  periods with a stated margin, and whole periods for a coherent projection,
-  not round seconds.
-- Remove whatever delays the condition under test: a startup preset's LFO delay
-  and fade, Drift, or a Free LFO's processor clock in a voice-level test (use
-  Retrigger with a start phase).
-- Check that the test fails without the change (temporarily revert or patch the
-  code), and keep the margin between the two outcomes visible in the comment.
-- Put audition renders and measurement sweeps behind a hidden `[.]` tag, a
-  necessary long assertion behind `[slow]`, and run them in `dev-opt`.
-- For Release timing gates, screen with a 10 s run before the required 30 s runs,
-  and run them alone: parallel work invalidates timing.
+[Verification speed](VERIFICATION_SPEED.md) owns the verification tiers (T0
+focused, T1 `scripts/test-affected.sh`, T2 `scripts/test.sh --t2` with
+`scripts/lint-changed.sh` and `scripts/pluginval-dev.sh`, T3 the full Debug
+suite), the choice of build, test-time budgets and how to write cheap tests.
+Pick the tier there; this document's matrix decides what the evidence must cover.
 
 `zsh scripts/build-dev.sh` builds all nine supported development wrappers.
 `zsh scripts/build-au.sh [--release]` builds all three AUv2 components with the
@@ -226,6 +217,11 @@ behavior/evidence in its validation document, and interaction rules in UI/preset
 docs. Date evidence; do not promote session guesses or rewrite historical results.
 
 ## Pilot and Reassessment
+
+3 October 2026: coding standards, verification tiers, owner tags on every test,
+warnings as errors, ccache, precompiled test headers and the clang-tidy commit
+hook were introduced. Reassess the tier selection (missed failures caught only
+by T2 or T3) and the hook's cost on commits during the pilots below.
 
 Two real tasks remain to be selected and authorized: one Mono DSP change and
 one shared state/preset/UI change. Assess missed tests, incorrect commands,

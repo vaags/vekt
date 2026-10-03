@@ -38,7 +38,7 @@ grep -o '<testcase name="[^"]*"[^>]* time="[^"]*"' "$junit" \
 
 if (( failures > 0 )); then
 	print "\n$failures test(s) over budget. Render at the lowest rate and length that exercises the behaviour, tag a"
-	print "necessary long sweep [slow] or a measurement [.], or add a reasoned allowance (docs/DEVELOPMENT_WORKFLOW.md)."
+	print "necessary long sweep [slow] or a measurement [.], or add a reasoned allowance (docs/VERIFICATION_SPEED.md)."
 	exit 1
 fi
 print "Test time budget: PASS (always-run <= ${always_budget} s, slow <= ${slow_budget} s, plus allowances)"

@@ -73,13 +73,13 @@ RotaryControl::RotaryControl()
 	updateValueText();
 }
 
-void RotaryControl::setLabel(juce::String text)
+void RotaryControl::setLabel(const juce::String& text)
 {
 	setName(text);
 	valueLabel.setName(text + " value");
 	slider.setName(text);
 	slider.setTooltip(text);
-	label.setText(std::move(text), juce::dontSendNotification);
+	label.setText(text, juce::dontSendNotification);
 }
 
 void RotaryControl::setLayout(Size size, int width)

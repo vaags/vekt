@@ -116,14 +116,14 @@ void checkMeterBounds(juce::Component& content, int minimumWidth)
 }
 }
 
-TEST_CASE("Rav editor keeps its controls within the 16:10 canvas", "[processor][ui]")
+TEST_CASE("Rav editor keeps its controls within the 16:10 canvas", "[processor][ui][rav]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
 	vekt::rav::PluginProcessor processor;
 	vekt::rav::PluginEditor editor(processor);
 	REQUIRE(editor.getWidth() == 1120);
 	REQUIRE(editor.getHeight() == 700);
-	REQUIRE(editor.getConstrainer()->getFixedAspectRatio() == 1.6);
+	REQUIRE(juce::exactlyEqual(editor.getConstrainer()->getFixedAspectRatio(), 1.6));
 
 	for (const auto width : { 1120, 1680, 2240 })
 	{
@@ -225,7 +225,7 @@ TEST_CASE("Rav editor keeps its controls within the 16:10 canvas", "[processor][
 	}
 }
 
-TEST_CASE("Mono editor presents symmetric oscillator controls without overlap", "[processor][ui]")
+TEST_CASE("Mono editor presents symmetric oscillator controls without overlap", "[processor][ui][mono]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
 	vekt::mono::PluginProcessor processor;
@@ -340,7 +340,7 @@ TEST_CASE("Mono editor presents symmetric oscillator controls without overlap", 
 	}
 }
 
-TEST_CASE("Mono uses a secondary arc only for filter controls", "[processor][ui]")
+TEST_CASE("Mono uses a secondary arc only for filter controls", "[processor][ui][mono]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
 	vekt::mono::PluginProcessor processor;
@@ -757,7 +757,7 @@ TEST_CASE("Mono shows how many voices are sounding beside the voice count", "[mo
 	REQUIRE(processor.getSoundingVoiceDisplay() == 0);
 }
 
-TEST_CASE("Glimmer editor keeps stereo meters within its canvas", "[processor][ui]")
+TEST_CASE("Glimmer editor keeps stereo meters within its canvas", "[processor][ui][glimmer]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
 	vekt::glimmer::PluginProcessor processor;
@@ -877,7 +877,7 @@ TEST_CASE("Glimmer editor keeps stereo meters within its canvas", "[processor][u
 	}
 	REQUIRE(list != nullptr);
 	REQUIRE(load != nullptr);
-	REQUIRE(list->getModel()->getNumRows() == 6);
+	REQUIRE(list->getListBoxModel()->getNumRows() == 6);
 	list->selectRow(5);
 	load->onClick();
 	REQUIRE(preset.getButtonText() == "Slow Panorama");
@@ -1000,9 +1000,9 @@ TEST_CASE("Rotary numeric entry preserves precision and supports undo", "[ui]")
 	juce::ignoreUnused(processor.getParameters().copyState());
 	const auto original = cutoff->getSlider().getValue();
 	field->onTextChange();
-	REQUIRE(cutoff->getSlider().getValue() == original);
+	REQUIRE(juce::exactlyEqual(cutoff->getSlider().getValue(), original));
 	field->setText("invalid", juce::sendNotificationSync);
-	REQUIRE(cutoff->getSlider().getValue() == original);
+	REQUIRE(juce::exactlyEqual(cutoff->getSlider().getValue(), original));
 	REQUIRE(field->getTooltip().isNotEmpty());
 	field->setText("3 kHz", juce::sendNotificationSync);
 	REQUIRE(cutoff->getSlider().getValue() == 3000.0);
@@ -1010,7 +1010,7 @@ TEST_CASE("Rotary numeric entry preserves precision and supports undo", "[ui]")
 	// APVTS normally flushes parameter changes to its undoable tree on a timer.
 	juce::ignoreUnused(processor.getParameters().copyState());
 	REQUIRE(processor.getUndoManager().undo());
-	REQUIRE(cutoff->getSlider().getValue() == original);
+	REQUIRE(juce::exactlyEqual(cutoff->getSlider().getValue(), original));
 }
 
 TEST_CASE("Mono knobs show the range their LFO depths reach", "[mono][processor][ui][lfo][modulation]")

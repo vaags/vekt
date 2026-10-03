@@ -39,7 +39,8 @@ public:
 	const Levels& getDisplayedLevels() const noexcept { return displayedLevels; }
 	bool isPeaking(std::size_t channel) const noexcept
 	{
-		return lastPeaks[channel] && previousUpdate && *previousUpdate - *lastPeaks[channel] < peakHold;
+		const auto& lastPeak = lastPeaks[channel];
+		return lastPeak && previousUpdate && *previousUpdate - *lastPeak < peakHold;
 	}
 
 private:

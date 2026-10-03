@@ -481,11 +481,11 @@ public:
 			auto& baseMorph = baseMorphs[oscillator];
 			// Morph is cyclic: the ramp runs unwrapped and takes the short way round, so crossing the 4-to-0 wrap on
 			// the knob (e.g. 3.9 to 0.1) does not sweep back through saw and triangle.
-			if (!morphsInitialized) baseMorph.setCurrentAndTargetValue(settings.morph[oscillator]);
-			else if (const auto step = morphDistance(targetOf(baseMorph), settings.morph[oscillator]); std::abs(step) > 1.0e-6f)
+			const auto step = morphsInitialized ? morphDistance(targetOf(baseMorph), settings.morph[oscillator]) : 0.0f;
+			if (morphsInitialized && std::abs(step) > 1.0e-6f)
 				baseMorph.setTargetValue(targetOf(baseMorph) + step);
-			else if (!baseMorph.isSmoothing() && !juce::approximatelyEqual(targetOf(baseMorph), settings.morph[oscillator]))
-				baseMorph.setCurrentAndTargetValue(settings.morph[oscillator]); // re-anchor after turns round the cycle
+			else if (!morphsInitialized || (!baseMorph.isSmoothing() && !juce::approximatelyEqual(targetOf(baseMorph), settings.morph[oscillator])))
+				baseMorph.setCurrentAndTargetValue(settings.morph[oscillator]); // first sample, or re-anchor after turns round the cycle
 			morphs[oscillator] = wrapMorph(nextOf(baseMorph) + modulation.morph[oscillator]);
 			auto& baseWidth = baseWidths[oscillator];
 			if (!morphsInitialized) baseWidth.setCurrentAndTargetValue(settings.pulseWidth[oscillator]);

@@ -1,0 +1,17 @@
+# Lint hooks (docs/VERIFICATION_SPEED.md, docs/CODING_STANDARDS.md): clang-tidy on staged Vekt sources at every
+# commit, using the dev build's compile database; clang-format only on request (`pre-commit run --hook-stage manual
+# clang-format`), report-only, since existing files are not reformatted. Tool versions are pinned (LLVM 21, matching
+# Apple clang 21) through cpp-linter-hooks.
+repos:
+  - repo: https://github.com/cpp-linter/cpp-linter-hooks
+    rev: v1.6.1
+    hooks:
+      - id: clang-tidy
+        # The SDK's libc++ needs Apple clang's builtin headers: Xcode's clang 21 resource directory, matching the pin.
+        args: [--version=21, --compile-commands=build/dev, -j=8,
+               "--extra-arg=-resource-dir=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21"]
+        files: ^(framework|plugins)/.*\.(cpp|mm)$
+      - id: clang-format
+        args: [--version=21, --style=file, --dry-run]
+        files: ^(framework|plugins|tests|tools)/.*\.(cpp|h|mm)$
+        stages: [manual]

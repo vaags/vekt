@@ -14,7 +14,7 @@ TEST_CASE("Glimmer pickup geometry separates fixed delay from travel", "[glimmer
 			const auto near = RotaryEngine::pickupDelay(rate, distance, 0.18f, 1);
 			const auto far = RotaryEngine::pickupDelay(rate, distance, 0.18f, -1);
 			REQUIRE(near > 0);
-			REQUIRE(far < RotaryEngine::capacitySamples(rate));
+			REQUIRE(far < static_cast<float>(RotaryEngine::capacitySamples(rate)));
 			REQUIRE(far - near == Catch::Approx(0.36 * rate / 343.0).margin(0.001));
 		}
 }

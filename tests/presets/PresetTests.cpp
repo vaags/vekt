@@ -228,7 +228,7 @@ TEST_CASE("Desktop user preset paths are product-specific", "[presets]")
 	}
 }
 
-TEST_CASE("Rav user preset services do not change its host program bank", "[presets]")
+TEST_CASE("Rav user preset services do not change its host program bank", "[presets][rav]")
 {
 	ScopedTemporaryDirectory directory;
 	vekt::rav::PluginProcessor processor;
@@ -316,7 +316,7 @@ TEST_CASE("Embedded Rav factory presets use the public preset schema", "[presets
 	}
 }
 
-TEST_CASE("Rav factory library groups instrument presets with useful tags", "[presets]")
+TEST_CASE("Rav factory library groups instrument presets with useful tags", "[presets][rav]")
 {
 	vekt::rav::PluginProcessor processor;
 	const auto& entries = processor.getPresetSession().library().entries();
@@ -391,7 +391,7 @@ TEST_CASE("Rav factory library groups instrument presets with useful tags", "[pr
 	REQUIRE(stageOrders.contains("4,2,1,0,3"));
 }
 
-TEST_CASE("Rav exposes factory presets through its host program API", "[presets]")
+TEST_CASE("Rav exposes factory presets through its host program API", "[presets][rav]")
 {
 	vekt::rav::PluginProcessor processor;
 
@@ -420,7 +420,7 @@ TEST_CASE("Rav exposes factory presets through its host program API", "[presets]
 	REQUIRE(processor.getCurrentProgram() == 18);
 }
 
-TEST_CASE("Rav restores its current factory program identity", "[presets]")
+TEST_CASE("Rav restores its current factory program identity", "[presets][rav]")
 {
 	vekt::rav::PluginProcessor source;
 	source.setCurrentProgram(1);

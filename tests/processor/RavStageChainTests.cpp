@@ -2,7 +2,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-TEST_CASE("RavStageChain accepts unique mode orders", "[processor][chain]")
+TEST_CASE("RavStageChain accepts unique mode orders", "[processor][chain][rav]")
 {
 	vekt::rav::RavStageChain chain;
 	vekt::rav::RavStageChain::Order order {
@@ -13,7 +13,7 @@ TEST_CASE("RavStageChain accepts unique mode orders", "[processor][chain]")
 	REQUIRE(chain.getOrder() == order);
 }
 
-TEST_CASE("RavStageChain rejects duplicate mode orders", "[processor][chain]")
+TEST_CASE("RavStageChain rejects duplicate mode orders", "[processor][chain][rav]")
 {
 	vekt::rav::RavStageChain chain;
 	const auto original = chain.getOrder();
@@ -23,7 +23,7 @@ TEST_CASE("RavStageChain rejects duplicate mode orders", "[processor][chain]")
 	REQUIRE(chain.getOrder() == original);
 }
 
-TEST_CASE("RavStageChain serializes and restores order metadata", "[processor][chain]")
+TEST_CASE("RavStageChain serializes and restores order metadata", "[processor][chain][rav]")
 {
 	vekt::rav::RavStageChain chain;
 	vekt::rav::RavStageChain::Order custom {
