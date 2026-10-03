@@ -37,8 +37,11 @@ approved scope, existing architecture, and approval boundaries throughout the ta
    gates: at least T1 (`scripts/test-affected.sh`) before reporting, and T2
    (`scripts/test.sh --t2`, `scripts/lint-changed.sh`, and
    `scripts/pluginval-dev.sh` when wrappers, parameters, state or processing
-   changed) at the end of a plan step or before review. Do not require a full
-   suite after every edit or omit affected shared, compatibility, or slow cases. A focused check can be executed
+   changed) at the end of a plan step or before review. A change in several steps
+   or commits gets T0 per step and one milestone gate at the end; run only the
+   highest tier needed, and never build and test at the same time. Do not
+   require a full suite after every edit or omit affected shared, compatibility,
+   or slow cases. A focused check can be executed
    directly before invoking the skill; do not repeat completed checks unless
    code changes or an explicit gate require it.
 6. For substantial DSP, state, compatibility, or shared-framework changes,

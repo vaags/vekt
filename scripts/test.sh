@@ -33,12 +33,19 @@ if (( milestone )); then
 		cmake --preset "$preset" > /dev/null
 		cmake --build --preset "$preset" --target vekt_dsp_tests
 	done
+	# Both parts always run, so one part's failure or budget overrun does not hide the other's results.
+	failed=()
 	junit="$PWD/build/dev/Testing/junit.xml"
-	ctest --preset dev-quick --parallel "$jobs" --output-junit "$junit"
-	scripts/check-test-budget.sh build/dev "$junit"
+	ctest --preset dev-quick --parallel "$jobs" --output-junit "$junit" || failed+=("Debug tests")
+	scripts/check-test-budget.sh build/dev "$junit" || failed+=("Debug budgets")
 	junit="$PWD/build/dev-opt/Testing/junit-slow.xml"
-	ctest --preset dev-opt -L '^slow$' --parallel "$jobs" --output-junit "$junit" --no-tests=error
-	scripts/check-test-budget.sh build/dev-opt "$junit"
+	ctest --preset dev-opt -L '^slow$' --parallel "$jobs" --output-junit "$junit" --no-tests=error || failed+=("slow tests")
+	scripts/check-test-budget.sh build/dev-opt "$junit" || failed+=("slow budgets")
+	if (( ${#failed} > 0 )); then
+		print -u2 "\nT2 FAILED: ${(j:, :)failed}"
+		exit 1
+	fi
+	print "\nT2 PASSED"
 	exit 0
 fi
 

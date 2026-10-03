@@ -32,7 +32,17 @@ replaces a required check: a skipped gate is reported as `SKIP` with its reason.
   `vekt_dsp_tests "[compat]"` would otherwise run the capture cases and rewrite the fixtures. The tag policy enforces
   this. Run hidden cases by their own tag or name only.
 - **T2** runs the Debug suite without `[slow]` (assertions on, reference renders included), then the `[slow]` tests
-  in `dev-opt`. Assertions inside slow tests therefore run only in T3.
+  in `dev-opt`. Assertions inside slow tests therefore run only in T3. Both parts always run; the summary line names
+  every part that failed (tests or budgets), so one failure does not hide the other part's results.
+- **A change in several steps or commits** (a rename, a refactor in stages) is verified per step with T0 only: build
+  the test binary (wrappers only if a step touches them) and run the step's affected labels. The milestone gate runs
+  once, at the end: T2, `scripts/render-diff.sh` in `dev-opt` when the sound must not change, `scripts/lint-changed.sh`,
+  `scripts/pluginval-dev.sh` when wrappers, parameters, state or processing changed, and the reviewer. Measured on the
+  Kobber rename (3 October 2026): near-full gates after each of five steps cost about 40 minutes; T0 per step and one
+  gate would have cost about 10 to 12.
+- **Tiers include each other:** T3 covers T2, and T2 covers T1, so run only the highest one a change needs. Run
+  render-diff in `dev` as well only when numeric code changes (it adds nothing to a rename or a move). Do not build
+  and test at the same time, or while another session runs tests: the load slows tests past their budgets.
 - A change may need more than its tier: listening, visual checks, host checks and Release performance gates are not
   replaced by any tier.
 
@@ -105,9 +115,15 @@ cheaper. Make tests cheap at the source:
 `scripts/test.sh` writes a JUnit report and runs `scripts/check-test-budget.sh`: in a parallel `dev` run an always-run
 test must finish within 3 s and a `[slow]` one within 60 s, unless `tests/test-time-budget.txt` allows more with a
 reason. Parallel load slows each test by up to 3x, so these budgets are tight on purpose. T2 checks the `[slow]` tests
-against the same budget in `dev-opt`, where they run faster. An overrun of a second or so on tests near their limit,
-with every test passing, can be load: rerun once before acting, and report it (3 October 2026: one T2 run flagged five
-tests by up to 1.4 s; the rerun passed). A repeated overrun is a real one.
+against the same budget in `dev-opt`, where they run faster.
+
+Load from other builds, tests or sessions can push any test over its budget, so the check re-times each over-budget
+test alone before failing (`ctest -R` on its exact name). It fails only if the test, alone, still takes more than two
+thirds of its budget, the headroom a parallel run needs; otherwise it reports "over budget under load, not alone" and
+passes. A failure is therefore a test that is too slow, not noise: make it cheaper or give it a reasoned allowance.
+(3 October 2026, the first runs: "Kobber linear SVF stays exact at the lowest cutoff and highest effective rate" and
+"Kobber high-pass ladder is the low-pass ladder's mirror at small signals" take 2.1 and 2.3 s alone in Debug, over the
+2 s an always-run test may take alone.)
 
 For Release timing gates, screen with a 10 s run before the required 30 s runs, and run them alone: parallel work
 invalidates timing.
