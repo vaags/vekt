@@ -60,6 +60,7 @@ add_executable(vekt_dsp_tests
 	ui/QualitySettingsTests.cpp
 	compat/StateFixtureTests.cpp
 	compat/ReferenceRenderTests.cpp
+	compat/RenderCorpusTests.cpp
 	compat/ParameterManifestTests.cpp
 	plugin_support/PluginSupportTests.cpp
 	flint/AllocationCounter.cpp

@@ -36,6 +36,26 @@ replaces a required check: a skipped gate is reported as `SKIP` with its reason.
 - A change may need more than its tier: listening, visual checks, host checks and Release performance gates are not
   replaced by any tier.
 
+## Proving the sound did not change
+
+A change that must not alter the sound (a refactor, a type or structure change, a move between files) is proven with
+`scripts/render-diff.sh <base>`: it renders the corpus (`tests/compat/RenderCorpusTests.cpp`, 42 cases across Rav,
+Glimmer and Mono, including polyphony, voice stealing, note priority, held-key return, the sustain pedal, MIDI
+controllers, a parameter change mid-phrase, Multicore, odd block sizes and offline rendering) with the base revision and
+with the working tree, and compares every case byte for byte. "42 of 42 cases identical" is the evidence; anything else
+lists each differing case with its worst difference in dBFS. The corpus itself fails unless every case is
+deterministic, audible and distinct from the others (or declares the case it must equal). The reference renders
+cannot prove this: they allow differences up to about -94 dBFS.
+
+- The base builds in a worktree cached under `build/render-diff/<commit>`: the first run is a cold build (about
+  80 s in `dev-opt`, 2 min in `dev`), later runs about 17 s (3 October 2026). `--clean` deletes the cached worktrees
+  and their builds.
+- Both sides use the same build: `dev-opt` by default, `--preset dev` for Debug. Run both before relying on "no
+  change" for a change that could round differently with or without optimisation.
+- The base always renders this tree's corpus: it is copied into a base that lacks it or has another version, so any
+  revision whose processors take the same parameter IDs can be compared. Add a case to the corpus when a behaviour it does not reach is being refactored;
+  keep cases deterministic and distinct (Mono's startup sound is unison 2x, Mono Legato: set what differs).
+
 ## Which build
 
 | Preset | Configuration | Use for |

@@ -46,6 +46,9 @@ The tolerance is a peak error of 2e-5 (about -94 dBFS). A failing case writes it
 (`dev`) build: optimised builds round differently, and Rav's nonlinear chains amplify that to about
 -57 dBFS at 16x FIR oversampling (2 October 2026), so `dev-opt` does not run them.
 
+- To prove that a change does *not* alter the sound, compare against the previous revision byte for byte with
+  `scripts/render-diff.sh <base>` (a larger corpus, rendered by both builds and never stored), rather than relying
+  on the tolerance here.
 - A deliberate sound change is accepted by recapturing with
   `build/dev/tests/vekt_dsp_tests "[.capture-references]"` and reviewing the WAV diff. Capture
   rejects cases that are not deterministic, are silent, or render identically to another case.

@@ -1,3 +1,13 @@
+# Mono reference renders recaptured (3 October 2026)
+
+The Mono reference renders (`tests/fixtures/audio/mono`) had drifted from the current build by -120.1 to -134.3 dBFS
+peak, inside the 2e-5 (about -94 dBFS) tolerance: earlier 3 October changes (per-sample state in double, the double pink
+filter) were kept within tolerance and not recaptured. They were recaptured from the Debug (`dev`) build, after
+`scripts/render-diff.sh` showed the build byte-identical to 1769c8f: k35 -122.9, ladder-4x -123.7, ladder-8x -122.6,
+ladder-resonant-2x -133.5, ladder -120.1, legato-glide -120.1, offline-default-resonant -134.3, svf-bandpass -121.4,
+unison-noise-lfo -123.9 dBFS old against new. Rav and Glimmer references came out byte-unchanged. Two cases were added:
+`low-priority` (Mono mode, low-note priority) and `osc-ranges` (oscillators 2 and 3 at 16' and 1').
+
 # Mono noise matches 1x at every quality (3 October 2026)
 
 ADR 0010 step 10. Noise is drawn at the host rate and held for each internal sample (a hold restarts with each new note

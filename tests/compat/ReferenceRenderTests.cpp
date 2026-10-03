@@ -82,6 +82,11 @@ const std::vector<RenderCase>& renderCases()
 			{ "mono", "unison-noise-lfo", { { mono::unison, 2.0f }, { mono::noiseType, 2.0f }, { mono::noiseLevel, 30.0f },
 				{ mono::lfos[0].rate, 6.0f }, { mono::lfos[0].pitch[0], 2.0f } } },
 			{ "mono", "legato-glide", { { mono::performanceMode, 2.0f }, { mono::glideMode, 1.0f }, { mono::glideTime, 0.05f } } },
+			// Mono, low-note priority: the higher second note waits until the first is released (held-key return).
+			{ "mono", "low-priority", { { mono::performanceMode, 1.0f }, { mono::notePriority, 1.0f } } },
+			// Oscillators 2 and 3 sounding at 16' and 1'.
+			{ "mono", "osc-ranges", { { mono::osc2Range, 0.0f }, { mono::osc2Level, 60.0f }, { mono::osc3Range, 4.0f },
+				{ mono::osc3Level, 40.0f } } },
 		};
 		for (auto&& extra : oversamplingCases("rav", "trackingOversampling", 2)) all.push_back(extra);
 		for (auto&& extra : oversamplingCases("glimmer", glimmer::trackingOversampling, 2)) all.push_back(extra);
