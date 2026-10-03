@@ -75,14 +75,15 @@ public:
 	[[nodiscard]] const dsp::ScopeTap& getOutputScope() const noexcept { return outputScope; }
 	[[nodiscard]] juce::AudioProcessorValueTreeState& getParameters() noexcept;
 	[[nodiscard]] juce::UndoManager& getUndoManager() noexcept;
-	[[nodiscard]] juce::ValueTree& getProjectMetadata() noexcept;
+	// A copy of the project metadata, and a locked write to it (the host may save or restore meanwhile).
+	[[nodiscard]] juce::ValueTree getProjectMetadata() const;
+	void setProjectMetadataValue(const juce::Identifier& name, const juce::var& value);
 	[[nodiscard]] RavStageChain::Order getStageOrder() const noexcept;
-	[[nodiscard]] bool reorderStage(std::size_t index, int delta) noexcept;
+	[[nodiscard]] bool reorderStage(std::size_t index, int delta);
 	[[nodiscard]] dsp::OversamplingQuality getActiveQuality() const noexcept;
 	[[nodiscard]] bool hasPendingQualityChange() const noexcept;
 
 private:
-	static void assertMessageThread();
 	void processPreparedBlocks(
 		juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi, bool bypassed);
 	void processBypassedBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi);
@@ -121,7 +122,11 @@ private:
 	dsp::LatencyAlignedBypass<float> bypassDelay;
 	dsp::LatencyAlignedMixer<float> dryWetMixer;
 	dsp::MatchedToneStage<float> toneStage;
+	// Changed only under the state lock; the audio thread reads stageOrderSnapshot instead.
 	RavStageChain stageChain;
+	std::atomic<std::uint32_t> stageOrderSnapshot { RavStageChain::pack(RavStageChain {}.getOrder()) };
+	static_assert(std::atomic<std::uint32_t>::is_always_lock_free);
+	void publishStageOrder() noexcept;
 	std::array<std::array<std::array<RavModeStage, RavStageChain::stageCount>, 2>, 3> bandStages;
 	dsp::ThreeBandCrossover<float> crossover;
 	std::array<juce::AudioBuffer<float>, 3> bandBuffers;

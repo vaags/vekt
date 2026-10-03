@@ -315,10 +315,15 @@ juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 {
 	if (const auto result = validatePresetSound(preset); result.failed())
 		return result;
-	juce::ignoreUnused(parameterState.copyState());
-	undoManager.beginNewTransaction("Load preset: " + preset.name);
+	auto* const undo = plugin_support::editorUndo(undoManager);
+	if (undo != nullptr)
+	{
+		// Flushes pending parameter values into the history first, so undo returns to them.
+		juce::ignoreUnused(parameterState.copyState());
+		undo->beginNewTransaction("Load preset: " + preset.name);
+	}
 	const auto result = presets::PresetSchema::apply(preset,
-		parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds, &undoManager);
+		parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds, undo);
 	if (result.wasOk())
 		presetHost.session().clear();
 	return result;

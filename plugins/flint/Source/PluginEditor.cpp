@@ -431,8 +431,10 @@ void PluginEditor::refreshDetails()
 void PluginEditor::refreshPresetLabel()
 {
 	auto& session = pluginProcessor.getPresetSession();
-	const auto available = !session.library().entries().empty();
-	presetNavigation.setPreset(session.loaded() ? session.loaded()->name : "Untitled", session.modified(), available);
+	const auto available = session.withLibrary([](const presets::PresetCatalog& library) { return !library.entries().empty(); });
+	// One copy: a host restore on another thread may clear the selection between two reads.
+	const auto loaded = session.loaded();
+	presetNavigation.setPreset(loaded ? loaded->name : "Untitled", session.modified(), available);
 }
 
 void PluginEditor::timerCallback()

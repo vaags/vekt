@@ -520,8 +520,9 @@ juce::Result PluginProcessor::validatePresetSound(const presets::Preset& preset)
 juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 {
 	if (const auto result = validatePresetSound(preset); result.failed()) return result;
-	undoManager.beginNewTransaction("Load preset: " + preset.name);
-	const auto result = presets::PresetSchema::apply(preset, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds, &undoManager);
+	auto* const undo = plugin_support::editorUndo(undoManager);
+	if (undo != nullptr) undo->beginNewTransaction("Load preset: " + preset.name);
+	const auto result = presets::PresetSchema::apply(preset, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds, undo);
 	if (result.wasOk()) pendingPresetReset.store(true);
 	return result;
 }

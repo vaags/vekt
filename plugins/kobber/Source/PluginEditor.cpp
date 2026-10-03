@@ -487,8 +487,10 @@ void PluginEditor::timerCallback()
 void PluginEditor::refreshPresetLabel()
 {
 	auto& session = pluginProcessor.getPresetSession();
-	presetNavigation.setPreset(session.loaded() ? session.loaded()->name : "Untitled", session.modified(),
-		!session.library().entries().empty());
+	// One copy: a host restore on another thread may clear the selection between two reads.
+	const auto loaded = session.loaded();
+	presetNavigation.setPreset(loaded ? loaded->name : "Untitled", session.modified(),
+		session.withLibrary([](const presets::PresetCatalog& library) { return !library.entries().empty(); }));
 }
 void PluginEditor::paint(juce::Graphics& graphics) { graphics.fillAll(juce::Colour::fromRGB(20, 24, 28)); }
 void PluginEditor::resized()

@@ -6,6 +6,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 
 namespace vekt::rav
 {
@@ -24,6 +25,23 @@ public:
 	}
 
 	[[nodiscard]] const Order& getOrder() const noexcept { return order; }
+
+	// An order as one integer, three bits per stage, so the audio thread can read it from an atomic without a lock.
+	static_assert(ravModeCount <= 8 && stageCount * 3 <= 32, "each stage needs three bits of the packed order");
+	[[nodiscard]] static constexpr std::uint32_t pack(const Order& source) noexcept
+	{
+		std::uint32_t packed {};
+		for (std::size_t position = 0; position < stageCount; ++position)
+			packed |= static_cast<std::uint32_t>(source[position]) << (3 * position);
+		return packed;
+	}
+	[[nodiscard]] static constexpr Order unpack(std::uint32_t packed) noexcept
+	{
+		Order result {};
+		for (std::size_t position = 0; position < stageCount; ++position)
+			result[position] = static_cast<RavMode>((packed >> (3 * position)) & 7u);
+		return result;
+	}
 
 	[[nodiscard]] static juce::String serialise(Order source)
 	{
@@ -101,4 +119,9 @@ public:
 private:
 	Order order;
 };
+
+inline constexpr RavStageChain::Order packCheckOrder { RavMode::gatedFuzz, RavMode::saturation, RavMode::circuitFuzz,
+	RavMode::distortion, RavMode::overdrive };
+static_assert(RavStageChain::unpack(RavStageChain::pack(packCheckOrder)) == packCheckOrder,
+	"a packed stage order unpacks to the same order");
 }

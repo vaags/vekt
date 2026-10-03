@@ -4,6 +4,9 @@
 #include <vekt/presets/PresetDocument.h>
 #include <vekt/presets/PresetJsonCodec.h>
 #include <functional>
+#include <mutex>
+#include <optional>
+#include <type_traits>
 
 namespace vekt::presets
 {
@@ -14,8 +17,9 @@ struct PresetProduct final
 	int soundSchemaVersion { 1 };
 };
 
-// All callbacks run on the message thread. validate/migrate must not mutate
-// live sound; apply must be all-or-nothing and create one undo transaction.
+// Callbacks run under the session lock, on whichever thread called: the message thread for the editor, any thread for
+// a host program change. validate/migrate must not mutate live sound; apply must be all-or-nothing, and creates one
+// undo transaction only on the message thread (plugin_support::editorUndo).
 struct PresetSoundAdapter final
 {
 	std::function<Preset(const juce::String&)> capture;
@@ -36,6 +40,7 @@ public:
 
 	[[nodiscard]] juce::Result prepare(Preset& preset) const
 	{
+		const auto locked = lock();
 		if (const auto result = PresetDocument::validate(preset); result.failed()) return result;
 		if (preset.productIdentifier != product.identifier)
 			return juce::Result::fail("Preset belongs to a different product");
@@ -56,6 +61,7 @@ public:
 
 	[[nodiscard]] juce::Result load(const juce::String& id, PresetOrigin origin)
 	{
+		const auto locked = lock();
 		const auto index = catalog.findById(id, origin);
 		if (!index) return juce::Result::fail("Preset is no longer available");
 		Preset preset;
@@ -72,6 +78,7 @@ public:
 	[[nodiscard]] juce::Result save(const juce::String& name, const juce::String& folder,
 		const juce::StringArray& tags, PresetSaveMode mode = PresetSaveMode::createOnly)
 	{
+		const auto locked = lock();
 		if (!adapter.capture) return juce::Result::fail("Sound capture is unavailable");
 		auto preset = adapter.capture(name);
 		preset.folder = folder;
@@ -98,18 +105,29 @@ public:
 
 	void adopt(const Preset& preset, PresetOrigin origin)
 	{
+		const auto locked = lock();
 		snapshot = preset;
 		loadedOrigin = origin;
 		if (onSelectionChanged) onSelectionChanged();
 	}
-	void clear() { snapshot.reset(); if (onSelectionChanged) onSelectionChanged(); }
+	void clear()
+	{
+		const auto locked = lock();
+		snapshot.reset();
+		if (onSelectionChanged) onSelectionChanged();
+	}
 	std::function<void()> onSelectionChanged;
-	[[nodiscard]] PresetOrigin origin() const noexcept { return loadedOrigin; }
+	[[nodiscard]] PresetOrigin origin() const
+	{
+		const auto locked = lock();
+		return loadedOrigin;
+	}
 	// Project metadata stores the comparison baseline, never substitutes for the
 	// project's live sound. Restoring does not read files or apply parameters.
 	// A JSON value, { "origin": "factory" | "user", "preset": <the preset document> }, or void with no selection.
 	[[nodiscard]] juce::var selectionState() const
 	{
+		const auto locked = lock();
 		if (!snapshot) return {};
 		juce::String json;
 		if (PresetJsonCodec::encode(*snapshot, json).failed()) return {};
@@ -120,6 +138,7 @@ public:
 	}
 	[[nodiscard]] juce::Result restoreSelection(const juce::var& state)
 	{
+		const auto locked = lock();
 		if (state.isVoid()) { clear(); return juce::Result::ok(); }
 		const auto originName = state.getProperty("origin", {}).toString();
 		if ((originName != "factory" && originName != "user") || !state.getProperty("preset", {}).isObject())
@@ -132,6 +151,7 @@ public:
 	}
 	[[nodiscard]] juce::Result updateTags(const juce::String& id, const juce::StringArray& tags)
 	{
+		const auto locked = lock();
 		const auto index = catalog.findById(id, PresetOrigin::user);
 		if (!index) return juce::Result::fail("Select a user preset to edit its tags");
 		Preset preset;
@@ -144,6 +164,7 @@ public:
 	// Deletes a user preset. Deleting the selected one keeps the current sound but clears the selection (PRESET_UX).
 	[[nodiscard]] juce::Result removeUserPreset(const PresetEntry& entry)
 	{
+		const auto locked = lock();
 		if (entry.origin != PresetOrigin::user) return juce::Result::fail("Select a user preset to delete");
 		const auto identifier = entry.identifier; // removing refreshes the catalog, which may own `entry`
 		const auto result = catalog.removeUserPreset(entry.location);
@@ -153,6 +174,7 @@ public:
 	}
 	[[nodiscard]] juce::Result importFile(const juce::File& file, const juce::String& folder)
 	{
+		const auto locked = lock();
 		if (!file.existsAsFile() || file.getSize() > 4 * 1024 * 1024)
 			return juce::Result::fail("Select a preset file smaller than 4 MB");
 		Preset preset;
@@ -164,6 +186,7 @@ public:
 	}
 	[[nodiscard]] juce::Result exportFile(const juce::String& id, PresetOrigin origin, const juce::File& file)
 	{
+		const auto locked = lock();
 		const auto index = catalog.findById(id, origin);
 		if (!index) return juce::Result::fail("Preset is no longer available");
 		Preset preset;
@@ -175,12 +198,37 @@ public:
 			return juce::Result::fail("Could not export preset");
 		return juce::Result::ok();
 	}
-	[[nodiscard]] bool modified() const { return snapshot && adapter.matches && !adapter.matches(*snapshot); }
-	[[nodiscard]] const std::optional<Preset>& loaded() const noexcept { return snapshot; }
+	[[nodiscard]] bool modified() const
+	{
+		const auto locked = lock();
+		return snapshot && adapter.matches && !adapter.matches(*snapshot);
+	}
+	// A copy: another thread may change the selection once the lock is released.
+	[[nodiscard]] std::optional<Preset> loaded() const
+	{
+		const auto locked = lock();
+		return snapshot;
+	}
 	[[nodiscard]] std::optional<std::size_t> currentIndex() const
-	{ return snapshot ? catalog.findById(snapshot->identifier, loadedOrigin) : std::nullopt; }
+	{
+		const auto locked = lock();
+		return snapshot ? catalog.findById(snapshot->identifier, loadedOrigin) : std::nullopt;
+	}
+	// Runs function(catalog) under the session lock, for the editor's preset list and folders while a host restores or
+	// switches programs on another thread. It returns a value, never a reference into the catalog.
+	template <typename Function>
+	auto withLibrary(Function&& function)
+	{
+		static_assert(!std::is_reference_v<std::invoke_result_t<Function, PresetCatalog&>>);
+		const auto locked = lock();
+		return function(catalog);
+	}
+	// Unlocked: for setting up the catalog before a host can call, and for single-threaded tests.
 	[[nodiscard]] PresetCatalog& library() noexcept { return catalog; }
 	[[nodiscard]] const PresetProduct& descriptor() const noexcept { return product; }
+	// Serialises every method above with the owner's other state access (plugin_support::PresetHost), so a host can save,
+	// restore and switch programs from any thread while the editor uses the session. Unset, the session is unlocked.
+	void useLock(std::recursive_mutex& mutex) noexcept { guard = &mutex; }
 
 private:
 	PresetCatalog& catalog;
@@ -188,5 +236,11 @@ private:
 	PresetSoundAdapter adapter;
 	std::optional<Preset> snapshot;
 	PresetOrigin loadedOrigin {};
+	std::recursive_mutex* guard {};
+
+	[[nodiscard]] std::unique_lock<std::recursive_mutex> lock() const
+	{
+		return guard != nullptr ? std::unique_lock(*guard) : std::unique_lock<std::recursive_mutex> {};
+	}
 };
 }

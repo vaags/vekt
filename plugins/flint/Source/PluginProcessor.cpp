@@ -335,9 +335,11 @@ void PluginProcessor::getStateInformation(juce::MemoryBlock& destination) { pres
 
 void PluginProcessor::setStateInformation(const void* data, int size)
 {
+	// Hosts may call this from any thread: restore and the seed read stay together under the state lock.
+	const auto locked = presetHost.lockState();
 	if (!presetHost.restore(data, size)) return;
 	// A project saved with a seed keeps it; one without keeps this instance's.
-	const auto stored = presetHost.metadata()[seedProperty].toString();
+	const auto stored = presetHost.metadataValue(seedProperty).toString();
 	if (stored.isNotEmpty())
 		seed.store(static_cast<std::uint64_t>(stored.getHexValue64()));
 	else
@@ -347,8 +349,7 @@ void PluginProcessor::setStateInformation(const void* data, int size)
 void PluginProcessor::storeSeed(std::uint64_t value)
 {
 	seed.store(value);
-	presetHost.metadata().setProperty(
-	    seedProperty, juce::String::toHexString(static_cast<juce::int64>(value)), nullptr);
+	presetHost.setMetadataValue(seedProperty, juce::String::toHexString(static_cast<juce::int64>(value)));
 }
 
 void PluginProcessor::newSeed() { storeSeed(randomSeed()); }
@@ -384,12 +385,17 @@ presets::Preset PluginProcessor::createPreset(const juce::String& name) const
 juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 {
 	if (const auto result = validatePresetSound(preset); result.failed()) return result;
-	juce::ignoreUnused(parameterState.copyState());
-	undoManager.beginNewTransaction("Load preset: " + preset.name);
+	auto* const undo = plugin_support::editorUndo(undoManager);
+	if (undo != nullptr)
+	{
+		// Flushes pending parameter values into the history first, so undo returns to them.
+		juce::ignoreUnused(parameterState.copyState());
+		undo->beginNewTransaction("Load preset: " + preset.name);
+	}
 	// The engine host holds its selection until every parameter is in place, then starts clean.
 	presetLoading.store(true);
 	const auto result = presets::PresetSchema::apply(
-	    preset, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds, &undoManager);
+	    preset, parameters::presetProductIdentifier, parameterState, parameters::soundParameterIds, undo);
 	presetLoading.store(false);
 	presetLoaded.store(true);
 	if (result.wasOk()) presetHost.session().clear();

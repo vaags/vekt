@@ -40,7 +40,24 @@ hard ownership boundary. A generic runtime effect graph is outside version 1.
 - `PresetHost` owns the preset catalog (factory presets plus the user folder),
   the `PresetSession`, project state through `StateManager`, the host program
   API and previous/next navigation. Products supply their preset descriptor,
-  sound adapter and extra metadata (Rav's stage order).
+  sound adapter and extra metadata (Rav's stage order). Hosts call state
+  save/restore and the program API from any thread, concurrently (AU hosts
+  and auval's stress test do), so a per-processor recursive mutex in
+  `PresetHost`, shared with its `PresetSession`, serialises them; metadata is
+  reached only through its locked accessors, and a processor that touches
+  its own state beside `PresetHost` holds `lockState()`. The editor reaches
+  the preset catalog through `PresetSession::withLibrary`; the unlocked
+  `library()` is for setup and single-threaded tests. Preset application
+  runs under the lock on the calling thread, and records undo only on the
+  message thread (`editorUndo`): the history is the editor's. One race
+  remains in JUCE: its parameter state flushes values into the undo history
+  and clears it on whichever thread saves or restores, unsynchronised with
+  the editor's undo and redo. The lock is taken before the parameter
+  state's own; the audio thread never takes it. What
+  the audio thread needs from the state is published lock-free: Rav packs
+  its stage order into an atomic snapshot that each block reads once.
+  `tests/compat/StateConcurrencyTests.cpp` races these calls per product;
+  run it in a ThreadSanitizer build to see races that do not crash.
 - `QualitySelection` creates the shared Tracking and Offline oversampling
   parameters, turns them into the quality the audio thread activates at the
   next block, and publishes the active quality for the editor (all three

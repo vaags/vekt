@@ -77,7 +77,7 @@ TEST_CASE("Preset documents apply only sound parameters", "[presets]")
 	vekt::rav::PluginProcessor restored;
 	setParameter(restored, vekt::rav::parameters::bypass, 1.0f);
     setParameter(restored, vekt::rav::parameters::trackingOversampling, 1.0f);
-    restored.getProjectMetadata().setProperty("editorWidth", 900, nullptr);
+    restored.setProjectMetadataValue("editorWidth", 900);
 	const auto result = restored.applyPreset(preset);
 
 	REQUIRE(result.wasOk());

@@ -145,8 +145,8 @@ TEST_CASE("Preset hosts restore the selection and drop the legacy factory key", 
 	TestProcessor source;
 	source.setCurrentProgram(1);
 	source.setValue("gain", 0.5f);
-	source.presets.metadata().setProperty(vekt::plugin_support::PresetHost::legacyFactoryPresetProperty, "First", nullptr);
-	source.presets.metadata().setProperty("editorWidth", 900, nullptr);
+	source.presets.setMetadataValue(vekt::plugin_support::PresetHost::legacyFactoryPresetProperty, "First");
+	source.presets.setMetadataValue("editorWidth", 900);
 	juce::MemoryBlock state;
 	source.getStateInformation(state);
 	REQUIRE(text(state).find("currentFactoryPreset") != std::string::npos); // saved as an older project would be
@@ -156,8 +156,8 @@ TEST_CASE("Preset hosts restore the selection and drop the legacy factory key", 
 	REQUIRE(restored.getCurrentProgram() == 1);
 	REQUIRE(restored.presets.session().modified());
 	REQUIRE(restored.value("gain") == Catch::Approx(0.5f));
-	REQUIRE(static_cast<int>(restored.presets.metadata().getProperty("editorWidth")) == 900);
-	REQUIRE_FALSE(restored.presets.metadata().hasProperty(vekt::plugin_support::PresetHost::legacyFactoryPresetProperty));
+	REQUIRE(static_cast<int>(restored.presets.metadataValue("editorWidth")) == 900);
+	REQUIRE_FALSE(restored.presets.metadataCopy().hasProperty(vekt::plugin_support::PresetHost::legacyFactoryPresetProperty));
 	juce::MemoryBlock resaved;
 	restored.getStateInformation(resaved);
 	REQUIRE(text(resaved).find("currentFactoryPreset") == std::string::npos);
@@ -175,20 +175,20 @@ TEST_CASE("Preset hosts ignore the legacy factory key when a project has no sele
 	REQUIRE_FALSE(processor.presets.session().loaded().has_value());
 	REQUIRE(processor.getCurrentProgram() == 0);
 	REQUIRE(processor.value("gain") == Catch::Approx(0.75f));
-	REQUIRE_FALSE(processor.presets.metadata().hasProperty(vekt::plugin_support::PresetHost::legacyFactoryPresetProperty));
+	REQUIRE_FALSE(processor.presets.metadataCopy().hasProperty(vekt::plugin_support::PresetHost::legacyFactoryPresetProperty));
 }
 
 TEST_CASE("Preset hosts leave everything unchanged when a project cannot be restored", "[plugin-support][presets][state]")
 {
 	TestProcessor processor;
 	processor.setCurrentProgram(1);
-	processor.presets.metadata().setProperty("editorWidth", 900, nullptr);
+	processor.presets.setMetadataValue("editorWidth", 900);
 	const std::string foreign = R"({"format":"vekt.project","product":"other","schemaVersion":1,"parameters":{}})";
 	REQUIRE_FALSE(processor.presets.restore(foreign.data(), static_cast<int>(foreign.size())));
 	REQUIRE_FALSE(processor.presets.restore(nullptr, 0));
 	REQUIRE(processor.getCurrentProgram() == 1);
 	REQUIRE(processor.value("gain") == Catch::Approx(0.75f));
-	REQUIRE(static_cast<int>(processor.presets.metadata().getProperty("editorWidth")) == 900);
+	REQUIRE(static_cast<int>(processor.presets.metadataValue("editorWidth")) == 900);
 	REQUIRE(processor.presets.configureUserPresetDirectory({}).failed());
 }
 

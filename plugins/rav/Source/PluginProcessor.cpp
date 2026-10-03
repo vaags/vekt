@@ -71,7 +71,8 @@ PluginProcessor::PluginProcessor()
 				initialPreset.soundState[RavStageChain::metadataPropertyName].toString(), initialOrder);
 			jassert(parsedOrder);
 			if (parsedOrder) juce::ignoreUnused(stageChain.setOrder(initialOrder));
-			stageChain.writeMetadata(presetHost.metadata());
+			presetHost.withMetadata([this](juce::ValueTree& metadata) { stageChain.writeMetadata(metadata); });
+			publishStageOrder();
 			presetHost.session().adopt(initialPreset, presets::PresetOrigin::factory);
 		}
 	}
@@ -275,11 +276,13 @@ void PluginProcessor::processEffectBlock(juce::AudioBuffer<float>& buffer, juce:
 				: stageEnabledParameters[modeIndex]->load() >= 0.5f;
 			band[modeIndex].setTargetValue(enabled ? 1.0f : 0.0f);
 		}
+	// The stage order as published by the state and editor threads, read once per block without a lock.
+	const auto stageOrder = RavStageChain::unpack(stageOrderSnapshot.load(std::memory_order_acquire));
 	for (std::size_t band = 0; band < bandCount; ++band)
 	{
 		for (auto channel = 0; channel < 2; ++channel)
 			cleanBandBuffers[band].copyFrom(channel, 0, bandBuffers[band], channel, 0, samples);
-		for (const auto mode : stageChain.getOrder())
+		for (const auto mode : stageOrder)
 		{
 			const auto modeIndex = static_cast<std::size_t>(mode);
 			auto& enableSmoother = stageEnableSmoothers[band][modeIndex];
@@ -364,21 +367,31 @@ void PluginProcessor::setCurrentProgram(int index) { presetHost.selectProgram(in
 const juce::String PluginProcessor::getProgramName(int index) { return presetHost.programName(index); }
 void PluginProcessor::changeProgramName(int index, const juce::String& name) { juce::ignoreUnused(index, name); }
 
+// Hosts may call these from any thread, at the same time: the stage chain changes only under the state lock.
 void PluginProcessor::getStateInformation(juce::MemoryBlock& destination)
 {
-	stageChain.writeMetadata(presetHost.metadata());
+	const auto locked = presetHost.lockState();
+	presetHost.withMetadata([this](juce::ValueTree& metadata) { stageChain.writeMetadata(metadata); });
 	presetHost.save(destination);
 }
 
 void PluginProcessor::setStateInformation(const void* data, int size)
 {
-	if (presetHost.restore(data, size))
-		stageChain = RavStageChain::readMetadata(presetHost.metadata());
+	const auto locked = presetHost.lockState();
+	if (!presetHost.restore(data, size)) return;
+	stageChain = presetHost.withMetadata([](juce::ValueTree& metadata) { return RavStageChain::readMetadata(metadata); });
+	publishStageOrder();
+}
+
+void PluginProcessor::publishStageOrder() noexcept
+{
+	stageOrderSnapshot.store(RavStageChain::pack(stageChain.getOrder()), std::memory_order_release);
 }
 
 presets::Preset PluginProcessor::createPreset(
 	const juce::String& name, const juce::NamedValueSet& metadata) const
 {
+	const auto locked = presetHost.lockState();
 	auto preset = presets::PresetSchema::create(
 		parameters::presetProductIdentifier,
 		name,
@@ -392,7 +405,8 @@ presets::Preset PluginProcessor::createPreset(
 
 juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 {
-	assertMessageThread();
+	// A host may load a program from any thread; the state lock serialises it with saves, restores and the editor.
+	const auto locked = presetHost.lockState();
 	if (preset.soundSchemaVersion != parameters::presetSoundSchemaVersion)
 		return juce::Result::fail("Unsupported Rav preset sound schema");
 	if (const auto result = validatePresetSound(preset); result.failed())
@@ -401,18 +415,24 @@ juce::Result PluginProcessor::applyPreset(const presets::Preset& preset)
 	if (!RavStageChain::deserialise(preset.soundState[RavStageChain::metadataPropertyName].toString(), order))
 		return juce::Result::fail("Rav preset stage order is invalid");
 
-	juce::ignoreUnused(parameterState.copyState());
-	undoManager.beginNewTransaction("Load preset: " + preset.name);
+	auto* const undo = plugin_support::editorUndo(undoManager);
+	if (undo != nullptr)
+	{
+		// Flushes pending parameter values into the history first, so undo returns to them.
+		juce::ignoreUnused(parameterState.copyState());
+		undo->beginNewTransaction("Load preset: " + preset.name);
+	}
 	const auto result = presets::PresetSchema::apply(
 		preset,
 		parameters::presetProductIdentifier,
 		parameterState,
 		parameters::soundParameterIds,
-		&undoManager);
+		undo);
 	if (result.wasOk())
 	{
 		juce::ignoreUnused(stageChain.setOrder(order));
-		stageChain.writeMetadata(presetHost.metadata());
+		presetHost.withMetadata([this](juce::ValueTree& metadata) { stageChain.writeMetadata(metadata); });
+		publishStageOrder();
 		presetHost.session().clear();
 	}
 	return result;
@@ -430,6 +450,7 @@ juce::Result PluginProcessor::validatePresetSound(const presets::Preset& preset)
 
 bool PluginProcessor::matchesPresetSound(const presets::Preset& preset) const
 {
+	const auto locked = presetHost.lockState();
 	if (validatePresetSound(preset).failed()
 		|| !presets::PresetSchema::matches(preset, parameters::presetProductIdentifier,
 			parameterState, parameters::soundParameterIds))
@@ -466,34 +487,32 @@ juce::UndoManager& PluginProcessor::getUndoManager() noexcept
 	return undoManager;
 }
 
-juce::ValueTree& PluginProcessor::getProjectMetadata() noexcept
+juce::ValueTree PluginProcessor::getProjectMetadata() const
 {
-	return presetHost.metadata();
+	return presetHost.metadataCopy();
+}
+
+void PluginProcessor::setProjectMetadataValue(const juce::Identifier& name, const juce::var& value)
+{
+	presetHost.setMetadataValue(name, value);
 }
 
 RavStageChain::Order PluginProcessor::getStageOrder() const noexcept
 {
-	return stageChain.getOrder();
+	return RavStageChain::unpack(stageOrderSnapshot.load(std::memory_order_acquire));
 }
 
-bool PluginProcessor::reorderStage(std::size_t index, int delta) noexcept
+bool PluginProcessor::reorderStage(std::size_t index, int delta)
 {
-	if (stageChain.moveStage(index, delta))
-	{
-		stageChain.writeMetadata(presetHost.metadata());
-		return true;
-	}
-	return false;
+	const auto locked = presetHost.lockState();
+	if (!stageChain.moveStage(index, delta)) return false;
+	presetHost.withMetadata([this](juce::ValueTree& metadata) { stageChain.writeMetadata(metadata); });
+	publishStageOrder();
+	return true;
 }
 
 dsp::OversamplingQuality PluginProcessor::getActiveQuality() const noexcept { return qualitySelection.active(); }
 bool PluginProcessor::hasPendingQualityChange() const noexcept { return qualitySelection.pending(); }
-
-void PluginProcessor::assertMessageThread()
-{
-	jassert(juce::MessageManager::getInstanceWithoutCreating() == nullptr
-		|| juce::MessageManager::getInstanceWithoutCreating()->isThisTheMessageThread());
-}
 
 void PluginProcessor::applyPendingQualityChange()
 {

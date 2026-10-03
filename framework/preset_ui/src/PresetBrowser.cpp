@@ -77,20 +77,32 @@ PresetBrowser::PresetBrowser(presets::PresetSession& controller) : session(contr
 	};
 	newFolder.onClick = [this]
 	{
-		if (auto* repository = session.library().repository())
+		const auto folder = destination.getText().trim();
+		const auto result = session.withLibrary([&folder](presets::PresetCatalog& library) -> std::optional<juce::Result>
 		{
-			const auto result = repository->createFolder(destination.getText().trim());
-			refresh(); showResult(result);
+			if (auto* repository = library.repository()) return repository->createFolder(folder);
+			return std::nullopt;
+		});
+		if (result)
+		{
+			refresh(); showResult(*result);
 		}
 	};
 	moveButton.onClick = [this]
 	{
 		const auto entry = selected();
-		auto* repository = session.library().repository();
-		if (!entry || entry->origin != presets::PresetOrigin::user || !repository) return;
+		if (!entry || entry->origin != presets::PresetOrigin::user) return;
 		const auto folder = destination.getText().trim();
-		const auto result = repository->move(entry->location, folder.isEmpty() ? entry->name : folder + "/" + entry->name);
-		refresh(); showResult(result);
+		const auto target = folder.isEmpty() ? entry->name : folder + "/" + entry->name;
+		const auto result = session.withLibrary([&entry, &target](presets::PresetCatalog& library) -> std::optional<juce::Result>
+		{
+			if (auto* repository = library.repository()) return repository->move(entry->location, target);
+			return std::nullopt;
+		});
+		if (result)
+		{
+			refresh(); showResult(*result);
+		}
 	};
 	deleteButton.onClick = [this]
 	{
@@ -116,24 +128,31 @@ PresetBrowser::~PresetBrowser() { list.setModel(nullptr); }
 void PresetBrowser::refresh()
 {
 	const auto previous = folders.getText();
-	session.library().refresh();
+	struct Listing
+	{
+		juce::StringArray factoryFolders, userFolders;
+		bool writable {};
+	};
+	const auto listing = session.withLibrary([](presets::PresetCatalog& library)
+	{
+		library.refresh();
+		return Listing { library.folders(presets::PresetOrigin::factory), library.folders(presets::PresetOrigin::user),
+			library.repository() != nullptr };
+	});
 	folders.clear(juce::dontSendNotification);
 	folders.addItem("All presets", 1);
 	folders.addItem("Factory", 2);
 	folders.addItem("User", 3);
-	const auto factoryFolders = session.library().folders(presets::PresetOrigin::factory);
-	const auto userFolders = session.library().folders(presets::PresetOrigin::user);
-	for (const auto& folder : factoryFolders)
+	for (const auto& folder : listing.factoryFolders)
 		folders.addItem("Factory / " + folder, folders.getNumItems() + 1);
-	if (session.library().repository() != nullptr)
-		for (const auto& folder : userFolders) folders.addItem("User / " + folder, folders.getNumItems() + 1);
+	if (listing.writable)
+		for (const auto& folder : listing.userFolders) folders.addItem("User / " + folder, folders.getNumItems() + 1);
 	folders.setSelectedId(1, juce::dontSendNotification);
 	for (int i = 0; i < folders.getNumItems(); ++i)
 		if (folders.getItemText(i) == previous) folders.setSelectedItemIndex(i, juce::dontSendNotification);
-	const auto writable = session.library().repository() != nullptr;
-	saveButton.setEnabled(writable);
-	newFolder.setEnabled(writable);
-	importButton.setEnabled(writable);
+	saveButton.setEnabled(listing.writable);
+	newFolder.setEnabled(listing.writable);
+	importButton.setEnabled(listing.writable);
 	filter();
 }
 
@@ -156,7 +175,7 @@ void PresetBrowser::filter()
 		model.origin = presets::PresetOrigin::user;
 		model.folder = selectedFolder.substring(7);
 	}
-	rows = model.filter(session.library().entries());
+	rows = session.withLibrary([this](const presets::PresetCatalog& library) { return model.filter(library.entries()); });
 	list.deselectAllRows(); list.updateContent();
 	if (before)
 		for (std::size_t i = 0; i < rows.size(); ++i)

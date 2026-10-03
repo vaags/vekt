@@ -326,7 +326,6 @@ TEST_CASE("Rav processor state round trips parameters", "[processor][state][rav]
 {
 	vekt::rav::PluginProcessor source;
 	vekt::rav::PluginProcessor restored;
-	auto restoredMetadata = restored.getProjectMetadata();
 	auto* sourceDrive = source.getParameters().getParameter(vekt::rav::parameters::drive);
 	auto* sourceTone = source.getParameters().getParameter(vekt::rav::parameters::tone);
 	auto* sourceAutoGain = source.getParameters().getParameter(vekt::rav::parameters::autoGain);
@@ -339,7 +338,7 @@ TEST_CASE("Rav processor state round trips parameters", "[processor][state][rav]
 	sourceTone->setValueNotifyingHost(sourceTone->convertTo0to1(-3.0f));
 	sourceAutoGain->setValueNotifyingHost(1.0f);
 	sourceBypass->setValueNotifyingHost(1.0f);
-	source.getProjectMetadata().setProperty("editorWidth", 900, nullptr);
+	source.setProjectMetadataValue("editorWidth", 900);
 
 	juce::MemoryBlock state;
 	source.getStateInformation(state);
@@ -370,7 +369,7 @@ TEST_CASE("Rav processor state round trips parameters", "[processor][state][rav]
 	REQUIRE(restoredTone->load() == Catch::Approx(-3.0f));
 	REQUIRE(restoredAutoGain->load() == Catch::Approx(1.0f));
 	REQUIRE(restoredBypass->load() == Catch::Approx(1.0f));
-	REQUIRE(static_cast<int>(restoredMetadata.getProperty("editorWidth")) == 900);
+	REQUIRE(static_cast<int>(restored.getProjectMetadata().getProperty("editorWidth")) == 900);
 }
 
 TEST_CASE("Rav projects restore parameters they predate to defaults", "[processor][state][rav]")
