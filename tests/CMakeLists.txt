@@ -19,6 +19,7 @@ add_executable(vekt_dsp_tests
     presets/PresetTests.cpp
     presets/FrameworkPresetTests.cpp
 	presets/GlimmerPresetTests.cpp
+	presets/FlintPresetTests.cpp
     processor/RavProcessorTests.cpp
 	processor/RavStageChainTests.cpp
     processor/AdaptiveAutoGainTests.cpp
@@ -60,7 +61,17 @@ add_executable(vekt_dsp_tests
 	compat/StateFixtureTests.cpp
 	compat/ReferenceRenderTests.cpp
 	compat/ParameterManifestTests.cpp
-	plugin_support/PluginSupportTests.cpp)
+	plugin_support/PluginSupportTests.cpp
+	flint/AllocationCounter.cpp
+	flint/AllocationCounterTests.cpp
+	flint/FlintAuditionTests.cpp
+	flint/DriveStageTests.cpp
+	flint/FlintEngineHostTests.cpp
+	flint/FlintProcessorTests.cpp
+	flint/KickClassicAnalogTests.cpp
+	flint/MalletBarTests.cpp
+	flint/ModalBankTests.cpp
+	flint/VariationTests.cpp)
 
 target_link_libraries(vekt_dsp_tests PRIVATE
     vekt::dsp
@@ -70,6 +81,7 @@ target_link_libraries(vekt_dsp_tests PRIVATE
     VektRavCore
 	VektGlimmerCore
 	VektMonoCore
+	FlintCore
     vekt::juce_headers
     vekt::juce_runtime
     Catch2::Catch2)

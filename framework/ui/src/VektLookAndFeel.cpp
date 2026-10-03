@@ -108,12 +108,36 @@ void VektLookAndFeel::drawRotarySlider(juce::Graphics& graphics, int x, int y, i
 	const auto opacity = slider.isEnabled() ? 1.0f : 0.45f;
 	const auto ringStroke = juce::PathStrokeType(4.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
 	const auto angle = startAngle + position * (endAngle - startAngle);
-	const auto strokeArc = [&](float from, float to, juce::Colour colour)
+	const auto strokeSpan = [&](float from, float to, juce::Colour colour)
 	{
 		juce::Path arc;
 		arc.addCentredArc(centre.x, centre.y, radius, radius, 0.0f, std::min(from, to), std::max(from, to), true);
 		graphics.setColour(colour.withMultipliedAlpha(opacity));
 		graphics.strokePath(arc, ringStroke);
+	};
+	const auto& properties = slider.getProperties();
+	const auto limited = !endless && properties.contains("playableFrom") && properties.contains("playableTo");
+	const auto angleOf = [&](double value)
+	{
+		return startAngle + static_cast<float>(juce::jlimit(0.0, 1.0, slider.valueToProportionOfLength(value)))
+			* (endAngle - startAngle);
+	};
+	const auto playableStart = limited ? angleOf(static_cast<double>(properties["playableFrom"])) : startAngle;
+	const auto playableEnd = limited ? angleOf(static_cast<double>(properties["playableTo"])) : endAngle;
+	// Parts of an arc outside the playable span are drawn at a third of their strength.
+	const auto strokeArc = [&](float from, float to, juce::Colour colour)
+	{
+		const auto low = std::min(from, to), high = std::max(from, to);
+		if (!limited)
+		{
+			strokeSpan(low, high, colour);
+			return;
+		}
+		const auto dimmed = colour.withMultipliedAlpha(0.35f);
+		if (low < playableStart) strokeSpan(low, std::min(high, playableStart), dimmed);
+		if (high > playableStart && low < playableEnd)
+			strokeSpan(std::max(low, playableStart), std::min(high, playableEnd), colour);
+		if (high > playableEnd) strokeSpan(std::max(low, playableEnd), high, dimmed);
 	};
 	// The ring sits on the rim of the dial: one object instead of a dial floating inside a track.
 	// The dial is a step lighter than Panel so it reads as a raised knob, including in the ring's gap.

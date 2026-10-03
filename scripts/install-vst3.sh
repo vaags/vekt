@@ -20,8 +20,13 @@ mono)
 	source_bundle="build/dev/plugins/vekt_mono/VektMono_artefacts/Debug/VST3/Mono.vst3"
 	destination="$HOME/Library/Audio/Plug-Ins/VST3/Mono.vst3"
 	;;
+flint)
+	target=Flint_VST3
+	source_bundle="build/dev/plugins/flint/Flint_artefacts/Debug/VST3/Flint.vst3"
+	destination="$HOME/Library/Audio/Plug-Ins/VST3/Flint.vst3"
+	;;
 *)
-	print -u2 "Usage: $0 [rav|glimmer|mono]"
+	print -u2 "Usage: $0 [rav|glimmer|mono|flint]"
 	exit 64
 	;;
 esac

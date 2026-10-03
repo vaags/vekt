@@ -5,6 +5,7 @@
 #include <vekt/glimmer/Parameters.h>
 #include <vekt/glimmer/PluginProcessor.h>
 #include <vekt/mono/PluginProcessor.h>
+#include <vekt/flint/PluginProcessor.h>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -64,11 +65,38 @@ TEST_CASE("Audio Lab measures Mono processing with the effects rack bypassed", "
 	juce::AudioBuffer<float> block(2, blockSize);
 	juce::MidiBuffer midi;
 	midi.addEvent(juce::MidiMessage::noteOn(1, 60, 1.0f), 0);
-	const auto monoTicks = vekt::audio_lab::processMonoSource(block, midi, mono);
+	const auto monoTicks = vekt::audio_lab::processInstrument(block, midi, mono);
 	REQUIRE(monoTicks > 0);
 	REQUIRE(block.getMagnitude(0, 0, blockSize) > 0.0f);
 	const auto rackStart = juce::Time::getHighResolutionTicks();
 	vekt::audio_lab::processRackRoute(0, block, midi, rav, glimmer);
 	const auto totalTicks = monoTicks + juce::Time::getHighResolutionTicks() - rackStart;
 	REQUIRE(totalTicks >= monoTicks);
+}
+TEST_CASE("Audio Lab silences the instrument it stops playing", "[audio-lab][rack][flint]")
+{
+	constexpr int blockSize = 512;
+	vekt::mono::PluginProcessor mono;
+	vekt::flint::PluginProcessor flint;
+	mono.prepareToPlay(48'000.0, blockSize);
+	flint.prepareToPlay(48'000.0, blockSize);
+	juce::AudioBuffer<float> block(2, blockSize);
+	juce::MidiBuffer midi, scratch;
+	scratch.ensureSize(vekt::audio_lab::silenceEventBytes);
+	// Mono holds a note, then the lab switches to Flint and strikes it.
+	midi.addEvent(juce::MidiMessage::noteOn(1, 60, 1.0f), 0);
+	juce::ignoreUnused(vekt::audio_lab::processInstrument(block, midi, mono));
+	REQUIRE(block.getMagnitude(0, 0, blockSize) > 0.0f);
+	vekt::audio_lab::silenceInstrument(mono, block, scratch);
+	REQUIRE(block.getMagnitude(0, 0, blockSize) == 0.0f);
+	juce::ignoreUnused(vekt::audio_lab::processInstrument(block, midi, flint));
+	REQUIRE(block.getMagnitude(0, 0, blockSize) > 0.0f);
+	// Back to Mono with no new note: the held note does not come back.
+	midi.clear();
+	for (auto iteration = 0; iteration < 8; ++iteration)
+	{
+		block.clear();
+		juce::ignoreUnused(vekt::audio_lab::processInstrument(block, midi, mono));
+	}
+	REQUIRE(block.getMagnitude(0, 0, blockSize) < 1.0e-4f);
 }

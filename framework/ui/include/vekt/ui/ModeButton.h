@@ -32,7 +32,9 @@ public:
 		graphics.setFont(juce::FontOptions(16.0f).withStyle("Bold"));
 		graphics.drawText(getButtonText(), getLocalBounds().reduced(canReorder ? 24 : 4, 0).withTrimmedBottom(14), juce::Justification::centred);
 		graphics.setFont(juce::FontOptions(11.0f));
-		graphics.drawText(canReorder ? (getToggleState() ? "ON" : "OFF") : (getToggleState() ? "SELECTED" : ""),
+		// A disabled choice is marked in words, not only dimmed (UI_UX.md, Visual system).
+		graphics.drawText(canReorder ? (getToggleState() ? "ON" : "OFF")
+			: !isEnabled() ? "UNAVAILABLE" : (getToggleState() ? "SELECTED" : ""),
 			getLocalBounds().removeFromBottom(18), juce::Justification::centred);
 		if (canReorder)
 			for (int row = 0; row < 3; ++row)

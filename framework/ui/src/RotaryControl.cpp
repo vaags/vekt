@@ -115,6 +115,8 @@ void RotaryControl::setEndless(bool isEndless, float startAngle)
 	slider.repaint();
 }
 
+void RotaryControl::setDragSnap(std::function<double(double)> snap) { slider.dragSnap = std::move(snap); }
+
 void RotaryControl::refreshValueText() { updateValueText(); }
 
 void RotaryControl::setModulation(std::optional<ModulationDisplay> display) { modulationRing.setModulation(display); }

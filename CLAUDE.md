@@ -2,7 +2,7 @@
 
 Vekt is a reusable C++20 framework built on JUCE for developing native audio
 effects and instruments. It provides shared DSP, state, preset, and native
-editor infrastructure, with Rav, Glimmer, and Mono as concrete products built
+editor infrastructure, with Rav, Glimmer, Mono, and Flint as concrete products built
 on the framework. Current macOS builds target VST3, Standalone, and Audio Unit
 v2 (AUv2), using the existing Ninja or Xcode presets.
 
@@ -18,7 +18,7 @@ of routine development.
 ## Read Only What Applies
 
 - [Architecture](docs/ARCHITECTURE.md): dependency direction, real-time and compatibility rules.
-- Product contracts: [Rav](docs/RAV_VALIDATION.md), [Glimmer](docs/GLIMMER_VALIDATION.md), [Mono](docs/MONO_VALIDATION.md).
+- Product contracts: [Rav](docs/RAV_VALIDATION.md), [Glimmer](docs/GLIMMER_VALIDATION.md), [Mono](docs/MONO_VALIDATION.md), [Flint](docs/FLINT_VALIDATION.md).
 - [Product naming](docs/PRODUCT_NAMING.md): read before naming, scaffolding, or renaming a product.
 - Shared interactions: [UI](docs/UI_UX.md), [presets](docs/PRESET_UX.md).
 - [Development workflow](docs/DEVELOPMENT_WORKFLOW.md): check selection, commands, evidence, and approvals.
@@ -77,7 +77,7 @@ Surface specification/code conflicts rather than silently changing a contract.
 
 - `/vekt-plan <goal>`: explicit planning; stop for approval before implementation.
 - `/vekt-change <approved goal or plan>`: explicit implementation and verification.
-- `/vekt-validate <rav|glimmer|mono|shared> <scope>`: user- or model-invoked checks.
+- `/vekt-validate <rav|glimmer|mono|flint|shared> <scope>`: user- or model-invoked checks.
 - Use `vekt-reviewer` for substantial DSP, state, compatibility, or shared changes.
   Supply the scoped diff, acceptance criteria, authority paths, exact check
   commands/results, and remaining gates. It is read-only and cannot run checks.

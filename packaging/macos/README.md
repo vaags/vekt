@@ -4,7 +4,7 @@ Build AUv2 components and matching Release VST3 bundles:
 
 ```sh
 zsh scripts/build-au.sh --release
-cmake --build --preset release --target VektRav_VST3 VektGlimmer_VST3 VektMono_VST3
+cmake --build --preset release --target VektRav_VST3 VektGlimmer_VST3 VektMono_VST3 Flint_VST3
 zsh scripts/verify-bundles.sh --release
 ```
 
@@ -12,7 +12,8 @@ zsh scripts/verify-bundles.sh --release
 `scripts/build-dev.sh` runs it for Debug.
 
 AU components are at
-`build/release/plugins/vekt_<product>/<Target>_artefacts/Release/AU/<Product Name>.component`.
+`build/release/plugins/vekt_<product>/<Target>_artefacts/Release/AU/<Product Name>.component`
+(Flint: `build/release/plugins/flint/Flint_artefacts/Release/AU/Flint.component`).
 Each Standalone, VST3 and AU build is ad-hoc sealed after JUCE's post-build steps
 (`cmake/VektSealBundle.cmake`) when it fails strict signature verification, and the
 build fails if the bundle still fails afterwards. It uses no identity and is not
@@ -24,6 +25,7 @@ and registration, run from the repository root:
 zsh scripts/validate-release.sh rav
 zsh scripts/validate-release.sh glimmer
 zsh scripts/validate-release.sh mono
+zsh scripts/validate-release.sh flint
 ```
 
 Supply optional VST3/AU paths together to override Release defaults. The runner
@@ -37,6 +39,7 @@ register before failing:
 | Rav | `aufx Ravv Tava` |
 | Glimmer | `aufx Glmr Tava` |
 | Mono | `aumu Kobr Tava` |
+| Flint | `aumu Flnt Tava` |
 
 Pluginval is resolved from PATH or
 `/Applications/pluginval.app/Contents/MacOS/pluginval`. Missing tools and failed

@@ -4,7 +4,7 @@
 #include <cmath>
 #include <numbers>
 
-namespace vekt::mono
+namespace vekt::dsp
 {
 struct LinearTptSvfOutputs
 {
@@ -14,8 +14,8 @@ struct LinearTptSvfOutputs
 
 // The canonical two-integrator TPT state-variable filter (ADR 0006): HP = x - k BP - LP, HP -> integrator -> BP,
 // BP -> integrator -> LP, with trapezoidal integrators prewarped so the pole frequency is exactly the cutoff.
-// k is the damping, 1/Q; at the cutoff |LP| = |BP| = |HP| = 1/k and LP + HP has its notch. This is the
-// linear reference for the nonlinear SVF and the core of its saturated-input measurement reference.
+// k is the damping, 1/Q; at the cutoff |LP| = |BP| = |HP| = 1/k and LP + HP has its notch. Mono uses it as the linear
+// reference for its nonlinear SVF; Flint for its click and noise filters.
 class LinearTptSvf
 {
 public:

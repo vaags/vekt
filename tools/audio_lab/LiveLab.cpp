@@ -5,6 +5,7 @@
 #include <vekt/rav/PluginEditor.h>
 #include <vekt/glimmer/PluginProcessor.h>
 #include <vekt/mono/PluginProcessor.h>
+#include <vekt/flint/PluginProcessor.h>
 
 #include <juce_audio_utils/juce_audio_utils.h>
 
@@ -101,13 +102,26 @@ public:
 		restoreRackState();
 		for (auto* component : { static_cast<juce::Component*>(&restartButton),
 			static_cast<juce::Component*>(&statusLabel), static_cast<juce::Component*>(&productTabs),
-			static_cast<juce::Component*>(&orderButton), static_cast<juce::Component*>(&midiInputBox) })
+			static_cast<juce::Component*>(&orderButton), static_cast<juce::Component*>(&midiInputBox),
+			static_cast<juce::Component*>(&instrumentBox) })
 			addAndMakeVisible(*component);
 		addAndMakeVisible(keyboard);
-		orderButton.setTooltip("Process Mono through this rack route.");
+		orderButton.setTooltip("Process the instrument through this rack route.");
 		productTabs.addItem("Mono", 1);
 		productTabs.addItem("RAV", 2);
 		productTabs.addItem("Glimmer", 3);
+		productTabs.addItem("Flint", 4);
+		// One instrument plays at a time; the one left is silenced (RackRouting.h).
+		instrumentBox.addItem("Play: Mono", 1);
+		instrumentBox.addItem("Play: Flint", 2);
+		instrumentBox.setTooltip("The instrument the keyboard and MIDI input play, before the rack.");
+		instrumentBox.setSelectedId(instrument.load() + 1, juce::dontSendNotification);
+		instrumentBox.onChange = [this]
+		{
+			instrument.store(instrumentBox.getSelectedId() - 1);
+			// Show the instrument that now plays.
+			productTabs.setSelectedId(instrument.load() == static_cast<int>(vekt::audio_lab::Instrument::flint) ? 4 : 1);
+		};
 		productTabs.setSelectedId(restoredSelectedTab, juce::dontSendNotification);
 		productTabs.onChange = [this]
 		{
@@ -139,11 +153,13 @@ public:
 		ravEditor.reset(ravProcessor.createEditor());
 		glimmerEditor.reset(glimmerProcessor.createEditor());
 		monoEditor.reset(monoProcessor.createEditor());
+		flintEditor.reset(flintProcessor.createEditor());
+		silenceMidi.ensureSize(vekt::audio_lab::silenceEventBytes);
 		keyboard.setKeyPressBaseOctave(4);
 		keyboard.setOctaveForMiddleC(4);
 		keyboard.setWantsKeyboardFocus(true);
 		keyboardState.addListener(&midiCollector);
-		for (auto* editor : { monoEditor.get(), ravEditor.get(), glimmerEditor.get() })
+		for (auto* editor : { monoEditor.get(), ravEditor.get(), glimmerEditor.get(), flintEditor.get() })
 		{
 			addAndMakeVisible(*editor);
 			if (auto* scalableEditor = dynamic_cast<vekt::ui::ScalableEditor*>(editor))
@@ -155,7 +171,7 @@ public:
 		showProductEditor(productTabs.getSelectedId());
 		// Fit the largest product editor at its native size (Mono is wider than Rav and Glimmer).
 		int editorWidth = vekt::ui::ScalableEditor::logicalWidth, editorHeight = vekt::ui::ScalableEditor::logicalHeight;
-		for (auto* editor : { monoEditor.get(), ravEditor.get(), glimmerEditor.get() })
+		for (auto* editor : { monoEditor.get(), ravEditor.get(), glimmerEditor.get(), flintEditor.get() })
 			if (const auto* scalable = dynamic_cast<vekt::ui::ScalableEditor*>(editor))
 			{
 				editorWidth = std::max(editorWidth, scalable->getLogicalWidth());
@@ -188,6 +204,7 @@ public:
 		ravProcessor.prepareToPlay(sampleRate, samplesPerBlockExpected);
 		glimmerProcessor.prepareToPlay(sampleRate, samplesPerBlockExpected);
 		monoProcessor.prepareToPlay(sampleRate, samplesPerBlockExpected);
+		flintProcessor.prepareToPlay(sampleRate, samplesPerBlockExpected);
 		// A plugin host passes its audio workgroup; this lab hosts Mono directly, so forward the device's.
 		if (auto* device = getCurrentAudioDevice()) monoProcessor.audioWorkgroupContextChanged(device->getWorkgroup());
 		midiCollector.reset(sampleRate);
@@ -200,9 +217,15 @@ public:
 		juce::MidiBuffer midi;
 		midiCollector.removeNextBlockOfMessages(midi, info.numSamples);
 		info.clearActiveBufferRegion();
-		juce::AudioBuffer<float> monoBlock(info.buffer->getArrayOfWritePointers(),
+		juce::AudioBuffer<float> sourceBlock(info.buffer->getArrayOfWritePointers(),
 			info.buffer->getNumChannels(), info.startSample, info.numSamples);
-		const auto monoTicks = vekt::audio_lab::processMonoSource(monoBlock, midi, monoProcessor);
+		const auto selected = instrument.load();
+		if (selected != playingInstrument)
+		{
+			vekt::audio_lab::silenceInstrument(instrumentProcessor(playingInstrument), sourceBlock, silenceMidi);
+			playingInstrument = selected;
+		}
+		const auto monoTicks = vekt::audio_lab::processInstrument(sourceBlock, midi, instrumentProcessor(selected));
 		auto inputPeak = 0.0f;
 		for (auto channel = 0; channel < info.buffer->getNumChannels(); ++channel)
 			inputPeak = std::max(inputPeak, info.buffer->getMagnitude(channel, info.startSample, info.numSamples));
@@ -225,6 +248,7 @@ public:
 	void releaseResources() override
 	{
 		monoProcessor.releaseResources();
+		flintProcessor.releaseResources();
 		ravProcessor.releaseResources();
 		glimmerProcessor.releaseResources();
 	}
@@ -254,13 +278,14 @@ public:
 
 	void resized() override
 	{
-		midiInputBox.setBounds(16, 58, 260, 32);
-		productTabs.setBounds(284, 56, 150, 36);
-		orderButton.setBounds(442, 56, 152, 36);
-		restartButton.setBounds(602, 56, 132, 36);
-		statusLabel.setBounds(746, 56, getWidth() - 762, 36);
+		midiInputBox.setBounds(16, 58, 220, 32);
+		instrumentBox.setBounds(244, 56, 140, 36);
+		productTabs.setBounds(392, 56, 120, 36);
+		orderButton.setBounds(520, 56, 152, 36);
+		restartButton.setBounds(680, 56, 132, 36);
+		statusLabel.setBounds(824, 56, getWidth() - 840, 36);
 		keyboard.setBounds(16, 108, getWidth() - 32, 36);
-		for (auto* editor : { monoEditor.get(), ravEditor.get(), glimmerEditor.get() })
+		for (auto* editor : { monoEditor.get(), ravEditor.get(), glimmerEditor.get(), flintEditor.get() })
 		{
 			const auto editorArea = getLocalBounds().withTop(editorTop).withTrimmedBottom(16).reduced(16, 0);
 			// Each product may use its own logical size (Mono is wider), so fit each editor by its own aspect.
@@ -277,12 +302,26 @@ public:
 
 private:
 
+	[[nodiscard]] juce::AudioProcessor& instrumentProcessor(int index) noexcept
+	{
+		if (index == static_cast<int>(vekt::audio_lab::Instrument::flint)) return flintProcessor;
+		return monoProcessor;
+	}
+
+	[[nodiscard]] const juce::AudioProcessor& instrumentProcessor(int index) const noexcept
+	{
+		if (index == static_cast<int>(vekt::audio_lab::Instrument::flint)) return flintProcessor;
+		return monoProcessor;
+	}
+
 	void showProductEditor(int tab)
 	{
 		monoEditor->setVisible(tab == 1);
 		ravEditor->setVisible(tab == 2);
 		glimmerEditor->setVisible(tab == 3);
-		auto* editor = tab == 1 ? monoEditor.get() : tab == 2 ? ravEditor.get() : glimmerEditor.get();
+		flintEditor->setVisible(tab == 4);
+		auto* editor = tab == 1 ? monoEditor.get() : tab == 2 ? ravEditor.get() : tab == 3 ? glimmerEditor.get()
+			: flintEditor.get();
 		editor->resized();
 		editor->toFront(false);
 		editor->repaint();
@@ -319,9 +358,12 @@ private:
 		restoredSettings = vekt::audio_lab::readLabSettings(state);
 		restoredSelectedTab = restoredSettings.selectedTab;
 		rackRoute.store(restoredSettings.rackRoute);
+		instrument.store(restoredSettings.instrument);
+		playingInstrument = restoredSettings.instrument;
 		restoreProcessorState(monoProcessor, state.getProperty("monoState", {}).toString());
 		restoreProcessorState(ravProcessor, state.getProperty("ravState", {}).toString());
 		restoreProcessorState(glimmerProcessor, state.getProperty("glimmerState", {}).toString());
+		restoreProcessorState(flintProcessor, state.getProperty("flintState", {}).toString());
 		restoredMidiInputIdentifier = restoredSettings.midiInputIdentifier;
 	}
 
@@ -336,7 +378,8 @@ private:
 			rackRoute.load(),
 			restoredMidiInputIdentifier,
 			{},
-			true
+			true,
+			instrument.load()
 		});
 		const auto capture = [](juce::AudioProcessor& processor)
 		{
@@ -347,6 +390,7 @@ private:
 		state.setProperty("monoState", capture(monoProcessor), nullptr);
 		state.setProperty("ravState", capture(ravProcessor), nullptr);
 		state.setProperty("glimmerState", capture(glimmerProcessor), nullptr);
+		state.setProperty("flintState", capture(flintProcessor), nullptr);
 		const auto file = rackStateFile();
 		file.getParentDirectory().createDirectory();
 		juce::TemporaryFile temporary(file);
@@ -386,7 +430,7 @@ private:
 	[[nodiscard]] int rackLatencySamples() const noexcept
 	{
 		const auto route = rackRoute.load();
-		const auto sourceLatency = monoProcessor.getLatencySamples();
+		const auto sourceLatency = instrumentProcessor(instrument.load()).getLatencySamples();
 		const auto ravLatency = route == 1 || route == 3 || route == 4 ? ravProcessor.getLatencySamples() : 0;
 		const auto glimmerLatency = route == 2 || route == 3 || route == 4 ? glimmerProcessor.getLatencySamples() : 0;
 		return sourceLatency + ravLatency + glimmerLatency;
@@ -421,7 +465,8 @@ private:
 			followSystemDefaultOutput();
 		if (const auto availableMidiInputs = juce::MidiInput::getAvailableDevices(); availableMidiInputs != midiInputDevices)
 			refreshMidiInputs();
-		const auto diagnostics = juce::String("Mono  In ")
+		const auto diagnostics = juce::String(instrument.load() == static_cast<int>(vekt::audio_lab::Instrument::flint)
+			? "Flint  In " : "Mono  In ")
 			+ juce::String(generatedPeak.load(), 3) + "  Out "
 			+ juce::String(outputPeak.load(), 3) + "  Lat "
 			+ juce::String(rackLatencySamples()) + "  CPU "
@@ -484,22 +529,28 @@ private:
 	vekt::rav::PluginProcessor ravProcessor;
 	vekt::glimmer::PluginProcessor glimmerProcessor;
 	vekt::mono::PluginProcessor monoProcessor;
+	vekt::flint::PluginProcessor flintProcessor;
 	juce::MidiKeyboardState keyboardState;
 	juce::MidiMessageCollector midiCollector;
 	juce::MidiKeyboardComponent keyboard { keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard };
 	std::unique_ptr<juce::AudioProcessorEditor> monoEditor;
 	std::unique_ptr<juce::AudioProcessorEditor> ravEditor;
 	std::unique_ptr<juce::AudioProcessorEditor> glimmerEditor;
+	std::unique_ptr<juce::AudioProcessorEditor> flintEditor;
 	juce::TextButton restartButton { "Restart App" };
 	juce::Label statusLabel;
 	juce::ComboBox productTabs;
 	juce::ComboBox midiInputBox;
+	juce::ComboBox instrumentBox;
 	juce::TextButton orderButton { "RAV -> Glimmer" };
 	double sampleRateHz { 48'000.0 };
 	std::atomic<float> outputPeak {};
 	std::atomic<float> generatedPeak {};
 	std::atomic<float> pluginCpuLoadPercent {};
 	std::atomic<int> rackRoute { 3 };
+	std::atomic<int> instrument {}; // Instrument (RackRouting.h), chosen on the message thread
+	int playingInstrument {}; // audio thread: the instrument the last block played
+	juce::MidiBuffer silenceMidi;
 	vekt::audio_lab::LabSettings restoredSettings;
 	int restoredSelectedTab { 1 };
 	juce::Array<juce::MidiDeviceInfo> midiInputDevices;

@@ -2,6 +2,7 @@
 #include <vekt/rav/Parameters.h>
 #include <vekt/glimmer/PluginEditor.h>
 #include <vekt/mono/PluginEditor.h>
+#include <vekt/flint/PluginEditor.h>
 #include <vekt/dsp/OversamplingChoices.h>
 #include <vekt/ui/QualitySettings.h>
 
@@ -1442,5 +1443,203 @@ TEST_CASE("Mono modulation blur bands always contain the value heard", "[mono][u
 		const auto dot = vekt::mono::combineLfoDot(lfos);
 		INFO("Trial " << trial);
 		REQUIRE(std::abs(heard - dot.offset) <= dot.blurHalfWidth + 1.0e-5f);
+	}
+}
+
+namespace
+{
+juce::Label* findNamedLabel(juce::Component& parent, const juce::String& name)
+{
+	for (auto* child : parent.getChildren())
+	{
+		if (auto* label = dynamic_cast<juce::Label*>(child); label != nullptr && label->getName() == name) return label;
+		if (auto* label = findNamedLabel(*child, name)) return label;
+	}
+	return nullptr;
+}
+
+// No two visible siblings overlap, here and in every Panel below (a control's own parts may layer).
+void checkNoOverlaps(juce::Component& parent)
+{
+	std::vector<juce::Component*> visible;
+	for (auto* child : parent.getChildren())
+		if (child->isVisible()) visible.push_back(child);
+	for (std::size_t first = 0; first < visible.size(); ++first)
+		for (auto second = first + 1; second < visible.size(); ++second)
+		{
+			INFO(visible[first]->getName().toStdString() << " and " << visible[second]->getName().toStdString());
+			REQUIRE_FALSE(visible[first]->getBounds().intersects(visible[second]->getBounds()));
+		}
+	for (auto* child : visible)
+		if (dynamic_cast<vekt::ui::Panel*>(child) != nullptr) checkNoOverlaps(*child);
+}
+
+// Where a control sits in the editor's logical canvas.
+juce::Rectangle<int> canvasBounds(juce::Component& content, juce::Component& component)
+{
+	return content.getLocalArea(component.getParentComponent(), component.getBounds());
+}
+
+bool visibleRotaryNamed(juce::Component& content, const char* name)
+{
+	auto* rotary = findRotary(content, name);
+	return rotary != nullptr && rotary->isVisible();
+}
+
+void setParameter(juce::AudioProcessorValueTreeState& state, const char* identifier, float value)
+{
+	auto* parameter = state.getParameter(identifier);
+	parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
+}
+}
+
+TEST_CASE("Flint editor keeps the shared controls in place and rebinds the model's own", "[flint][processor][ui]")
+{
+	using vekt::flint::Mode;
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	vekt::flint::PluginProcessor processor;
+	vekt::flint::PluginEditor editor(processor);
+	auto& content = editor.getContent();
+	auto& state = processor.getParameters();
+	REQUIRE(editor.getWidth() == 1120);
+	REQUIRE(editor.getHeight() == 700);
+	checkVisibleBounds(content);
+	checkNoOverlaps(content);
+	checkOutputScope(content, 160, 100);
+	REQUIRE(findMeter(content, "OUT") != nullptr);
+
+	// Every mode is offered; only those with a model in this build can be chosen (A21: unavailable entries marked).
+	for (std::size_t index = 0; index < vekt::flint::modeCount; ++index)
+	{
+		const juce::String name = vekt::flint::modeNames[index];
+		auto* button = findNamedButton(content, name + " mode");
+		INFO(name.toStdString());
+		REQUIRE(button != nullptr);
+		REQUIRE(button->isEnabled() == (name == "Kick" || name == "Mallet"));
+	}
+	REQUIRE(findNamedButton(content, "Kick mode")->getToggleState());
+	REQUIRE(visibleRotaryNamed(content, "Velocity"));
+	REQUIRE(visibleRotaryNamed(content, "Variation"));
+	REQUIRE(findNamedButton(content, "Classic Analog model")->getToggleState());
+	REQUIRE_FALSE(findNamedButton(content, "Punch Analog model")->isEnabled());
+
+	constexpr std::array sharedNames { "Pitch", "Attack", "Decay", "Tone", "Drive" };
+	const auto sharedPlaces = [&]
+	{
+		std::vector<juce::Rectangle<int>> places;
+		for (const auto* name : sharedNames) places.push_back(canvasBounds(content, *findRotary(content, name)));
+		places.push_back(canvasBounds(content, *findNamedLabel(content, "Pitch value")));
+		return places;
+	};
+	const auto kickPlaces = sharedPlaces();
+	const auto visibleRotary = [&](const char* name)
+	{
+		auto* rotary = findRotary(content, name);
+		return rotary != nullptr && rotary->isVisible();
+	};
+	for (const auto* name : { "Sweep", "Sweep Time", "Click", "Body Shape" }) REQUIRE(visibleRotary(name));
+	REQUIRE_FALSE(visibleRotary("Material"));
+	REQUIRE(findNamedLabel(content, "Pitch value")->getText() == juce::String::fromUTF8("A1 \xc2\xb7 55.0 Hz"));
+	REQUIRE(findNamedLabel(content, "Decay detail")->getText() == "T60 333 ms");
+
+	// Drive Type sits under Drive.
+	const auto drive = canvasBounds(content, *findRotary(content, "Drive"));
+	for (const auto* name : { "Soft drive", "Hard drive", "Fold drive" })
+	{
+		const auto button = canvasBounds(content, *findNamedButton(content, name));
+		REQUIRE(button.getY() >= drive.getBottom());
+		REQUIRE(button.getX() >= drive.getX());
+		REQUIRE(button.getRight() <= drive.getRight());
+	}
+	findNamedButton(content, "Fold drive")->setToggleState(true, juce::sendNotificationSync);
+	REQUIRE(juce::roundToInt(state.getRawParameterValue(vekt::flint::parameters::driveType)->load()) == 2);
+
+	// A Mode change sets the mode's start values and rebinds the model slots; the shared controls stay where they are.
+	findNamedButton(content, "Mallet mode")->onClick();
+	REQUIRE(juce::roundToInt(state.getRawParameterValue(vekt::flint::parameters::mode)->load())
+	        == static_cast<int>(Mode::mallet));
+	REQUIRE(state.getRawParameterValue(vekt::flint::parameters::pitch)->load() == Catch::Approx(60.0f));
+	REQUIRE(editor.shownModel() == vekt::flint::ModelId::malletBar);
+	for (const auto* name : { "Material", "Hardness", "Position", "Overtones", "Resonator" }) REQUIRE(visibleRotary(name));
+	REQUIRE_FALSE(visibleRotary("Sweep"));
+	REQUIRE(findNamedLabel(content, "Overtones detail")->getText() == "Marimba");
+	// A rebound slot drives its new parameter, and its readout follows at once (no timer tick).
+	const auto sweepBefore = state.getRawParameterValue(vekt::flint::parameters::kickSweep)->load();
+	findRotary(content, "Hardness")->getSlider().setValue(0.0, juce::sendNotificationSync);
+	REQUIRE(state.getRawParameterValue(vekt::flint::parameters::barHardness)->load() == Catch::Approx(0.0f));
+	REQUIRE(state.getRawParameterValue(vekt::flint::parameters::kickSweep)->load() == Catch::Approx(sweepBefore));
+	REQUIRE(findNamedLabel(content, "Hardness detail")->getText() == "contact 6.00 ms");
+	findRotary(content, "Hardness")->getSlider().setValue(50.0, juce::sendNotificationSync);
+	REQUIRE(sharedPlaces() == kickPlaces);
+	checkVisibleBounds(content);
+	checkNoOverlaps(content);
+	// The editor follows undo and redo of the Mode change (one step, A31).
+	processor.getUndoManager().undo();
+	REQUIRE(editor.shownModel() == vekt::flint::ModelId::kickClassicAnalog);
+	REQUIRE(state.getRawParameterValue(vekt::flint::parameters::pitch)->load() == Catch::Approx(33.0f));
+	processor.getUndoManager().redo();
+	REQUIRE(editor.shownModel() == vekt::flint::ModelId::malletBar);
+
+	// Pitch below the Bar's range: the readout shows the note played, the arc beyond the range is dimmed.
+	auto& pitch = findRotary(content, "Pitch")->getSlider();
+	REQUIRE(static_cast<double>(pitch.getProperties()["playableFrom"]) == Catch::Approx(36.0));
+	REQUIRE(static_cast<double>(pitch.getProperties()["playableTo"]) == Catch::Approx(108.0));
+	setParameter(state, vekt::flint::parameters::pitch, 30.0f);
+	REQUIRE(findNamedLabel(content, "Pitch value")->getText() == juce::String::fromUTF8("C2 \xc2\xb7 65.4 Hz"));
+	REQUIRE(findNamedLabel(content, "Pitch detail")->getText() == "below range: F#1");
+	setParameter(state, vekt::flint::parameters::pitch, 60.0f);
+	REQUIRE(findNamedLabel(content, "Pitch detail")->getText().isEmpty());
+	setParameter(state, vekt::flint::parameters::decay, 0.0f);
+	REQUIRE(findNamedLabel(content, "Decay detail")->getText() == "T60 " + juce::String(juce::roundToInt(1'000.0 * 0.05)) + " ms");
+	setParameter(state, vekt::flint::parameters::pitch, 30.0f);
+
+	// Pitch drags snap to semitones; text entry takes notes, cents and frequencies.
+	REQUIRE(pitch.snapValue(45.3, juce::Slider::absoluteDrag) == Catch::Approx(45.0));
+	REQUIRE(pitch.snapValue(45.3, juce::Slider::notDragging) == Catch::Approx(45.3));
+	REQUIRE(pitch.getValueFromText("D#2 +12 ct") == Catch::Approx(39.12));
+	REQUIRE(pitch.getValueFromText("440 Hz") == Catch::Approx(69.0));
+	REQUIRE(pitch.getValueFromText("1.2 kHz") == Catch::Approx(69.0 + 12.0 * std::log2(1'200.0 / 440.0)));
+	REQUIRE(pitch.getValueFromText("H9") == Catch::Approx(pitch.getValue()));
+	REQUIRE(static_cast<bool>(pitch.getProperties()["valueEntryError"]));
+
+	findNamedButton(content, "Kick mode")->onClick();
+	REQUIRE(editor.shownModel() == vekt::flint::ModelId::kickClassicAnalog);
+
+	// Settings: quality, Note Off Damps and New Seed in the anchored pop-over; the active quality in the I/O strip.
+	vekt::ui::QualitySettings* settings = nullptr;
+	for (auto* child : content.getChildren())
+		if (auto* candidate = dynamic_cast<vekt::ui::QualitySettings*>(child)) settings = candidate;
+	REQUIRE(settings != nullptr);
+	settings->setOpen(true);
+	checkVisibleBounds(content);
+	REQUIRE(settings->isVisible());
+	REQUIRE(settings->getTrackingBox().isVisible());
+	REQUIRE(settings->getOfflineBox().isVisible());
+	REQUIRE(findNamedButton(*settings, "Note Off Damps") != nullptr);
+	auto* newSeed = findNamedButton(*settings, "New Seed");
+	REQUIRE(newSeed != nullptr);
+	checkNoOverlaps(*settings);
+	const auto seed = processor.getSeed();
+	newSeed->onClick();
+	REQUIRE(processor.getSeed() != seed);
+	settings->setOpen(false);
+	REQUIRE(findNamedLabel(content, "Active quality")->getText() == "Quality: Off");
+
+	editor.setSize(2240, 1400);
+	checkVisibleBounds(content);
+	REQUIRE(sharedPlaces() == kickPlaces);
+
+	// Opt-in render artefacts for visual review (A21); normal test runs do not write files.
+	editor.setSize(1120, 700);
+	if (const auto* path = std::getenv("VEKT_FLINT_SNAPSHOT")) writeSnapshot(editor, path);
+	if (const auto* path = std::getenv("VEKT_FLINT_SNAPSHOT_MALLET"))
+	{
+		processor.selectMode(Mode::mallet);
+		writeSnapshot(editor, path);
+	}
+	if (const auto* path = std::getenv("VEKT_FLINT_SNAPSHOT_SETTINGS"))
+	{
+		settings->setOpen(true);
+		writeSnapshot(editor, path);
 	}
 }

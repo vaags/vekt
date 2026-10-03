@@ -1,5 +1,5 @@
+#include <vekt/dsp/LinearTptSvf.h>
 #include <vekt/dsp/OversamplingQuality.h>
-#include "LinearTptSvf.h"
 #include "SvfResponse.h"
 
 #include <catch2/catch_approx.hpp>
@@ -17,8 +17,8 @@
 
 namespace
 {
-using vekt::mono::LinearTptSvf;
-using vekt::mono::LinearTptSvfOutputs;
+using vekt::dsp::LinearTptSvf;
+using vekt::dsp::LinearTptSvfOutputs;
 using vekt::mono::svfModeMix;
 
 using Complex = std::complex<double>;

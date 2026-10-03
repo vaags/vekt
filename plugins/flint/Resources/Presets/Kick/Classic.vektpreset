@@ -1,0 +1,37 @@
+{
+  "format": "vekt.preset",
+  "schemaVersion": 2,
+  "id": "flint-kick-classic",
+  "product": "com.vekt.flint",
+  "soundSchemaVersion": 1,
+  "name": "Classic",
+  "tags": [
+    "Kick",
+    "Classic Analog",
+    "Classic"
+  ],
+  "parameters": {
+    "flint.pitch": 33,
+    "flint.attack": 30,
+    "flint.decay": 40,
+    "flint.tone": 50,
+    "flint.drive": 0,
+    "flint.driveType": 0,
+    "flint.level": 0,
+    "flint.velocity": 100,
+    "flint.variation": 30,
+    "flint.noteOffDamps": 0,
+    "flint.mode": 0,
+    "flint.kick.model": 0,
+    "flint.mallet.model": 0,
+    "flint.kick.analog.sweep": 0,
+    "flint.kick.analog.sweepTime": 30,
+    "flint.kick.analog.click": 0,
+    "flint.kick.analog.bodyShape": 0,
+    "flint.mallet.bar.material": 20,
+    "flint.mallet.bar.hardness": 50,
+    "flint.mallet.bar.position": 25,
+    "flint.mallet.bar.overtones": 100,
+    "flint.mallet.bar.resonator": 50
+  }
+}

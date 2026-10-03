@@ -7,6 +7,7 @@
 #include <vekt/rav/PluginProcessor.h>
 #include <vekt/glimmer/PluginProcessor.h>
 #include <vekt/mono/PluginProcessor.h>
+#include <vekt/flint/PluginProcessor.h>
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
@@ -69,6 +70,16 @@ inline const std::vector<Product>& products()
 			[] { return std::make_unique<mono::PluginProcessor>(); },
 			describeProgram,
 			[](juce::AudioProcessor&) {} },
+		{ "flint", true,
+			[] { return std::make_unique<flint::PluginProcessor>(); },
+			[](juce::AudioProcessor& processor)
+			{
+				// The variation seed lives in project metadata, outside the parameters.
+				auto extras = describeProgram(processor);
+				extras["seed"] = std::to_string(dynamic_cast<flint::PluginProcessor&>(processor).getSeed());
+				return extras;
+			},
+			[](juce::AudioProcessor& processor) { dynamic_cast<flint::PluginProcessor&>(processor).newSeed(); } },
 	};
 	return all;
 }

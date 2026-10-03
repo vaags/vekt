@@ -1,0 +1,77 @@
+{
+  "format": "vekt.project",
+  "product": "com.vekt.flint",
+  "schemaVersion": 1,
+  "parameters": {
+    "flint.attack": 8.09999942779541,
+    "flint.decay": 69.900001525878906,
+    "flint.drive": 93.5,
+    "flint.driveType": 1.0,
+    "flint.kick.analog.bodyShape": 35.099998474121094,
+    "flint.kick.analog.click": 73.299995422363281,
+    "flint.kick.analog.sweep": 49.700000762939453,
+    "flint.kick.analog.sweepTime": 11.5,
+    "flint.kick.model": 1.0,
+    "flint.level": -37.740001678466797,
+    "flint.mallet.bar.hardness": 58.699996948242188,
+    "flint.mallet.bar.material": 96.900001525878906,
+    "flint.mallet.bar.overtones": 82.299995422363281,
+    "flint.mallet.bar.position": 50.5,
+    "flint.mallet.bar.resonator": 44.099998474121094,
+    "flint.mallet.model": 1.0,
+    "flint.mode": 1.0,
+    "flint.noteOffDamps": 1.0,
+    "flint.offlineOversampling": 1.0,
+    "flint.pitch": 56.450000762939453,
+    "flint.tone": 31.69999885559082,
+    "flint.trackingOversampling": 1.0,
+    "flint.variation": 40.700000762939453,
+    "flint.velocity": 78.900001525878906
+  },
+  "metadata": {
+    "flintSeed": "421b3d8b4bf8f2f6",
+    "vektPresetSelection": {
+      "origin": "factory",
+      "preset": {
+        "format": "vekt.preset",
+        "id": "flint-kick-long-boom",
+        "soundSchemaVersion": 1,
+        "tags": [
+          "Classic Analog",
+          "Dark",
+          "Kick",
+          "Long"
+        ],
+        "soundState": {
+        },
+        "schemaVersion": 2,
+        "product": "com.vekt.flint",
+        "name": "Long Boom",
+        "parameters": {
+          "flint.pitch": 33.0,
+          "flint.attack": 30.0,
+          "flint.decay": 81.489997864000003,
+          "flint.tone": 50.0,
+          "flint.drive": 20.0,
+          "flint.driveType": 0.0,
+          "flint.level": 0.0,
+          "flint.velocity": 100.0,
+          "flint.variation": 30.0,
+          "flint.noteOffDamps": 0.0,
+          "flint.mode": 0.0,
+          "flint.kick.model": 0.0,
+          "flint.mallet.model": 0.0,
+          "flint.kick.analog.sweep": 0.0,
+          "flint.kick.analog.sweepTime": 30.0,
+          "flint.kick.analog.click": 0.0,
+          "flint.kick.analog.bodyShape": 30.0,
+          "flint.mallet.bar.material": 20.0,
+          "flint.mallet.bar.hardness": 50.0,
+          "flint.mallet.bar.position": 25.0,
+          "flint.mallet.bar.overtones": 100.0,
+          "flint.mallet.bar.resonator": 50.0
+        }
+      }
+    }
+  }
+}

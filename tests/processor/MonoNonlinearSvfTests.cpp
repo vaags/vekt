@@ -1,6 +1,6 @@
+#include <vekt/dsp/LinearTptSvf.h>
 #include <vekt/dsp/OversamplingQuality.h>
 #include "FilterPrototypeSupport.h"
-#include "LinearTptSvf.h"
 #include "NonlinearTptLadder.h"
 #include "NonlinearTptSvf.h"
 #include "SvfResponse.h"
@@ -22,7 +22,7 @@
 
 namespace
 {
-using vekt::mono::LinearTptSvf;
+using vekt::dsp::LinearTptSvf;
 using vekt::mono::NonlinearTptSvf;
 using vekt::mono::NonlinearTptSvfSettings;
 using vekt::mono::nonlinearTptSvfMaximumIterations;

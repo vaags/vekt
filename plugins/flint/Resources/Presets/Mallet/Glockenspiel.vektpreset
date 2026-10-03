@@ -1,0 +1,38 @@
+{
+  "format": "vekt.preset",
+  "schemaVersion": 2,
+  "id": "flint-mallet-glockenspiel",
+  "product": "com.vekt.flint",
+  "soundSchemaVersion": 1,
+  "name": "Glockenspiel",
+  "tags": [
+    "Mallet",
+    "Bar",
+    "Bright",
+    "Long"
+  ],
+  "parameters": {
+    "flint.pitch": 84,
+    "flint.attack": 30,
+    "flint.decay": 60,
+    "flint.tone": 50,
+    "flint.drive": 0,
+    "flint.driveType": 0,
+    "flint.level": 0,
+    "flint.velocity": 100,
+    "flint.variation": 30,
+    "flint.noteOffDamps": 0,
+    "flint.mode": 7,
+    "flint.kick.model": 0,
+    "flint.mallet.model": 0,
+    "flint.kick.analog.sweep": 0,
+    "flint.kick.analog.sweepTime": 30,
+    "flint.kick.analog.click": 0,
+    "flint.kick.analog.bodyShape": 0,
+    "flint.mallet.bar.material": 100,
+    "flint.mallet.bar.hardness": 90,
+    "flint.mallet.bar.position": 25,
+    "flint.mallet.bar.overtones": 0,
+    "flint.mallet.bar.resonator": 0
+  }
+}

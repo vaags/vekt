@@ -24,6 +24,16 @@ Preset workflows are specified separately in [PRESET_UX.md](PRESET_UX.md).
   selection is exclusive and non-draggable.
 - Undo/redo use named, keyboard-focusable icon buttons with action tooltips and
   disabled states when unavailable. Changes update the preset's modified marker.
+- Flint's nine modes take a full row of mode buttons, with the selected mode's
+  models in a second row beneath. Modes and models without an engine in the
+  build are disabled and captioned UNAVAILABLE (a mode button shows the caption
+  whenever it is disabled). Pitch, Attack, Decay, Tone and Drive keep their
+  places for every mode and model, each with a line beneath giving its meaning
+  in the selected model (T60, contact time, cutoff); Drive Type is a segmented
+  control under Drive; the selected model's own controls fill five slots that
+  rebind; Velocity and Variation form a visible pair; Level is the I/O
+  strip's fader. Flint's Settings pop-over also holds Note Off Damps and New
+  Seed.
 - Use a 1120 x 700 logical canvas with a 16:10 aspect ratio. Constrain resizing to
   1120 x 700 through 2240 x 1400 and provide a visible bottom-right resize handle.
 - Rav uses a single row of standard-size Drive, Tone, Bias, and Mix controls,
@@ -140,6 +150,12 @@ Preset workflows are specified separately in [PRESET_UX.md](PRESET_UX.md).
   JUCE delivers on macOS even on 120 Hz displays. Where frames are drawn faster
   the handover is conservative (the dot gives way sooner than it must), not
   wrong.
+- A control whose sound clamps part of its range (Flint's Pitch outside the
+  selected model's notes) dims its ring outside the playable span, and its
+  readout shows the value actually played; a line beneath names the setting.
+- A rotary may snap dragged values (`RotaryControl::setDragSnap`): Flint's Pitch
+  drags in semitones and Shift-drag is continuous. Keys, text entry and host
+  automation stay continuous.
 - Context menus provide reset and direct value entry. Product-specific actions
   may be added only when they are meaningful for that parameter.
 

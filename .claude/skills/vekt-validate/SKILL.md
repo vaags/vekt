@@ -1,7 +1,7 @@
 ---
 name: vekt-validate
-description: "Select and execute focused Vekt tests, builds, audio assertions, and required runtime checks. Use after approved changes or when asked to validate Rav, Glimmer, Mono, or shared behavior; report incomplete gates explicitly."
-argument-hint: "[rav|glimmer|mono|shared] [scope]"
+description: "Select and execute focused Vekt tests, builds, audio assertions, and required runtime checks. Use after approved changes or when asked to validate Rav, Glimmer, Mono, Flint, or shared behavior; report incomplete gates explicitly."
+argument-hint: "[rav|glimmer|mono|flint|shared] [scope]"
 disable-model-invocation: false
 ---
 

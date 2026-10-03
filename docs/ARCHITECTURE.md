@@ -6,12 +6,12 @@ Dependencies point toward small reusable modules. These are the CMake targets
 (`framework/<module>`), each linking only what it lists:
 
 ```text
-plugins (Rav, Glimmer, Mono)  -> plugin_support, preset_ui, ui, presets, state, dsp
-plugin_support                -> presets, state, dsp
-preset_ui                     -> presets, ui
-ui                            -> dsp
-presets, state, dsp           -> JUCE only
-audio_analysis                -> tests and the Audio Lab only, never a plugin
+plugins (Rav, Glimmer, Mono, Flint) -> plugin_support, preset_ui, ui, presets, state, dsp
+plugin_support                      -> presets, state, dsp
+preset_ui                           -> presets, ui
+ui                                  -> dsp
+presets, state, dsp                 -> JUCE only
+audio_analysis                      -> tests and the Audio Lab only, never a plugin
 ```
 
 Every module also uses the pinned JUCE headers; the Audio Lab tools and tests
@@ -117,11 +117,13 @@ The audio may drop or click at the switch; no smooth transition is required.
 
 ## DSP Contracts
 
-- Processing uses stereo input and output in version 1.
+- Effects (Rav, Glimmer) process stereo input to stereo output in version 1;
+  instruments (Mono, Flint) take MIDI and produce stereo output.
 - Every product offers the same Tracking and Offline oversampling choices
   (`vekt/dsp/OversamplingChoices.h`, ADR 0001): Off, 2x/4x minimum-phase IIR and
   2x/4x/8x/16x linear-phase FIR. Defaults are per product: Rav and Glimmer track
-  at 4x IIR and render offline at 16x FIR; Mono tracks Off and renders at 4x FIR.
+  at 4x IIR and render offline at 16x FIR; Mono tracks Off and renders at 4x FIR;
+  Flint tracks and renders Off, so a bounce matches playback.
 - Per-sample recursions must stay correct at the highest internal rate,
   `vekt::dsp::maximumInternalSampleRate` (192 kHz x16). A state that steps toward
   a target (envelope, glide, smoothing, drift) or accumulates a phase or a time
@@ -134,15 +136,17 @@ The audio may drop or click at the switch; no smooth transition is required.
   state follows the signal may stay in `float` when measured below the
   reference-render tolerance.
 - Every path uses integer latency so host reporting and dry alignment agree.
-- Dry/wet interpolation is linear.
-- Input gain precedes the dry/wet split; output gain follows the mix.
-- Mix at 0% preserves the post-input-gain dry signal after active wet latency.
-- Host bypass preserves raw input after reported plugin latency.
+- Effects only (Rav, Glimmer):
+  - Dry/wet interpolation is linear.
+  - Input gain precedes the dry/wet split; output gain follows the mix.
+  - Mix at 0% preserves the post-input-gain dry signal after active wet latency.
+  - Host bypass preserves raw input after reported plugin latency.
 
 Product signal paths and their contracts belong to the product documents:
 [Rav](RAV_VALIDATION.md), [Glimmer](GLIMMER_VALIDATION.md) (its `RotaryEngine`,
-model switching and latency) and [Mono](MONO_VALIDATION.md); Mono's quality
-scope is recorded in ADR 0001.
+model switching and latency), [Mono](MONO_VALIDATION.md) and
+[Flint](FLINT_VALIDATION.md) (its engine host and model sheets, ADR 0011); Mono's
+quality scope is recorded in ADR 0001.
 
 ## Compatibility
 
@@ -186,8 +190,8 @@ when a user preset or no preset is selected (ADR 0010). User presets remain a
 separate mutable editor-facing source, are listed in natural sort order, and
 cannot shadow a case-insensitively matching factory name.
 Standalone, VST3, and AUv2 user presets resolve beneath
-`~/Library/Audio/Presets/Thomas Vaags/<product name>` (`Rav`, `Glimmer`, or
-`Mono`). File-access failures must remain visible; a shared desktop path
+`~/Library/Audio/Presets/Thomas Vaags/<product name>` (`Rav`, `Glimmer`,
+`Mono` or `Flint`). File-access failures must remain visible; a shared desktop path
 does not establish sandbox access in every host. Validate save/load and native
 choosers in actual hosts before making that claim.
 

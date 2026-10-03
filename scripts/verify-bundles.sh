@@ -1,7 +1,7 @@
 #!/bin/zsh
 set -uo pipefail
 
-# Usage: scripts/verify-bundles.sh [--release] [rav|glimmer|mono ...]
+# Usage: scripts/verify-bundles.sh [--release] [rav|glimmer|mono|flint ...]
 # Strict code-signature check (codesign --verify --deep --strict) of each product's built Standalone, VST3 and AU
 # bundles in build/dev (Debug) or build/release (Release). A format that was not built is reported as SKIP; an invalid
 # seal fails. Exits nonzero if any bundle fails or none was found. Run after building, before installing or validating.
@@ -11,19 +11,20 @@ products=()
 for option in "$@"; do
 	case $option in
 		--release) preset=release; config=Release ;;
-		rav|glimmer|mono) products+=("$option") ;;
-		*) print -u2 "Usage: $0 [--release] [rav|glimmer|mono ...]"; exit 64 ;;
+		rav|glimmer|mono|flint) products+=("$option") ;;
+		*) print -u2 "Usage: $0 [--release] [rav|glimmer|mono|flint ...]"; exit 64 ;;
 	esac
 done
-(( ${#products} == 0 )) && products=(rav glimmer mono)
+(( ${#products} == 0 )) && products=(rav glimmer mono flint)
 
 cd "${0:A:h}/.."
-typeset -A names=(rav Rav glimmer Glimmer mono Mono)
-typeset -A targets=(rav VektRav glimmer VektGlimmer mono VektMono)
+typeset -A names=(rav Rav glimmer Glimmer mono Mono flint Flint)
+typeset -A targets=(rav VektRav glimmer VektGlimmer mono VektMono flint Flint)
+typeset -A folders=(rav vekt_rav glimmer vekt_glimmer mono vekt_mono flint flint)
 checked=0
 failed=0
 for product in $products; do
-	root="build/$preset/plugins/vekt_$product/${targets[$product]}_artefacts/$config"
+	root="build/$preset/plugins/${folders[$product]}/${targets[$product]}_artefacts/$config"
 	for bundle in "$root/Standalone/${names[$product]}.app" "$root/VST3/${names[$product]}.vst3" \
 		"$root/AU/${names[$product]}.component"; do
 		if [[ ! -d $bundle ]]; then

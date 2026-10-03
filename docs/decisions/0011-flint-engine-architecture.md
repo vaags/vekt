@@ -23,8 +23,10 @@ state and presets store the choice index (`StateManager`, `PresetSchema`).
 3. **One engine host, explicit engines.** A product-local `FlintEngineHost` owns preallocated engines and processes only
    the selected one, per block segment, behind a Flint-only `Engine` interface. No voice allocator, no shared modal base
    class until a second modal model exists, no effect graph.
-4. **Absolute pitch, no pitch-follow.** `flint.pitch` (MIDI 12–108) and `flint.fine` (±50 cents) set pitch in every
-   model; MIDI note numbers never do. A change glides the ringing object over 15 ms.
+4. **Absolute pitch, no pitch-follow.** One continuous `flint.pitch` (MIDI 12–108, 0.01-semitone steps) sets pitch in
+   every model, so automated slides are smooth; the editor snaps drags to semitones. MIDI note numbers never set pitch.
+   A change glides the ringing object over 15 ms. (A separate Fine control was dropped, 3 October 2026: continuous
+   Pitch makes it redundant.)
 5. **Reproducible variation.** Each hit's random values hash the instance seed, the hit's song position and its order on
    that sample; the seed lives in project metadata, not presets.
 6. **Hi-Hat Two-Note Mode** (built with Hi-Hat): optional, default off; user-set closed and open notes (GM 42/46), other

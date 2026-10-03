@@ -12,7 +12,6 @@ add_library(VektMonoCore STATIC
 	Source/LadderPoleMix.h
 	Source/LadderResonance.h
 	Source/FilterModeEase.h
-	Source/LinearTptSvf.h
 	Source/SvfResponse.h
 	Source/Lfo.h
 	Source/NonlinearTptLadder.cpp

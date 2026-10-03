@@ -1,7 +1,8 @@
+#include <vekt/dsp/LinearTptSvf.h>
+
 #include "FilterPrototypeSupport.h"
 #include "Korg35Response.h"
 #include "LadderResonance.h"
-#include "LinearTptSvf.h"
 #include "NonlinearTptKorg35.h"
 #include "NonlinearTptLadder.h"
 #include "NonlinearTptLadderHighPass.h"
@@ -30,7 +31,7 @@
 namespace
 {
 using namespace vekt::test::filter_prototype;
-using vekt::mono::LinearTptSvf;
+using vekt::dsp::LinearTptSvf;
 using vekt::mono::NonlinearTptKorg35;
 using vekt::mono::NonlinearTptKorg35Settings;
 using vekt::mono::nonlinearTptKorg35Bracket;

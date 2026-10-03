@@ -68,17 +68,19 @@ endif()
 add_subdirectory(plugins/vekt_rav)
 add_subdirectory(plugins/vekt_glimmer)
 add_subdirectory(plugins/vekt_mono)
+add_subdirectory(plugins/flint)
 
 if(VEKT_BUILD_AUDIO_LAB)
     add_subdirectory(tools/audio_lab)
 endif()
 
-vekt_strict_warnings(vekt_presets vekt_ui vekt_preset_ui vekt_plugin_support VektRavCore VektGlimmerCore VektMonoCore)
+vekt_strict_warnings(vekt_presets vekt_ui vekt_preset_ui vekt_plugin_support VektRavCore VektGlimmerCore VektMonoCore FlintCore)
 foreach(product IN ITEMS Rav Glimmer Mono)
     string(TOLOWER ${product} directory)
     vekt_strict_warnings_on_sources(Vekt${product}
         "${CMAKE_CURRENT_SOURCE_DIR}/plugins/vekt_${directory}/Source/PluginEntryPoint.cpp")
 endforeach()
+vekt_strict_warnings_on_sources(Flint "${CMAKE_CURRENT_SOURCE_DIR}/plugins/flint/Source/PluginEntryPoint.cpp")
 
 if(VEKT_BUILD_TESTS)
     include(CTest)

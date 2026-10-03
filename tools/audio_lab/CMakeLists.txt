@@ -87,6 +87,13 @@ add_executable(VektLadderCost
 
 add_executable(VektMonoProcessorCost MonoProcessorCostMain.cpp CallbackAllocationProbe.cpp)
 
+add_executable(VektFlintCost FlintCostMain.cpp CallbackAllocationProbe.cpp)
+target_link_libraries(VektFlintCost PRIVATE
+	FlintCore
+	vekt::juce_headers
+	vekt::juce_runtime
+	vekt_project_options)
+
 target_link_libraries(VektRavRender PRIVATE
 	VektRavCore
 	VektGlimmerCore
@@ -98,6 +105,7 @@ target_link_libraries(VektRavAudioLab PRIVATE
 	VektRavCore
 	VektGlimmerCore
 	VektMonoCore
+	FlintCore
     vekt::juce_headers
 	vekt::juce_runtime
 	vekt_project_options)

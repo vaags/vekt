@@ -4,6 +4,7 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include <functional>
 #include <optional>
 
 namespace vekt::ui
@@ -40,6 +41,9 @@ public:
 	// clockwise from 12 o'clock) and draws a position cursor on a closed ring instead of a filled
 	// amount. Dragging or scrolling past either end wraps round to the other end.
 	void setEndless(bool isEndless, float startAngle = 0.0f);
+	// Rounds values set by dragging, not by keys, text entry or the host: Flint's Pitch snaps to semitones unless Shift
+	// is held. Empty (the default) leaves drags continuous.
+	void setDragSnap(std::function<double(double)> snap);
 	void refreshValueText();
 	// Shows where modulation can take the value (empty hides it); the pointer and readout keep the base value.
 	void setModulation(std::optional<ModulationDisplay> display);
@@ -48,9 +52,19 @@ public:
 	void resized() override;
 
 private:
+	class Dial final : public juce::Slider
+	{
+	public:
+		std::function<double(double)> dragSnap;
+		double snapValue(double attemptedValue, DragMode dragMode) override
+		{
+			return dragSnap && dragMode != notDragging ? dragSnap(attemptedValue) : attemptedValue;
+		}
+	};
+
 	void updateValueText();
 
-	juce::Slider slider;
+	Dial slider;
 	ModulationRing modulationRing { slider };
 	juce::Label valueLabel;
 	juce::Label label;

@@ -3,6 +3,8 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include <cmath>
+
 namespace
 {
 // Drags the dial straight up by the given distance (negative drags down) and returns the value.
@@ -324,4 +326,22 @@ TEST_CASE("Modulation dots hand over to the band only when moving too fast to fo
 	REQUIRE(ring.dotOpacityForSpeed(-12.0) == Catch::Approx(0.5f));
 	// A share of the travel looks the same on any size of knob.
 	REQUIRE(large.getModulationRing().dotOpacityForSpeed(12.0) == Catch::Approx(ring.dotOpacityForSpeed(12.0)));
+}
+
+TEST_CASE("Rotary drag snapping rounds dragged values only", "[ui][rotary]")
+{
+	juce::ScopedJuceInitialiser_GUI initialiseJuce;
+	vekt::ui::RotaryControl control;
+	control.setBounds(0, 0, 100, vekt::ui::RotaryControl::heightFor(vekt::ui::RotaryControl::Size::standard));
+	auto& slider = control.getSlider();
+	slider.setRange(0.0, 100.0, 0.01);
+	const auto continuous = dragUp(slider, 40.0, 7.0f);
+	REQUIRE(std::abs(continuous - std::round(continuous)) > 0.01);
+	control.setDragSnap([](double value) { return std::round(value); });
+	const auto snapped = dragUp(slider, 40.0, 7.0f);
+	REQUIRE(snapped > 40.0);
+	REQUIRE(snapped == Catch::Approx(std::round(snapped)).margin(1.0e-9));
+	// Values from the host, keys or text are left alone.
+	slider.setValue(42.37);
+	REQUIRE(slider.getValue() == Catch::Approx(42.37));
 }

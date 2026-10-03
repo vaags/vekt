@@ -25,12 +25,12 @@ if (( ${#changed} == 0 )); then
 	changed=(${(f)"$(git diff --name-only "$base"; git ls-files --others --exclude-standard)"})
 fi
 
-products=(rav glimmer mono)
+products=(rav glimmer mono flint)
 typeset -A labels
 full=0
 add() { for label in "$@"; do labels[$label]=1; done }
 
-owner_pattern='rav|glimmer|mono|dsp|ui|presets|state|plugin-support|compat|audio-lab|audio-analysis|framework'
+owner_pattern='rav|glimmer|mono|flint|dsp|ui|presets|state|plugin-support|compat|audio-lab|audio-analysis|framework'
 
 # The owner tags of the registered (not hidden) test cases in the given test files, read across line breaks; the tag
 # policy guarantees every registered case one.
@@ -61,6 +61,7 @@ for file in $changed; do
 		plugins/vekt_rav/*) add rav; add_users rav ;;
 		plugins/vekt_glimmer/*) add glimmer; add_users glimmer ;;
 		plugins/vekt_mono/*) add mono; add_users mono ;;
+		plugins/flint/*) add flint; add_users flint ;;
 		# Framework modules select their own tests, the modules that link them (framework/*/CMakeLists.txt), every
 		# product, and every test file using them.
 		framework/dsp/*) add dsp ui plugin-support $products; add_users dsp; add_users ui; add_users plugin_support ;;
