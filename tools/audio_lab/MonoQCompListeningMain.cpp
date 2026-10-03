@@ -43,7 +43,7 @@ int main(int argc, char** argv)
 {
 	if (argc != 2)
 	{
-		std::cerr << "Usage: VektMonoQCompListening output-directory\n";
+		std::cerr << "Usage: VektKobberQCompListening output-directory\n";
 		return 64;
 	}
 	juce::ScopedJuceInitialiser_GUI juceInitialiser;

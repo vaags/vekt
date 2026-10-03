@@ -95,7 +95,7 @@ struct KWeighting
 };
 }
 
-TEST_CASE("Mono high-pass ladder is the low-pass ladder's mirror at small signals", "[mono][filter][ladder-hp]")
+TEST_CASE("Kobber high-pass ladder is the low-pass ladder's mirror at small signals", "[kobber][filter][ladder-hp]")
 {
 	// Exact for the linear reference; within 0.05 dB at 1e-4 for the non-linear filter. The rate enters only through the
 	// prewarped tan(pi fc / fs), so the lowest internal rate, 48 kHz and the highest (192 kHz at 16x) cover it.
@@ -111,7 +111,7 @@ TEST_CASE("Mono high-pass ladder is the low-pass ladder's mirror at small signal
 			}
 }
 
-TEST_CASE("Mono high-pass ladder has no solver failures under hostile rendering", "[mono][filter][ladder-hp]")
+TEST_CASE("Kobber high-pass ladder has no solver failures under hostile rendering", "[kobber][filter][ladder-hp]")
 {
 	for (const auto hostRate : hostRates)
 		for (const auto factor : { 1, 8 })
@@ -143,7 +143,7 @@ TEST_CASE("Mono high-pass ladder has no solver failures under hostile rendering"
 				}
 }
 
-TEST_CASE("Mono high-pass ladder feedback stops short of self-oscillation and keeps the knob alive", "[mono][filter][ladder-hp]")
+TEST_CASE("Kobber high-pass ladder feedback stops short of self-oscillation and keeps the knob alive", "[kobber][filter][ladder-hp]")
 {
 	using vekt::mono::ladderHighPassFeedback;
 	for (int step = 0; step <= 90; ++step)
@@ -163,7 +163,7 @@ TEST_CASE("Mono high-pass ladder feedback stops short of self-oscillation and ke
 	REQUIRE(std::abs(above - below) < 1.0e-3 * below);
 }
 
-TEST_CASE("Mono high-pass ladder decays below threshold and self-oscillates at the cutoff above it", "[mono][filter][ladder-hp]")
+TEST_CASE("Kobber high-pass ladder decays below threshold and self-oscillates at the cutoff above it", "[kobber][filter][ladder-hp]")
 {
 	// Stopped short in the voice (ladderHighPassFeedback), but the filter itself: silence after excitation through
 	// k = 3.916 (the HP's 100 %), and an oscillation exactly at the cutoff for k > 4 (linear stages, memoryless tanh).
@@ -197,7 +197,7 @@ TEST_CASE("Mono high-pass ladder decays below threshold and self-oscillates at t
 // Development measurement, hidden (Phase 2): decay, onset and self-oscillation pitch; non-linear residue and level
 // stability on a Classic Three Bass-like mix against the current tap-mix high-pass (raw and with the baseline's input law)
 // and the SVF; switching level against the SVF without any lift.
-TEST_CASE("Mono high-pass ladder measurements", "[.][ladder-hp-prototype]")
+TEST_CASE("Kobber high-pass ladder measurements", "[.][ladder-hp-prototype]")
 {
 	using namespace vekt::test::filter_prototype;
 	constexpr double sampleRate = 48'000.0;
@@ -271,7 +271,7 @@ TEST_CASE("Mono high-pass ladder measurements", "[.][ladder-hp-prototype]")
 	}
 }
 
-TEST_CASE("Mono high-pass ladder primes a restart on a running signal", "[mono][filter][ladder-hp]")
+TEST_CASE("Kobber high-pass ladder primes a restart on a running signal", "[kobber][filter][ladder-hp]")
 {
 	// MonoVoice rests the high-pass ladder after a second at unmodulated LP and primes it as Mode leaves: from the steady
 	// state for the current (saturated) input, it sees no step. Against a filter that ran all along, a cold restart on a
@@ -319,7 +319,7 @@ TEST_CASE("Mono high-pass ladder primes a restart on a running signal", "[mono][
 		}
 }
 
-TEST_CASE("Mono high-pass ladder primes to the exact steady state", "[mono][filter][ladder-hp]")
+TEST_CASE("Kobber high-pass ladder primes to the exact steady state", "[kobber][filter][ladder-hp]")
 {
 	// Primed on a constant input, the filter is already settled, at full Drive and the top feedback too: silent from the
 	// first sample, and the solve converges at its first guess. Unprimed, the same input is a step.

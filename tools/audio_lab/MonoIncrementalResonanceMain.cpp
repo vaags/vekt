@@ -89,7 +89,7 @@ int main(int argc, char** argv)
 {
 	if (argc < 2 || argc > 4)
 	{
-		std::cerr << "Usage: VektMonoIncrementalResonance output.csv [probe-amplitude [worst]]\n";
+		std::cerr << "Usage: VektKobberIncrementalResonance output.csv [probe-amplitude [worst]]\n";
 		return 64;
 	}
 	const bool worst = argc == 4 && std::string_view(argv[3]) == "worst";

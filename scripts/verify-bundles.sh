@@ -1,7 +1,7 @@
 #!/bin/zsh
 set -uo pipefail
 
-# Usage: scripts/verify-bundles.sh [--release] [rav|glimmer|mono|flint ...]
+# Usage: scripts/verify-bundles.sh [--release] [rav|glimmer|kobber|flint ...]
 # Strict code-signature check (codesign --verify --deep --strict) of each product's built Standalone, VST3 and AU
 # bundles in build/dev (Debug) or build/release (Release). A format that was not built is reported as SKIP; an invalid
 # seal fails. Exits nonzero if any bundle fails or none was found. Run after building, before installing or validating.
@@ -11,16 +11,16 @@ products=()
 for option in "$@"; do
 	case $option in
 		--release) preset=release; config=Release ;;
-		rav|glimmer|mono|flint) products+=("$option") ;;
-		*) print -u2 "Usage: $0 [--release] [rav|glimmer|mono|flint ...]"; exit 64 ;;
+		rav|glimmer|kobber|flint) products+=("$option") ;;
+		*) print -u2 "Usage: $0 [--release] [rav|glimmer|kobber|flint ...]"; exit 64 ;;
 	esac
 done
-(( ${#products} == 0 )) && products=(rav glimmer mono flint)
+(( ${#products} == 0 )) && products=(rav glimmer kobber flint)
 
 cd "${0:A:h}/.."
-typeset -A names=(rav Rav glimmer Glimmer mono Mono flint Flint)
-typeset -A targets=(rav Rav glimmer Glimmer mono VektMono flint Flint)
-typeset -A folders=(rav rav glimmer glimmer mono vekt_mono flint flint)
+typeset -A names=(rav Rav glimmer Glimmer kobber Kobber flint Flint)
+typeset -A targets=(rav Rav glimmer Glimmer kobber Kobber flint Flint)
+typeset -A folders=(rav rav glimmer glimmer kobber kobber flint flint)
 checked=0
 failed=0
 for product in $products; do

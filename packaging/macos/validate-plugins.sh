@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if (( $# != 3 )); then
-	print -u2 "Usage: $0 <rav|glimmer|mono|flint> /path/to/product.vst3 /path/to/product.component"
+	print -u2 "Usage: $0 <rav|glimmer|kobber|flint> /path/to/product.vst3 /path/to/product.component"
 	exit 64
 fi
 
@@ -13,7 +13,7 @@ bundle_id_prefix=com.thomasvaags
 case "$product" in
 rav) au_type=aufx; au_subtype=Ravv; au_category=Effects ;;
 glimmer) au_type=aufx; au_subtype=Glmr; au_category=Effects ;;
-mono) au_type=aumu; au_subtype=Kobr; au_category=Synths ;;
+kobber) au_type=aumu; au_subtype=Kobr; au_category=Synths ;;
 flint) au_type=aumu; au_subtype=Flnt; au_category=Synths ;;
 *) print -u2 "Unknown product: $product"; exit 64 ;;
 esac

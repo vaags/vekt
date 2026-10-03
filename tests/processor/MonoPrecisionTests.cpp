@@ -34,7 +34,7 @@ std::int64_t samplesUntil(double rate, double limitSeconds, Step&& done)
 }
 }
 
-TEST_CASE("Mono contours finish their longest stages on time at every internal rate", "[mono][contour][precision][slow]")
+TEST_CASE("Kobber contours finish their longest stages on time at every internal rate", "[kobber][contour][precision][slow]")
 {
 	// Times denote 99 % of the distance and the endpoint snaps at 99.99 %, so attack ends after its time and decay and
 	// release after twice theirs. 5 % margin; a stalled stage never ends. The longest settings: Attack 10 s, Decay and
@@ -68,7 +68,7 @@ TEST_CASE("Mono contours finish their longest stages on time at every internal r
 	}
 }
 
-TEST_CASE("Mono glide reaches its note at every internal rate", "[mono][glide][precision]")
+TEST_CASE("Kobber glide reaches its note at every internal rate", "[kobber][glide][precision]")
 {
 	// An octave glide, 1 s and 5 s at 48 kHz (5 s is the longest Glide Time), 1 s at the higher rates (cost): after eight time
 	// constants it must be within 1 cent (e^-8 of 1,200 cents is 0.4 cent). In single precision it stopped up to
@@ -87,7 +87,7 @@ TEST_CASE("Mono glide reaches its note at every internal rate", "[mono][glide][p
 		}
 }
 
-TEST_CASE("Mono drift walks reach their targets at every internal rate", "[mono][drift][precision]")
+TEST_CASE("Kobber drift walks reach their targets at every internal rate", "[kobber][drift][precision]")
 {
 	// The walk is two one-poles at the slowest Drift speed (time constant 0.6 s each); after 6 s (ten time constants)
 	// it is within 0.1 % of a target one away.
@@ -107,7 +107,7 @@ TEST_CASE("Mono drift walks reach their targets at every internal rate", "[mono]
 	}
 }
 
-TEST_CASE("Mono LFO fades in on time at every internal rate", "[mono][lfo][precision]")
+TEST_CASE("Kobber LFO fades in on time at every internal rate", "[kobber][lfo][precision]")
 {
 	// A 10 s fade of a held unipolar square (1 for its first half cycle at the lowest rate) reaches full level after
 	// 10 s within 1 %.
@@ -131,7 +131,7 @@ TEST_CASE("Mono LFO fades in on time at every internal rate", "[mono][lfo][preci
 	}
 }
 
-TEST_CASE("Mono low notes keep their pitch at the highest internal rate", "[mono][oscillator][precision][slow]")
+TEST_CASE("Kobber low notes keep their pitch at the highest internal rate", "[kobber][oscillator][precision][slow]")
 {
 	// MIDI 24 with Octave -2 is 8.18 Hz, the lowest pitch a key without bend reaches. A sine through the open filter,
 	// pitch from interpolated rising zero crossings over four cycles; within 1 cent (single-precision phase was up to

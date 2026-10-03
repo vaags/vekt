@@ -80,7 +80,7 @@ int main(int argc, char** argv)
 {
 	if (argc < 2 || argc > 3 || (argc == 3 && std::string_view(argv[2]) != "check"))
 	{
-		std::cerr << "Usage: VektMonoAcPumpResponse output.csv [check]\n";
+		std::cerr << "Usage: VektKobberAcPumpResponse output.csv [check]\n";
 		return 64;
 	}
 	const bool check = argc == 3;

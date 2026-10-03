@@ -1,7 +1,7 @@
 #!/bin/zsh
 set -uo pipefail
 
-# Usage: scripts/pluginval-dev.sh [--gui] [rav|glimmer|mono|flint ...]
+# Usage: scripts/pluginval-dev.sh [--gui] [rav|glimmer|kobber|flint ...]
 # pluginval at strictness 10 on each product's development (Debug) VST3, all products in parallel, each against a
 # snapshot copy of its bundle so a rebuild meanwhile cannot change what is validated. GUI tests are skipped unless
 # --gui is given (they need a display session). Logs: build/dev/pluginval/<product>.log. Exits nonzero if any fails.
@@ -11,19 +11,19 @@ products=()
 for option in "$@"; do
 	case $option in
 		--gui) gui=1 ;;
-		rav|glimmer|mono|flint) products+=("$option") ;;
-		*) print -u2 "Usage: $0 [--gui] [rav|glimmer|mono|flint ...]"; exit 64 ;;
+		rav|glimmer|kobber|flint) products+=("$option") ;;
+		*) print -u2 "Usage: $0 [--gui] [rav|glimmer|kobber|flint ...]"; exit 64 ;;
 	esac
 done
-(( ${#products} == 0 )) && products=(rav glimmer mono flint)
+(( ${#products} == 0 )) && products=(rav glimmer kobber flint)
 
 cd "${0:A:h}/.."
 pluginval=$(command -v pluginval || print /Applications/pluginval.app/Contents/MacOS/pluginval)
 [[ -x $pluginval ]] || { print -u2 "pluginval not found"; exit 69; }
 
-typeset -A names=(rav Rav glimmer Glimmer mono Mono flint Flint)
-typeset -A targets=(rav Rav glimmer Glimmer mono VektMono flint Flint)
-typeset -A folders=(rav rav glimmer glimmer mono vekt_mono flint flint)
+typeset -A names=(rav Rav glimmer Glimmer kobber Kobber flint Flint)
+typeset -A targets=(rav Rav glimmer Glimmer kobber Kobber flint Flint)
+typeset -A folders=(rav rav glimmer glimmer kobber kobber flint flint)
 build_targets=()
 for product in $products; do build_targets+=("${targets[$product]}_VST3"); done
 build_log=$(mktemp "${TMPDIR:-/tmp}/vekt-pluginval-build.XXXXXX")

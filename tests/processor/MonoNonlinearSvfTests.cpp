@@ -115,7 +115,7 @@ bool persistentlyNonPeriodic(double sampleRate, double cutoff, double q, double 
 }
 }
 
-TEST_CASE("Mono nonlinear SVF residual is strictly increasing with its root inside the analytic bracket", "[mono][filter][svf][svf-nonlinear]")
+TEST_CASE("Kobber nonlinear SVF residual is strictly increasing with its root inside the analytic bracket", "[kobber][filter][svf][svf-nonlinear]")
 {
 	std::mt19937 random { 11 };
 	std::uniform_real_distribution unit { 0.0, 1.0 };
@@ -135,7 +135,7 @@ TEST_CASE("Mono nonlinear SVF residual is strictly increasing with its root insi
 	}
 }
 
-TEST_CASE("Mono nonlinear SVF solve converges from the linear seed within a few iterations", "[mono][filter][svf][svf-nonlinear]")
+TEST_CASE("Kobber nonlinear SVF solve converges from the linear seed within a few iterations", "[kobber][filter][svf][svf-nonlinear]")
 {
 	std::mt19937 random { 12 };
 	int worstIterations {};
@@ -157,7 +157,7 @@ TEST_CASE("Mono nonlinear SVF solve converges from the linear seed within a few 
 	CHECK(worstIterations <= 12);
 }
 
-TEST_CASE("Mono nonlinear SVF solve converges from either bracket end", "[mono][filter][svf][svf-nonlinear]")
+TEST_CASE("Kobber nonlinear SVF solve converges from either bracket end", "[kobber][filter][svf][svf-nonlinear]")
 {
 	// F is an odd cubic, convex on the root's side of 0, with the root between 0 and C / (1 + g^2): Newton seeded
 	// anywhere in that bracket stays in it, so the bisection safeguard is never needed in practice (it stays as a
@@ -180,7 +180,7 @@ TEST_CASE("Mono nonlinear SVF solve converges from either bracket end", "[mono][
 	CHECK(fallbackSteps == 0);
 }
 
-TEST_CASE("Mono nonlinear SVF converges to the linear SVF at low level", "[mono][filter][svf][svf-nonlinear]")
+TEST_CASE("Kobber nonlinear SVF converges to the linear SVF at low level", "[kobber][filter][svf][svf-nonlinear]")
 {
 	// At 1e-5 input the input saturation and the cubic damping differ from linear by parts in 1e10 even at the
 	// top Q's resonant gain, far below the 1e-6 tolerance.
@@ -220,7 +220,7 @@ TEST_CASE("Mono nonlinear SVF converges to the linear SVF at low level", "[mono]
 				}
 }
 
-TEST_CASE("Mono nonlinear SVF decays to silence at maximum Resonance and Drive under cutoff modulation", "[mono][filter][svf][svf-nonlinear]")
+TEST_CASE("Kobber nonlinear SVF decays to silence at maximum Resonance and Drive under cutoff modulation", "[kobber][filter][svf][svf-nonlinear]")
 {
 	// ADR 0006's no-self-oscillation invariant over host rate x oversampling: excite hard, then with zero input and
 	// the cutoff still sweeping two octaves either side of 1 kHz at 5 Hz, the tail must fall monotonically (per 10 ms
@@ -261,7 +261,7 @@ TEST_CASE("Mono nonlinear SVF decays to silence at maximum Resonance and Drive u
 		}
 }
 
-TEST_CASE("Mono nonlinear SVF still decays at the lowest cutoff and highest effective rate", "[mono][filter][svf][svf-nonlinear]")
+TEST_CASE("Kobber nonlinear SVF still decays at the lowest cutoff and highest effective rate", "[kobber][filter][svf][svf-nonlinear]")
 {
 	// The 2.5 Hz floor at 192 kHz x16, the highest internal rate, where g is smallest: the envelope time constant is Q / (pi fc), about 2.5 s at
 	// Q 20, so 7.5 seconds of tail should shed well over 90 % of its peak, without solver failures.
@@ -288,7 +288,7 @@ TEST_CASE("Mono nonlinear SVF still decays at the lowest cutoff and highest effe
 	CHECK(svf.diagnostics().nonFiniteSamples == 0);
 }
 
-TEST_CASE("Mono nonlinear SVF stays periodic in the cases that broke earlier topologies", "[mono][filter][svf][svf-nonlinear][svf-periodicity]")
+TEST_CASE("Kobber nonlinear SVF stays periodic in the cases that broke earlier topologies", "[kobber][filter][svf][svf-nonlinear][svf-periodicity]")
 {
 	// ADR 0006's periodicity invariant, on the hostile cases the full sweep found: a saw or square with its 2nd or
 	// 3rd harmonic on the cutoff at relative levels 0.5-1.4 (saturating storage, Q 2.5-8), and a saw at the cutoff
@@ -303,7 +303,7 @@ TEST_CASE("Mono nonlinear SVF stays periodic in the cases that broke earlier top
 			}
 }
 
-TEST_CASE("Mono nonlinear SVF output stays periodic with periodic input across the level sweep", "[.][svf-periodicity-full]")
+TEST_CASE("Kobber nonlinear SVF output stays periodic with periodic input across the level sweep", "[.][svf-periodicity-full]")
 {
 	// The full sweep: attractors show up in windows about 2 dB wide, so the level relative to the knee is swept in
 	// 1/24-decade steps from 0.05 to about 16 (past full input saturation), not in 6 dB Drive steps.
@@ -368,7 +368,7 @@ std::string decibels(double gain)
 // Development characterization, hidden from normal runs: prints how the SVF responds to Drive for each damping curve
 // (ADR 0006). Gains are dB re the undriven input; linear expectations in brackets. Curve 0 is the saturated-input
 // reference.
-TEST_CASE("Mono nonlinear SVF Drive characterization", "[.][svf-characterize]")
+TEST_CASE("Kobber nonlinear SVF Drive characterization", "[.][svf-characterize]")
 {
 	const auto qMax = vekt::mono::svfDamping(1.0);
 	for (const auto curve : { 0.0, 0.25, 0.5, 1.0 })
@@ -393,7 +393,7 @@ TEST_CASE("Mono nonlinear SVF Drive characterization", "[.][svf-characterize]")
 // Development characterization, hidden from normal runs: resonance prominence, the LP fundamental at the cutoff
 // over the LP passband fundamental at the same Drive, for each damping curve (ADR 0006 voicing). Gains are also given
 // re the fundamental of the saturated drive u = a tanh(D x / a), which removes Drive gain and input compression.
-TEST_CASE("Mono nonlinear SVF resonance prominence", "[.][svf-prominence]")
+TEST_CASE("Kobber nonlinear SVF resonance prominence", "[.][svf-prominence]")
 {
 	constexpr double amplitude = 1.0;
 	constexpr double cutoff = 1'000.0;
@@ -439,7 +439,7 @@ TEST_CASE("Mono nonlinear SVF resonance prominence", "[.][svf-prominence]")
 // cutoff fixed between harmonics (600 Hz) and on the 6th (660 Hz), where Q decides the ring, and with a filter-envelope
 // pluck (cutoff 4 kHz falling to 150 Hz, time constant 0.1 s), each at Drive 0 and +12 dB. SVF output is trimmed as in
 // the voice (svfOutputTrim); the Ladder is raw.
-TEST_CASE("Mono SVF maximum Q audition renders", "[.][svf-q-renders]")
+TEST_CASE("Kobber SVF maximum Q audition renders", "[.][svf-q-renders]")
 {
 	using namespace vekt::test::filter_prototype;
 	const auto* directory = std::getenv("VEKT_MONO_DUMP");

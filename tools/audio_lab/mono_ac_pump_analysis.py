@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Analyze resolved harmonic-transfer bins from VektMonoAcPumpResponse.
+"""Analyze resolved harmonic-transfer bins from VektKobberAcPumpResponse.
 
 Usage: mono_ac_pump_analysis.py input.csv output-directory
 Produces points.csv, summary.csv, curve_relative.csv, and four SVGs per resonance. P_conv uses

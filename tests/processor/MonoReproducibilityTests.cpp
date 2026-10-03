@@ -51,7 +51,7 @@ struct TemporaryDirectory
 };
 }
 
-TEST_CASE("Mono repeated notes are not identical", "[mono][processor][reproducibility]")
+TEST_CASE("Kobber repeated notes are not identical", "[kobber][processor][reproducibility]")
 {
 	vekt::mono::PluginProcessor processor;
 	setParameter(processor, parameters::performanceMode, 0.0f);
@@ -63,7 +63,7 @@ TEST_CASE("Mono repeated notes are not identical", "[mono][processor][reproducib
 	REQUIRE_FALSE(identical(first, second));
 }
 
-TEST_CASE("Mono preset loads give reproducible output whatever played before", "[mono][processor][reproducibility][preset]")
+TEST_CASE("Kobber preset loads give reproducible output whatever played before", "[kobber][processor][reproducibility][preset]")
 {
 	// A user preset exercising every stateful source: free-running LFO and vibrato clocks, pink noise and unison.
 	TemporaryDirectory directory;

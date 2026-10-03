@@ -29,7 +29,7 @@ double windowMeasurement(const juce::var& report, const juce::String& name, cons
 }
 }
 
-TEST_CASE("Mono Audio Lab fixtures use sample-positioned MIDI and parameter events", "[audio-lab][mono]")
+TEST_CASE("Kobber Audio Lab fixtures use sample-positioned MIDI and parameter events", "[audio-lab][kobber]")
 {
 	vekt::audio_lab::MonoRenderRequest filter;
 	REQUIRE(vekt::audio_lab::makeMonoRenderFixture("filter-sweep", 48'000.0, 127, 1234, filter));
@@ -48,7 +48,7 @@ TEST_CASE("Mono Audio Lab fixtures use sample-positioned MIDI and parameter even
 	REQUIRE_FALSE(vekt::audio_lab::makeMonoRenderFixture("unknown", 48'000.0, 64, 1, envelope));
 }
 
-TEST_CASE("Mono Audio Lab renders are deterministic and block-size invariant", "[audio-lab][mono][determinism]")
+TEST_CASE("Kobber Audio Lab renders are deterministic and block-size invariant", "[audio-lab][kobber][determinism]")
 {
 	vekt::audio_lab::MonoRenderRequest firstRequest, secondRequest, otherSeedRequest;
 	REQUIRE(vekt::audio_lab::makeMonoRenderFixture("filter-sweep", 48'000.0, 31, 0x12345678u, firstRequest));
@@ -71,7 +71,7 @@ TEST_CASE("Mono Audio Lab renders are deterministic and block-size invariant", "
 	REQUIRE(seedChangedOutput);
 }
 
-TEST_CASE("Mono Q Comp Drive listening fixtures cover five matched pairs", "[audio-lab][mono][qcomp]")
+TEST_CASE("Kobber Q Comp Drive listening fixtures cover five matched pairs", "[audio-lab][kobber][qcomp]")
 {
 	for (const auto* drive : { "0", "6", "12", "18", "24" })
 	{
@@ -88,7 +88,7 @@ TEST_CASE("Mono Q Comp Drive listening fixtures cover five matched pairs", "[aud
 	REQUIRE_FALSE(vekt::audio_lab::makeMonoRenderFixture("q-comp-drive-10-on", 48'000.0, 128, 42, invalid));
 }
 
-TEST_CASE("Mono 95 percent Q listening pairs hold matched harmonic notes and cutoff sweeps", "[audio-lab][mono][qcomp]")
+TEST_CASE("Kobber 95 percent Q listening pairs hold matched harmonic notes and cutoff sweeps", "[audio-lab][kobber][qcomp]")
 {
 	for (const auto* kind : { "sustain", "bass", "sweep" })
 		for (const auto* drive : { "12", "18", "24" })
@@ -119,7 +119,7 @@ TEST_CASE("Mono 95 percent Q listening pairs hold matched harmonic notes and cut
 	REQUIRE_FALSE(vekt::audio_lab::makeMonoRenderFixture("q-comp-listen-95-sweep-drive-10-on", 48'000.0, 128, 42, invalid));
 }
 
-TEST_CASE("Mono voice resonance onset stays finite with an unboosted output tap", "[audio-lab][mono][resonance-onset][slow]")
+TEST_CASE("Kobber voice resonance onset stays finite with an unboosted output tap", "[audio-lab][kobber][resonance-onset][slow]")
 {
 	for (const auto compensated : { false, true })
 	{
@@ -146,7 +146,7 @@ TEST_CASE("Mono voice resonance onset stays finite with an unboosted output tap"
 	}
 }
 
-TEST_CASE("Mono onset log-envelope fit rejects floors and nonlinear saturation", "[audio-lab][mono][resonance-onset]")
+TEST_CASE("Kobber onset log-envelope fit rejects floors and nonlinear saturation", "[audio-lab][kobber][resonance-onset]")
 {
 	for (const auto slope : { -3.0, 2.0 })
 	{
@@ -171,7 +171,7 @@ TEST_CASE("Mono onset log-envelope fit rejects floors and nonlinear saturation",
 	REQUIRE_FALSE(vekt::audio_lab::fitOnset(separated, 0.02).valid);
 }
 
-TEST_CASE("Mono weak-signal onset changes growth sign near 98.4 percent", "[audio-lab][mono][resonance-onset]")
+TEST_CASE("Kobber weak-signal onset changes growth sign near 98.4 percent", "[audio-lab][kobber][resonance-onset]")
 {
 	constexpr double rate = 48'000.0;
 	for (const auto [resonance, growing] : { std::pair { 0.9840f, false }, { 0.9841f, true } })
@@ -208,7 +208,7 @@ TEST_CASE("Mono weak-signal onset changes growth sign near 98.4 percent", "[audi
 	}
 }
 
-TEST_CASE("Mono raw ladder maximum resonance level stays consistent at cutoff extremes", "[audio-lab][mono][resonance-matrix]")
+TEST_CASE("Kobber raw ladder maximum resonance level stays consistent at cutoff extremes", "[audio-lab][kobber][resonance-matrix]")
 {
 	for (const auto cutoff : { 100.0f, 10'000.0f })
 	{
@@ -236,7 +236,7 @@ TEST_CASE("Mono raw ladder maximum resonance level stays consistent at cutoff ex
 	}
 }
 
-TEST_CASE("Mono production zero-state Jacobian predicts resonance onset across rate and cutoff", "[audio-lab][mono][resonance-matrix]")
+TEST_CASE("Kobber production zero-state Jacobian predicts resonance onset across rate and cutoff", "[audio-lab][kobber][resonance-matrix]")
 {
 	for (const auto rate : { 44'100.0, 48'000.0, 96'000.0, 192'000.0 })
 		for (const auto cutoff : { 100.0f, 1'000.0f, 10'000.0f })
@@ -280,7 +280,7 @@ TEST_CASE("Mono production zero-state Jacobian predicts resonance onset across r
 		}
 }
 
-TEST_CASE("Mono held open self-oscillation survives removal of all excitation", "[audio-lab][mono][resonance-onset]")
+TEST_CASE("Kobber held open self-oscillation survives removal of all excitation", "[audio-lab][kobber][resonance-onset]")
 {
 	vekt::audio_lab::MonoRenderRequest off, on;
 	REQUIRE(vekt::audio_lab::makeMonoRenderFixture("self-osc-held-off", 48'000.0, 128, 42, off));
@@ -310,7 +310,7 @@ TEST_CASE("Mono held open self-oscillation survives removal of all excitation", 
 				== std::bit_cast<std::uint32_t>(wet.audio.getSample(channel, sample)));
 }
 
-TEST_CASE("Mono held self-oscillation loses three dB per channel to centered equal-power pan", "[audio-lab][mono][gain-calibration]")
+TEST_CASE("Kobber held self-oscillation loses three dB per channel to centered equal-power pan", "[audio-lab][kobber][gain-calibration]")
 {
 	constexpr double rate = 48'000.0;
 	vekt::audio_lab::MonoRenderRequest request;
@@ -352,7 +352,7 @@ TEST_CASE("Mono held self-oscillation loses three dB per channel to centered equ
 	REQUIRE(ladder.diagnostics().nonFiniteSamples == 0);
 }
 
-TEST_CASE("Mono half input compensation preserves the zero-input trajectory and reference solve", "[audio-lab][mono][qcomp][ladder-reference]")
+TEST_CASE("Kobber half input compensation preserves the zero-input trajectory and reference solve", "[audio-lab][kobber][qcomp][ladder-reference]")
 {
 	vekt::mono::NonlinearTptLadder off, on;
 	vekt::audio_lab::NonlinearTptLadderOfflineReference reference;
@@ -378,7 +378,7 @@ TEST_CASE("Mono half input compensation preserves the zero-input trajectory and 
 	REQUIRE(reference.diagnostics().unconvergedSteps == 0);
 }
 
-TEST_CASE("Mono constant-half input compensation reaches the coupled solver under drive", "[audio-lab][mono][qcomp][ladder-reference]")
+TEST_CASE("Kobber constant-half input compensation reaches the coupled solver under drive", "[audio-lab][kobber][qcomp][ladder-reference]")
 {
 	for (const auto resonance : { 0.0f, 0.5f, 0.95f, 1.0f })
 	{
@@ -409,7 +409,7 @@ TEST_CASE("Mono constant-half input compensation reaches the coupled solver unde
 	}
 }
 
-TEST_CASE("Mono Audio Lab reports filter and envelope measurements", "[audio-lab][mono][measurements]")
+TEST_CASE("Kobber Audio Lab reports filter and envelope measurements", "[audio-lab][kobber][measurements]")
 {
 	vekt::audio_lab::MonoRenderRequest filterRequest;
 	REQUIRE(vekt::audio_lab::makeMonoRenderFixture("filter-sweep", 48'000.0, 128, 99, filterRequest));
@@ -428,7 +428,7 @@ TEST_CASE("Mono Audio Lab reports filter and envelope measurements", "[audio-lab
 	REQUIRE(windowMeasurement(envelope.report, "silence", "peak") == Catch::Approx(0.0));
 }
 
-TEST_CASE("Mono input Q compensation preserves the exact zero-input feedback trajectory", "[audio-lab][mono][qcomp]")
+TEST_CASE("Kobber input Q compensation preserves the exact zero-input feedback trajectory", "[audio-lab][kobber][qcomp]")
 {
 	for (const auto drive : { 0.0f, 12.0f, 24.0f })
 	{
@@ -451,7 +451,7 @@ TEST_CASE("Mono input Q compensation preserves the exact zero-input feedback tra
 	}
 }
 
-TEST_CASE("Mono maximum-resonance zero-input tail survives high-drive excitation", "[audio-lab][mono][filter][drive][ladder-self-oscillation]")
+TEST_CASE("Kobber maximum-resonance zero-input tail survives high-drive excitation", "[audio-lab][kobber][filter][drive][ladder-self-oscillation]")
 {
 	constexpr double rate = 48'000.0;
 	constexpr int excitationSamples = 24'000; // 500 ms of strong driven input.
@@ -506,7 +506,7 @@ TEST_CASE("Mono maximum-resonance zero-input tail survives high-drive excitation
 	}
 }
 
-TEST_CASE("Mono Drive is inert on an identical zero-input ladder state", "[audio-lab][mono][filter][drive]")
+TEST_CASE("Kobber Drive is inert on an identical zero-input ladder state", "[audio-lab][kobber][filter][drive]")
 {
 	vekt::mono::NonlinearTptLadder lowDrive, highDrive;
 	lowDrive.prepare(48'000.0); highDrive.prepare(48'000.0);
@@ -525,7 +525,7 @@ TEST_CASE("Mono Drive is inert on an identical zero-input ladder state", "[audio
 	REQUIRE(highDrive.diagnostics().unconvergedSamples == 0);
 }
 
-TEST_CASE("Mono input Q compensation changes body relative to the resonant component", "[audio-lab][mono][qcomp]")
+TEST_CASE("Kobber input Q compensation changes body relative to the resonant component", "[audio-lab][kobber][qcomp]")
 {
 	for (const auto drive : { 0.0f, 12.0f, 24.0f })
 	{
@@ -561,7 +561,7 @@ TEST_CASE("Mono input Q compensation changes body relative to the resonant compo
 	}
 }
 
-TEST_CASE("Mono compensated coupled ladder agrees with the independent nested reference", "[audio-lab][mono][qcomp][ladder-reference]")
+TEST_CASE("Kobber compensated coupled ladder agrees with the independent nested reference", "[audio-lab][kobber][qcomp][ladder-reference]")
 {
 	for (const auto rate : { 44'100.0, 48'000.0, 96'000.0 })
 		for (const auto cutoff : { 500.0f, 8'000.0f })
@@ -598,7 +598,7 @@ TEST_CASE("Mono compensated coupled ladder agrees with the independent nested re
 					}
 }
 
-TEST_CASE("Mono Q Comp small-signal reference follows the input excitation factor", "[audio-lab][mono][qcomp][ladder-reference]")
+TEST_CASE("Kobber Q Comp small-signal reference follows the input excitation factor", "[audio-lab][kobber][qcomp][ladder-reference]")
 {
 	for (const auto resonance : { 0.0, 0.5, 0.8, 0.98, 1.0 })
 	{
@@ -616,7 +616,7 @@ TEST_CASE("Mono Q Comp small-signal reference follows the input excitation facto
 	}
 }
 
-TEST_CASE("Mono Audio Lab writes readable WAV and JSON outputs", "[audio-lab][mono][output]")
+TEST_CASE("Kobber Audio Lab writes readable WAV and JSON outputs", "[audio-lab][kobber][output]")
 {
 	vekt::audio_lab::MonoRenderRequest request;
 	REQUIRE(vekt::audio_lab::makeMonoRenderFixture("envelope", 24'000.0, 97, 42, request));

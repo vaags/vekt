@@ -8,7 +8,7 @@ watch_paths=(
 	"tools/audio_lab"
 	"plugins/rav"
 	"plugins/glimmer"
-	"plugins/vekt_mono"
+	"plugins/kobber"
 	"plugins/flint"
 	"framework"
 	"CMakeLists.txt"

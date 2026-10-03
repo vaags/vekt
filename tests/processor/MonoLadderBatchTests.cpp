@@ -84,7 +84,7 @@ Difference compare(const Scenario& scenario)
 }
 }
 
-TEST_CASE("Mono batched ladder lanes match the scalar solver far below audibility", "[mono][filter][ladder-coupled][slow]")
+TEST_CASE("Kobber batched ladder lanes match the scalar solver far below audibility", "[kobber][filter][ladder-coupled][slow]")
 {
 	const std::array scenarios {
 		Scenario { "2 lanes, gentle sweep", 2, 48'000.0, 0.3f, 0.0f, 0.0f, 200.0f, 8'000.0f, 1.0, 0.0 },
@@ -104,7 +104,7 @@ TEST_CASE("Mono batched ladder lanes match the scalar solver far below audibilit
 	}
 }
 
-TEST_CASE("Mono batched ladders prepared at different sample rates match their scalar solves exactly", "[mono][filter][ladder-coupled]")
+TEST_CASE("Kobber batched ladders prepared at different sample rates match their scalar solves exactly", "[kobber][filter][ladder-coupled]")
 {
 	// The batched solve shares one integration gain; mixed rates must fall back to per-ladder solves.
 	constexpr std::array rates { 48'000.0, 96'000.0, 48'000.0, 192'000.0 };

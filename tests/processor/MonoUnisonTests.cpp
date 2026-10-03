@@ -63,7 +63,7 @@ double meanPower(int unison, float detune)
 }
 }
 
-TEST_CASE("Mono unison gain runs from 1/N for identical layers to 1/sqrt N for decorrelated ones", "[mono][unison]")
+TEST_CASE("Kobber unison gain runs from 1/N for identical layers to 1/sqrt N for decorrelated ones", "[kobber][unison]")
 {
 	REQUIRE(vekt::mono::unisonSpreadFactor(0.0f) == 0.0f);
 	REQUIRE(vekt::mono::unisonSpreadFactor(2.5f) == Catch::Approx(0.5f));
@@ -76,7 +76,7 @@ TEST_CASE("Mono unison gain runs from 1/N for identical layers to 1/sqrt N for d
 	REQUIRE(vekt::mono::unisonGain(4, 1.0f) == Catch::Approx(0.5f));
 }
 
-TEST_CASE("Mono unison keeps the 1x level on average at the default detune", "[mono][unison][slow]")
+TEST_CASE("Kobber unison keeps the 1x level on average at the default detune", "[kobber][unison][slow]")
 {
 	const auto single = meanPower(1, 15.0f);
 	for (const auto unison : { 2, 4 })
@@ -86,7 +86,7 @@ TEST_CASE("Mono unison keeps the 1x level on average at the default detune", "[m
 	}
 }
 
-TEST_CASE("Mono unison at zero detune sounds exactly like 1x", "[mono][unison]")
+TEST_CASE("Kobber unison at zero detune sounds exactly like 1x", "[kobber][unison]")
 {
 	const auto render = [](float unison)
 	{
@@ -116,7 +116,7 @@ TEST_CASE("Mono unison at zero detune sounds exactly like 1x", "[mono][unison]")
 	}
 }
 
-TEST_CASE("Mono Unison Detune defaults to 15 cents", "[mono][unison][parameters]")
+TEST_CASE("Kobber Unison Detune defaults to 15 cents", "[kobber][unison][parameters]")
 {
 	vekt::mono::PluginProcessor processor;
 	auto* detune = dynamic_cast<juce::RangedAudioParameter*>(processor.getParameters().getParameter(parameters::unisonDetune));
@@ -159,7 +159,7 @@ void initializeUnisonSaw(vekt::mono::PluginProcessor& processor, float unison, f
 float decibels(float ratio) { return 20.0f * std::log10(ratio); }
 }
 
-TEST_CASE("Mono unison noise correlation keeps the noise at the 1x level", "[mono][unison]")
+TEST_CASE("Kobber unison noise correlation keeps the noise at the 1x level", "[kobber][unison]")
 {
 	REQUIRE(vekt::mono::unisonNoiseCorrelation(1, 0.5f) == 1.0f);
 	for (const auto layers : { 2, 4 })
@@ -178,7 +178,7 @@ TEST_CASE("Mono unison noise correlation keeps the noise at the 1x level", "[mon
 	}
 }
 
-TEST_CASE("Mono unison detune automation on a held note does not jump in level", "[mono][unison]")
+TEST_CASE("Kobber unison detune automation on a held note does not jump in level", "[kobber][unison]")
 {
 	// 0 to 5 cents used to switch 4x from 1/4 to 1/2 gain at once while the layers were still in phase (+6 dB).
 	for (const auto [from, to] : { std::pair { 0.0f, 5.0f }, std::pair { 0.0f, 50.0f }, std::pair { 15.0f, 0.0f } })
@@ -193,7 +193,7 @@ TEST_CASE("Mono unison detune automation on a held note does not jump in level",
 	}
 }
 
-TEST_CASE("Mono unison at zero detune matches 1x with white and pink noise", "[mono][unison]")
+TEST_CASE("Kobber unison at zero detune matches 1x with white and pink noise", "[kobber][unison]")
 {
 	for (const auto noiseType : { 1.0f, 2.0f })
 	{
@@ -218,7 +218,7 @@ TEST_CASE("Mono unison at zero detune matches 1x with white and pink noise", "[m
 	}
 }
 
-TEST_CASE("Mono unison keeps noise at the 1x level at the default detune", "[mono][unison]")
+TEST_CASE("Kobber unison keeps noise at the 1x level at the default detune", "[kobber][unison]")
 {
 	for (const auto noiseType : { 1.0f, 2.0f })
 	{

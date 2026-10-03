@@ -42,7 +42,7 @@ void requireFinite(const juce::var& section)
 }
 }
 
-TEST_CASE("Mono measured timing rule requires strict headroom and zero exceedances", "[audio-lab][mono][ladder-cost-rule]")
+TEST_CASE("Kobber measured timing rule requires strict headroom and zero exceedances", "[audio-lab][kobber][ladder-cost-rule]")
 {
 	using vekt::audio_lab::meetsMonoMeasuredTimingRule;
 	using vekt::audio_lab::wallOverrunWithCpuBelowDeadline;
@@ -61,7 +61,7 @@ TEST_CASE("Mono measured timing rule requires strict headroom and zero exceedanc
 	REQUIRE_FALSE(wallOverrunWithCpuBelowDeadline(1200.0, 600.0, 0.0));
 }
 
-TEST_CASE("Nonlinear TPT ladder remains silent and finite", "[audio-lab][mono][ladder-candidate]")
+TEST_CASE("Nonlinear TPT ladder remains silent and finite", "[audio-lab][kobber][ladder-candidate]")
 {
 	vekt::audio_lab::NonlinearTptLadder ladder;
 	ladder.prepare(48'000.0);
@@ -76,7 +76,7 @@ TEST_CASE("Nonlinear TPT ladder remains silent and finite", "[audio-lab][mono][l
 	REQUIRE(ladder.diagnostics().unconvergedSamples == 0);
 }
 
-TEST_CASE("Coupled ladder solves the same four stage equations", "[audio-lab][mono][ladder-coupled]")
+TEST_CASE("Coupled ladder solves the same four stage equations", "[audio-lab][kobber][ladder-coupled]")
 {
 	for (const auto rate : { 44'100.0, 48'000.0, 88'200.0, 96'000.0, 192'000.0 })
 		for (const auto ceiling : { false, true })
@@ -121,7 +121,7 @@ TEST_CASE("Coupled ladder solves the same four stage equations", "[audio-lab][mo
 				}
 }
 
-TEST_CASE("Coupled and nested ladders agree on settled driven host-band components", "[audio-lab][mono][ladder-coupled]")
+TEST_CASE("Coupled and nested ladders agree on settled driven host-band components", "[audio-lab][kobber][ladder-coupled]")
 {
 	constexpr double rate = 48'000.0;
 	constexpr int settle = 4'800, window = 4'800;
@@ -171,7 +171,7 @@ TEST_CASE("Coupled and nested ladders agree on settled driven host-band componen
 	}
 }
 
-TEST_CASE("Coupled ladder remains deterministic through abrupt controls and seeded input", "[audio-lab][mono][ladder-coupled]")
+TEST_CASE("Coupled ladder remains deterministic through abrupt controls and seeded input", "[audio-lab][kobber][ladder-coupled]")
 {
 	for (const auto rate : { 44'100.0, 48'000.0, 96'000.0, 192'000.0 })
 	{
@@ -209,7 +209,7 @@ TEST_CASE("Coupled ladder remains deterministic through abrupt controls and seed
 	}
 }
 
-TEST_CASE("Coupled ladder seeded resonance tail agrees with the nested solver", "[audio-lab][mono][ladder-coupled][ladder-self-oscillation]")
+TEST_CASE("Coupled ladder seeded resonance tail agrees with the nested solver", "[audio-lab][kobber][ladder-coupled][ladder-self-oscillation]")
 {
 	// Diagnostic regression across the sub-onset and above-onset regions;
 	// the processor and listening gates remain separate.
@@ -268,7 +268,7 @@ TEST_CASE("Coupled ladder seeded resonance tail agrees with the nested solver", 
 	}
 }
 
-TEST_CASE("Coupled ladder grows into a stable tone above onset with a tighter reference", "[audio-lab][mono][ladder-coupled][ladder-self-oscillation]")
+TEST_CASE("Coupled ladder grows into a stable tone above onset with a tighter reference", "[audio-lab][kobber][ladder-coupled][ladder-self-oscillation]")
 {
 	REQUIRE(vekt::mono::ladderFeedbackGain(0.98) == Catch::Approx(3.92));
 	REQUIRE(vekt::mono::ladderFeedbackGain(1.0) == Catch::Approx(4.6));
@@ -340,7 +340,7 @@ TEST_CASE("Coupled ladder grows into a stable tone above onset with a tighter re
 	REQUIRE(std::abs(settled[0] - settled[1]) < 0.005);
 }
 
-TEST_CASE("Nonlinear TPT ladder drive compensation is an external output wrapper", "[audio-lab][mono][ladder-candidate]")
+TEST_CASE("Nonlinear TPT ladder drive compensation is an external output wrapper", "[audio-lab][kobber][ladder-candidate]")
 {
 	constexpr double sampleRate = 48'000.0;
 	constexpr float driveDecibels = 12.0f;
@@ -362,7 +362,7 @@ TEST_CASE("Nonlinear TPT ladder drive compensation is an external output wrapper
 	REQUIRE(compensated.diagnostics().unconvergedSamples == 0);
 }
 
-TEST_CASE("Nonlinear TPT ladder analytical references preserve cutoff prewarping", "[audio-lab][mono][ladder-reference]")
+TEST_CASE("Nonlinear TPT ladder analytical references preserve cutoff prewarping", "[audio-lab][kobber][ladder-reference]")
 {
 	for (const auto sampleRate : { 44'100.0, 48'000.0, 96'000.0 })
 		for (const auto cutoff : { 250.0, 1'000.0, 4'000.0 })
@@ -378,7 +378,7 @@ TEST_CASE("Nonlinear TPT ladder analytical references preserve cutoff prewarping
 		}
 }
 
-TEST_CASE("Offline reference one-step coefficient matches candidate at host cutoff ceiling", "[audio-lab][mono][ladder-reference]")
+TEST_CASE("Offline reference one-step coefficient matches candidate at host cutoff ceiling", "[audio-lab][kobber][ladder-reference]")
 {
 	for (const auto rate : { 44'100.0, 48'000.0, 96'000.0 })
 		for (const auto cutoff : { 1'000.0, rate * 0.45 })
@@ -401,7 +401,7 @@ TEST_CASE("Offline reference one-step coefficient matches candidate at host cuto
 		}
 }
 
-TEST_CASE("Nonlinear TPT ladder offline reference converges with smaller time steps", "[audio-lab][mono][ladder-reference]")
+TEST_CASE("Nonlinear TPT ladder offline reference converges with smaller time steps", "[audio-lab][kobber][ladder-reference]")
 {
 	constexpr double sampleRate = 48'000.0;
 	constexpr double frequency = 500.0;
@@ -437,7 +437,7 @@ TEST_CASE("Nonlinear TPT ladder offline reference converges with smaller time st
 	}
 }
 
-TEST_CASE("Offline reference overload remains converged beyond the feedback state clamp", "[audio-lab][mono][ladder-reference]")
+TEST_CASE("Offline reference overload remains converged beyond the feedback state clamp", "[audio-lab][kobber][ladder-reference]")
 {
 	// A driven alternating signal requires feedback iterates outside [-24, 24].
 	// Even at the host cutoff ceiling the same prewarped pole uses gHost / N.
@@ -465,7 +465,7 @@ TEST_CASE("Offline reference overload remains converged beyond the feedback stat
 			}
 }
 
-TEST_CASE("Offline reference high-cutoff overload needs progressive substep convergence", "[audio-lab][mono][ladder-reference][slow]")
+TEST_CASE("Offline reference high-cutoff overload needs progressive substep convergence", "[audio-lab][kobber][ladder-reference][slow]")
 {
 	constexpr double rate = 48'000.0;
 	constexpr int samples = 2'048;
@@ -505,7 +505,7 @@ TEST_CASE("Offline reference high-cutoff overload needs progressive substep conv
 	REQUIRE(fourth.rmsDifference > 1.0e-5);
 }
 
-TEST_CASE("Nonlinear TPT ladder offline reference rejects altered model scaling", "[audio-lab][mono][ladder-reference]")
+TEST_CASE("Nonlinear TPT ladder offline reference rejects altered model scaling", "[audio-lab][kobber][ladder-reference]")
 {
 	constexpr double sampleRate = 48'000.0;
 	constexpr double frequency = 500.0;
@@ -542,7 +542,7 @@ TEST_CASE("Nonlinear TPT ladder offline reference rejects altered model scaling"
 	REQUIRE(correctDifference.rmsDifference < alteredDifference.rmsDifference * 0.25);
 }
 
-TEST_CASE("Nonlinear TPT ladder offline reference converges under control modulation", "[audio-lab][mono][ladder-reference]")
+TEST_CASE("Nonlinear TPT ladder offline reference converges under control modulation", "[audio-lab][kobber][ladder-reference]")
 {
 	constexpr double sampleRate = 48'000.0;
 	constexpr std::size_t samples = 12'000;
@@ -577,7 +577,7 @@ TEST_CASE("Nonlinear TPT ladder offline reference converges under control modula
 		< difference4To8.maximumAbsoluteDifference * 0.4);
 }
 
-TEST_CASE("Ladder prototype report is deterministic and block-size invariant", "[audio-lab][mono][ladder-candidate][determinism][slow]")
+TEST_CASE("Ladder prototype report is deterministic and block-size invariant", "[audio-lab][kobber][ladder-candidate][determinism][slow]")
 {
 	const auto first = vekt::audio_lab::renderLadderPrototype(24'000.0, 31);
 	const auto second = vekt::audio_lab::renderLadderPrototype(24'000.0, 257);
@@ -753,7 +753,7 @@ TEST_CASE("Ladder prototype report is deterministic and block-size invariant", "
 	}
 }
 
-TEST_CASE("Nonlinear TPT ladder supported-range solver matrix is bounded and deterministic", "[audio-lab][mono][ladder-matrix][slow]")
+TEST_CASE("Nonlinear TPT ladder supported-range solver matrix is bounded and deterministic", "[audio-lab][kobber][ladder-matrix][slow]")
 {
 	constexpr std::array sampleRates { 44'100.0, 48'000.0, 88'200.0, 96'000.0, 192'000.0 };
 	constexpr std::array resonances { 0.0f, 0.5f, 0.85f, 0.95f, 0.98f, 1.0f };
@@ -803,7 +803,7 @@ TEST_CASE("Nonlinear TPT ladder supported-range solver matrix is bounded and det
 	}
 }
 
-TEST_CASE("Nonlinear TPT ladder modulation remains deterministic across block sizes", "[audio-lab][mono][ladder-modulation]")
+TEST_CASE("Nonlinear TPT ladder modulation remains deterministic across block sizes", "[audio-lab][kobber][ladder-modulation]")
 {
 	constexpr double sampleRate = 48'000.0;
 	constexpr int sampleCount = 4'096;
@@ -851,7 +851,7 @@ TEST_CASE("Nonlinear TPT ladder modulation remains deterministic across block si
 	}
 }
 
-TEST_CASE("Nonlinear TPT ladder resonance boundary has measured impulse ringdown", "[audio-lab][mono][ladder-self-oscillation][slow]")
+TEST_CASE("Nonlinear TPT ladder resonance boundary has measured impulse ringdown", "[audio-lab][kobber][ladder-self-oscillation][slow]")
 {
 	for (const auto sampleRate : { 44'100.0, 48'000.0, 88'200.0, 96'000.0, 192'000.0 })
 	for (const auto resonance : { 0.98f, 1.0f })
@@ -901,7 +901,7 @@ TEST_CASE("Nonlinear TPT ladder resonance boundary has measured impulse ringdown
 	}
 }
 
-TEST_CASE("Nonlinear TPT ladder cutoff-boundary ringdown is finite and measured", "[audio-lab][mono][ladder-self-oscillation][slow]")
+TEST_CASE("Nonlinear TPT ladder cutoff-boundary ringdown is finite and measured", "[audio-lab][kobber][ladder-self-oscillation][slow]")
 {
 	for (const auto rate : { 44'100.0, 48'000.0, 88'200.0, 96'000.0, 192'000.0 })
 		for (const auto cutoff : { 10.0f, static_cast<float>(rate * 0.45) })
@@ -957,7 +957,7 @@ TEST_CASE("Nonlinear TPT ladder cutoff-boundary ringdown is finite and measured"
 			}
 }
 
-TEST_CASE("Nonlinear TPT ladder 10 Hz floor has distinct 30-second ringdown targets", "[audio-lab][mono][ladder-floor][slow]")
+TEST_CASE("Nonlinear TPT ladder 10 Hz floor has distinct 30-second ringdown targets", "[audio-lab][kobber][ladder-floor][slow]")
 {
 	// Development-only proposed floor targets. The 1 kHz two-second policy is
 	// intentionally not applied to a five-cycle, half-second 10 Hz window.
@@ -1027,7 +1027,7 @@ TEST_CASE("Nonlinear TPT ladder 10 Hz floor has distinct 30-second ringdown targ
 		}
 }
 
-TEST_CASE("Nonlinear TPT ladder 10 Hz quality paths measure ringdown purity and silent startup", "[audio-lab][mono][ladder-floor-quality][slow]")
+TEST_CASE("Nonlinear TPT ladder 10 Hz quality paths measure ringdown purity and silent startup", "[audio-lab][kobber][ladder-floor-quality][slow]")
 {
 	using namespace vekt::dsp;
 	constexpr double rate = 48'000.0;
@@ -1133,7 +1133,7 @@ TEST_CASE("Nonlinear TPT ladder 10 Hz quality paths measure ringdown purity and 
 		}
 }
 
-TEST_CASE("Nonlinear TPT ladder noise-seeded startup is measured through quality paths", "[audio-lab][mono][ladder-startup][slow]")
+TEST_CASE("Nonlinear TPT ladder noise-seeded startup is measured through quality paths", "[audio-lab][kobber][ladder-startup][slow]")
 {
 	using namespace vekt::dsp;
 	constexpr double rate = 48'000.0;
@@ -1197,7 +1197,7 @@ TEST_CASE("Nonlinear TPT ladder noise-seeded startup is measured through quality
 		}
 }
 
-TEST_CASE("Nonlinear TPT ladder long-form stimuli and modulation have no solver fallback", "[audio-lab][mono][ladder-stimuli][slow]")
+TEST_CASE("Nonlinear TPT ladder long-form stimuli and modulation have no solver fallback", "[audio-lab][kobber][ladder-stimuli][slow]")
 {
 	constexpr std::array rates { 44'100.0, 48'000.0, 88'200.0, 96'000.0, 192'000.0 };
 	constexpr int sampleCount = 8'192;
@@ -1266,7 +1266,7 @@ TEST_CASE("Nonlinear TPT ladder long-form stimuli and modulation have no solver 
 					}
 }
 
-TEST_CASE("Nonlinear TPT ladder quality paths converge and preserve block independence", "[audio-lab][mono][ladder-quality][slow]")
+TEST_CASE("Nonlinear TPT ladder quality paths converge and preserve block independence", "[audio-lab][kobber][ladder-quality][slow]")
 {
 	using namespace vekt::dsp;
 	constexpr std::array qualities {
@@ -1345,7 +1345,7 @@ TEST_CASE("Nonlinear TPT ladder quality paths converge and preserve block indepe
 		}
 }
 
-TEST_CASE("Nonlinear TPT ladder quality paths retain convergence at overload boundaries", "[audio-lab][mono][ladder-quality]")
+TEST_CASE("Nonlinear TPT ladder quality paths retain convergence at overload boundaries", "[audio-lab][kobber][ladder-quality]")
 {
 	using namespace vekt::dsp;
 	constexpr std::array qualities {
@@ -1397,7 +1397,7 @@ TEST_CASE("Nonlinear TPT ladder quality paths retain convergence at overload bou
 				}
 }
 
-TEST_CASE("Nonlinear TPT ladder 8x and 16x FIR paths remain block-independent under modulation and overload", "[audio-lab][mono][ladder-high-quality-stability]")
+TEST_CASE("Nonlinear TPT ladder 8x and 16x FIR paths remain block-independent under modulation and overload", "[audio-lab][kobber][ladder-high-quality-stability]")
 {
 	using namespace vekt::dsp;
 	constexpr int sampleCount = 512;
@@ -1470,7 +1470,7 @@ TEST_CASE("Nonlinear TPT ladder 8x and 16x FIR paths remain block-independent un
 			}
 }
 
-TEST_CASE("Nonlinear TPT ladder quality paths measure a coherent fifth-harmonic alias", "[audio-lab][mono][ladder-alias]")
+TEST_CASE("Nonlinear TPT ladder quality paths measure a coherent fifth-harmonic alias", "[audio-lab][kobber][ladder-alias]")
 {
 	using namespace vekt::dsp;
 	constexpr double rate = 48'000.0;
@@ -1534,7 +1534,7 @@ TEST_CASE("Nonlinear TPT ladder quality paths measure a coherent fifth-harmonic 
 		REQUIRE(aliasDbc[path] < aliasDbc[0]);
 }
 
-TEST_CASE("Nonlinear TPT ladder folded fifth is measured across host rates and drive", "[audio-lab][mono][ladder-alias-matrix][slow]")
+TEST_CASE("Nonlinear TPT ladder folded fifth is measured across host rates and drive", "[audio-lab][kobber][ladder-alias-matrix][slow]")
 {
 	using namespace vekt::dsp;
 	constexpr std::array qualities {
@@ -1638,7 +1638,7 @@ TEST_CASE("Nonlinear TPT ladder folded fifth is measured across host rates and d
 			}
 }
 
-TEST_CASE("Nonlinear TPT ladder coherent single-tone host-band bins are audited", "[audio-lab][mono][ladder-alias-spectrum][slow]")
+TEST_CASE("Nonlinear TPT ladder coherent single-tone host-band bins are audited", "[audio-lab][kobber][ladder-alias-spectrum][slow]")
 {
 	using namespace vekt::dsp;
 	constexpr int window = 4'800, blockSize = 96;
@@ -1719,7 +1719,7 @@ TEST_CASE("Nonlinear TPT ladder coherent single-tone host-band bins are audited"
 			}
 }
 
-TEST_CASE("Nonlinear TPT ladder internal spur precedes downsampling", "[audio-lab][mono][ladder-internal-alias]")
+TEST_CASE("Nonlinear TPT ladder internal spur precedes downsampling", "[audio-lab][kobber][ladder-internal-alias]")
 {
 	using namespace vekt::dsp;
 	constexpr double rate = 48'000.0;
@@ -1785,7 +1785,7 @@ TEST_CASE("Nonlinear TPT ladder internal spur precedes downsampling", "[audio-la
 	}
 }
 
-TEST_CASE("Nonlinear TPT ladder 2x spur is compared with the 16x 13th harmonic", "[audio-lab][mono][ladder-internal-alias]")
+TEST_CASE("Nonlinear TPT ladder 2x spur is compared with the 16x 13th harmonic", "[audio-lab][kobber][ladder-internal-alias]")
 {
 	using namespace vekt::dsp;
 	constexpr double rate = 48'000.0;
@@ -1840,7 +1840,7 @@ TEST_CASE("Nonlinear TPT ladder 2x spur is compared with the 16x 13th harmonic",
 	REQUIRE(harmonicDbc[1] < -100.0);
 }
 
-TEST_CASE("Nonlinear TPT ladder 2x spur is compared with a substepped same-input reference", "[audio-lab][mono][ladder-internal-alias][slow]")
+TEST_CASE("Nonlinear TPT ladder 2x spur is compared with a substepped same-input reference", "[audio-lab][kobber][ladder-internal-alias][slow]")
 {
 	using namespace vekt::dsp;
 	constexpr double internalRate = 96'000.0;
@@ -1922,7 +1922,7 @@ TEST_CASE("Nonlinear TPT ladder 2x spur is compared with a substepped same-input
 	}
 }
 
-TEST_CASE("One-times offline reference filters internal samples before decimation", "[audio-lab][mono][ladder-bandlimited-reference][slow]")
+TEST_CASE("One-times offline reference filters internal samples before decimation", "[audio-lab][kobber][ladder-bandlimited-reference][slow]")
 {
 	constexpr double rate = 48'000.0;
 	constexpr int window = 4'800;
@@ -2078,7 +2078,7 @@ TEST_CASE("One-times offline reference filters internal samples before decimatio
 	}
 }
 
-TEST_CASE("One-times default candidate audits coherent bins against unfiltered reference returns", "[audio-lab][mono][ladder-default-feasibility][slow]")
+TEST_CASE("One-times default candidate audits coherent bins against unfiltered reference returns", "[audio-lab][kobber][ladder-default-feasibility][slow]")
 {
 	constexpr double rate = 48'000.0;
 	constexpr int window = 4'800;
@@ -2162,7 +2162,7 @@ TEST_CASE("One-times default candidate audits coherent bins against unfiltered r
 		}
 }
 
-TEST_CASE("Bounded candidate substeps track the independent reference", "[audio-lab][mono][ladder-feasibility]")
+TEST_CASE("Bounded candidate substeps track the independent reference", "[audio-lab][kobber][ladder-feasibility]")
 {
 	for (const auto rate : { 48'000.0, 96'000.0 })
 	for (const auto steps : { 2, 4 })
@@ -2192,7 +2192,7 @@ TEST_CASE("Bounded candidate substeps track the independent reference", "[audio-
 	}
 }
 
-TEST_CASE("Bounded candidate substeps preserve block independence and fresh rerenders", "[audio-lab][mono][ladder-feasibility]")
+TEST_CASE("Bounded candidate substeps preserve block independence and fresh rerenders", "[audio-lab][kobber][ladder-feasibility]")
 {
 	using namespace vekt::dsp;
 	constexpr int sampleCount = 512;
@@ -2245,7 +2245,7 @@ TEST_CASE("Bounded candidate substeps preserve block independence and fresh rere
 	}
 }
 
-TEST_CASE("Bounded candidate substeps reduce the known 2x host-band spurs", "[audio-lab][mono][ladder-feasibility]")
+TEST_CASE("Bounded candidate substeps reduce the known 2x host-band spurs", "[audio-lab][kobber][ladder-feasibility]")
 {
 	using namespace vekt::dsp;
 	constexpr double rate = 48'000.0;
@@ -2314,7 +2314,7 @@ TEST_CASE("Bounded candidate substeps reduce the known 2x host-band spurs", "[au
 	}
 }
 
-TEST_CASE("Nonlinear TPT ladder 2x substep spur reaches the host output", "[audio-lab][mono][ladder-internal-alias][slow]")
+TEST_CASE("Nonlinear TPT ladder 2x substep spur reaches the host output", "[audio-lab][kobber][ladder-internal-alias][slow]")
 {
 	using namespace vekt::dsp;
 	constexpr double rate = 48'000.0;
@@ -2373,7 +2373,7 @@ TEST_CASE("Nonlinear TPT ladder 2x substep spur reaches the host output", "[audi
 	}
 }
 
-TEST_CASE("Nonlinear TPT ladder 2x substeps audit the settled host band", "[audio-lab][mono][ladder-substep-spectrum][slow]")
+TEST_CASE("Nonlinear TPT ladder 2x substeps audit the settled host band", "[audio-lab][kobber][ladder-substep-spectrum][slow]")
 {
 	using namespace vekt::dsp;
 	constexpr double rate = 48'000.0;
@@ -2454,7 +2454,7 @@ TEST_CASE("Nonlinear TPT ladder 2x substeps audit the settled host band", "[audi
 		}
 }
 
-TEST_CASE("Nonlinear TPT ladder 2x IIR substeps audit normalized host rates", "[audio-lab][mono][ladder-substep-rate-matrix][slow]")
+TEST_CASE("Nonlinear TPT ladder 2x IIR substeps audit normalized host rates", "[audio-lab][kobber][ladder-substep-rate-matrix][slow]")
 {
 	using namespace vekt::dsp;
 	constexpr int window = 4'800, blockSize = 96;
@@ -2531,7 +2531,7 @@ TEST_CASE("Nonlinear TPT ladder 2x IIR substeps audit normalized host rates", "[
 			}
 }
 
-TEST_CASE("Nonlinear TPT ladder 2x IIR fixed-frequency spur changes across host rates", "[audio-lab][mono][ladder-substep-absolute-rates][slow]")
+TEST_CASE("Nonlinear TPT ladder 2x IIR fixed-frequency spur changes across host rates", "[audio-lab][kobber][ladder-substep-absolute-rates][slow]")
 {
 	using namespace vekt::dsp;
 	constexpr int blockSize = 30;
@@ -2641,7 +2641,7 @@ TEST_CASE("Nonlinear TPT ladder 2x IIR fixed-frequency spur changes across host 
 	}
 }
 
-TEST_CASE("Nonlinear TPT ladder 96 kHz 47 kHz spur checks offline substep convergence", "[audio-lab][mono][ladder-substep-96k][slow]")
+TEST_CASE("Nonlinear TPT ladder 96 kHz 47 kHz spur checks offline substep convergence", "[audio-lab][kobber][ladder-substep-96k][slow]")
 {
 	using namespace vekt::dsp;
 	constexpr double rate = 96'000.0;
@@ -2725,7 +2725,7 @@ TEST_CASE("Nonlinear TPT ladder 96 kHz 47 kHz spur checks offline substep conver
 	REQUIRE(std::abs((spurDbc[1] - spurDbc[0]) - (seventhDbcByPath[1] - seventhDbcByPath[0])) < 0.1);
 }
 
-TEST_CASE("Nonlinear TPT ladder high-cutoff coherent spurs are compared with substep references", "[audio-lab][mono][ladder-spur-reference][slow]")
+TEST_CASE("Nonlinear TPT ladder high-cutoff coherent spurs are compared with substep references", "[audio-lab][kobber][ladder-spur-reference][slow]")
 {
 	constexpr double rate = 48'000.0;
 	constexpr int window = 4'800;
@@ -2766,7 +2766,7 @@ TEST_CASE("Nonlinear TPT ladder high-cutoff coherent spurs are compared with sub
 	REQUIRE(std::abs(fifthDbc[3] - fifthDbc[2]) < 0.05);
 }
 
-TEST_CASE("Nonlinear TPT ladder coherent IMD agrees with a converged offline reference", "[audio-lab][mono][ladder-imd][slow]")
+TEST_CASE("Nonlinear TPT ladder coherent IMD agrees with a converged offline reference", "[audio-lab][kobber][ladder-imd][slow]")
 {
 	constexpr double rate = 48'000.0;
 	constexpr int settle = 12'000, length = 24'000;
@@ -2826,7 +2826,7 @@ TEST_CASE("Nonlinear TPT ladder coherent IMD agrees with a converged offline ref
 	REQUIRE(std::abs(measured.upperThirdOrder - thirtyTwo.upperThirdOrder) < 1.0e-3);
 }
 
-TEST_CASE("Nonlinear TPT ladder deep stopband is judged by absolute output error", "[audio-lab][mono][ladder-stopband]")
+TEST_CASE("Nonlinear TPT ladder deep stopband is judged by absolute output error", "[audio-lab][kobber][ladder-stopband]")
 {
 	for (const auto rate : { 44'100.0, 48'000.0, 88'200.0, 96'000.0, 192'000.0 })
 		for (const auto frequency : { 4'000.0, 8'000.0, 12'000.0 })
@@ -2863,7 +2863,7 @@ TEST_CASE("Nonlinear TPT ladder deep stopband is judged by absolute output error
 		}
 }
 
-TEST_CASE("Ladder prototype writes readable outputs", "[audio-lab][mono][ladder-candidate][output][slow]")
+TEST_CASE("Ladder prototype writes readable outputs", "[audio-lab][kobber][ladder-candidate][output][slow]")
 {
 	const auto result = vekt::audio_lab::renderLadderPrototype(24'000.0, 97);
 	juce::TemporaryFile wav(".wav"), json(".json");

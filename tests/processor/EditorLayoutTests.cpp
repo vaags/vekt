@@ -226,7 +226,7 @@ TEST_CASE("Rav editor keeps its controls within the 16:10 canvas", "[processor][
 	}
 }
 
-TEST_CASE("Mono editor presents symmetric oscillator controls without overlap", "[processor][ui][mono]")
+TEST_CASE("Kobber editor presents symmetric oscillator controls without overlap", "[processor][ui][kobber]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
 	vekt::mono::PluginProcessor processor;
@@ -341,7 +341,7 @@ TEST_CASE("Mono editor presents symmetric oscillator controls without overlap", 
 	}
 }
 
-TEST_CASE("Mono uses a secondary arc only for filter controls", "[processor][ui][mono]")
+TEST_CASE("Kobber uses a secondary arc only for filter controls", "[processor][ui][kobber]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
 	vekt::mono::PluginProcessor processor;
@@ -398,7 +398,7 @@ void checkMenusListParameterChoices(juce::AudioProcessor& processor, const std::
 }
 }
 
-TEST_CASE("Mono editor menus list their parameters' choices", "[mono][processor][ui]")
+TEST_CASE("Kobber editor menus list their parameters' choices", "[kobber][processor][ui]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
 	vekt::mono::PluginProcessor processor;
@@ -426,7 +426,7 @@ TEST_CASE("Rav and Glimmer editor menus list their parameters' choices", "[rav][
 	checkMenusListParameterChoices(processor, menus);
 }
 
-TEST_CASE("Mono quality menus offer the shared tracking and offline choices", "[mono][processor][ui][quality]")
+TEST_CASE("Kobber quality menus offer the shared tracking and offline choices", "[kobber][processor][ui][quality]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
 	vekt::mono::PluginProcessor processor;
@@ -476,7 +476,7 @@ TEST_CASE("Mono quality menus offer the shared tracking and offline choices", "[
 	}
 }
 
-TEST_CASE("Mono editor reports the active quality without a preview engine", "[mono][processor][ui][quality]")
+TEST_CASE("Kobber editor reports the active quality without a preview engine", "[kobber][processor][ui][quality]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
 	const auto hasLabel = [](juce::Component& root, const juce::String& expected)
@@ -500,7 +500,7 @@ TEST_CASE("Mono editor reports the active quality without a preview engine", "[m
 	REQUIRE(hasLabel(highEditor.getContent(), "Quality: 16x FIR"));
 }
 
-TEST_CASE("Mono Q compensation checkbox binds the default-off sound parameter", "[mono][processor][ui][qcomp]")
+TEST_CASE("Kobber Q compensation checkbox binds the default-off sound parameter", "[kobber][processor][ui][qcomp]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
 	vekt::mono::PluginProcessor processor;
@@ -524,7 +524,7 @@ TEST_CASE("Mono Q compensation checkbox binds the default-off sound parameter", 
 	}
 }
 
-TEST_CASE("Mono Filter Type tabs select the filter and disable the Ladder-only toggles", "[mono][processor][ui][filter-type]")
+TEST_CASE("Kobber Filter Type tabs select the filter and disable the Ladder-only toggles", "[kobber][processor][ui][filter-type]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
 	vekt::mono::PluginProcessor processor;
@@ -567,7 +567,7 @@ TEST_CASE("Mono Filter Type tabs select the filter and disable the Ladder-only t
 	}
 }
 
-TEST_CASE("Mono filter tabs select the type in one undo step each, keep Mode and disable Q Comp for K35", "[mono][processor][ui][filter-type][k35]")
+TEST_CASE("Kobber filter tabs select the type in one undo step each, keep Mode and disable Q Comp for K35", "[kobber][processor][ui][filter-type][k35]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
 	vekt::mono::PluginProcessor processor;
@@ -625,7 +625,7 @@ TEST_CASE("Mono filter tabs select the type in one undo step each, keep Mode and
 	}
 }
 
-TEST_CASE("Mono Resonance knob writes its full range to the processor", "[mono][processor][ui]")
+TEST_CASE("Kobber Resonance knob writes its full range to the processor", "[kobber][processor][ui]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
 	vekt::mono::PluginProcessor processor;
@@ -641,7 +641,7 @@ TEST_CASE("Mono Resonance knob writes its full range to the processor", "[mono][
 		== Catch::Approx(100.0f));
 }
 
-TEST_CASE("Mono LFO panel shows one LFO at a time with every destination", "[mono][processor][ui][lfo]")
+TEST_CASE("Kobber LFO panel shows one LFO at a time with every destination", "[kobber][processor][ui][lfo]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
 	vekt::mono::PluginProcessor processor;
@@ -735,7 +735,7 @@ TEST_CASE("Mono LFO panel shows one LFO at a time with every destination", "[mon
 	}
 }
 
-TEST_CASE("Mono vibrato panel sits beside Performance with its controls and controller meter", "[mono][processor][ui][vibrato]")
+TEST_CASE("Kobber vibrato panel sits beside Performance with its controls and controller meter", "[kobber][processor][ui][vibrato]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
 	vekt::mono::PluginProcessor processor;
@@ -796,7 +796,7 @@ TEST_CASE("Mono vibrato panel sits beside Performance with its controls and cont
 	checkVisibleBounds(editor.getContent());
 }
 
-TEST_CASE("Mono shows how many voices are sounding beside the voice count", "[mono][processor][ui]")
+TEST_CASE("Kobber shows how many voices are sounding beside the voice count", "[kobber][processor][ui]")
 {
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
 	vekt::mono::PluginProcessor processor;
@@ -1078,7 +1078,7 @@ TEST_CASE("Rotary numeric entry preserves precision and supports undo", "[ui]")
 	REQUIRE(juce::exactlyEqual(cutoff->getSlider().getValue(), original));
 }
 
-TEST_CASE("Mono knobs show the range their LFO depths reach", "[mono][processor][ui][lfo][modulation]")
+TEST_CASE("Kobber knobs show the range their LFO depths reach", "[kobber][processor][ui][lfo][modulation]")
 {
 	namespace parameters = vekt::mono::parameters;
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
@@ -1151,7 +1151,7 @@ TEST_CASE("Mono knobs show the range their LFO depths reach", "[mono][processor]
 	}
 }
 
-TEST_CASE("Mono modulation dots follow the live LFO and fade when they move too fast to follow", "[mono][processor][ui][lfo][modulation]")
+TEST_CASE("Kobber modulation dots follow the live LFO and fade when they move too fast to follow", "[kobber][processor][ui][lfo][modulation]")
 {
 	namespace parameters = vekt::mono::parameters;
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
@@ -1242,7 +1242,7 @@ TEST_CASE("Mono modulation dots follow the live LFO and fade when they move too 
 	processor.releaseResources();
 }
 
-TEST_CASE("Mono modulation overflows the knob only where the voice does", "[mono][processor][ui][lfo][modulation]")
+TEST_CASE("Kobber modulation overflows the knob only where the voice does", "[kobber][processor][ui][lfo][modulation]")
 {
 	namespace parameters = vekt::mono::parameters;
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
@@ -1309,7 +1309,7 @@ TEST_CASE("Mono modulation overflows the knob only where the voice does", "[mono
 	processor.releaseResources();
 }
 
-TEST_CASE("Mono modulation dots keep moving in an open editor", "[mono][processor][ui][lfo][modulation]")
+TEST_CASE("Kobber modulation dots keep moving in an open editor", "[kobber][processor][ui][lfo][modulation]")
 {
 	namespace parameters = vekt::mono::parameters;
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
@@ -1363,7 +1363,7 @@ TEST_CASE("Mono modulation dots keep moving in an open editor", "[mono][processo
 	REQUIRE_FALSE(ring.getModulation()->current.has_value());
 }
 
-TEST_CASE("Mono modulation dots follow the slow LFOs when a fast one shares the knob", "[mono][processor][ui][lfo][modulation]")
+TEST_CASE("Kobber modulation dots follow the slow LFOs when a fast one shares the knob", "[kobber][processor][ui][lfo][modulation]")
 {
 	using vekt::mono::LfoDotContribution;
 	using vekt::mono::LfoPolarity;
@@ -1471,7 +1471,7 @@ TEST_CASE("Mono modulation dots follow the slow LFOs when a fast one shares the 
 	REQUIRE_FALSE(cutoff->getModulationRing().getModulation()->current.has_value());
 }
 
-TEST_CASE("Mono modulation blur bands always contain the value heard", "[mono][ui][lfo][modulation]")
+TEST_CASE("Kobber modulation blur bands always contain the value heard", "[kobber][ui][lfo][modulation]")
 {
 	using vekt::mono::LfoDotContribution;
 	using vekt::mono::LfoPolarity;

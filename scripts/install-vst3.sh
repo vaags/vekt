@@ -15,10 +15,10 @@ glimmer)
 	source_bundle="build/dev/plugins/glimmer/Glimmer_artefacts/Debug/VST3/Glimmer.vst3"
 	destination="$HOME/Library/Audio/Plug-Ins/VST3/Glimmer.vst3"
 	;;
-mono)
-	target=VektMono_VST3
-	source_bundle="build/dev/plugins/vekt_mono/VektMono_artefacts/Debug/VST3/Mono.vst3"
-	destination="$HOME/Library/Audio/Plug-Ins/VST3/Mono.vst3"
+kobber)
+	target=Kobber_VST3
+	source_bundle="build/dev/plugins/kobber/Kobber_artefacts/Debug/VST3/Kobber.vst3"
+	destination="$HOME/Library/Audio/Plug-Ins/VST3/Kobber.vst3"
 	;;
 flint)
 	target=Flint_VST3
@@ -26,7 +26,7 @@ flint)
 	destination="$HOME/Library/Audio/Plug-Ins/VST3/Flint.vst3"
 	;;
 *)
-	print -u2 "Usage: $0 [rav|glimmer|mono|flint]"
+	print -u2 "Usage: $0 [rav|glimmer|kobber|flint]"
 	exit 64
 	;;
 esac

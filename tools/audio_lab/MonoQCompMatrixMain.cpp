@@ -89,7 +89,7 @@ int main(int argc, char** argv)
 {
 	if (argc != 2)
 	{
-		std::cerr << "Usage: VektMonoQCompMatrix output.csv\n";
+		std::cerr << "Usage: VektKobberQCompMatrix output.csv\n";
 		return 64;
 	}
 	juce::ScopedJuceInitialiser_GUI juceInitialiser;

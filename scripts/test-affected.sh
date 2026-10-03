@@ -25,12 +25,12 @@ if (( ${#changed} == 0 )); then
 	changed=(${(f)"$(git diff --name-only "$base"; git ls-files --others --exclude-standard)"})
 fi
 
-products=(rav glimmer mono flint)
+products=(rav glimmer kobber flint)
 typeset -A labels
 full=0
 add() { for label in "$@"; do labels[$label]=1; done }
 
-owner_pattern='rav|glimmer|mono|flint|dsp|ui|presets|state|plugin-support|compat|audio-lab|audio-analysis|framework'
+owner_pattern='rav|glimmer|kobber|flint|dsp|ui|presets|state|plugin-support|compat|audio-lab|audio-analysis|framework'
 
 # The owner tags of the registered (not hidden) test cases in the given test files, read across line breaks; the tag
 # policy guarantees every registered case one.
@@ -42,7 +42,7 @@ test_file_labels() {
 
 # The owner labels of the test files that use a product or framework module (its namespace or its headers), so a
 # change also selects, for example, the preset tests that construct a Rav processor. Products do not depend on each
-# other, so for a product only the framework labels of those files are added (a shared editor test file's [mono] cases
+# other, so for a product only the framework labels of those files are added (a shared editor test file's [kobber] cases
 # are not Rav's).
 add_users() {
 	local users=(${(f)"$(grep -rlE "vekt::$1::|<vekt/$1/" tests --include='*.cpp' --include='*.h' --include='*.mm' || true)"})
@@ -60,7 +60,7 @@ for file in $changed; do
 		''|docs/*|*.md|.claude/*|.editorconfig|.clang-format|.gitignore) ;;
 		plugins/rav/*) add rav; add_users rav ;;
 		plugins/glimmer/*) add glimmer; add_users glimmer ;;
-		plugins/vekt_mono/*) add mono; add_users mono ;;
+		plugins/kobber/*) add kobber; add_users kobber ;;
 		plugins/flint/*) add flint; add_users flint ;;
 		# Framework modules select their own tests, the modules that link them (framework/*/CMakeLists.txt), every
 		# product, and every test file using them.

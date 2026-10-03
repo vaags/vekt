@@ -67,20 +67,20 @@ endif()
 
 add_subdirectory(plugins/rav)
 add_subdirectory(plugins/glimmer)
-add_subdirectory(plugins/vekt_mono)
+add_subdirectory(plugins/kobber)
 add_subdirectory(plugins/flint)
 
 if(VEKT_BUILD_AUDIO_LAB)
     add_subdirectory(tools/audio_lab)
 endif()
 
-vekt_strict_warnings(vekt_presets vekt_ui vekt_preset_ui vekt_plugin_support RavCore GlimmerCore VektMonoCore FlintCore)
-foreach(product IN ITEMS Rav Glimmer Flint)
+vekt_strict_warnings(vekt_presets vekt_ui vekt_preset_ui vekt_plugin_support RavCore GlimmerCore KobberCore FlintCore)
+# Each product lives in plugins/<product> and its plugin target is named after it.
+foreach(product IN ITEMS Rav Glimmer Kobber Flint)
     string(TOLOWER ${product} directory)
     vekt_strict_warnings_on_sources(${product}
         "${CMAKE_CURRENT_SOURCE_DIR}/plugins/${directory}/Source/PluginEntryPoint.cpp")
 endforeach()
-vekt_strict_warnings_on_sources(VektMono "${CMAKE_CURRENT_SOURCE_DIR}/plugins/vekt_mono/Source/PluginEntryPoint.cpp")
 
 if(VEKT_BUILD_TESTS)
     include(CTest)

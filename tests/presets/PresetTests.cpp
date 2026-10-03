@@ -228,7 +228,7 @@ TEST_CASE("Desktop user preset paths are product-specific", "[presets]")
 	const std::array<std::pair<const char*, const char*>, 3> products { {
 		{ vekt::rav::parameters::productName, "Rav" },
 		{ vekt::glimmer::parameters::productName, "Glimmer" },
-		{ vekt::mono::parameters::productName, "Mono" } } };
+		{ vekt::mono::parameters::productName, "Kobber" } } };
 	for (const auto& [productName, expected] : products)
 	{
 		const auto directory = vekt::presets::PresetPaths::desktop(productName);

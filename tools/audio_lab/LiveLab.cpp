@@ -107,7 +107,7 @@ public:
 			addAndMakeVisible(*component);
 		addAndMakeVisible(keyboard);
 		orderButton.setTooltip("Process the instrument through this rack route.");
-		productTabs.addItem("Mono", 1);
+		productTabs.addItem("Kobber", 1);
 		productTabs.addItem("RAV", 2);
 		productTabs.addItem("Glimmer", 3);
 		productTabs.addItem("Flint", 4);

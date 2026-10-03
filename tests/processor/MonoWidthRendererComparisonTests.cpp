@@ -152,8 +152,8 @@ double db(double power, double referencePower)
 }
 }
 
-TEST_CASE("Mono Width comparison separates harmonic phase error from folded spur power",
-	"[mono][oscillator][width][comparison]")
+TEST_CASE("Kobber Width comparison separates harmonic phase error from folded spur power",
+	"[kobber][oscillator][width][comparison]")
 {
 	std::vector<double> reference(fftSize), candidate(fftSize);
 	constexpr int fundamentalBin = 37, spurBin = 200;
@@ -173,8 +173,8 @@ TEST_CASE("Mono Width comparison separates harmonic phase error from folded spur
 	REQUIRE(measured.dcError == Catch::Approx(0.1).margin(1.0e-6));
 }
 
-TEST_CASE("Mono Width event locations and one-sided derivatives match the ideal geometry",
-	"[mono][oscillator][width][comparison]")
+TEST_CASE("Kobber Width event locations and one-sided derivatives match the ideal geometry",
+	"[kobber][oscillator][width][comparison]")
 {
 	using vekt::audio_lab::monoWidthIdealAnchor;
 	constexpr double epsilon = 1.0e-6;
@@ -222,7 +222,7 @@ TEST_CASE("Mono Width event locations and one-sided derivatives match the ideal 
 	}
 }
 
-TEST_CASE("Mono Width offline long windowed sinc event residual convergence",
+TEST_CASE("Kobber Width offline long windowed sinc event residual convergence",
 	"[.][oscillator][width][comparison]")
 {
 	constexpr std::array radii { 8, 16, 32, 64 };
@@ -268,8 +268,8 @@ TEST_CASE("Mono Width offline long windowed sinc event residual convergence",
 	}
 }
 
-TEST_CASE("Mono Width Fourier table reconstructs its source coefficients and band limits",
-	"[mono][oscillator][width][comparison]")
+TEST_CASE("Kobber Width Fourier table reconstructs its source coefficients and band limits",
+	"[kobber][oscillator][width][comparison]")
 {
 	using Table = vekt::audio_lab::MonoWidthTablePrototype;
 	const auto low = 37.0 * hostRate / fftSize, high = 151.0 * hostRate / fftSize;
@@ -295,7 +295,7 @@ TEST_CASE("Mono Width Fourier table reconstructs its source coefficients and ban
 			}
 }
 
-TEST_CASE("Mono Width offline Fourier table spacing size and phase interpolation sweep",
+TEST_CASE("Kobber Width offline Fourier table spacing size and phase interpolation sweep",
 	"[.][oscillator][width][comparison]")
 {
 	using Table = vekt::audio_lab::MonoWidthTablePrototype;
@@ -363,7 +363,7 @@ TEST_CASE("Mono Width offline Fourier table spacing size and phase interpolation
 			}
 }
 
-TEST_CASE("Mono Width offline Fourier table higher Width density and interpolation diagnostic",
+TEST_CASE("Kobber Width offline Fourier table higher Width density and interpolation diagnostic",
 	"[.][oscillator][width][comparison]")
 {
 	using Table = vekt::audio_lab::MonoWidthTablePrototype;
@@ -413,8 +413,8 @@ TEST_CASE("Mono Width offline Fourier table higher Width density and interpolati
 		}
 }
 
-TEST_CASE("Mono Width offline Fourier table selected static neutral and phase regression",
-	"[mono][oscillator][width][comparison][slow]")
+TEST_CASE("Kobber Width offline Fourier table selected static neutral and phase regression",
+	"[kobber][oscillator][width][comparison][slow]")
 {
 	using Table = vekt::audio_lab::MonoWidthTablePrototype;
 	const auto low = 37.0 * hostRate / fftSize, high = 151.0 * hostRate / fftSize;
@@ -457,8 +457,8 @@ TEST_CASE("Mono Width offline Fourier table selected static neutral and phase re
 			}
 }
 
-TEST_CASE("Mono Width mirror identity holds for Fourier coefficients and half-width table",
-	"[mono][oscillator][width][comparison][slow]")
+TEST_CASE("Kobber Width mirror identity holds for Fourier coefficients and half-width table",
+	"[kobber][oscillator][width][comparison][slow]")
 {
 	using Table = vekt::audio_lab::MonoWidthTablePrototype;
 	const auto low = 37.0 * hostRate / fftSize, high = 151.0 * hostRate / fftSize;
@@ -520,7 +520,7 @@ TEST_CASE("Mono Width mirror identity holds for Fourier coefficients and half-wi
 		<< " half_bytes=" << mirrored.bytes() << '\n';
 }
 
-TEST_CASE("Mono Width adaptive knot coefficient and playback diagnostic",
+TEST_CASE("Kobber Width adaptive knot coefficient and playback diagnostic",
 	"[.][oscillator][width][comparison]")
 {
 	using vekt::audio_lab::MonoWidthAdaptiveKnots;
@@ -620,8 +620,8 @@ TEST_CASE("Mono Width adaptive knot coefficient and playback diagnostic",
 	}
 }
 
-TEST_CASE("Mono Width table worst square partials and neutral Width against Fourier oracle",
-	"[mono][oscillator][width][comparison][slow]")
+TEST_CASE("Kobber Width table worst square partials and neutral Width against Fourier oracle",
+	"[kobber][oscillator][width][comparison][slow]")
 {
 	using Table = vekt::audio_lab::MonoWidthTablePrototype;
 	const auto low = 37.0 * hostRate / fftSize, high = 151.0 * hostRate / fftSize;
@@ -661,7 +661,7 @@ TEST_CASE("Mono Width table worst square partials and neutral Width against Four
 	}
 }
 
-TEST_CASE("Mono Width offline fixed 65 frames Width interpolation order comparison",
+TEST_CASE("Kobber Width offline fixed 65 frames Width interpolation order comparison",
 	"[.][oscillator][width][comparison]")
 {
 	using Table = vekt::audio_lab::MonoWidthTablePrototype;
@@ -720,8 +720,8 @@ TEST_CASE("Mono Width offline fixed 65 frames Width interpolation order comparis
 	}
 }
 
-TEST_CASE("Mono Width coefficient-only Width density by harmonic band diagnostic",
-	"[mono][oscillator][width][comparison][slow]")
+TEST_CASE("Kobber Width coefficient-only Width density by harmonic band diagnostic",
+	"[kobber][oscillator][width][comparison][slow]")
 {
 	using Table = vekt::audio_lab::MonoWidthTablePrototype;
 	const std::vector<double> probes { 5.5, 10.5, 20.5, 49.9, 65.5, 90.5, 94.5 };
@@ -757,8 +757,8 @@ TEST_CASE("Mono Width coefficient-only Width density by harmonic band diagnostic
 	}
 }
 
-TEST_CASE("Mono Width offline guarded pitch-band crossfades preserve boundary continuity",
-	"[mono][oscillator][width][comparison][slow]")
+TEST_CASE("Kobber Width offline guarded pitch-band crossfades preserve boundary continuity",
+	"[kobber][oscillator][width][comparison][slow]")
 {
 	using Table = vekt::audio_lab::MonoWidthTablePrototype;
 	constexpr double guard = 0.9, fadeStart = 0.8;
@@ -834,8 +834,8 @@ TEST_CASE("Mono Width offline guarded pitch-band crossfades preserve boundary co
 	}
 }
 
-TEST_CASE("Mono Width offline guarded pitch-band sweep and phase-continuous glide",
-	"[mono][oscillator][width][comparison][slow]")
+TEST_CASE("Kobber Width offline guarded pitch-band sweep and phase-continuous glide",
+	"[kobber][oscillator][width][comparison][slow]")
 {
 	using Table = vekt::audio_lab::MonoWidthTablePrototype;
 	const auto widths = Table::widths(65, Table::WidthSpacing::uniform);
@@ -935,8 +935,8 @@ TEST_CASE("Mono Width offline guarded pitch-band sweep and phase-continuous glid
 			}
 }
 
-TEST_CASE("Mono Width guarded band transitions matched host-rate playback",
-	"[mono][oscillator][width][comparison][slow]")
+TEST_CASE("Kobber Width guarded band transitions matched host-rate playback",
+	"[kobber][oscillator][width][comparison][slow]")
 {
 	using Table = vekt::audio_lab::MonoWidthTablePrototype;
 	const auto widths = Table::widths(65, Table::WidthSpacing::uniform);
@@ -969,7 +969,7 @@ TEST_CASE("Mono Width guarded band transitions matched host-rate playback",
 	}
 }
 
-TEST_CASE("Mono Width per-harmonic guard policy and one-harmonic bank",
+TEST_CASE("Kobber Width per-harmonic guard policy and one-harmonic bank",
 	"[.][oscillator][width][comparison]")
 {
 	using Table = vekt::audio_lab::MonoWidthTablePrototype;
@@ -1104,8 +1104,8 @@ TEST_CASE("Mono Width per-harmonic guard policy and one-harmonic bank",
 			<< " max_time_error=" << maxTimeError << '\n';
 	}
 }
-TEST_CASE("Mono Width grouped level model matches the table bank spectrum and playback",
-	"[mono][oscillator][width][comparison][slow]")
+TEST_CASE("Kobber Width grouped level model matches the table bank spectrum and playback",
+	"[kobber][oscillator][width][comparison][slow]")
 {
 	using Table = vekt::audio_lab::MonoWidthTablePrototype;
 	constexpr double guard = 0.9, start = 0.8;
@@ -1162,7 +1162,7 @@ TEST_CASE("Mono Width grouped level model matches the table bank spectrum and pl
 		}
 }
 
-TEST_CASE("Mono Width grouped pitch-level full-range static sweep",
+TEST_CASE("Kobber Width grouped pitch-level full-range static sweep",
 	"[.][oscillator][width][comparison]")
 {
 	// A 2048-sample table holds at most H1023, so the bank's first level is
@@ -1233,8 +1233,8 @@ TEST_CASE("Mono Width grouped pitch-level full-range static sweep",
 	}
 }
 
-TEST_CASE("Mono additive lab oscillator matches the shipped Width reference and level policies",
-	"[mono][oscillator][width][comparison]")
+TEST_CASE("Kobber additive lab oscillator matches the shipped Width reference and level policies",
+	"[kobber][oscillator][width][comparison]")
 {
 	// Analytic coefficients versus the independent FFT reference.
 	std::vector<std::complex<double>> analytic(200);
@@ -1285,8 +1285,8 @@ TEST_CASE("Mono additive lab oscillator matches the shipped Width reference and 
 	}
 }
 
-TEST_CASE("Mono production Width oscillator matches the exact 4 bands/octave additive renderer",
-	"[mono][oscillator][width][comparison]")
+TEST_CASE("Kobber production Width oscillator matches the exact 4 bands/octave additive renderer",
+	"[kobber][oscillator][width][comparison]")
 {
 	using Policy = vekt::audio_lab::MonoAdditiveOscillator::Policy;
 	vekt::audio_lab::MonoAdditiveOscillator additive;

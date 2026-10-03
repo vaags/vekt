@@ -55,7 +55,7 @@ TEST_CASE("Audio Lab rack routes send source audio through the selected effects"
 	}
 }
 
-TEST_CASE("Audio Lab measures Mono processing with the effects rack bypassed", "[audio-lab][rack][mono][cpu]")
+TEST_CASE("Audio Lab measures Mono processing with the effects rack bypassed", "[audio-lab][rack][kobber][cpu]")
 {
 	vekt::mono::PluginProcessor mono;
 	vekt::rav::PluginProcessor rav;

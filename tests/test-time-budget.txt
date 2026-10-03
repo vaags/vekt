@@ -2,26 +2,26 @@
 # wall clock in a parallel dev run). One per line: <seconds> | <test name> | <reason>. Parallel load swings times up
 # to 2x between runs, so set about 2x (always-run) or 1.5x (slow) the larger of a run and the long-run average
 # (build/dev/Testing/Temporary/CTestCostData.txt): growth still fails. Remove a line once its test is back under.
-20 | Mono Drift wanders each voice's pitch by a few cents | pre-existing (2 October 2026), not yet reviewed for length
-17 | Mono ladder Notch/HP track LP whatever the resonance under heavy drive | pre-existing (2 October 2026), not yet reviewed for length
+20 | Kobber Drift wanders each voice's pitch by a few cents | pre-existing (2 October 2026), not yet reviewed for length
+17 | Kobber ladder Notch/HP track LP whatever the resonance under heavy drive | pre-existing (2 October 2026), not yet reviewed for length
 16 | macOS plugin workflow scripts | pre-existing (2 October 2026), not yet reviewed for length
-15 | Mono K35 stays finite under hostile modulation through the processor | pre-existing (2 October 2026), not yet reviewed for length
-14 | Mono filters switch at a sensible level at Notch and HP | pre-existing (2 October 2026), not yet reviewed for length
-14 | Mono Multicore renders exactly the same samples as single-threaded rendering | pre-existing (2 October 2026), not yet reviewed for length
-13 | Mono unison level stays put while Drift separates the layers | pre-existing (2 October 2026), not yet reviewed for length
-12 | Mono K35 switches at a sensible level at Drive 0 | pre-existing (2 October 2026), not yet reviewed for length
-10 | Mono additive lab oscillator matches the shipped Width reference and level policies | pre-existing (2 October 2026), not yet reviewed for length
-10 | Mono preset loads clear old audio while allowing new notes in the first callback | pre-existing (2 October 2026), not yet reviewed for length
-8 | Mono Ladder and SVF switch at a sensible level at Drive 0 | pre-existing (2 October 2026), not yet reviewed for length
-7 | Mono Width DC policies follow the frozen-width analytical means | pre-existing (2 October 2026), not yet reviewed for length
-6 | Mono Width and Morph surface has finite fundamentals and continuous anchors | pre-existing (2 October 2026), not yet reviewed for length
+15 | Kobber K35 stays finite under hostile modulation through the processor | pre-existing (2 October 2026), not yet reviewed for length
+14 | Kobber filters switch at a sensible level at Notch and HP | pre-existing (2 October 2026), not yet reviewed for length
+14 | Kobber Multicore renders exactly the same samples as single-threaded rendering | pre-existing (2 October 2026), not yet reviewed for length
+13 | Kobber unison level stays put while Drift separates the layers | pre-existing (2 October 2026), not yet reviewed for length
+12 | Kobber K35 switches at a sensible level at Drive 0 | pre-existing (2 October 2026), not yet reviewed for length
+10 | Kobber additive lab oscillator matches the shipped Width reference and level policies | pre-existing (2 October 2026), not yet reviewed for length
+10 | Kobber preset loads clear old audio while allowing new notes in the first callback | pre-existing (2 October 2026), not yet reviewed for length
+8 | Kobber Ladder and SVF switch at a sensible level at Drive 0 | pre-existing (2 October 2026), not yet reviewed for length
+7 | Kobber Width DC policies follow the frozen-width analytical means | pre-existing (2 October 2026), not yet reviewed for length
+6 | Kobber Width and Morph surface has finite fundamentals and continuous anchors | pre-existing (2 October 2026), not yet reviewed for length
 6 | Every Mono reference render still sounds the same | pre-existing (2 October 2026), not yet reviewed for length
-5 | Mono coupled reports oversampling latency across retained rates and blocks | pre-existing (2 October 2026), not yet reviewed for length
-5 | Mono nonlinear SVF still decays at the lowest cutoff and highest effective rate | pre-existing (2 October 2026), not yet reviewed for length
-5 | Mono nonlinear SVF stays periodic in the cases that broke earlier topologies | pre-existing (2 October 2026), not yet reviewed for length
-5 | Mono ladder modes match their small-signal responses | pre-existing (2 October 2026), not yet reviewed for length
-5 | Mono K35 Mode sweeps smoothly and changes the held sound | pre-existing (2 October 2026), not yet reviewed for length
-5 | Mono glide follows held keys independently of envelope retrigger | pre-existing (2 October 2026), not yet reviewed for length
-5 | Mono nonlinear SVF decays to silence at maximum Resonance and Drive under cutoff modulation | pre-existing (2 October 2026), not yet reviewed for length
-5 | Mono Korg35 has no solver failures under hostile rendering over the rate matrix | pre-existing (2 October 2026), not yet reviewed for length
-5 | Mono voice output level stays within 1 dB across Morph through the open ladder | pre-existing (2 October 2026), not yet reviewed for length
+5 | Kobber coupled reports oversampling latency across retained rates and blocks | pre-existing (2 October 2026), not yet reviewed for length
+5 | Kobber nonlinear SVF still decays at the lowest cutoff and highest effective rate | pre-existing (2 October 2026), not yet reviewed for length
+5 | Kobber nonlinear SVF stays periodic in the cases that broke earlier topologies | pre-existing (2 October 2026), not yet reviewed for length
+5 | Kobber ladder modes match their small-signal responses | pre-existing (2 October 2026), not yet reviewed for length
+5 | Kobber K35 Mode sweeps smoothly and changes the held sound | pre-existing (2 October 2026), not yet reviewed for length
+5 | Kobber glide follows held keys independently of envelope retrigger | pre-existing (2 October 2026), not yet reviewed for length
+5 | Kobber nonlinear SVF decays to silence at maximum Resonance and Drive under cutoff modulation | pre-existing (2 October 2026), not yet reviewed for length
+5 | Kobber Korg35 has no solver failures under hostile rendering over the rate matrix | pre-existing (2 October 2026), not yet reviewed for length
+5 | Kobber voice output level stays within 1 dB across Morph through the open ladder | pre-existing (2 October 2026), not yet reviewed for length

@@ -1,5 +1,5 @@
 # Every registered Catch2 test case carries an owner tag (a product or framework module), and a case named after a
-# product ("Rav ...", "Glimmer ...", "Mono ...", "Flint ...") carries that product's tag, so label selection (scripts/test-affected.sh,
+# product ("Rav ...", "Glimmer ...", "Kobber ...", "Flint ...") carries that product's tag, so label selection (scripts/test-affected.sh,
 # docs/VERIFICATION_SPEED.md) cannot miss it. A hidden case ([.] or [!hide]) must carry no owner tag: Catch2 runs a
 # hidden case whenever a tag it carries is named, so "vekt_dsp_tests [compat]" would otherwise run the capture cases
 # and rewrite the fixtures. A test macro the policy cannot parse fails it.
@@ -8,7 +8,7 @@ if(NOT VEKT_TESTS_DIR)
 	message(FATAL_ERROR "VEKT_TESTS_DIR is required")
 endif()
 
-set(owner_tags rav glimmer mono flint dsp ui presets state plugin-support compat audio-lab audio-analysis framework)
+set(owner_tags rav glimmer kobber flint dsp ui presets state plugin-support compat audio-lab audio-analysis framework)
 set(ws "[ \t\r\n]*")
 set(string_literal "\"[^\"]*\"")
 set(macro_start "[^A-Za-z0-9_](TEST_CASE|TEST_CASE_METHOD|SCENARIO|TEMPLATE_TEST_CASE|TEMPLATE_PRODUCT_TEST_CASE)\\(")
@@ -60,7 +60,7 @@ foreach(source IN LISTS sources)
 		if(NOT owners)
 			string(APPEND offenders "\n  no owner tag: ${name} ${tags}")
 		endif()
-		foreach(product IN ITEMS Rav Glimmer Mono Flint)
+		foreach(product IN ITEMS Rav Glimmer Kobber Flint)
 			string(TOLOWER "${product}" tag)
 			if(name MATCHES "^${product}[ A-Z]" AND NOT tags MATCHES "\\[${tag}\\]")
 				string(APPEND offenders "\n  missing [${tag}]: ${name} ${tags}")

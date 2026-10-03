@@ -29,7 +29,7 @@ std::vector<std::vector<int>> members(const vekt::mono::VoiceGroups& groups)
 }
 }
 
-TEST_CASE("Mono render plan groups sounding voices in voice order, four filter lanes per unit", "[mono][render-plan]")
+TEST_CASE("Kobber render plan groups sounding voices in voice order, four filter lanes per unit", "[kobber][render-plan]")
 {
 	const auto sounding = soundingVoices({ 0, 2, 3, 5, 6 });
 	using Groups = std::vector<std::vector<int>>;
@@ -39,7 +39,7 @@ TEST_CASE("Mono render plan groups sounding voices in voice order, four filter l
 	REQUIRE(vekt::mono::planRender(soundingVoices({}), 1, 4).units.count == 0);
 }
 
-TEST_CASE("Mono render plan renders units as jobs on one thread or when units fill the threads", "[mono][render-plan]")
+TEST_CASE("Kobber render plan renders units as jobs on one thread or when units fill the threads", "[kobber][render-plan]")
 {
 	const auto sounding = soundingVoices({ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 });
 	const auto single = vekt::mono::planRender(sounding, 1, 1);
@@ -49,8 +49,8 @@ TEST_CASE("Mono render plan renders units as jobs on one thread or when units fi
 	REQUIRE(members(filled.jobs) == members(filled.units));
 }
 
-TEST_CASE("Mono render plan splits into the job size with the shortest estimated time when threads outnumber units",
-    "[mono][render-plan]")
+TEST_CASE("Kobber render plan splits into the job size with the shortest estimated time when threads outnumber units",
+    "[kobber][render-plan]")
 {
 	using Groups = std::vector<std::vector<int>>;
 	const auto sounding = soundingVoices({ 0, 1, 2, 3 }); // one unit of four voices

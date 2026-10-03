@@ -79,7 +79,7 @@ bool near(Complex measured, Complex expected, double tolerance)
 }
 }
 
-TEST_CASE("Mono linear SVF matches its prewarped analog response", "[mono][filter][svf]")
+TEST_CASE("Kobber linear SVF matches its prewarped analog response", "[kobber][filter][svf]")
 {
 	constexpr double sampleRate = 48'000.0;
 	for (const auto cutoff : { 100.0, 1'000.0, 10'000.0 })
@@ -98,7 +98,7 @@ TEST_CASE("Mono linear SVF matches its prewarped analog response", "[mono][filte
 		}
 }
 
-TEST_CASE("Mono linear SVF puts its pole and notch exactly at the cutoff, up to 0.45 fs", "[mono][filter][svf]")
+TEST_CASE("Kobber linear SVF puts its pole and notch exactly at the cutoff, up to 0.45 fs", "[kobber][filter][svf]")
 {
 	constexpr double sampleRate = 48'000.0;
 	for (const auto cutoff : { 50.0, 440.0, 5'000.0, 15'000.0, 21'600.0 })
@@ -115,7 +115,7 @@ TEST_CASE("Mono linear SVF puts its pole and notch exactly at the cutoff, up to 
 		}
 }
 
-TEST_CASE("Mono linear SVF passes DC through LP and Nyquist through HP", "[mono][filter][svf]")
+TEST_CASE("Kobber linear SVF passes DC through LP and Nyquist through HP", "[kobber][filter][svf]")
 {
 	constexpr double sampleRate = 48'000.0;
 	for (const auto k : { 2.0, 0.05 })
@@ -135,7 +135,7 @@ TEST_CASE("Mono linear SVF passes DC through LP and Nyquist through HP", "[mono]
 	}
 }
 
-TEST_CASE("Mono linear SVF stays exact at the lowest cutoff and highest effective rate", "[mono][filter][svf]")
+TEST_CASE("Kobber linear SVF stays exact at the lowest cutoff and highest effective rate", "[kobber][filter][svf]")
 {
 	// The 5 Hz Cutoff minimum at 192 kHz x16, the highest internal rate: g = tan(pi 5 / 3.072 MHz) is about 5e-6. (Modulation can reach the
 	// 2.5 Hz floor; the impulse response this measures grows as fs / fc, so Q 0.5 only.)
@@ -152,7 +152,7 @@ TEST_CASE("Mono linear SVF stays exact at the lowest cutoff and highest effectiv
 	}
 }
 
-TEST_CASE("Mono linear SVF stays bounded and decays under audio-rate cutoff modulation", "[mono][filter][svf]")
+TEST_CASE("Kobber linear SVF stays bounded and decays under audio-rate cutoff modulation", "[kobber][filter][svf]")
 {
 	constexpr double sampleRate = 48'000.0;
 	constexpr double k = 0.05;
@@ -185,7 +185,7 @@ TEST_CASE("Mono linear SVF stays bounded and decays under audio-rate cutoff modu
 	CHECK(tail < 1.0e-9);
 }
 
-TEST_CASE("Mono SVF Mode lands exactly on LP, Notch and HP", "[mono][filter][svf][svf-mode]")
+TEST_CASE("Kobber SVF Mode lands exactly on LP, Notch and HP", "[kobber][filter][svf][svf-mode]")
 {
 	std::mt19937 random { 7 };
 	std::uniform_real_distribution value { -3.0, 3.0 };
@@ -202,7 +202,7 @@ TEST_CASE("Mono SVF Mode lands exactly on LP, Notch and HP", "[mono][filter][svf
 	}
 }
 
-TEST_CASE("Mono SVF Mode sweeps continuously and monotonically, flat at each landmark", "[mono][filter][svf][svf-mode]")
+TEST_CASE("Kobber SVF Mode sweeps continuously and monotonically, flat at each landmark", "[kobber][filter][svf][svf-mode]")
 {
 	// LP weight falls 1 -> 1 -> 0 and HP weight rises 0 -> 1 -> 1 across -1 -> 0 -> +1, never faster than the
 	// smoothstep's 1.5 per unit of position, with zero slope at -1, 0 and +1.
@@ -235,7 +235,7 @@ TEST_CASE("Mono SVF Mode sweeps continuously and monotonically, flat at each lan
 	}
 }
 
-TEST_CASE("Mono SVF Mode sweep keeps both passbands and deepens to the notch", "[mono][filter][svf][svf-mode]")
+TEST_CASE("Kobber SVF Mode sweep keeps both passbands and deepens to the notch", "[kobber][filter][svf][svf-mode]")
 {
 	constexpr double sampleRate = 48'000.0;
 	constexpr double cutoff = 1'000.0;
@@ -265,7 +265,7 @@ TEST_CASE("Mono SVF Mode sweep keeps both passbands and deepens to the notch", "
 	}
 }
 
-TEST_CASE("Mono SVF Resonance shapes keep both ends and only raise Q", "[mono][filter][svf][svf-mode]")
+TEST_CASE("Kobber SVF Resonance shapes keep both ends and only raise Q", "[kobber][filter][svf][svf-mode]")
 {
 	const auto top = 1.0 / vekt::mono::svfMaximumQ;
 	for (const auto shape : { 1.0, 0.7, 0.5, 0.35 })
@@ -306,7 +306,7 @@ TEST_CASE("Mono SVF Resonance shapes keep both ends and only raise Q", "[mono][f
 	REQUIRE(std::abs(above - below) < 1.0e-3 * std::abs(below));
 }
 
-TEST_CASE("Mono SVF output trim follows most of the Ladder's passband loss", "[mono][filter][svf][switch-gain]")
+TEST_CASE("Kobber SVF output trim follows most of the Ladder's passband loss", "[kobber][filter][svf][switch-gain]")
 {
 	const auto decibels = [](double gain) { return 20.0 * std::log10(gain); };
 	REQUIRE(vekt::mono::svfOutputTrim(0.0) == 1.0);

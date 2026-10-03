@@ -161,7 +161,7 @@ public:
 };
 }
 
-TEST_CASE("Mono LFO parameters are sound parameters that default to no modulation", "[mono][lfo][parameters]")
+TEST_CASE("Kobber LFO parameters are sound parameters that default to no modulation", "[kobber][lfo][parameters]")
 {
 	vekt::mono::PluginProcessor processor;
 	REQUIRE(parameters::soundParameterIds.size() == parameters::coreSoundParameterIds.size() + 56 + parameters::vibratoParameterIds.size()
@@ -188,7 +188,7 @@ TEST_CASE("Mono LFO parameters are sound parameters that default to no modulatio
 	}
 }
 
-TEST_CASE("Mono LFO source settings leave the sound unchanged at zero depth", "[mono][lfo]")
+TEST_CASE("Kobber LFO source settings leave the sound unchanged at zero depth", "[kobber][lfo]")
 {
 	vekt::mono::PluginProcessor reference, configured;
 	initializeRichPatch(reference);
@@ -210,7 +210,7 @@ TEST_CASE("Mono LFO source settings leave the sound unchanged at zero depth", "[
 			REQUIRE(juce::exactlyEqual(actual.getSample(channel, sample), expected.getSample(channel, sample)));
 }
 
-TEST_CASE("Mono LFOs reach every destination", "[mono][lfo][slow]")
+TEST_CASE("Kobber LFOs reach every destination", "[kobber][lfo][slow]")
 {
 	vekt::mono::PluginProcessor reference;
 	initializeRichPatch(reference);
@@ -233,7 +233,7 @@ TEST_CASE("Mono LFOs reach every destination", "[mono][lfo][slow]")
 	}
 }
 
-TEST_CASE("Mono LFO pitch depth is in semitones and scaled by Amount", "[mono][lfo]")
+TEST_CASE("Kobber LFO pitch depth is in semitones and scaled by Amount", "[kobber][lfo]")
 {
 	for (const auto [amount, expectedHz] : { std::pair { 100.0f, 880.0f }, std::pair { 50.0f, 440.0f * std::sqrt(2.0f) } })
 	{
@@ -249,7 +249,7 @@ TEST_CASE("Mono LFO pitch depth is in semitones and scaled by Amount", "[mono][l
 	}
 }
 
-TEST_CASE("Mono LFO amp depth attenuates without boosting", "[mono][lfo]")
+TEST_CASE("Kobber LFO amp depth attenuates without boosting", "[kobber][lfo]")
 {
 	vekt::mono::PluginProcessor full, silenced, boosted;
 	for (auto* processor : { &full, &silenced, &boosted }) initializeSine(*processor);
@@ -263,7 +263,7 @@ TEST_CASE("Mono LFO amp depth attenuates without boosting", "[mono][lfo]")
 	REQUIRE(differenceRms(unchanged, reference) == 0.0f);
 }
 
-TEST_CASE("Mono LFO output is independent of block size", "[mono][lfo]")
+TEST_CASE("Kobber LFO output is independent of block size", "[kobber][lfo]")
 {
 	vekt::mono::PluginProcessor small, large;
 	for (auto* processor : { &small, &large })
@@ -282,7 +282,7 @@ TEST_CASE("Mono LFO output is independent of block size", "[mono][lfo]")
 	REQUIRE(differenceRms(first, second) < 1.0e-6f);
 }
 
-TEST_CASE("Mono synced free LFO follows the host song position", "[mono][lfo]")
+TEST_CASE("Kobber synced free LFO follows the host song position", "[kobber][lfo]")
 {
 	REQUIRE(vekt::mono::syncedLfoRateHz(120.0, vekt::mono::defaultLfoDivision) == Catch::Approx(2.0f));
 	REQUIRE(vekt::mono::syncedLfoRateHz(120.0, 0) == Catch::Approx(0.5f));
@@ -310,7 +310,7 @@ TEST_CASE("Mono synced free LFO follows the host song position", "[mono][lfo]")
 	REQUIRE(differenceRms(renderAt(8.5), onBeat) > 1.0e-3f);
 }
 
-TEST_CASE("Mono LFO settings recall with project state", "[mono][lfo][state]")
+TEST_CASE("Kobber LFO settings recall with project state", "[kobber][lfo][state]")
 {
 	vekt::mono::PluginProcessor source;
 	setParameter(source, parameters::lfos[0].pitch[2], 7.0f);
@@ -324,7 +324,7 @@ TEST_CASE("Mono LFO settings recall with project state", "[mono][lfo][state]")
 	REQUIRE(rawValue(restored, parameters::lfos[1].mode) == Catch::Approx(2.0f));
 }
 
-TEST_CASE("Mono vibrato is silent until the mod wheel or aftertouch is used", "[mono][vibrato]")
+TEST_CASE("Kobber vibrato is silent until the mod wheel or aftertouch is used", "[kobber][vibrato]")
 {
 	vekt::mono::PluginProcessor withoutDepth, withDepth;
 	for (auto* processor : { &withoutDepth, &withDepth }) initializeSine(*processor);
@@ -335,7 +335,7 @@ TEST_CASE("Mono vibrato is silent until the mod wheel or aftertouch is used", "[
 	REQUIRE(identical(renderEvents(withoutDepth, 9'600, events), renderEvents(withDepth, 9'600, events)));
 }
 
-TEST_CASE("Mono vibrato reaches its depth in cents with the mod wheel up", "[mono][vibrato]")
+TEST_CASE("Kobber vibrato reaches its depth in cents with the mod wheel up", "[kobber][vibrato]")
 {
 	vekt::mono::PluginProcessor processor;
 	initializeSine(processor);
@@ -349,7 +349,7 @@ TEST_CASE("Mono vibrato reaches its depth in cents with the mod wheel up", "[mon
 	REQUIRE(processor.getVibratoControlDisplay() == Catch::Approx(1.0f));
 }
 
-TEST_CASE("Mono vibrato responds equally to mod wheel, channel pressure and poly aftertouch", "[mono][vibrato][midi]")
+TEST_CASE("Kobber vibrato responds equally to mod wheel, channel pressure and poly aftertouch", "[kobber][vibrato][midi]")
 {
 	const auto render = [](const juce::MidiMessage& control)
 	{
@@ -369,7 +369,7 @@ TEST_CASE("Mono vibrato responds equally to mod wheel, channel pressure and poly
 	REQUIRE(identical(dry, render(juce::MidiMessage::aftertouchChange(1, 70, 127))));
 }
 
-TEST_CASE("Mono reset all controllers returns the vibrato controls to rest", "[mono][vibrato][midi]")
+TEST_CASE("Kobber reset all controllers returns the vibrato controls to rest", "[kobber][vibrato][midi]")
 {
 	vekt::mono::PluginProcessor processor;
 	initializeSine(processor);
@@ -382,7 +382,7 @@ TEST_CASE("Mono reset all controllers returns the vibrato controls to rest", "[m
 	REQUIRE(processor.getVibratoControlDisplay() == 0.0f);
 }
 
-TEST_CASE("Mono vibrato amount plays the vibrato like a full mod wheel without MIDI controllers", "[mono][vibrato]")
+TEST_CASE("Kobber vibrato amount plays the vibrato like a full mod wheel without MIDI controllers", "[kobber][vibrato]")
 {
 	const auto render = [](float amount, std::vector<std::pair<juce::MidiMessage, int>> events)
 	{
@@ -405,7 +405,7 @@ TEST_CASE("Mono vibrato amount plays the vibrato like a full mod wheel without M
 	REQUIRE(render(25.0f, {}).second == Catch::Approx(0.25f));
 }
 
-TEST_CASE("Mono vibrato uses the higher of the vibrato amount and the MIDI controllers", "[mono][vibrato][midi]")
+TEST_CASE("Kobber vibrato uses the higher of the vibrato amount and the MIDI controllers", "[kobber][vibrato][midi]")
 {
 	const auto render = [](float amount, std::vector<std::pair<juce::MidiMessage, int>> events)
 	{
@@ -427,7 +427,7 @@ TEST_CASE("Mono vibrato uses the higher of the vibrato amount and the MIDI contr
 	REQUIRE(identical(halfAmount, render(50.0f, { { juce::MidiMessage::controllerEvent(1, 1, 32), 0 } })));
 }
 
-TEST_CASE("Mono vibrato amount is kept with the project but not stored in or changed by presets", "[mono][vibrato]")
+TEST_CASE("Kobber vibrato amount is kept with the project but not stored in or changed by presets", "[kobber][vibrato]")
 {
 	REQUIRE(std::find(parameters::soundParameterIds.begin(), parameters::soundParameterIds.end(),
 		std::string_view { parameters::vibratoAmount }) == parameters::soundParameterIds.end());
@@ -443,7 +443,7 @@ TEST_CASE("Mono vibrato amount is kept with the project but not stored in or cha
 	REQUIRE(rawValue(restored, parameters::vibratoAmount) == Catch::Approx(40.0f));
 }
 
-TEST_CASE("Mono publishes whether an LFO display value is live and each LFO's rate", "[mono][processor][lfo][modulation]")
+TEST_CASE("Kobber publishes whether an LFO display value is live and each LFO's rate", "[kobber][processor][lfo][modulation]")
 {
 	vekt::mono::PluginProcessor processor;
 	initializeRichPatch(processor);

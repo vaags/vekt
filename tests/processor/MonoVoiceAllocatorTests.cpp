@@ -73,8 +73,8 @@ struct Fixture
 };
 }
 
-TEST_CASE("Mono voice allocator fills free voices, then steals the oldest released voice before the oldest held",
-    "[mono][allocator]")
+TEST_CASE("Kobber voice allocator fills free voices, then steals the oldest released voice before the oldest held",
+    "[kobber][allocator]")
 {
 	Fixture poly;
 	poly.rules.voiceLimit = 3;
@@ -92,7 +92,7 @@ TEST_CASE("Mono voice allocator fills free voices, then steals the oldest releas
 	REQUIRE(poly.voice(3).starts == 0); // beyond the voice limit
 }
 
-TEST_CASE("Mono voice allocator restarts a still-sounding key on its own voice", "[mono][allocator]")
+TEST_CASE("Kobber voice allocator restarts a still-sounding key on its own voice", "[kobber][allocator]")
 {
 	Fixture poly;
 	poly.on(60);
@@ -105,7 +105,7 @@ TEST_CASE("Mono voice allocator restarts a still-sounding key on its own voice",
 	REQUIRE(poly.voice(2).starts == 0); // not a second copy
 }
 
-TEST_CASE("Mono voice allocator spreads polyphonic voices across the stereo field", "[mono][allocator]")
+TEST_CASE("Kobber voice allocator spreads polyphonic voices across the stereo field", "[kobber][allocator]")
 {
 	Fixture poly;
 	poly.rules.voiceLimit = 3;
@@ -117,8 +117,8 @@ TEST_CASE("Mono voice allocator spreads polyphonic voices across the stereo fiel
 	REQUIRE(juce::exactlyEqual(poly.voice(2).pan, 1.0f));
 }
 
-TEST_CASE("Mono voice allocator with last-note priority plays the newest held note and returns to the previous one",
-    "[mono][allocator]")
+TEST_CASE("Kobber voice allocator with last-note priority plays the newest held note and returns to the previous one",
+    "[kobber][allocator]")
 {
 	Fixture mono;
 	mono.rules.mode = PerformanceMode::mono;
@@ -135,8 +135,8 @@ TEST_CASE("Mono voice allocator with last-note priority plays the newest held no
 	REQUIRE(mono.voice(1).starts == 0); // channel 1 plays on voice 0 only
 }
 
-TEST_CASE("Mono voice allocator with low-note priority ignores higher notes until the lowest is released",
-    "[mono][allocator]")
+TEST_CASE("Kobber voice allocator with low-note priority ignores higher notes until the lowest is released",
+    "[kobber][allocator]")
 {
 	Fixture mono;
 	mono.rules.mode = PerformanceMode::mono;
@@ -150,7 +150,7 @@ TEST_CASE("Mono voice allocator with low-note priority ignores higher notes unti
 	REQUIRE(mono.voice(0).held);
 }
 
-TEST_CASE("Mono voice allocator in Mono Legato glides between held notes and retriggers otherwise", "[mono][allocator]")
+TEST_CASE("Kobber voice allocator in Mono Legato glides between held notes and retriggers otherwise", "[kobber][allocator]")
 {
 	Fixture legato;
 	legato.rules.mode = PerformanceMode::monoLegato;
@@ -167,7 +167,7 @@ TEST_CASE("Mono voice allocator in Mono Legato glides between held notes and ret
 	REQUIRE_FALSE(legato.voice(0).legato);
 }
 
-TEST_CASE("Mono voice allocator without held-key return releases instead of returning", "[mono][allocator]")
+TEST_CASE("Kobber voice allocator without held-key return releases instead of returning", "[kobber][allocator]")
 {
 	Fixture mono;
 	mono.rules.mode = PerformanceMode::mono;
@@ -179,7 +179,7 @@ TEST_CASE("Mono voice allocator without held-key return releases instead of retu
 	REQUIRE_FALSE(mono.voice(0).held);
 }
 
-TEST_CASE("Mono voice allocator holds released notes on the sustain pedal until it lifts", "[mono][allocator]")
+TEST_CASE("Kobber voice allocator holds released notes on the sustain pedal until it lifts", "[kobber][allocator]")
 {
 	Fixture poly;
 	poly.allocator.setSustain(poly.voices, 1, true);
@@ -193,7 +193,7 @@ TEST_CASE("Mono voice allocator holds released notes on the sustain pedal until 
 	REQUIRE_FALSE(poly.voice(0).sustained);
 }
 
-TEST_CASE("Mono voice allocator stops or releases only the addressed channel's notes", "[mono][allocator]")
+TEST_CASE("Kobber voice allocator stops or releases only the addressed channel's notes", "[kobber][allocator]")
 {
 	Fixture poly;
 	poly.on(60, 1);

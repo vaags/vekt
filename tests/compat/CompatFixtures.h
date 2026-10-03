@@ -66,7 +66,7 @@ inline const std::vector<Product>& products()
 			[] { return std::make_unique<glimmer::PluginProcessor>(); },
 			describeProgram,
 			[](juce::AudioProcessor&) {} },
-		{ "mono", true,
+		{ "kobber", true,
 			[] { return std::make_unique<mono::PluginProcessor>(); },
 			describeProgram,
 			[](juce::AudioProcessor&) {} },

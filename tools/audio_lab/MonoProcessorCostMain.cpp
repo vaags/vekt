@@ -236,7 +236,7 @@ int main(int argc, char** argv)
 {
 	if (argc < 6 || argc > 11)
 	{
-		std::cerr << "Usage: VektMonoProcessorCost rate block_size voices(8|12|16) factor(1|2|4|8|16) seconds [work|transitions|cpu] [unison=1|2|4] [multicore] [svf|k35] [mode=-1..1]\n";
+		std::cerr << "Usage: VektKobberProcessorCost rate block_size voices(8|12|16) factor(1|2|4|8|16) seconds [work|transitions|cpu] [unison=1|2|4] [multicore] [svf|k35] [mode=-1..1]\n";
 		return 64;
 	}
 	try

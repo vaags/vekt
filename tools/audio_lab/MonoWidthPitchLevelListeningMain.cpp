@@ -218,7 +218,7 @@ int main(int argc, char** argv)
 {
 	if (argc != 2)
 	{
-		std::cerr << "Usage: VektMonoWidthPitchLevelListening output-directory\n";
+		std::cerr << "Usage: VektKobberWidthPitchLevelListening output-directory\n";
 		return 64;
 	}
 	juce::ScopedJuceInitialiser_GUI juceInitialiser;

@@ -122,7 +122,7 @@ void initializeDryVoice(vekt::mono::PluginProcessor& processor)
 }
 }
 
-TEST_CASE("Mono stereo power RMS preserves mono power across equal-power pan and phase", "[mono][processor][stereo]")
+TEST_CASE("Kobber stereo power RMS preserves mono power across equal-power pan and phase", "[kobber][processor][stereo]")
 {
 	juce::AudioBuffer<float> buffer(2, 4);
 	const std::array mono { 0.4f, -0.4f, 0.2f, -0.2f };
@@ -153,7 +153,7 @@ TEST_CASE("Mono stereo power RMS preserves mono power across equal-power pan and
 	REQUIRE(stereoPowerRms(buffer) == Catch::Approx(sourceRms).margin(1.0e-7f));
 }
 
-TEST_CASE("Mono oscillator ranges follow footage labels", "[mono][processor][oscillator]")
+TEST_CASE("Kobber oscillator ranges follow footage labels", "[kobber][processor][oscillator]")
 {
 	juce::ScopedJuceInitialiser_GUI juceInitializer;
 	const std::array ranges { vekt::mono::parameters::osc1Range, vekt::mono::parameters::osc2Range, vekt::mono::parameters::osc3Range };
@@ -180,7 +180,7 @@ TEST_CASE("Mono oscillator ranges follow footage labels", "[mono][processor][osc
 		}
 }
 
-TEST_CASE("Mono input Q compensation is inert at zero resonance and changes driven sound", "[mono][processor][filter][qcomp][slow]")
+TEST_CASE("Kobber input Q compensation is inert at zero resonance and changes driven sound", "[kobber][processor][filter][qcomp][slow]")
 {
 	juce::ScopedJuceInitialiser_GUI juceInitializer;
 	for (const auto sampleRate : { 44'100.0, 48'000.0, 96'000.0 })
@@ -226,7 +226,7 @@ TEST_CASE("Mono input Q compensation is inert at zero resonance and changes driv
 				}
 }
 
-TEST_CASE("Mono input Q compensation switches smoothly on a held voice", "[mono][processor][filter][qcomp]")
+TEST_CASE("Kobber input Q compensation switches smoothly on a held voice", "[kobber][processor][filter][qcomp]")
 {
 	juce::ScopedJuceInitialiser_GUI juceInitializer;
 	vekt::mono::PluginProcessor dry, switched;
@@ -256,7 +256,7 @@ TEST_CASE("Mono input Q compensation switches smoothly on a held voice", "[mono]
 	}
 }
 
-TEST_CASE("Mono Q compensation defaults off and recalls sound state", "[mono][processor][state][qcomp]")
+TEST_CASE("Kobber Q compensation defaults off and recalls sound state", "[kobber][processor][state][qcomp]")
 {
 	juce::ScopedJuceInitialiser_GUI juceInitializer;
 	vekt::mono::PluginProcessor processor;
@@ -282,7 +282,7 @@ TEST_CASE("Mono Q compensation defaults off and recalls sound state", "[mono][pr
 	}
 }
 
-TEST_CASE("Mono filter Mode defaults to LP, names its landmarks and recalls with state", "[mono][processor][state][ladder-mode]")
+TEST_CASE("Kobber filter Mode defaults to LP, names its landmarks and recalls with state", "[kobber][processor][state][ladder-mode]")
 {
 	juce::ScopedJuceInitialiser_GUI juceInitializer;
 	vekt::mono::PluginProcessor processor;
@@ -302,7 +302,7 @@ TEST_CASE("Mono filter Mode defaults to LP, names its landmarks and recalls with
 	REQUIRE(processor.getParameters().getRawParameterValue(vekt::mono::parameters::filterMode)->load() == Catch::Approx(0.25f).margin(1.0e-3));
 }
 
-TEST_CASE("Mono filter Mode sweeps smoothly and changes the held sound", "[mono][processor][filter][ladder-mode]")
+TEST_CASE("Kobber filter Mode sweeps smoothly and changes the held sound", "[kobber][processor][filter][ladder-mode]")
 {
 	juce::ScopedJuceInitialiser_GUI juceInitializer;
 	vekt::mono::PluginProcessor lowPass, swept;
@@ -336,7 +336,7 @@ TEST_CASE("Mono filter Mode sweeps smoothly and changes the held sound", "[mono]
 	}
 }
 
-TEST_CASE("Mono contour engine measures analog timing and retrigger continuity", "[mono][processor][contour]")
+TEST_CASE("Kobber contour engine measures analog timing and retrigger continuity", "[kobber][processor][contour]")
 {
 	vekt::mono::ContourEnvelope envelope;
 	envelope.setSampleRate(48'000.0);
@@ -364,7 +364,7 @@ TEST_CASE("Mono contour engine measures analog timing and retrigger continuity",
 	REQUIRE(after - before < 0.001f);
 }
 
-TEST_CASE("Mono amp and filter contours use their independent release times", "[mono][processor][contour]")
+TEST_CASE("Kobber amp and filter contours use their independent release times", "[kobber][processor][contour]")
 {
 	vekt::mono::ContourEnvelope amp, filter;
 	for (auto* envelope : { &amp, &filter }) envelope->setSampleRate(1'000.0);
@@ -380,7 +380,7 @@ TEST_CASE("Mono amp and filter contours use their independent release times", "[
 	REQUIRE_FALSE(filter.isActive());
 }
 
-TEST_CASE("Mono contour updates held sustain and release without resetting the level", "[mono][processor][contour]")
+TEST_CASE("Kobber contour updates held sustain and release without resetting the level", "[kobber][processor][contour]")
 {
 	vekt::mono::ContourEnvelope envelope;
 	envelope.setSampleRate(1'000.0);
@@ -399,7 +399,7 @@ TEST_CASE("Mono contour updates held sustain and release without resetting the l
 	REQUIRE_FALSE(envelope.isActive());
 }
 
-TEST_CASE("Mono decay and release tails do not snap at an audible level", "[mono][processor][contour]")
+TEST_CASE("Kobber decay and release tails do not snap at an audible level", "[kobber][processor][contour]")
 {
 	vekt::mono::ContourEnvelope envelope;
 	envelope.setSampleRate(1'000.0);
@@ -440,7 +440,7 @@ TEST_CASE("Mono decay and release tails do not snap at an audible level", "[mono
 	REQUIRE_FALSE(envelope.isActive());
 }
 
-TEST_CASE("Mono low-note priority ignores higher keys and returns to the lowest held key", "[mono][processor][midi][contour]")
+TEST_CASE("Kobber low-note priority ignores higher keys and returns to the lowest held key", "[kobber][processor][midi][contour]")
 {
 	juce::ScopedJuceInitialiser_GUI juceInitializer;
 	vekt::mono::PluginProcessor processor;
@@ -465,7 +465,7 @@ TEST_CASE("Mono low-note priority ignores higher keys and returns to the lowest 
 	REQUIRE(frequency == Catch::Approx(440.0f).margin(5.0f));
 }
 
-TEST_CASE("Mono glide follows held keys independently of envelope retrigger", "[mono][processor][midi][glide]")
+TEST_CASE("Kobber glide follows held keys independently of envelope retrigger", "[kobber][processor][midi][glide]")
 {
 	juce::ScopedJuceInitialiser_GUI juceInitializer;
 	for (const auto mode : { 1.0f, 2.0f })
@@ -504,7 +504,7 @@ TEST_CASE("Mono glide follows held keys independently of envelope retrigger", "[
 			}
 }
 
-TEST_CASE("Mono held-key return retains the original velocity", "[mono][processor][midi]")
+TEST_CASE("Kobber held-key return retains the original velocity", "[kobber][processor][midi]")
 {
 	juce::ScopedJuceInitialiser_GUI juceInitializer;
 	for (const auto mode : { 1.0f, 2.0f })
@@ -534,7 +534,7 @@ TEST_CASE("Mono held-key return retains the original velocity", "[mono][processo
 	}
 }
 
-TEST_CASE("Mono Legato starts a new gate during a release tail", "[mono][processor][midi]")
+TEST_CASE("Kobber Legato starts a new gate during a release tail", "[kobber][processor][midi]")
 {
 	juce::ScopedJuceInitialiser_GUI juceInitializer;
 	vekt::mono::PluginProcessor processor;
@@ -556,7 +556,7 @@ TEST_CASE("Mono Legato starts a new gate during a release tail", "[mono][process
 	REQUIRE(rms(buffer) > 0.05f);
 }
 
-TEST_CASE("Mono pitch bend is independent of glide time", "[mono][processor][midi][glide]")
+TEST_CASE("Kobber pitch bend is independent of glide time", "[kobber][processor][midi][glide]")
 {
 	juce::ScopedJuceInitialiser_GUI juceInitializer;
 	vekt::mono::PluginProcessor immediate, longGlide;
@@ -582,7 +582,7 @@ TEST_CASE("Mono pitch bend is independent of glide time", "[mono][processor][mid
 	REQUIRE(sinusoidMagnitude(second, 440.0f, 48'000.0f) > rms(second));
 }
 
-TEST_CASE("Mono renders finite stereo MIDI output", "[mono][processor]")
+TEST_CASE("Kobber renders finite stereo MIDI output", "[kobber][processor]")
 {
 	vekt::mono::PluginProcessor processor;
 	processor.prepareToPlay(48'000.0, 512);
@@ -601,10 +601,10 @@ TEST_CASE("Mono renders finite stereo MIDI output", "[mono][processor]")
 	REQUIRE(energy > 0.01f);
 }
 
-TEST_CASE("Mono coupled engine renders deterministically at 1x and 8x", "[mono][processor][ladder-coupled]")
+TEST_CASE("Kobber coupled engine renders deterministically at 1x and 8x", "[kobber][processor][ladder-coupled]")
 {
 	vekt::mono::PluginProcessor first, rerun, oversampled, oversampledRerun;
-	REQUIRE(first.getName() == "Mono");
+	REQUIRE(first.getName() == "Kobber");
 	for (auto* processor : { &first, &rerun, &oversampled, &oversampledRerun })
 	{
 		initializeDryVoice(*processor);
@@ -645,7 +645,7 @@ TEST_CASE("Mono coupled engine renders deterministically at 1x and 8x", "[mono][
 	REQUIRE(oversampled.coupledWorkSnapshot().samples > first.coupledWorkSnapshot().samples);
 }
 
-TEST_CASE("Mono coupled ladder stays silent and finite across driven notes", "[mono][processor][ladder-coupled]")
+TEST_CASE("Kobber coupled ladder stays silent and finite across driven notes", "[kobber][processor][ladder-coupled]")
 {
 	for (const auto rate : { 44'100.0, 48'000.0, 96'000.0 })
 	{
@@ -692,7 +692,7 @@ TEST_CASE("Mono coupled ladder stays silent and finite across driven notes", "[m
 	}
 }
 
-TEST_CASE("Mono coupled reprepare clears active audio at every retained quality", "[mono][processor][ladder-coupled][quality][reset]")
+TEST_CASE("Kobber coupled reprepare clears active audio at every retained quality", "[kobber][processor][ladder-coupled][quality][reset]")
 {
 	for (const auto rate : { 44'100.0, 48'000.0, 96'000.0 })
 	for (const auto quality : monoQualitySweep)
@@ -752,7 +752,7 @@ TEST_CASE("Mono coupled reprepare clears active audio at every retained quality"
 	}
 }
 
-TEST_CASE("Mono coupled work counters track an ordinary driven processor", "[mono][processor][ladder-coupled]")
+TEST_CASE("Kobber coupled work counters track an ordinary driven processor", "[kobber][processor][ladder-coupled]")
 {
 	vekt::mono::PluginProcessor processor;
 	initializeDryVoice(processor);
@@ -781,7 +781,7 @@ TEST_CASE("Mono coupled work counters track an ordinary driven processor", "[mon
 	REQUIRE(work.nonFinite == 0);
 }
 
-TEST_CASE("Mono coupled processor exercises every retained quality", "[mono][processor][ladder-coupled][quality]")
+TEST_CASE("Kobber coupled processor exercises every retained quality", "[kobber][processor][ladder-coupled][quality]")
 {
 	for (const auto quality : monoQualitySweep)
 	{
@@ -815,7 +815,7 @@ TEST_CASE("Mono coupled processor exercises every retained quality", "[mono][pro
 	}
 }
 
-TEST_CASE("Mono coupled reports oversampling latency across retained rates and blocks", "[mono][processor][ladder-coupled][quality][latency]")
+TEST_CASE("Kobber coupled reports oversampling latency across retained rates and blocks", "[kobber][processor][ladder-coupled][quality][latency]")
 {
 	for (const auto rate : { 44'100.0, 48'000.0, 88'200.0, 96'000.0, 192'000.0 })
 	for (const auto blockSize : { 128, 257 })
@@ -846,7 +846,7 @@ TEST_CASE("Mono coupled reports oversampling latency across retained rates and b
 	}
 }
 
-TEST_CASE("Mono coupled quality state recalls into the normal processor", "[mono][processor][ladder-coupled][quality][state]")
+TEST_CASE("Kobber coupled quality state recalls into the normal processor", "[kobber][processor][ladder-coupled][quality][state]")
 {
 	for (const auto quality : monoQualitySweep)
 	{
@@ -894,7 +894,7 @@ TEST_CASE("Mono coupled quality state recalls into the normal processor", "[mono
 	}
 }
 
-TEST_CASE("Mono preset loads clear old audio while allowing new notes in the first callback", "[mono][processor][ladder-coupled][preset]")
+TEST_CASE("Kobber preset loads clear old audio while allowing new notes in the first callback", "[kobber][processor][ladder-coupled][preset]")
 {
 	for (const auto quality : monoQualitySweep)
 	for (int route = 0; route < 5; ++route)
@@ -1012,7 +1012,7 @@ TEST_CASE("Mono preset loads clear old audio while allowing new notes in the fir
 	}
 }
 
-TEST_CASE("Mono coupled callbacks remain finite across MIDI and control boundaries", "[mono][processor][ladder-coupled]")
+TEST_CASE("Kobber coupled callbacks remain finite across MIDI and control boundaries", "[kobber][processor][ladder-coupled]")
 {
 	for (const auto rate : { 44'100.0, 48'000.0 })
 		for (const auto blockSize : { 128, 257 })
@@ -1063,7 +1063,7 @@ TEST_CASE("Mono coupled callbacks remain finite across MIDI and control boundari
 		}
 }
 
-TEST_CASE("Mono coupled quality changes cut sustained notes immediately", "[mono][processor][ladder-coupled][quality]")
+TEST_CASE("Kobber coupled quality changes cut sustained notes immediately", "[kobber][processor][ladder-coupled][quality]")
 {
 	for (const auto initial : monoQualitySweep)
 	for (const auto target : monoQualitySweep)
@@ -1118,7 +1118,7 @@ TEST_CASE("Mono coupled quality changes cut sustained notes immediately", "[mono
 	}
 }
 
-TEST_CASE("Mono coupled idle quality changes cover every ordered pair", "[mono][processor][ladder-coupled][quality]")
+TEST_CASE("Kobber coupled idle quality changes cover every ordered pair", "[kobber][processor][ladder-coupled][quality]")
 {
 	for (const auto initial : monoQualitySweep)
 	for (const auto target : monoQualitySweep)
@@ -1169,7 +1169,7 @@ TEST_CASE("Mono coupled idle quality changes cover every ordered pair", "[mono][
 	}
 }
 
-TEST_CASE("Mono publishes post-output-gain stereo peaks", "[mono][processor][meter]")
+TEST_CASE("Kobber publishes post-output-gain stereo peaks", "[kobber][processor][meter]")
 {
 	vekt::mono::PluginProcessor processor;
 	setParameter(processor, vekt::mono::parameters::masterOutput, -6.0f);
@@ -1187,7 +1187,7 @@ TEST_CASE("Mono publishes post-output-gain stereo peaks", "[mono][processor][met
 	REQUIRE(consumed[1] == 0.0f);
 }
 
-TEST_CASE("Mono Ladder cutoff responds smoothly while a note is held", "[mono][processor][filter]")
+TEST_CASE("Kobber Ladder cutoff responds smoothly while a note is held", "[kobber][processor][filter]")
 {
 	vekt::mono::PluginProcessor processor;
 	setParameter(processor, vekt::mono::parameters::osc1Morph, 2.0f);
@@ -1214,7 +1214,7 @@ TEST_CASE("Mono Ladder cutoff responds smoothly while a note is held", "[mono][p
 	REQUIRE(openBrightness > closedBrightness * 3.0f);
 }
 
-TEST_CASE("Mono Ladder emphasis builds a resonant peak and remains stable", "[mono][processor][filter]")
+TEST_CASE("Kobber Ladder emphasis builds a resonant peak and remains stable", "[kobber][processor][filter]")
 {
 	auto render = [](float emphasis)
 	{
@@ -1246,7 +1246,7 @@ TEST_CASE("Mono Ladder emphasis builds a resonant peak and remains stable", "[mo
 	REQUIRE(emphasizedPeak > flatPeak * 1.5f);
 }
 
-TEST_CASE("Mono uncompensated Ladder loses passband level with emphasis", "[mono][processor][filter][qcomp][slow]")
+TEST_CASE("Kobber uncompensated Ladder loses passband level with emphasis", "[kobber][processor][filter][qcomp][slow]")
 {
 	juce::ScopedJuceInitialiser_GUI juceInitializer;
 	auto levelFor = [](float oscillatorLevel, float cutoff, float emphasis)
@@ -1287,7 +1287,7 @@ TEST_CASE("Mono uncompensated Ladder loses passband level with emphasis", "[mono
 		}
 }
 
-TEST_CASE("Mono Ladder self-oscillates at maximum emphasis", "[mono][processor][filter][slow]")
+TEST_CASE("Kobber Ladder self-oscillates at maximum emphasis", "[kobber][processor][filter][slow]")
 {
 	for (const auto quality : { 0.0f, 1.0f })
 		for (const auto sampleRate : { 44'100.0f, 48'000.0f, 96'000.0f })
@@ -1356,7 +1356,7 @@ TEST_CASE("Mono Ladder self-oscillates at maximum emphasis", "[mono][processor][
 		}
 }
 
-TEST_CASE("Mono Ladder self-oscillation is audible through a preset-style voice path", "[mono][processor][filter]")
+TEST_CASE("Kobber Ladder self-oscillation is audible through a preset-style voice path", "[kobber][processor][filter]")
 {
 	vekt::mono::PluginProcessor processor;
 	setParameter(processor, vekt::mono::parameters::osc1Level, 0.0f);
@@ -1386,7 +1386,7 @@ TEST_CASE("Mono Ladder self-oscillation is audible through a preset-style voice 
 	REQUIRE(stereoPowerRms(buffer) > 0.025f);
 }
 
-TEST_CASE("Mono Ladder enters self-oscillation when emphasis reaches maximum in real time", "[mono][processor][filter]")
+TEST_CASE("Kobber Ladder enters self-oscillation when emphasis reaches maximum in real time", "[kobber][processor][filter]")
 {
 	vekt::mono::PluginProcessor processor;
 	setParameter(processor, vekt::mono::parameters::osc1Level, 0.0f);
@@ -1429,7 +1429,7 @@ TEST_CASE("Mono Ladder enters self-oscillation when emphasis reaches maximum in 
 	REQUIRE(magnitude > rms(buffer));
 }
 
-TEST_CASE("Mono Ladder develops an audible cutoff tone when GUI-style emphasis is raised over an active oscillator", "[mono][processor][filter]")
+TEST_CASE("Kobber Ladder develops an audible cutoff tone when GUI-style emphasis is raised over an active oscillator", "[kobber][processor][filter]")
 {
 	vekt::mono::PluginProcessor processor;
 	setParameter(processor, vekt::mono::parameters::osc1Level, 45.0f);
@@ -1470,7 +1470,7 @@ TEST_CASE("Mono Ladder develops an audible cutoff tone when GUI-style emphasis i
 	REQUIRE(magnitude > rms(buffer));
 }
 
-TEST_CASE("Mono Ladder does not self-oscillate below the upper emphasis range", "[mono][processor][filter]")
+TEST_CASE("Kobber Ladder does not self-oscillate below the upper emphasis range", "[kobber][processor][filter]")
 {
 	vekt::mono::PluginProcessor processor;
 	setParameter(processor, vekt::mono::parameters::osc1Level, 0.0f);
@@ -1497,7 +1497,7 @@ TEST_CASE("Mono Ladder does not self-oscillate below the upper emphasis range", 
 	REQUIRE(stereoRms(buffer) < 1.0e-4f);
 }
 
-TEST_CASE("Mono Ladder keyboard tracking follows one octave per keyboard octave", "[mono][processor][filter]")
+TEST_CASE("Kobber Ladder keyboard tracking follows one octave per keyboard octave", "[kobber][processor][filter]")
 {
 	auto brightnessFor = [](int note)
 	{
@@ -1521,7 +1521,7 @@ TEST_CASE("Mono Ladder keyboard tracking follows one octave per keyboard octave"
 	REQUIRE(brightnessFor(72) > brightnessFor(48) * 1.8f);
 }
 
-TEST_CASE("Mono Ladder contour is unipolar with a wide full-scale sweep", "[mono][processor][filter]")
+TEST_CASE("Kobber Ladder contour is unipolar with a wide full-scale sweep", "[kobber][processor][filter]")
 {
 	auto brightnessFor = [](float contour)
 	{
@@ -1551,7 +1551,7 @@ TEST_CASE("Mono Ladder contour is unipolar with a wide full-scale sweep", "[mono
 	REQUIRE(brightnessFor(100.0f) > brightnessFor(0.0f) * 5.0f);
 }
 
-TEST_CASE("Mono Ladder drive adds harmonics without acting as output gain", "[mono][processor][filter]")
+TEST_CASE("Kobber Ladder drive adds harmonics without acting as output gain", "[kobber][processor][filter]")
 {
 	auto render = [](float drive)
 	{
@@ -1583,7 +1583,7 @@ TEST_CASE("Mono Ladder drive adds harmonics without acting as output gain", "[mo
 	REQUIRE(drivenRms < cleanRms / static_cast<float>(vekt::mono::widthSineGain) * 4.0f);
 }
 
-TEST_CASE("Mono maximum resonance keeps floating-point peaks and obeys master trim", "[mono][processor][filter][headroom][slow]")
+TEST_CASE("Kobber maximum resonance keeps floating-point peaks and obeys master trim", "[kobber][processor][filter][headroom][slow]")
 {
 	for (const auto quality : { 0.0f, 1.0f })
 		for (const auto drive : { 0.0f, 24.0f })
@@ -1633,7 +1633,7 @@ TEST_CASE("Mono maximum resonance keeps floating-point peaks and obeys master tr
 			}
 }
 
-TEST_CASE("Mono preserves APVTS project state", "[mono][processor]")
+TEST_CASE("Kobber preserves APVTS project state", "[kobber][processor]")
 {
 	vekt::mono::PluginProcessor source;
 	setParameter(source, vekt::mono::parameters::filterCutoff, 2'345.0f);
@@ -1644,7 +1644,7 @@ TEST_CASE("Mono preserves APVTS project state", "[mono][processor]")
 	REQUIRE(restored.getParameters().getRawParameterValue(vekt::mono::parameters::filterCutoff)->load() == Catch::Approx(2'345.0f));
 }
 
-TEST_CASE("Mono rejects project states that are not exactly its current format without changing live state", "[mono][processor][state]")
+TEST_CASE("Kobber rejects project states that are not exactly its current format without changing live state", "[kobber][processor][state]")
 {
 	vekt::mono::PluginProcessor source;
 	juce::MemoryBlock current;
@@ -1705,7 +1705,7 @@ TEST_CASE("Mono rejects project states that are not exactly its current format w
 	restored.setStateInformation(current.getData(), static_cast<int>(current.getSize()));
 	REQUIRE(restored.getParameters().getRawParameterValue(vekt::mono::parameters::filterCutoff)->load() != Catch::Approx(4'321.0f));
 }
-TEST_CASE("Mono voice count changes cut active notes immediately", "[mono][processor]")
+TEST_CASE("Kobber voice count changes cut active notes immediately", "[kobber][processor]")
 {
 	vekt::mono::PluginProcessor processor;
 	processor.prepareToPlay(48'000.0, 512);
@@ -1721,7 +1721,7 @@ TEST_CASE("Mono voice count changes cut active notes immediately", "[mono][proce
 	REQUIRE(buffer.getMagnitude(0, buffer.getNumSamples()) > 0.0f);
 }
 
-TEST_CASE("Mono provides 26 categorized factory presets", "[mono][processor]")
+TEST_CASE("Kobber provides 26 categorized factory presets", "[kobber][processor]")
 {
 	vekt::mono::PluginProcessor processor;
 	auto& session = processor.getPresetSession();
@@ -1734,7 +1734,7 @@ TEST_CASE("Mono provides 26 categorized factory presets", "[mono][processor]")
 	REQUIRE(processor.getProgramName(23) == "Transmission FX");
 }
 
-TEST_CASE("Mono factory presets load with their stored values, including LFO settings", "[mono][processor][preset]")
+TEST_CASE("Kobber factory presets load with their stored values, including LFO settings", "[kobber][processor][preset]")
 {
 	vekt::mono::PluginProcessor processor;
 	const auto& catalog = processor.getPresetSession().library();
@@ -1757,7 +1757,7 @@ TEST_CASE("Mono factory presets load with their stored values, including LFO set
 	}
 }
 
-TEST_CASE("Mono factory presets are not marked modified right after loading", "[mono][processor][preset]")
+TEST_CASE("Kobber factory presets are not marked modified right after loading", "[kobber][processor][preset]")
 {
 	// Non-zero continuous LFO depths come back a few 1e-6 off after the 0..1 parameter round trip; that
 	// must not read as an edit (it used to show a "*" on every preset with LFO settings).
@@ -1776,7 +1776,7 @@ TEST_CASE("Mono factory presets are not marked modified right after loading", "[
 	REQUIRE(session.modified());
 }
 
-TEST_CASE("Mono Classic Three Bass uses three oscillators", "[mono][processor][preset]")
+TEST_CASE("Kobber Classic Three Bass uses three oscillators", "[kobber][processor][preset]")
 {
 	vekt::mono::PluginProcessor processor;
 	const auto& catalog = processor.getPresetSession().library();
@@ -1808,7 +1808,7 @@ TEST_CASE("Mono Classic Three Bass uses three oscillators", "[mono][processor][p
 	REQUIRE(value(vekt::mono::parameters::osc3Level) > 0.0f);
 }
 
-TEST_CASE("Mono factory presets use diverse oscillator and mixer designs", "[mono][processor][preset]")
+TEST_CASE("Kobber factory presets use diverse oscillator and mixer designs", "[kobber][processor][preset]")
 {
 	vekt::mono::PluginProcessor processor;
 	const auto& catalog = processor.getPresetSession().library();
@@ -1850,7 +1850,7 @@ TEST_CASE("Mono factory presets use diverse oscillator and mixer designs", "[mon
 	REQUIRE(voicePans.size() >= 10);
 }
 
-TEST_CASE("Mono rejects obsolete pre-alpha preset schemas without mutation", "[mono][processor][preset]")
+TEST_CASE("Kobber rejects obsolete pre-alpha preset schemas without mutation", "[kobber][processor][preset]")
 {
 	vekt::mono::PluginProcessor processor;
 	setParameter(processor, vekt::mono::parameters::filterCutoff, 4'321.0f);
@@ -1871,7 +1871,7 @@ TEST_CASE("Mono rejects obsolete pre-alpha preset schemas without mutation", "[m
 	REQUIRE(processor.getPresetSession().prepare(current).wasOk());
 }
 
-TEST_CASE("Mono preset changes stop voices from the previous patch", "[mono][processor][preset]")
+TEST_CASE("Kobber preset changes stop voices from the previous patch", "[kobber][processor][preset]")
 {
 	vekt::mono::PluginProcessor processor;
 	setParameter(processor, vekt::mono::parameters::ampRelease, 20.0f);
@@ -1889,7 +1889,7 @@ TEST_CASE("Mono preset changes stop voices from the previous patch", "[mono][pro
 	REQUIRE(buffer.getMagnitude(1, 0, buffer.getNumSamples()) == Catch::Approx(0.0f).margin(1.0e-7f));
 }
 
-TEST_CASE("Mono held-key return is configurable", "[mono][processor][midi]")
+TEST_CASE("Kobber held-key return is configurable", "[kobber][processor][midi]")
 {
 	for (const auto mode : { 1.0f, 2.0f })
 		for (const auto heldKeyReturn : { 0.0f, 1.0f })
@@ -1913,7 +1913,7 @@ TEST_CASE("Mono held-key return is configurable", "[mono][processor][midi]")
 	}
 }
 
-TEST_CASE("Mono active-note transitions preserve the sample boundary", "[mono][processor][midi][declick]")
+TEST_CASE("Kobber active-note transitions preserve the sample boundary", "[kobber][processor][midi][declick]")
 {
 	for (const auto mode : { 1.0f, 2.0f })
 	{
@@ -1938,7 +1938,7 @@ TEST_CASE("Mono active-note transitions preserve the sample boundary", "[mono][p
 	}
 }
 
-TEST_CASE("Mono active-note release preserves the sample boundary", "[mono][processor][midi][declick]")
+TEST_CASE("Kobber active-note release preserves the sample boundary", "[kobber][processor][midi][declick]")
 {
 	vekt::mono::PluginProcessor processor;
 	setParameter(processor, vekt::mono::parameters::performanceMode, 2.0f);
@@ -1965,7 +1965,7 @@ TEST_CASE("Mono active-note release preserves the sample boundary", "[mono][proc
 	}
 }
 
-TEST_CASE("Mono poly repeated keys retrigger their own voice instead of stacking", "[mono][processor][midi]")
+TEST_CASE("Kobber poly repeated keys retrigger their own voice instead of stacking", "[kobber][processor][midi]")
 {
 	const auto prepared = []
 	{
@@ -2019,7 +2019,7 @@ TEST_CASE("Mono poly repeated keys retrigger their own voice instead of stacking
 	}
 }
 
-TEST_CASE("Mono poly repeated-key retrigger avoids an exceptional sample-boundary jump", "[mono][processor][midi][declick]")
+TEST_CASE("Kobber poly repeated-key retrigger avoids an exceptional sample-boundary jump", "[kobber][processor][midi][declick]")
 {
 	vekt::mono::PluginProcessor processor;
 	setParameter(processor, vekt::mono::parameters::performanceMode, 0.0f);
@@ -2051,7 +2051,7 @@ TEST_CASE("Mono poly repeated-key retrigger avoids an exceptional sample-boundar
 	}
 }
 
-TEST_CASE("Mono voice stealing avoids an exceptional sample-boundary jump", "[mono][processor][midi][declick]")
+TEST_CASE("Kobber voice stealing avoids an exceptional sample-boundary jump", "[kobber][processor][midi][declick]")
 {
 	vekt::mono::PluginProcessor processor;
 	setParameter(processor, vekt::mono::parameters::performanceMode, 0.0f);
@@ -2083,7 +2083,7 @@ TEST_CASE("Mono voice stealing avoids an exceptional sample-boundary jump", "[mo
 	}
 }
 
-TEST_CASE("Mono modes isolate held-note stacks by MIDI channel", "[mono][processor][midi]")
+TEST_CASE("Kobber modes isolate held-note stacks by MIDI channel", "[kobber][processor][midi]")
 {
 	vekt::mono::PluginProcessor processor;
 	setParameter(processor, vekt::mono::parameters::performanceMode, 1.0f);
@@ -2101,7 +2101,7 @@ TEST_CASE("Mono modes isolate held-note stacks by MIDI channel", "[mono][process
 	REQUIRE(postReleaseEnergy > 0.01f);
 }
 
-TEST_CASE("Mono High quality oversamples synthesis and reports latency", "[mono][processor][quality]")
+TEST_CASE("Kobber High quality oversamples synthesis and reports latency", "[kobber][processor][quality]")
 {
 	vekt::mono::PluginProcessor processor;
 	setParameter(processor, vekt::mono::parameters::trackingOversampling, 1.0f);
@@ -2123,7 +2123,7 @@ TEST_CASE("Mono High quality oversamples synthesis and reports latency", "[mono]
 	REQUIRE(energy > 0.01f);
 }
 
-TEST_CASE("Mono High quality handles multiple note boundaries in one host block", "[mono][processor][quality][midi]")
+TEST_CASE("Kobber High quality handles multiple note boundaries in one host block", "[kobber][processor][quality][midi]")
 {
 	vekt::mono::PluginProcessor processor;
 	setParameter(processor, vekt::mono::parameters::trackingOversampling, 1.0f);
@@ -2141,7 +2141,7 @@ TEST_CASE("Mono High quality handles multiple note boundaries in one host block"
 			REQUIRE(std::isfinite(buffer.getSample(channel, sample)));
 }
 
-TEST_CASE("Mono noise keeps its level and colour at every quality", "[mono][noise][precision][slow]")
+TEST_CASE("Kobber noise keeps its level and colour at every quality", "[kobber][noise][precision][slow]")
 {
 	// Noise only through the open filter (20 kHz), one voice at 48 kHz: the level within 0.5 dB of 1x at every FIR
 	// factor and the tilt (100-300 Hz against 1.5-2.5 kHz) within 1 dB, for white and pink. With Drive +24 dB the 1x
@@ -2225,7 +2225,7 @@ TEST_CASE("Mono noise keeps its level and colour at every quality", "[mono][nois
 	}
 }
 
-TEST_CASE("Mono coupled ladder solves a sustained resonant chord at the highest internal rate", "[mono][processor][ladder-coupled][quality][precision][slow]")
+TEST_CASE("Kobber coupled ladder solves a sustained resonant chord at the highest internal rate", "[kobber][processor][ladder-coupled][quality][precision][slow]")
 {
 	// 192 kHz host at 16x (vekt::dsp::maximumInternalSampleRate): four voices, full Resonance, +24 dB Drive, a
 	// cutoff sweep from 200 Hz to 8 kHz; every solve converges and nothing goes non-finite.
@@ -2263,7 +2263,7 @@ TEST_CASE("Mono coupled ladder solves a sustained resonant chord at the highest 
 	REQUIRE(work.nonFinite == 0);
 }
 
-TEST_CASE("Mono applies an Offline quality change at the next block of an offline render", "[mono][processor][quality]")
+TEST_CASE("Kobber applies an Offline quality change at the next block of an offline render", "[kobber][processor][quality]")
 {
 	vekt::mono::PluginProcessor processor;
 	processor.setNonRealtime(true);
@@ -2299,7 +2299,7 @@ TEST_CASE("Mono applies an Offline quality change at the next block of an offlin
 	REQUIRE(energy > 1.0e-3f);
 }
 
-TEST_CASE("Mono quality choices activate distinct oversampling paths and latency", "[mono][processor][quality]")
+TEST_CASE("Kobber quality choices activate distinct oversampling paths and latency", "[kobber][processor][quality]")
 {
 	// Every shared Tracking choice in real time and every Offline choice when the host renders offline (ADR 0010).
 	vekt::dsp::OversamplingBank<float> expected(2);
@@ -2336,7 +2336,7 @@ TEST_CASE("Mono quality choices activate distinct oversampling paths and latency
 	}
 }
 
-TEST_CASE("Mono unison spread changes stereo rendering", "[mono][processor][unison]")
+TEST_CASE("Kobber unison spread changes stereo rendering", "[kobber][processor][unison]")
 {
 	vekt::mono::PluginProcessor centered, spread;
 	for (auto* processor : { &centered, &spread })
@@ -2367,7 +2367,7 @@ TEST_CASE("Mono unison spread changes stereo rendering", "[mono][processor][unis
 	REQUIRE(spreadDifference > 0.01f);
 }
 
-TEST_CASE("Mono voice pan controls round-robin stereo mix", "[mono][processor][stereo]")
+TEST_CASE("Kobber voice pan controls round-robin stereo mix", "[kobber][processor][stereo]")
 {
 	vekt::mono::PluginProcessor centered, panned;
 	for (auto* processor : { &centered, &panned })
@@ -2404,7 +2404,7 @@ TEST_CASE("Mono voice pan controls round-robin stereo mix", "[mono][processor][s
 	REQUIRE(pannedPower == Catch::Approx(centeredPower).epsilon(0.01f));
 }
 
-TEST_CASE("Mono rendering is deterministic with drift enabled", "[mono][processor][determinism]")
+TEST_CASE("Kobber rendering is deterministic with drift enabled", "[kobber][processor][determinism]")
 {
 	vekt::mono::PluginProcessor first, second;
 	for (auto* processor : { &first, &second })
@@ -2426,7 +2426,7 @@ TEST_CASE("Mono rendering is deterministic with drift enabled", "[mono][processo
 			REQUIRE(firstBuffer.getSample(channel, sample) == Catch::Approx(secondBuffer.getSample(channel, sample)).margin(1.0e-7f));
 }
 
-TEST_CASE("Mono processor and extracted voice render identically", "[mono][processor][engine][determinism]")
+TEST_CASE("Kobber processor and extracted voice render identically", "[kobber][processor][engine][determinism]")
 {
 	// The Ladder at LP, and at Mode 0.5, where each unison layer also runs its high-pass ladder (ADR 0009).
 	const auto mode = GENERATE(-1.0f, 0.5f);
@@ -2584,7 +2584,7 @@ TEST_CASE("Mono processor and extracted voice render identically", "[mono][proce
 	}
 }
 
-TEST_CASE("Mono PolyBLEP oscillator output remains finite across supported rates", "[mono][processor][matrix]")
+TEST_CASE("Kobber PolyBLEP oscillator output remains finite across supported rates", "[kobber][processor][matrix]")
 {
 	for (const auto rate : { 44'100.0, 48'000.0, 96'000.0, 192'000.0 })
 		for (const auto morph : { 2.0f, 3.0f })
@@ -2605,7 +2605,7 @@ TEST_CASE("Mono PolyBLEP oscillator output remains finite across supported rates
 		}
 }
 
-TEST_CASE("Mono handles duplicate notes and channel panic messages without stuck output", "[mono][processor][midi]")
+TEST_CASE("Kobber handles duplicate notes and channel panic messages without stuck output", "[kobber][processor][midi]")
 {
 	vekt::mono::PluginProcessor processor;
 	setParameter(processor, vekt::mono::parameters::performanceMode, 1.0f);
@@ -2627,7 +2627,7 @@ TEST_CASE("Mono handles duplicate notes and channel panic messages without stuck
 	REQUIRE(tailEnergy == Catch::Approx(0.0f).margin(1.0e-7f));
 }
 
-TEST_CASE("Mono Multicore renders exactly the same samples as single-threaded rendering", "[mono][processor][multicore]")
+TEST_CASE("Kobber Multicore renders exactly the same samples as single-threaded rendering", "[kobber][processor][multicore]")
 {
 	// Work units and their summing order do not depend on threads, and a voice renders the same bits in any job,
 	// so switching Multicore must not change a single sample: every filter type, 1 to 16 voices (fewer units than
@@ -2673,7 +2673,7 @@ TEST_CASE("Mono Multicore renders exactly the same samples as single-threaded re
 		}
 }
 
-TEST_CASE("Mono Multicore helpers are created once when prepare and enabling overlap", "[mono][processor][multicore]")
+TEST_CASE("Kobber Multicore helpers are created once when prepare and enabling overlap", "[kobber][processor][multicore]")
 {
 	// prepareToPlay (a host thread) and switching Multicore on (the message thread) can both create the pool.
 	juce::ScopedJuceInitialiser_GUI messageThread;
@@ -2694,7 +2694,7 @@ TEST_CASE("Mono Multicore helpers are created once when prepare and enabling ove
 	}
 }
 
-TEST_CASE("Mono Multicore keeps rendering while the host workgroup changes", "[mono][processor][multicore]")
+TEST_CASE("Kobber Multicore keeps rendering while the host workgroup changes", "[kobber][processor][multicore]")
 {
 	// The workgroup arrives on the render thread and must never wait for a helper; rendering continues and
 	// still matches single-threaded output.

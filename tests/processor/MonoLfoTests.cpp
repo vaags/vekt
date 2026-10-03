@@ -43,7 +43,7 @@ std::vector<float> render(Lfo& lfo, int samples, LfoClock* clock = nullptr)
 }
 }
 
-TEST_CASE("Mono LFO shapes reach their named values", "[mono][lfo]")
+TEST_CASE("Kobber LFO shapes reach their named values", "[kobber][lfo]")
 {
 	const auto at = [](LfoShape shape, double phase) { return Lfo::bipolarShape(shape, phase, 0); };
 	REQUIRE(at(LfoShape::sine, 0.0) == Catch::Approx(0.0).margin(1.0e-6));
@@ -63,7 +63,7 @@ TEST_CASE("Mono LFO shapes reach their named values", "[mono][lfo]")
 		REQUIRE(at(shape, 3.3) == Catch::Approx(at(shape, 0.3)).margin(1.0e-5));
 }
 
-TEST_CASE("Mono LFO polarity maps bipolar and unipolar ranges", "[mono][lfo]")
+TEST_CASE("Kobber LFO polarity maps bipolar and unipolar ranges", "[kobber][lfo]")
 {
 	for (const auto shape : { LfoShape::sine, LfoShape::triangle, LfoShape::sawUp, LfoShape::sawDown, LfoShape::square, LfoShape::smoothRandom })
 	{
@@ -81,7 +81,7 @@ TEST_CASE("Mono LFO polarity maps bipolar and unipolar ranges", "[mono][lfo]")
 	}
 }
 
-TEST_CASE("Mono LFO rate sets the cycle length and is clamped to its range", "[mono][lfo]")
+TEST_CASE("Kobber LFO rate sets the cycle length and is clamped to its range", "[kobber][lfo]")
 {
 	// A 4 Hz saw up wraps from +1 to -1 once every 12,000 samples at 48 kHz.
 	auto lfo = makeLfo({ .rateHz = 4.0f, .shape = LfoShape::sawUp, .mode = LfoMode::retrigger });
@@ -103,7 +103,7 @@ TEST_CASE("Mono LFO rate sets the cycle length and is clamped to its range", "[m
 	REQUIRE(fastWraps == Catch::Approx(vekt::mono::maximumLfoRateHz).margin(1.0));
 }
 
-TEST_CASE("Mono LFO retrigger restarts each note at the start phase", "[mono][lfo]")
+TEST_CASE("Kobber LFO retrigger restarts each note at the start phase", "[kobber][lfo]")
 {
 	auto lfo = makeLfo({ .rateHz = 3.0f, .shape = LfoShape::sine, .mode = LfoMode::retrigger, .phase = 0.25f });
 	REQUIRE(lfo.getNextSample(0.0) == Catch::Approx(1.0));
@@ -112,7 +112,7 @@ TEST_CASE("Mono LFO retrigger restarts each note at the start phase", "[mono][lf
 	REQUIRE(lfo.getNextSample(0.0) == Catch::Approx(1.0));
 }
 
-TEST_CASE("Mono LFO free mode follows the shared clock so voices stay in step", "[mono][lfo]")
+TEST_CASE("Kobber LFO free mode follows the shared clock so voices stay in step", "[kobber][lfo]")
 {
 	LfoClock clock;
 	clock.setSampleRate(sampleRate);
@@ -134,7 +134,7 @@ TEST_CASE("Mono LFO free mode follows the shared clock so voices stay in step", 
 	REQUIRE(shifted.getNextSample(0.25) == Catch::Approx(0.5));
 }
 
-TEST_CASE("Mono LFO one shot runs one cycle and holds its final value", "[mono][lfo]")
+TEST_CASE("Kobber LFO one shot runs one cycle and holds its final value", "[kobber][lfo]")
 {
 	// Unipolar saw down in One Shot is a linear decay envelope from 1 to 0.
 	auto lfo = makeLfo({ .rateHz = 4.0f, .shape = LfoShape::sawDown, .polarity = LfoPolarity::unipolar, .mode = LfoMode::oneShot });
@@ -150,7 +150,7 @@ TEST_CASE("Mono LFO one shot runs one cycle and holds its final value", "[mono][
 	REQUIRE(lfo.getNextSample(0.0) == Catch::Approx(1.0));
 }
 
-TEST_CASE("Mono LFO delay holds silence and fade ramps linearly", "[mono][lfo]")
+TEST_CASE("Kobber LFO delay holds silence and fade ramps linearly", "[kobber][lfo]")
 {
 	// A unipolar square is a constant 1 for the first half cycle, exposing the gain envelope.
 	auto lfo = makeLfo({ .rateHz = 0.01f, .shape = LfoShape::square, .polarity = LfoPolarity::unipolar,
@@ -172,7 +172,7 @@ TEST_CASE("Mono LFO delay holds silence and fade ramps linearly", "[mono][lfo]")
 	REQUIRE(freeValues[480] == Catch::Approx(Lfo::bipolarShape(LfoShape::sawUp, 0.3 + 480.0 / sampleRate, 0)));
 }
 
-TEST_CASE("Mono LFO smooth random is continuous, bounded and seeded", "[mono][lfo]")
+TEST_CASE("Kobber LFO smooth random is continuous, bounded and seeded", "[kobber][lfo]")
 {
 	const Lfo::Parameters parameters { .rateHz = 10.0f, .shape = LfoShape::smoothRandom, .mode = LfoMode::retrigger };
 	auto first = makeLfo(parameters, 1);
@@ -195,7 +195,7 @@ TEST_CASE("Mono LFO smooth random is continuous, bounded and seeded", "[mono][lf
 	REQUIRE(highest - lowest > 0.5f);
 }
 
-TEST_CASE("Mono LFO drift is off at zero and subtle at maximum", "[mono][lfo]")
+TEST_CASE("Kobber LFO drift is off at zero and subtle at maximum", "[kobber][lfo]")
 {
 	const auto voices = [](Lfo::Parameters parameters, int samples)
 	{
@@ -227,7 +227,7 @@ TEST_CASE("Mono LFO drift is off at zero and subtle at maximum", "[mono][lfo]")
 	}
 }
 
-TEST_CASE("Mono LFO timing is independent of sample rate", "[mono][lfo]")
+TEST_CASE("Kobber LFO timing is independent of sample rate", "[kobber][lfo]")
 {
 	const Lfo::Parameters parameters { .rateHz = 3.0f, .shape = LfoShape::triangle, .mode = LfoMode::retrigger,
 		.delaySeconds = 0.05f, .fadeSeconds = 0.1f };

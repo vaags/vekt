@@ -50,7 +50,7 @@ int main(int argc, char** argv)
 {
 	if (argc != 2)
 	{
-		std::cerr << "Usage: VektMonoResonanceOnset output.csv\n";
+		std::cerr << "Usage: VektKobberResonanceOnset output.csv\n";
 		return 64;
 	}
 	std::ofstream output(argv[1]);

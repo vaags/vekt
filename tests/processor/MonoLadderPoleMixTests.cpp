@@ -76,7 +76,7 @@ double settledDc(float input, float resonance, float driveDecibels, float mode)
 }
 }
 
-TEST_CASE("Mono ladder pole mix keeps both passbands at the ladder's own level", "[mono][filter][ladder-mode]")
+TEST_CASE("Kobber ladder pole mix keeps both passbands at the ladder's own level", "[kobber][filter][ladder-mode]")
 {
 	for (const auto k : { 0.0, 2.0, 3.0, 3.9, 4.6 })
 	{
@@ -92,7 +92,7 @@ TEST_CASE("Mono ladder pole mix keeps both passbands at the ladder's own level",
 	}
 }
 
-TEST_CASE("Mono ladder pole mix eases into each landmark", "[mono][filter][ladder-mode]")
+TEST_CASE("Kobber ladder pole mix eases into each landmark", "[kobber][filter][ladder-mode]")
 {
 	// The high-band tap leaves LP quadratically (smoothstep), not linearly, and meets each landmark with zero slope.
 	const auto r = 1.0 / (1.0 + 3.0);
@@ -107,7 +107,7 @@ TEST_CASE("Mono ladder pole mix eases into each landmark", "[mono][filter][ladde
 		}
 }
 
-TEST_CASE("Mono ladder pole mix at LP returns stage four bit for bit", "[mono][filter][ladder-mode]")
+TEST_CASE("Kobber ladder pole mix at LP returns stage four bit for bit", "[kobber][filter][ladder-mode]")
 {
 	CHECK(std::bit_cast<std::uint32_t>(NonlinearTptLadderSettings {}.mode) == std::bit_cast<std::uint32_t>(-1.0f));
 	for (const auto y4 : { 0.25, -0.0, 0.0, -3.5 })
@@ -117,7 +117,7 @@ TEST_CASE("Mono ladder pole mix at LP returns stage four bit for bit", "[mono][f
 	}
 }
 
-TEST_CASE("Mono ladder modes match their small-signal responses", "[mono][filter][ladder-mode]")
+TEST_CASE("Kobber ladder modes match their small-signal responses", "[kobber][filter][ladder-mode]")
 {
 	for (const auto resonance : { 0.0f, 0.5f, 0.75f, 0.975f })
 	{
@@ -141,7 +141,7 @@ TEST_CASE("Mono ladder modes match their small-signal responses", "[mono][filter
 	}
 }
 
-TEST_CASE("Mono ladder HP and Notch keep their DC behaviour through saturating stages", "[mono][filter][ladder-mode]")
+TEST_CASE("Kobber ladder HP and Notch keep their DC behaviour through saturating stages", "[kobber][filter][ladder-mode]")
 {
 	for (const auto resonance : { 0.0f, 0.8f })
 	{
@@ -154,7 +154,7 @@ TEST_CASE("Mono ladder HP and Notch keep their DC behaviour through saturating s
 	}
 }
 
-TEST_CASE("Mono ladder keeps bass out of HP and bounds Notch/HP under heavy drive", "[mono][filter][ladder-mode]")
+TEST_CASE("Kobber ladder keeps bass out of HP and bounds Notch/HP under heavy drive", "[kobber][filter][ladder-mode]")
 {
 	// Raw taps let a 20 Hz tone through HP above input level at +24 dB Drive, and let HP at 6 kHz follow the full
 	// Drive; the saturated taps must do neither.
@@ -173,7 +173,7 @@ TEST_CASE("Mono ladder keeps bass out of HP and bounds Notch/HP under heavy driv
 	}
 }
 
-TEST_CASE("Mono batched ladders mix Notch/HP like the scalar solve", "[mono][filter][ladder-mode][ladder-coupled]")
+TEST_CASE("Kobber batched ladders mix Notch/HP like the scalar solve", "[kobber][filter][ladder-mode][ladder-coupled]")
 {
 	std::array<NonlinearTptLadder, 4> scalar, batched;
 	for (auto& ladder : scalar) ladder.prepare(sampleRate);
@@ -194,7 +194,7 @@ TEST_CASE("Mono batched ladders mix Notch/HP like the scalar solve", "[mono][fil
 	CHECK(maximumDifference < 1.0e-5);
 }
 
-TEST_CASE("Mono ladder HP barely compresses a hot mixer without Drive", "[mono][filter][ladder-mode]")
+TEST_CASE("Kobber ladder HP barely compresses a hot mixer without Drive", "[kobber][filter][ladder-mode]")
 {
 	// A full three-oscillator mix reaches the ladder at about this level. With a = 1 the HP lost 3-5 dB more than
 	// raw taps here; with the Drive-following knee it stays within 2.5 dB of the small-signal response (worst,
@@ -208,7 +208,7 @@ TEST_CASE("Mono ladder HP barely compresses a hot mixer without Drive", "[mono][
 		}
 }
 
-TEST_CASE("Mono ladder Notch/HP track LP whatever the resonance under heavy drive", "[mono][filter][ladder-mode]")
+TEST_CASE("Kobber ladder Notch/HP track LP whatever the resonance under heavy drive", "[kobber][filter][ladder-mode]")
 {
 	// Saturation takes away the feedback's bass loss from LP; the saturated taps follow it (ladderFeedbackAuthority)
 	// instead of keeping the small-signal 1 / (1 + k), which left HP 10-17 dB under LP at high resonance.

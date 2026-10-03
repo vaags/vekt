@@ -5,10 +5,10 @@
 
 #include <algorithm>
 
-TEST_CASE("Mono sound parameters exclude resource configuration", "[mono][parameters]")
+TEST_CASE("Kobber sound parameters exclude resource configuration", "[kobber][parameters]")
 {
 	using namespace vekt::mono::parameters;
-	REQUIRE(juce::String(presetProductIdentifier) == "com.vekt.mono");
+	REQUIRE(juce::String(presetProductIdentifier) == "com.vekt.kobber");
 	REQUIRE(std::find(soundParameterIds.begin(), soundParameterIds.end(), filterCutoff) != soundParameterIds.end());
 	REQUIRE(std::find(soundParameterIds.begin(), soundParameterIds.end(), heldKeyReturn) != soundParameterIds.end());
 	REQUIRE(std::find(soundParameterIds.begin(), soundParameterIds.end(), filterQCompensation) != soundParameterIds.end());
@@ -19,7 +19,7 @@ TEST_CASE("Mono sound parameters exclude resource configuration", "[mono][parame
 	REQUIRE(std::find(soundParameterIds.begin(), soundParameterIds.end(), offlineOversampling) == soundParameterIds.end());
 }
 
-TEST_CASE("Mono exposes only independent amp and filter release controls", "[mono][parameters][contour]")
+TEST_CASE("Kobber exposes only independent amp and filter release controls", "[kobber][parameters][contour]")
 {
 	vekt::mono::PluginProcessor processor;
 	REQUIRE(processor.getParameters().getParameter("contourCurve") == nullptr);
@@ -28,7 +28,7 @@ TEST_CASE("Mono exposes only independent amp and filter release controls", "[mon
 	REQUIRE(processor.getParameters().getParameter(vekt::mono::parameters::filterRelease) != nullptr);
 }
 
-TEST_CASE("Mono oscillator tuning exposes musical octave and cents ranges", "[mono][parameters]")
+TEST_CASE("Kobber oscillator tuning exposes musical octave and cents ranges", "[kobber][parameters]")
 {
 	vekt::mono::PluginProcessor processor;
 	const auto find = [&processor](const char* identifier)

@@ -67,7 +67,7 @@ auto atMorph(float morph, float width = 50.0f)
 float decibels(float ratio) { return 20.0f * std::log10(ratio); }
 }
 
-TEST_CASE("Mono Width offline Fourier reference preserves ideal phase and frozen DC", "[mono][oscillator][width][reference]")
+TEST_CASE("Kobber Width offline Fourier reference preserves ideal phase and frozen DC", "[kobber][oscillator][width][reference]")
 {
 	using vekt::audio_lab::renderMonoWidthReference;
 	// A low fundamental leaves the first 40 harmonics below Nyquist; compare
@@ -104,7 +104,7 @@ TEST_CASE("Mono Width offline Fourier reference preserves ideal phase and frozen
 		REQUIRE(std::abs(coarse.harmonics[harmonic] - fine.harmonics[harmonic]) < 1.0e-4);
 }
 
-TEST_CASE("Mono oscillator anchors share the fundamental's phase and sign", "[mono][oscillator]")
+TEST_CASE("Kobber oscillator anchors share the fundamental's phase and sign", "[kobber][oscillator]")
 {
 	for (int anchor = 0; anchor <= 3; ++anchor)
 	{
@@ -115,7 +115,7 @@ TEST_CASE("Mono oscillator anchors share the fundamental's phase and sign", "[mo
 	}
 }
 
-TEST_CASE("Mono oscillator anchors have matching RMS at the saw's level", "[mono][oscillator]")
+TEST_CASE("Kobber oscillator anchors have matching RMS at the saw's level", "[kobber][oscillator]")
 {
 	for (int anchor = 0; anchor <= 3; ++anchor)
 	{
@@ -130,7 +130,7 @@ TEST_CASE("Mono oscillator anchors have matching RMS at the saw's level", "[mono
 	}
 }
 
-TEST_CASE("Mono oscillator level stays within 1 dB across the whole Morph range", "[mono][oscillator]")
+TEST_CASE("Kobber oscillator level stays within 1 dB across the whole Morph range", "[kobber][oscillator]")
 {
 	for (int step = 0; step <= 80; ++step)
 	{
@@ -140,7 +140,7 @@ TEST_CASE("Mono oscillator level stays within 1 dB across the whole Morph range"
 	}
 }
 
-TEST_CASE("Mono oscillator anchors are the canonical shapes", "[mono][oscillator]")
+TEST_CASE("Kobber oscillator anchors are the canonical shapes", "[kobber][oscillator]")
 {
 	// Bandlimited anchors: away from edges and corners they sit within the truncation ripple of the ideal shapes.
 	const auto wave = [](float morph, float phase) { return oscillator(phase, morph); };
@@ -171,7 +171,7 @@ TEST_CASE("Mono oscillator anchors are the canonical shapes", "[mono][oscillator
 		REQUIRE(wave(-0.5f, phase) == Catch::Approx(wave(3.5f, phase)).margin(1.0e-6));
 	}
 }
-TEST_CASE("Mono oscillator morph is continuous across every anchor, including the wrap to sine", "[mono][oscillator]")
+TEST_CASE("Kobber oscillator morph is continuous across every anchor, including the wrap to sine", "[kobber][oscillator]")
 {
 	for (const auto anchor : { 1.0f, 2.0f, 3.0f, 4.0f })
 	{
@@ -188,7 +188,7 @@ TEST_CASE("Mono oscillator morph is continuous across every anchor, including th
 	}
 }
 
-TEST_CASE("Mono Width DC policies follow the frozen-width analytical means", "[mono][oscillator][width]")
+TEST_CASE("Kobber Width DC policies follow the frozen-width analytical means", "[kobber][oscillator][width]")
 {
 	constexpr int samples = 32'768;
 	constexpr float step = 1.0f / samples;
@@ -212,7 +212,7 @@ TEST_CASE("Mono Width DC policies follow the frozen-width analytical means", "[m
 		}
 }
 
-TEST_CASE("Mono Width and Morph surface has finite fundamentals and continuous anchors", "[mono][oscillator][width]")
+TEST_CASE("Kobber Width and Morph surface has finite fundamentals and continuous anchors", "[kobber][oscillator][width]")
 {
 	constexpr int samples = 4'096;
 	constexpr float step = 1.0f / samples;
@@ -244,7 +244,7 @@ TEST_CASE("Mono Width and Morph surface has finite fundamentals and continuous a
 	}
 }
 
-TEST_CASE("Mono Width oscillator stays alias-free on a high note", "[mono][oscillator][width]")
+TEST_CASE("Kobber Width oscillator stays alias-free on a high note", "[kobber][oscillator][width]")
 {
 	// Coherent measurement: the pitch sits exactly on FFT bin 1200 (3515.6 Hz at 48 kHz) and no window is
 	// used, so every harmonic lands on a bin and only aliases fall between them.
@@ -292,7 +292,7 @@ TEST_CASE("Mono Width oscillator stays alias-free on a high note", "[mono][oscil
 		}
 }
 
-TEST_CASE("Mono Width DC policy changes the ladder input on a held narrow pulse", "[mono][oscillator][width]")
+TEST_CASE("Kobber Width DC policy changes the ladder input on a held narrow pulse", "[kobber][oscillator][width]")
 {
 	vekt::mono::MonoVoiceSettings settings {};
 	settings.rangeOctaves.fill(0); // 8'
@@ -324,7 +324,7 @@ TEST_CASE("Mono Width DC policy changes the ladder input on a held narrow pulse"
 	REQUIRE(difference > 1.0);
 }
 
-TEST_CASE("Mono moving Width and Morph remain finite through the voice and ladder", "[mono][oscillator][width]")
+TEST_CASE("Kobber moving Width and Morph remain finite through the voice and ladder", "[kobber][oscillator][width]")
 {
 	vekt::mono::MonoVoiceSettings settings {};
 	settings.rangeOctaves.fill(0); // 8'
@@ -352,7 +352,7 @@ TEST_CASE("Mono moving Width and Morph remain finite through the voice and ladde
 	REQUIRE(voice.coupledDiagnostics().nonFiniteSamples == 0);
 }
 
-TEST_CASE("Mono voice output level stays within 1 dB across Morph through the open ladder", "[mono][oscillator]")
+TEST_CASE("Kobber voice output level stays within 1 dB across Morph through the open ladder", "[kobber][oscillator]")
 {
 	const auto outputRms = [](float morph)
 	{
@@ -389,7 +389,7 @@ TEST_CASE("Mono voice output level stays within 1 dB across Morph through the op
 	}
 }
 
-TEST_CASE("Mono morph curves delay the richer anchor but meet it at the linear rate", "[mono][oscillator]")
+TEST_CASE("Kobber morph curves delay the richer anchor but meet it at the linear rate", "[kobber][oscillator]")
 {
 	using vekt::mono::delayedMorphWeight;
 	using vekt::mono::morphSegmentBlend;
@@ -423,7 +423,7 @@ TEST_CASE("Mono morph curves delay the richer anchor but meet it at the linear r
 	REQUIRE(morphSegmentBlend(3, step) / step == Catch::Approx(1.0).margin(0.01));
 }
 
-TEST_CASE("Mono Morph wraps round its cycle", "[mono][oscillator]")
+TEST_CASE("Kobber Morph wraps round its cycle", "[kobber][oscillator]")
 {
 	using vekt::mono::morphDistance;
 	using vekt::mono::wrapMorph;
@@ -455,7 +455,7 @@ TEST_CASE("Mono Morph wraps round its cycle", "[mono][oscillator]")
 	REQUIRE(text(0.0f) == "0.000");
 }
 
-TEST_CASE("Mono Morph knob changes are smoothed but LFO morph modulation is not", "[mono][oscillator][lfo]")
+TEST_CASE("Kobber Morph knob changes are smoothed but LFO morph modulation is not", "[kobber][oscillator][lfo]")
 {
 	constexpr double sampleRate = 48'000.0;
 	vekt::mono::MonoVoiceSettings settings {};
@@ -545,7 +545,7 @@ TEST_CASE("Mono Morph knob changes are smoothed but LFO morph modulation is not"
 	REQUIRE(modulated.getMorph(0) > 2.95f);
 }
 
-TEST_CASE("Mono Width keeps aligned fundamentals, full-depth PWM and a level two-tooth saw", "[mono][oscillator][width]")
+TEST_CASE("Kobber Width keeps aligned fundamentals, full-depth PWM and a level two-tooth saw", "[kobber][oscillator][width]")
 {
 	const auto fundamentalPhase = [](float morph, float width)
 	{
@@ -593,7 +593,7 @@ TEST_CASE("Mono Width keeps aligned fundamentals, full-depth PWM and a level two
 	}
 }
 
-TEST_CASE("Mono Width offline reference matches the shipped Width model", "[mono][oscillator][width][reference]")
+TEST_CASE("Kobber Width offline reference matches the shipped Width model", "[kobber][oscillator][width][reference]")
 {
 	// Independent Fourier coefficients (MonoWidthReference.h) versus a dense DFT of the production anchors.
 	for (int anchor = 0; anchor < 4; ++anchor)
@@ -617,7 +617,7 @@ TEST_CASE("Mono Width offline reference matches the shipped Width model", "[mono
 		}
 }
 
-TEST_CASE("Mono Width knob jumps ramp instead of stepping the oscillator", "[mono][oscillator][width]")
+TEST_CASE("Kobber Width knob jumps ramp instead of stepping the oscillator", "[kobber][oscillator][width]")
 {
 	// A sustained sine through the open filter: its largest sample-to-sample change is small, so any
 	// step from an instantaneous Width change (shape and DC both move) stands out. Without the ramp the
@@ -668,7 +668,7 @@ TEST_CASE("Mono Width knob jumps ramp instead of stepping the oscillator", "[mon
 	}
 }
 
-TEST_CASE("Mono Drift walk is bounded, smooth and slow", "[mono][oscillator][drift]")
+TEST_CASE("Kobber Drift walk is bounded, smooth and slow", "[kobber][oscillator][drift]")
 {
 	constexpr float rate = 48'000.0f;
 	const auto coefficient = 1.0f - std::exp(-1.0f / (0.6f * rate));
@@ -694,7 +694,7 @@ TEST_CASE("Mono Drift walk is bounded, smooth and slow", "[mono][oscillator][dri
 	REQUIRE(signChanges < 60);           // slow: well under one zero crossing per second
 }
 
-TEST_CASE("Mono Drift wanders each voice's pitch by a few cents", "[mono][oscillator][drift]")
+TEST_CASE("Kobber Drift wanders each voice's pitch by a few cents", "[kobber][oscillator][drift]")
 {
 	// A held A4 sine through the open filter; pitch measured from interpolated rising zero crossings in
 	// half-second windows over 20 s.
@@ -752,7 +752,7 @@ TEST_CASE("Mono Drift wanders each voice's pitch by a few cents", "[mono][oscill
 	REQUIRE(vekt::mono::driftSpeed(100.0f) == Catch::Approx(3.0f));
 }
 
-TEST_CASE("Mono unison level stays put while Drift separates the layers", "[mono][oscillator][drift]")
+TEST_CASE("Kobber unison level stays put while Drift separates the layers", "[kobber][oscillator][drift]")
 {
 	// Four layers at zero Detune start identical; Drift's per-layer wander decorrelates them. The unison
 	// gain must follow that separation, or the note sinks by up to 6 dB as it is held.

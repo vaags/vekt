@@ -102,7 +102,7 @@ int main(int argc, char** argv)
 {
 	if (argc != 2)
 	{
-		std::cerr << "Usage: VektMonoResonanceMatrix output.csv\n";
+		std::cerr << "Usage: VektKobberResonanceMatrix output.csv\n";
 		return 64;
 	}
 	std::ofstream output(argv[1]);

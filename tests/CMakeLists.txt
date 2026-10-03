@@ -83,7 +83,7 @@ target_link_libraries(vekt_dsp_tests PRIVATE
 	vekt::plugin_support
     RavCore
 	GlimmerCore
-	VektMonoCore
+	KobberCore
 	FlintCore
     vekt::juce_headers
     vekt::juce_runtime

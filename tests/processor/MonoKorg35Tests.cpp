@@ -57,7 +57,7 @@ NonlinearTptKorg35Settings settingsFor(double cutoff, double feedback, double kn
 
 // The small-signal Korg35 is Stinchcombe's equation 8, 1 / (p^2 + (7/3 - rho) p + 1): the canonical SVF low-pass with
 // k = 7/3 - rho is the oracle for the linear reference.
-TEST_CASE("Mono Korg35 linear reference matches LinearTptSvf with k = 7/3 - rho", "[mono][filter][k35][k35-linear]")
+TEST_CASE("Kobber Korg35 linear reference matches LinearTptSvf with k = 7/3 - rho", "[kobber][filter][k35][k35-linear]")
 {
 	double worst {};
 	for (const auto hostRate : hostRates)
@@ -95,7 +95,7 @@ TEST_CASE("Mono Korg35 linear reference matches LinearTptSvf with k = 7/3 - rho"
 	std::cout << "Korg35 linear reference vs LinearTptSvf: worst error " << worst << " of peak\n";
 }
 
-TEST_CASE("Mono Korg35 converges to its linear reference at low level", "[mono][filter][k35][k35-linear]")
+TEST_CASE("Kobber Korg35 converges to its linear reference at low level", "[kobber][filter][k35][k35-linear]")
 {
 	for (const auto hostRate : hostRates)
 		for (const auto factor : oversamplingFactors)
@@ -125,7 +125,7 @@ TEST_CASE("Mono Korg35 converges to its linear reference at low level", "[mono][
 			}
 }
 
-TEST_CASE("Mono Korg35 diode stage has unit slope at zero and slope 1 / G beyond the knee", "[mono][filter][k35]")
+TEST_CASE("Kobber Korg35 diode stage has unit slope at zero and slope 1 / G beyond the knee", "[kobber][filter][k35]")
 {
 	const auto at = [](double input) { return vekt::mono::nonlinearTptKorg35Stage(input, 1.0, 58.0); };
 	CHECK(at(0.0).value == 0.0);
@@ -167,8 +167,8 @@ double residualScale(const Problem& p)
 }
 }
 
-TEST_CASE("Mono Korg35 residual is strictly increasing with its root in the analytic bracket, and the solve converges",
-	"[mono][filter][k35][k35-solver]")
+TEST_CASE("Kobber Korg35 residual is strictly increasing with its root in the analytic bracket, and the solve converges",
+	"[kobber][filter][k35][k35-solver]")
 {
 	std::mt19937 random { 63 };
 	std::uniform_real_distribution unit { 0.0, 1.0 };
@@ -205,7 +205,7 @@ TEST_CASE("Mono Korg35 residual is strictly increasing with its root in the anal
 	CHECK(worstEnds < nonlinearTptKorg35MaximumIterations);
 }
 
-TEST_CASE("Mono Korg35 has no solver failures under hostile rendering over the rate matrix", "[mono][filter][k35][k35-solver]")
+TEST_CASE("Kobber Korg35 has no solver failures under hostile rendering over the rate matrix", "[kobber][filter][k35][k35-solver]")
 {
 	// The high-pass input (Mode) only shifts the solve's second state, so the same guarantees hold at every blend.
 	for (const auto hostRate : hostRates)
@@ -274,7 +274,7 @@ double contractionRatio(double sampleRate, double cutoff, double feedback, doubl
 }
 }
 
-TEST_CASE("Mono Korg35 trajectories converge below threshold", "[mono][filter][k35][k35-contraction]")
+TEST_CASE("Kobber Korg35 trajectories converge below threshold", "[kobber][filter][k35][k35-contraction]")
 {
 	// The incremental dynamics are a damped oscillator with damping 7/3 - rho h' >= 7/3 - rho > 0 (see the header),
 	// whatever the input: two starting states must merge, from nearly linear levels to far past the knee.
@@ -320,7 +320,7 @@ double growthRate(double sampleRate, double cutoff, double feedback)
 }
 }
 
-TEST_CASE("Mono Korg35 self-oscillation onset is at rho = 7/3 and the zero state stays at rest", "[mono][filter][k35][k35-self-oscillation]")
+TEST_CASE("Kobber Korg35 self-oscillation onset is at rho = 7/3 and the zero state stays at rest", "[kobber][filter][k35][k35-self-oscillation]")
 {
 	for (const auto hostRate : hostRates)
 		for (const auto factor : oversamplingFactors)
@@ -372,7 +372,7 @@ Distortion sineDistortion(double amplitude, Process process)
 // (knee 1 / L0). The Korg35 limiter sits on the filtered output, so harmonics above the cutoff are not filtered away
 // (the comparison with the pre-filter saturator of the retired Reactive2P is in ADR 0007). THD in %, and the
 // fundamental's gain in dB.
-TEST_CASE("Mono Korg35 passband distortion against level", "[.][k35-passband]")
+TEST_CASE("Kobber Korg35 passband distortion against level", "[.][k35-passband]")
 {
 	constexpr std::array levels { 0.125, 0.25, 0.5, 1.0, 2.0 };
 	struct Candidate
@@ -424,7 +424,7 @@ TEST_CASE("Mono Korg35 passband distortion against level", "[.][k35-passband]")
 // Development measurement, hidden: self-oscillation RMS over the played signal's RMS (the unit-peak saw at mixer
 // level 1, A2, through the same filter open at Resonance 0, so including its passband compression), the metric the
 // Ladder (-13 to -14 dB) and the retired Reactive2P (+19 dB at L0 0.06, ADR 0007) were measured with. Knees K = 1 / L0.
-TEST_CASE("Mono Korg35 self-oscillation level re the played signal", "[.][k35-self-osc-level]")
+TEST_CASE("Kobber Korg35 self-oscillation level re the played signal", "[.][k35-self-osc-level]")
 {
 	constexpr std::array driveZeros { 0.06, 0.24, 0.5, 1.0, 2.0 };
 	constexpr std::array feedbacks { 2.4, 2.6, 3.0 };
@@ -471,7 +471,7 @@ TEST_CASE("Mono Korg35 self-oscillation level re the played signal", "[.][k35-se
 // A2 saw at mixer level 1 through the filter-envelope sweep (150 Hz -> 6 kHz -> 150 Hz) at the provisional voicing
 // (Korg35Response.h: knee 2, the Resonance map to rho max 2.40): Resonance 80 % (Q 8) / 95 % (Q 100) / 97 % and 100 %
 // (self-oscillating), Drive 0 / +6 / +12 dB; the SVF at 100 % Resonance, Drive 0 and +12 dB, for reference.
-TEST_CASE("Mono Korg35 audition renders", "[.][k35-renders]")
+TEST_CASE("Kobber Korg35 audition renders", "[.][k35-renders]")
 {
 	const auto* directory = std::getenv("VEKT_MONO_DUMP");
 	REQUIRE(directory != nullptr);
@@ -546,7 +546,7 @@ TEST_CASE("Mono Korg35 audition renders", "[.][k35-renders]")
 	}
 }
 
-TEST_CASE("Mono K35 high-pass trim is unity up to the bell and eases to -3 dB at HP", "[mono][filter][k35]")
+TEST_CASE("Kobber K35 high-pass trim is unity up to the bell and eases to -3 dB at HP", "[kobber][filter][k35]")
 {
 	using vekt::mono::korg35HighPassTrim;
 	for (const auto mode : { -1.0, -0.5, 0.0 }) REQUIRE(std::bit_cast<std::uint64_t>(korg35HighPassTrim(mode)) == std::bit_cast<std::uint64_t>(1.0));
@@ -562,7 +562,7 @@ TEST_CASE("Mono K35 high-pass trim is unity up to the bell and eases to -3 dB at
 }
 
 // The K35 Resonance map (Korg35Response.h): landmarks, rho max and the threshold crossing pinned, monotonic, C1 joins.
-TEST_CASE("Mono K35 Resonance map pins its landmarks and is monotonic and C1", "[mono][filter][k35]")
+TEST_CASE("Kobber K35 Resonance map pins its landmarks and is monotonic and C1", "[kobber][filter][k35]")
 {
 	using vekt::mono::korg35Feedback;
 	const auto q = [](double resonance) { return 1.0 / (nonlinearTptKorg35Threshold - korg35Feedback(resonance)); };
@@ -908,7 +908,7 @@ double levelAt(double driveDb) { return 0.5 * korg35Knee * std::pow(10.0, driveD
 // Solver health in product-like rendering: a unit-peak saw (mixer level 1, A2) at Resonance 95 / 97 / 100 %, Drive
 // 0 / +6 / +12 / +24 dB, the cutoff swept four octaves around 1 kHz at 7 Hz, then zero input (free oscillation), over
 // every host rate x oversampling factor.
-TEST_CASE("Mono K35 top of Resonance: solver health over the rate matrix", "[.][k35-top-solver]")
+TEST_CASE("Kobber K35 top of Resonance: solver health over the rate matrix", "[.][k35-top-solver]")
 {
 	struct Case
 	{
@@ -968,7 +968,7 @@ TEST_CASE("Mono K35 top of Resonance: solver health over the rate matrix", "[.][
 
 // The free oscillation at the top of the knob (97 % and 100 %) and at fc/Fs 0.001 / 0.01 / 0.05: frequency re fc,
 // peak re the knee, THD, even-harmonic share, and the drift of amplitude and frequency over 10 s.
-TEST_CASE("Mono K35 top of Resonance: free oscillation and long-term drift", "[.][k35-top-drift]")
+TEST_CASE("Kobber K35 top of Resonance: free oscillation and long-term drift", "[.][k35-top-drift]")
 {
 	std::cout << "\nresonance (rho) | fc/Fs | f/fc | peak/K | THD % | even % | drift amplitude / frequency over 10 s\n";
 	std::vector<std::pair<double, double>> jobs;
@@ -992,7 +992,7 @@ TEST_CASE("Mono K35 top of Resonance: free oscillation and long-term drift", "[.
 // division case) for a sine, saw and asymmetric pulse at Drive 0 / +6 / +12 / +24 dB (unit-peak input at mixer level
 // 1), at 97 % and 100 % Resonance. Reported: hold-in width [edges], pull-in width, hysteresis low/high (cents; one
 // input-period sample is about 1.5-9 c here), islands elsewhere, and at the centre the perturbation rate and residual.
-TEST_CASE("Mono K35 top of Resonance: locking and division map", "[.][k35-top-locking]")
+TEST_CASE("Kobber K35 top of Resonance: locking and division map", "[.][k35-top-locking]")
 {
 	constexpr std::array ratios { std::pair { 1.0, 1 }, std::pair { 0.5, 1 }, std::pair { 1.0 / 3.0, 1 }, std::pair { 2.0, 2 } };
 	constexpr std::array stimuli { Stimulus::sine, Stimulus::saw, Stimulus::pulse };
@@ -1033,7 +1033,7 @@ TEST_CASE("Mono K35 top of Resonance: locking and division map", "[.][k35-top-lo
 // Drive swept quasi-statically 0 -> +24 -> 0 dB in 1 dB steps at fixed cutoff (as a slow LFO on Drive would), for a
 // saw with f_osc between its 2nd and 3rd harmonics (R 0.4) and a detuned sine (R 0.7), at 97 % and 100 %: lock order /
 // perturbation rate / residual share per step, and the lock and quench thresholds up and down (hysteresis in dB).
-TEST_CASE("Mono K35 top of Resonance: Drive sweep through lock and quench", "[.][k35-top-drive-sweep]")
+TEST_CASE("Kobber K35 top of Resonance: Drive sweep through lock and quench", "[.][k35-top-drive-sweep]")
 {
 	constexpr std::array stimuli { std::pair { Stimulus::saw, 0.4 }, std::pair { Stimulus::sine, 0.7 } };
 	const auto blocks = parallelMap(stimuli.size() * topResonances.size(), [&](std::size_t job)
@@ -1149,7 +1149,7 @@ Spectrum nonharmonicDb(const std::vector<double>& y, double sampleRate, double f
 // maximum, Q 8) and the same Drive for comparison. Inharmonic energy below 20 kHz re the total, in dB, measured at the
 // oversampled rate (the product's decimation removes content above 20 kHz, not what has already folded below it).
 // Also the DC offset re the output RMS.
-TEST_CASE("Mono K35 aliasing against oversampling", "[.][k35-aliasing]")
+TEST_CASE("Kobber K35 aliasing against oversampling", "[.][k35-aliasing]")
 {
 	struct Job
 	{
@@ -1201,7 +1201,7 @@ TEST_CASE("Mono K35 aliasing against oversampling", "[.][k35-aliasing]")
 // K35's high-pass, cutoff 1 / 2 / 4 kHz, Resonance 0 / 50 / 90 % (below every filter's threshold, so the steady state is
 // periodic). Inharmonic energy below 20 kHz re the total, at the oversampled rate: what falls with oversampling is
 // aliasing; what stays is not.
-TEST_CASE("Mono Ladder high-pass aliasing against oversampling", "[.][ladder-hp-aliasing]")
+TEST_CASE("Kobber Ladder high-pass aliasing against oversampling", "[.][ladder-hp-aliasing]")
 {
 	enum class Kind { ladderHighPass, ladderLowPass, svfHighPass, k35HighPass, highPassLadder };
 	struct Job
@@ -1273,7 +1273,7 @@ TEST_CASE("Mono Ladder high-pass aliasing against oversampling", "[.][ladder-hp-
 // reference is the same filter at 1e-2 of the input, scaled back up (not smaller: the Ladder's solve tolerance is
 // absolute). Each filter's input can be lowered by the given dB
 // with the output made up, as the Ladder's high-pass now does. Residue re the linear output, in dB.
-TEST_CASE("Mono high-pass non-linear residue on a detuned mix", "[.][mono-hp-distortion]")
+TEST_CASE("Kobber high-pass non-linear residue on a detuned mix", "[.][kobber-hp-distortion]")
 {
 	enum class Kind { ladder, svf, k35 };
 	struct Job { Kind kind; double cutoff, resonance, reductionDb; };
@@ -1337,8 +1337,8 @@ TEST_CASE("Mono high-pass non-linear residue on a detuned mix", "[.][mono-hp-dis
 }
 
 // Development measurement, hidden: the Ladder's non-linear residue at high Resonance (below its oscillation onset,
-// about 98.4 %), Mode +1 and -1, on the same detuned mix as [mono-hp-distortion], for input reductions with make-up.
-TEST_CASE("Mono Ladder residue at high Resonance", "[.][ladder-high-resonance-residue]")
+// about 98.4 %), Mode +1 and -1, on the same detuned mix as [kobber-hp-distortion], for input reductions with make-up.
+TEST_CASE("Kobber Ladder residue at high Resonance", "[.][ladder-high-resonance-residue]")
 {
 	struct Job { float mode; double cutoff, resonance, reductionDb; };
 	std::vector<Job> jobs;
@@ -1385,7 +1385,7 @@ TEST_CASE("Mono Ladder residue at high Resonance", "[.][ladder-high-resonance-re
 	}
 }
 
-TEST_CASE("Mono K35 batched lanes match the scalar solve", "[mono][filter][k35]")
+TEST_CASE("Kobber K35 batched lanes match the scalar solve", "[kobber][filter][k35]")
 {
 	// Groups of four and two share a vector tanh (about 2 ulp from libm), the rest run the scalar solve; below
 	// threshold the filter contracts, so the lanes stay within rounding of the scalar filters under hostile input.
@@ -1468,8 +1468,8 @@ double k35HighPassGain(double frequency, double cutoff, double feedback, double 
 }
 }
 
-TEST_CASE("Mono Korg35 high-pass input is 6 dB/oct below the cutoff, unity above, and flat at the half blend for rho = 1",
-	"[mono][filter][k35][k35-highpass]")
+TEST_CASE("Kobber Korg35 high-pass input is 6 dB/oct below the cutoff, unity above, and flat at the half blend for rho = 1",
+	"[kobber][filter][k35][k35-highpass]")
 {
 	// Small-signal, y = [x_lp + (p^2 + 4/3 p) x_hp] / (p^2 + (7/3 - rho) p + 1) (NonlinearTptKorg35.h, ADR 0007). The
 	// half blend's numerator 0.5 (p^2 + 4/3 p + 1) is half the denominator at rho = 1: -6 dB at every frequency.

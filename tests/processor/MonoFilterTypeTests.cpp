@@ -114,7 +114,7 @@ void applyFixture(vekt::mono::PluginProcessor& processor, int fixture)
 
 // Development check, hidden from normal runs: with VEKT_MONO_DUMP set to a directory, writes raw renders of the
 // fixtures at several rates and qualities, to compare two builds bit for bit.
-TEST_CASE("Mono dumps filter fixture renders", "[.][mono-dump]")
+TEST_CASE("Kobber dumps filter fixture renders", "[.][kobber-dump]")
 {
 	const auto* directory = std::getenv("VEKT_MONO_DUMP");
 	REQUIRE(directory != nullptr);
@@ -148,7 +148,7 @@ TEST_CASE("Mono dumps filter fixture renders", "[.][mono-dump]")
 	}
 }
 
-TEST_CASE("Mono filter type offers Ladder, SVF and K35 and defaults to Ladder", "[mono][filter][filter-type][parameters]")
+TEST_CASE("Kobber filter type offers Ladder, SVF and K35 and defaults to Ladder", "[kobber][filter][filter-type][parameters]")
 {
 	vekt::mono::PluginProcessor processor;
 	auto* parameter = dynamic_cast<juce::AudioParameterChoice*>(processor.getParameters().getParameter(parameters::filterType));
@@ -157,7 +157,7 @@ TEST_CASE("Mono filter type offers Ladder, SVF and K35 and defaults to Ladder", 
 	REQUIRE(parameter->getIndex() == 0);
 }
 
-TEST_CASE("Mono SVF renders its own finite sound", "[mono][filter][filter-type]")
+TEST_CASE("Kobber SVF renders its own finite sound", "[kobber][filter][filter-type]")
 {
 	const auto render = [](float type)
 	{
@@ -176,7 +176,7 @@ TEST_CASE("Mono SVF renders its own finite sound", "[mono][filter][filter-type]"
 	REQUIRE_FALSE(identical(ladder, svf));
 }
 
-TEST_CASE("Mono voices adopt a filter type chosen while silent without a transition", "[mono][filter][filter-type]")
+TEST_CASE("Kobber voices adopt a filter type chosen while silent without a transition", "[kobber][filter][filter-type]")
 {
 	vekt::mono::PluginProcessor fromStart;
 	setParameter(fromStart, parameters::filterType, 1.0f);
@@ -190,7 +190,7 @@ TEST_CASE("Mono voices adopt a filter type chosen while silent without a transit
 	REQUIRE(identical(hold(switched, 16, 45), expected));
 }
 
-TEST_CASE("Mono filter type switches under a held note without a click", "[mono][filter][filter-type]")
+TEST_CASE("Kobber filter type switches under a held note without a click", "[kobber][filter][filter-type]")
 {
 	for (const auto [from, to] : { std::pair { 0.0f, 1.0f }, std::pair { 1.0f, 0.0f } })
 	{
@@ -264,14 +264,14 @@ void checkModeSweep(float filterType)
 }
 }
 
-TEST_CASE("Mono SVF Mode sweeps smoothly and changes the held sound", "[mono][filter][filter-type][svf-mode]") { checkModeSweep(1.0f); }
+TEST_CASE("Kobber SVF Mode sweeps smoothly and changes the held sound", "[kobber][filter][filter-type][svf-mode]") { checkModeSweep(1.0f); }
 
-TEST_CASE("Mono K35 Mode sweeps smoothly and changes the held sound", "[mono][filter][filter-type][k35]") { checkModeSweep(2.0f); }
+TEST_CASE("Kobber K35 Mode sweeps smoothly and changes the held sound", "[kobber][filter][filter-type][k35]") { checkModeSweep(2.0f); }
 
 // Development audition, hidden from normal runs: with VEKT_MONO_DUMP set to a directory, renders a held A2 saw with a
 // slow filter-envelope sweep at full Resonance through Ladder and SVF at Drive 0, +12 and +24 dB, as 32-bit float
 // WAV files each normalised to -20 dBFS RMS: for comparing character, since the switching gain is not calibrated yet.
-TEST_CASE("Mono renders Ladder and SVF audition files", "[.][mono-audition]")
+TEST_CASE("Kobber renders Ladder and SVF audition files", "[.][kobber-audition]")
 {
 	const auto* directory = std::getenv("VEKT_MONO_DUMP");
 	REQUIRE(directory != nullptr);
@@ -310,7 +310,7 @@ TEST_CASE("Mono renders Ladder and SVF audition files", "[.][mono-audition]")
 }
 
 // Development measurement, hidden: output level with the Cutoff knob at its minimum, re fully open, for both filters.
-TEST_CASE("Mono closed-filter leakage", "[.][mono-closed]")
+TEST_CASE("Kobber closed-filter leakage", "[.][kobber-closed]")
 {
 	for (const auto defaults : { false, true })
 		for (const auto resonance : { 10.0f, 100.0f })
@@ -411,7 +411,7 @@ VoiceLevel measureVoice(const vekt::mono::MonoVoiceSettings& settings, int note)
 
 // Development measurement, hidden: Ladder-to-SVF switching level (SVF minus Ladder, dB) in LP, broadband RMS and
 // the fundamental, over Resonance x Drive for notes and cutoffs with the fundamental in the passband (ADR 0006).
-TEST_CASE("Mono Ladder to SVF switching level", "[.][mono-switch-gain]")
+TEST_CASE("Kobber Ladder to SVF switching level", "[.][kobber-switch-gain]")
 {
 	for (const auto drive : { 0.0f, 12.0f, 24.0f })
 	{
@@ -432,7 +432,7 @@ TEST_CASE("Mono Ladder to SVF switching level", "[.][mono-switch-gain]")
 	}
 }
 
-TEST_CASE("Mono Ladder and SVF switch at a sensible level at Drive 0", "[mono][filter][filter-type][switch-gain]")
+TEST_CASE("Kobber Ladder and SVF switch at a sensible level at Drive 0", "[kobber][filter][filter-type][switch-gain]")
 {
 	// ADR 0006's switching-gain policy on the controlled saw: under 6 dB everywhere, and within 3 dB below full
 	// Resonance (where the Ladder's own resonant peak adds level the fundamental does not show).
@@ -450,7 +450,7 @@ TEST_CASE("Mono Ladder and SVF switch at a sensible level at Drive 0", "[mono][f
 // Development measurement, hidden: the switching level per Mode at Drive 0, since the SVF's Resonance trim was
 // derived from LP. SVF minus Ladder, RMS dB, for notes 36 and 48 at cutoff 1.2 kHz, and for HP also with the notes
 // well above a 40 Hz cutoff, so the HP passband rather than its stopband slope is compared.
-TEST_CASE("Mono Ladder to SVF switching level per Mode", "[.][mono-switch-gain-mode]")
+TEST_CASE("Kobber Ladder to SVF switching level per Mode", "[.][kobber-switch-gain-mode]")
 {
 	struct Row { float mode; float cutoff; const char* name; };
 	for (const auto& [mode, cutoff, name] : { Row { -1.0f, 1'200.0f, "LP 1.2k" }, Row { 0.0f, 1'200.0f, "Notch 1.2k" },
@@ -474,7 +474,7 @@ TEST_CASE("Mono Ladder to SVF switching level per Mode", "[.][mono-switch-gain-m
 // Development measurement, hidden: K35 switching level against the Ladder and the SVF (K35 minus each, broadband RMS
 // dB), in LP, over Resonance x Drive for notes 36 / 48 at cutoffs 300 Hz / 1.2 kHz / 5 kHz (ADR 0007). Printed per
 // Drive as the mean and range over cutoffs and notes.
-TEST_CASE("Mono K35 switching level", "[.][mono-switch-gain-k35]")
+TEST_CASE("Kobber K35 switching level", "[.][kobber-switch-gain-k35]")
 {
 	for (const auto drive : { 0.0f, 12.0f, 24.0f })
 	{
@@ -501,7 +501,7 @@ TEST_CASE("Mono K35 switching level", "[.][mono-switch-gain-k35]")
 	}
 }
 
-TEST_CASE("Mono K35 switches at a sensible level at Drive 0", "[mono][filter][filter-type][k35][switch-gain]")
+TEST_CASE("Kobber K35 switches at a sensible level at Drive 0", "[kobber][filter][filter-type][k35][switch-gain]")
 {
 	// ADR 0006's switching policy for K35 against the Ladder (under 6 dB everywhere, within 3 dB below full Resonance),
 	// and within 1.5 dB of the SVF, whose Resonance trim it shares, below full Resonance (ADR 0007). At 100 % the two
@@ -519,7 +519,7 @@ TEST_CASE("Mono K35 switches at a sensible level at Drive 0", "[mono][filter][fi
 		}
 }
 
-TEST_CASE("Mono K35 renders its own sound", "[mono][filter][filter-type][k35]")
+TEST_CASE("Kobber K35 renders its own sound", "[kobber][filter][filter-type][k35]")
 {
 	const auto render = [](float type)
 	{
@@ -538,7 +538,7 @@ TEST_CASE("Mono K35 renders its own sound", "[mono][filter][filter-type][k35]")
 	REQUIRE_FALSE(identical(k35, svf));
 }
 
-TEST_CASE("Mono K35 switches under a held note without a click", "[mono][filter][filter-type][k35]")
+TEST_CASE("Kobber K35 switches under a held note without a click", "[kobber][filter][filter-type][k35]")
 {
 	// From Ladder or SVF to K35 and back: each switch declicks like any other Filter Type change.
 	for (const auto [from, to] : { std::pair { 0.0f, 2.0f }, std::pair { 2.0f, 0.0f }, std::pair { 1.0f, 2.0f }, std::pair { 2.0f, 1.0f } })
@@ -564,7 +564,7 @@ TEST_CASE("Mono K35 switches under a held note without a click", "[mono][filter]
 	}
 }
 
-TEST_CASE("Mono K35 stays finite under hostile modulation through the processor", "[mono][filter][filter-type][k35]")
+TEST_CASE("Kobber K35 stays finite under hostile modulation through the processor", "[kobber][filter][filter-type][k35]")
 {
 	for (const auto quality : { 0.0f, 6.0f }) // Off and 16x FIR, the highest internal rate
 		for (const auto multicore : { 0.0f, 1.0f })
@@ -746,7 +746,7 @@ std::vector<float> voiceAmplitude(const vekt::mono::MonoVoiceSettings& settings,
 // contour or drift, amp sustain 100 %, so the output is the filter output times a constant), held 1.5 s, measured over
 // 0.5-1.5 s: mean re RMS (spread of 0.1 s window means re RMS) in dB, of the filter output before the voice's DC
 // blocker (reconstructed by unblockedFilterOutput), then after it, i.e. the voice output (ADR 0008).
-TEST_CASE("Mono Ladder and SVF output DC", "[.][mono-dc]")
+TEST_CASE("Kobber Ladder and SVF output DC", "[.][kobber-dc]")
 {
 	constexpr int samples = 72'000;
 	for (const auto type : { vekt::mono::FilterType::ladder, vekt::mono::FilterType::svf })
@@ -775,7 +775,7 @@ TEST_CASE("Mono Ladder and SVF output DC", "[.][mono-dc]")
 // Development measurement, hidden: where the DC comes from. (a) The oscillator alone: mean re RMS of each Morph anchor
 // and a 25 % pulse, raw and zero-centred. (b) Through each filter at Res 90 %, 2 kHz, note 45 (the voice's filter output
 // before its DC blocker): the same waveforms, and the saw per Mode.
-TEST_CASE("Mono Ladder and SVF output DC sources", "[.][mono-dc-source]")
+TEST_CASE("Kobber Ladder and SVF output DC sources", "[.][kobber-dc-source]")
 {
 	struct Shape { float morph, width; const char* name; };
 	const std::array shapes { Shape { 0.0f, 50.0f, "sine" }, Shape { 1.0f, 50.0f, "triangle" }, Shape { 2.0f, 50.0f, "saw" },
@@ -845,7 +845,7 @@ TEST_CASE("Mono Ladder and SVF output DC sources", "[.][mono-dc-source]")
 // no LFO). One note (45) and a four-note chord (45 / 52 / 57 / 61). Windows cover whole periods of note 45 only, so
 // detuned layers, vibrato and the chord show up as spread. Since ADR 0008 this is the output after the voices' DC
 // blockers; the numbers before it are in ADR 0008.
-TEST_CASE("Mono Ladder and SVF output DC through the processor", "[.][mono-dc-processor]")
+TEST_CASE("Kobber Ladder and SVF output DC through the processor", "[.][kobber-dc-processor]")
 {
 	for (const auto plain : { false, true })
 		for (const auto type : { 0.0f, 1.0f })
@@ -903,7 +903,7 @@ TEST_CASE("Mono Ladder and SVF output DC through the processor", "[.][mono-dc-pr
 // Per 50 ms window at note on and note off, in the thump band (20 Hz to half the fundamental: two one-pole high-passes
 // at 20 Hz, two one-pole low-passes at f0 / 2): the pedestal's energy re the note's own energy in that band, and re
 // the note's whole energy in the window; then the same for what the blocker leaves.
-TEST_CASE("Mono Ladder and SVF output DC at note on and off", "[.][mono-dc-thump]")
+TEST_CASE("Kobber Ladder and SVF output DC at note on and off", "[.][kobber-dc-thump]")
 {
 	constexpr int samples = 72'000, releaseAt = 48'000, window = 2'400;
 	struct Envelope { float attack, release; const char* name; };
@@ -982,7 +982,7 @@ TEST_CASE("Mono Ladder and SVF output DC at note on and off", "[.][mono-dc-thump
 // Each bare filter (K35 before its output blocker) from rest, fed a band-limited saw x (note 45, 0.7) and then -x:
 // an odd-symmetric implementation gives DC(-x) = -DC(x) and y(-x) = -y(x). Then the level: at input x 0.1 and x 0.01
 // the DC of a saturation product should fall about 40 dB per decade (the cubic term), a bias would not.
-TEST_CASE("Mono Ladder, SVF and K35 DC polarity and level", "[.][mono-dc-polarity]")
+TEST_CASE("Kobber Ladder, SVF and K35 DC polarity and level", "[.][kobber-dc-polarity]")
 {
 	constexpr int samples = 72'000;
 	const auto frequency = noteHz(45);
@@ -1023,7 +1023,7 @@ TEST_CASE("Mono Ladder, SVF and K35 DC polarity and level", "[.][mono-dc-polarit
 // thump band: the DC pedestal unblocked, and what a blocker at 5 Hz (and, for comparison, 10 and 20 Hz) leaves of the
 // DC step, re the note's own energy in that band / re the note's whole energy (dB). The pedestal uses the settled mean;
 // the filter's own DC settles within a few ms at 2 kHz.
-TEST_CASE("Mono Ladder output DC on short notes", "[.][mono-dc-short]")
+TEST_CASE("Kobber Ladder output DC on short notes", "[.][kobber-dc-short]")
 {
 	constexpr int samples = 48'000, window = 2'400;
 	std::cout << "\nLadder +24 dB, Res 90 %, 2 kHz, 5 ms / 5 ms | note | length | unblocked | 5 Hz | 10 Hz | 20 Hz\n";
@@ -1089,7 +1089,7 @@ TEST_CASE("Mono Ladder output DC on short notes", "[.][mono-dc-short]")
 	}
 }
 
-TEST_CASE("Mono filter-output DC blocker keeps the low end", "[mono][filter][filter-type][dc]")
+TEST_CASE("Kobber filter-output DC blocker keeps the low end", "[kobber][filter][filter-type][dc]")
 {
 	// First order at 5 Hz (ADR 0008): about -3 dB there and within 0.3 dB from 20 Hz up, at the base and at the 16x rate.
 	for (const auto sampleRate : { 48'000.0, vekt::dsp::maximumInternalSampleRate })
@@ -1113,7 +1113,7 @@ TEST_CASE("Mono filter-output DC blocker keeps the low end", "[mono][filter][fil
 	}
 }
 
-TEST_CASE("Mono removes every filter's DC at the filter output", "[mono][filter][filter-type][dc]")
+TEST_CASE("Kobber removes every filter's DC at the filter output", "[kobber][filter][filter-type][dc]")
 {
 	// A driven saw into each filter's stress case: the bare filter generates tens of dB of DC (its saturation on a
 	// waveform without half-wave symmetry), and the held voice's settled output carries none of it.
@@ -1131,7 +1131,7 @@ TEST_CASE("Mono removes every filter's DC at the filter output", "[mono][filter]
 	}
 }
 
-TEST_CASE("Mono raw pulse keeps its DC into the filter and none at the voice output", "[mono][filter][filter-type][dc][width]")
+TEST_CASE("Kobber raw pulse keeps its DC into the filter and none at the voice output", "[kobber][filter][filter-type][dc][width]")
 {
 	// WidthDcPolicy::raw is deliberate: a narrow pulse keeps its mean, which biases the filter's saturation. The voice
 	// removes DC only after the filter, so the filter's nonlinear response to the bias stays materially different (the
@@ -1160,10 +1160,10 @@ TEST_CASE("Mono raw pulse keeps its DC into the filter and none at the voice out
 	CHECK(differenceDb > -30.0);
 }
 
-TEST_CASE("Mono filter-output DC blocker has mostly settled by the end of a 100 ms note", "[mono][filter][filter-type][dc]")
+TEST_CASE("Kobber filter-output DC blocker has mostly settled by the end of a 100 ms note", "[kobber][filter][filter-type][dc]")
 {
 	// The blocker's time constant is 32 ms, so the DC step at note on is only partly removed on very short notes (20 ms
-	// notes keep most of it: a known limit, characterised by [mono-dc-short]). By 100 ms, when a fast release would expose
+	// notes keep most of it: a known limit, characterised by [kobber-dc-short]). By 100 ms, when a fast release would expose
 	// it, it is at least 20 dB down. Worst held case: Ladder, +24 dB, Res 90 %, 2 kHz, note 69, 0.5 ms attack.
 	constexpr int samples = 48'000;
 	auto settings = measurementVoice(vekt::mono::FilterType::ladder, 2'000.0f, 0.9f, 24.0f);
@@ -1251,7 +1251,7 @@ std::vector<double> preAmpOf(const std::vector<float>& output, const std::vector
 // a fresh voice without and with the blocker, the reused voice as implemented, the reused voice if only the blocker
 // were reset at note start (its filter state kept), and the reused voice without a blocker; then the reused voice's
 // settled DC (0.5-1 s).
-TEST_CASE("Mono filter-output DC on a reused voice", "[.][mono-dc-reuse]")
+TEST_CASE("Kobber filter-output DC on a reused voice", "[.][kobber-dc-reuse]")
 {
 	constexpr int hold = 48'000, samples = 48'000;
 	struct Case { const char* name; int firstNote, secondNote; float secondMorph, secondDrive; };
@@ -1292,7 +1292,7 @@ TEST_CASE("Mono filter-output DC on a reused voice", "[.][mono-dc-reuse]")
 	}
 }
 
-TEST_CASE("Mono reused voice starts the same after any idle gap and settles DC-free", "[mono][filter][filter-type][dc]")
+TEST_CASE("Kobber reused voice starts the same after any idle gap and settles DC-free", "[kobber][filter][filter-type][dc]")
 {
 	// An idle voice renders nothing and advances no state, so what a reused voice's blocker and filters carry into the
 	// next note does not depend on how long it was idle; and the next note settles DC-free whatever the last one left.
@@ -1368,7 +1368,7 @@ SwitchLevel measureSwitchLevel(const vekt::mono::MonoVoiceSettings& settings, in
 // and Resonance, each filter minus the SVF (the middle filter) as mean [min, max] over notes and cutoffs, then the
 // Ladder's high-pass against input level to separate its linear normalisation from the level-dependent part. With
 // VEKT_MONO_DUMP set, also writes every case to switch-levels.csv.
-TEST_CASE("Mono filter switching level at every Mode", "[.][mono-switch-gain-modes]")
+TEST_CASE("Kobber filter switching level at every Mode", "[.][kobber-switch-gain-modes]")
 {
 	using vekt::mono::FilterType;
 	using namespace vekt::test::filter_prototype;
@@ -1458,14 +1458,14 @@ TEST_CASE("Mono filter switching level at every Mode", "[.][mono-switch-gain-mod
 	}
 }
 
-TEST_CASE("Mono filters switch at a sensible level at Notch and HP", "[mono][filter][filter-type][switch-gain]")
+TEST_CASE("Kobber filters switch at a sensible level at Notch and HP", "[kobber][filter][filter-type][switch-gain]")
 {
 	// Level-matching policy (ADR 0005, 0007, 0009; 2 October 2026; the Ladder's HP, a true high-pass ladder, meets it
 	// without a level lift): at Drive 0 and Resonance up to 90 %, against the SVF and
 	// K-weighted, over notes 36 / 48 / 60 with the cutoff at the 1st, 4th and 16th harmonic: within 3 dB on average and
 	// 6 dB in the worst case. Notch for the Ladder (K35's halfway bell boosts a harmonic only when one sits on the
 	// cutoff, so it is characterised, not bounded), HP for both. Full Resonance (self-oscillation) and Drive are
-	// characterised by [mono-switch-gain-modes].
+	// characterised by [kobber-switch-gain-modes].
 	using vekt::mono::FilterType;
 	using namespace vekt::test::filter_prototype;
 	struct Case
@@ -1512,7 +1512,7 @@ TEST_CASE("Mono filters switch at a sensible level at Notch and HP", "[mono][fil
 // processor (default patch: one saw, no drift or detune), held note 48, Mode +1, Drive 0, at Quality 1x and 8x. 50 ms
 // window RMS of the left channel over the last 2 s: range (max - min, dB) and the largest window-to-window step (dB).
 // A steady saw through a time-invariant filter gives a flat level; any jitter is the filter's own.
-TEST_CASE("Mono high-pass level stability on a held note", "[.][mono-hp-jitter]")
+TEST_CASE("Kobber high-pass level stability on a held note", "[.][kobber-hp-jitter]")
 {
 	// The startup preset (Classic Three Bass: three detuned oscillators).
 	for (const auto quality : { 0.0f, 5.0f }) // Off and 8x FIR
@@ -1549,7 +1549,7 @@ TEST_CASE("Mono high-pass level stability on a held note", "[.][mono-hp-jitter]"
 // (the startup preset, Classic Three Bass; held note 48; Mode +1; Drive 0; Quality 1x). Reference: the same render with
 // every oscillator at 1/100 of its level, scaled back up (everything linear there). Residue re the reference, dB, and the
 // reference's level, so linear ringing (in both) and non-linear products (in the residue only) can be told apart.
-TEST_CASE("Mono high-pass residue through the processor", "[.][mono-hp-voice-residue]")
+TEST_CASE("Kobber high-pass residue through the processor", "[.][kobber-hp-voice-residue]")
 {
 	const auto render = [](float type, float cutoff, float resonance, float scale, float drive, float mode)
 	{
@@ -1594,7 +1594,7 @@ TEST_CASE("Mono high-pass residue through the processor", "[.][mono-hp-voice-res
 // A: Resonance 100 %, Mode jumps from LP or Notch to HP at 1 s. B: Mode 0.5, Resonance 100 -> 98 %. C: Mode +1,
 // Resonance 80 -> 100 %. LFO: Mode centred at Notch with a full-depth 2 Hz LFO on Mode: the loudest 5 ms window against
 // the median over the last 3 s.
-TEST_CASE("Mono Ladder transients when Mode or Resonance moves", "[.][mono-ladder-mode-transient]")
+TEST_CASE("Kobber Ladder transients when Mode or Resonance moves", "[.][kobber-ladder-mode-transient]")
 {
 	constexpr int blocks = 375, changeBlock = 94; // 4 s and 1 s at 512 samples
 	constexpr int window = 240;
@@ -1673,7 +1673,7 @@ TEST_CASE("Mono Ladder transients when Mode or Resonance moves", "[.][mono-ladde
 
 // Development measurement, hidden: the Ladder's level against Resonance at several Modes (startup preset, note 48, Drive 0,
 // cutoff 1 kHz, held 3 s, mean of the last second), dB, so a level drop toward the top of the knob shows.
-TEST_CASE("Mono Ladder level against Resonance at each Mode", "[.][mono-ladder-resonance-level]")
+TEST_CASE("Kobber Ladder level against Resonance at each Mode", "[.][kobber-ladder-resonance-level]")
 {
 	for (const auto mode : { 0.0f, 0.05f, 0.1f, 0.25f, 0.5f, 0.75f, 1.0f })
 	{
@@ -1695,7 +1695,7 @@ TEST_CASE("Mono Ladder level against Resonance at each Mode", "[.][mono-ladder-r
 	}
 }
 
-TEST_CASE("Mono Ladder high-pass keeps running under Mode modulation", "[mono][filter][filter-type][ladder-hp]")
+TEST_CASE("Kobber Ladder high-pass keeps running under Mode modulation", "[kobber][filter][filter-type][ladder-hp]")
 {
 	// A 3 Hz square LFO on Mode (smoothed for 1 ms only) through a voice. At depth 1.1 Mode clamps at -1 for each LP
 	// half-cycle (a sixth of a second); at 0.999 it never reaches LP. The renders differ only in the Mode transition's
@@ -1744,7 +1744,7 @@ TEST_CASE("Mono Ladder high-pass keeps running under Mode modulation", "[mono][f
 	}
 }
 
-TEST_CASE("Mono Ladder high-pass rests only at unmodulated LP", "[mono][filter][filter-type][ladder-hp]")
+TEST_CASE("Kobber Ladder high-pass rests only at unmodulated LP", "[kobber][filter][filter-type][ladder-hp]")
 {
 	// The voice resets the high-pass ladder (it stops processing) after a second at LP with no LFO on Mode, and runs it
 	// again as Mode leaves; with an LFO on Mode it never rests, however long Mode dwells at LP (ADR 0009).

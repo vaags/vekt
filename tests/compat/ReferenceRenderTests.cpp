@@ -70,22 +70,22 @@ const std::vector<RenderCase>& renderCases()
 			// The Classic model at its default tracking quality, reached only through the offline choice.
 			{ "glimmer", "offline-4x-iir", { { glimmer::trackingOversampling, 0.0f }, { glimmer::offlineOversampling, 6.0f } }, true },
 
-			{ "mono", "ladder", {} },
-			{ "mono", "ladder-resonant-2x", { { mono::trackingOversampling, 1.0f }, { mono::filterResonance, 70.0f }, { mono::filterCutoff, 900.0f } } },
-			{ "mono", "ladder-4x", { { mono::trackingOversampling, 4.0f } } },
-			{ "mono", "ladder-8x", { { mono::trackingOversampling, 5.0f } } },
+			{ "kobber", "ladder", {} },
+			{ "kobber", "ladder-resonant-2x", { { mono::trackingOversampling, 1.0f }, { mono::filterResonance, 70.0f }, { mono::filterCutoff, 900.0f } } },
+			{ "kobber", "ladder-4x", { { mono::trackingOversampling, 4.0f } } },
+			{ "kobber", "ladder-8x", { { mono::trackingOversampling, 5.0f } } },
 			// An offline render at the default Offline choice (4x FIR), not the tracking one (16x here; ADR 0001).
-			{ "mono", "offline-default-resonant", { { mono::trackingOversampling, 6.0f }, { mono::filterResonance, 70.0f },
+			{ "kobber", "offline-default-resonant", { { mono::trackingOversampling, 6.0f }, { mono::filterResonance, 70.0f },
 				{ mono::filterCutoff, 900.0f } }, true },
-			{ "mono", "svf-bandpass", { { mono::filterType, 1.0f }, { mono::filterMode, 0.0f }, { mono::filterResonance, 50.0f } } },
-			{ "mono", "k35", { { mono::filterType, 2.0f }, { mono::filterResonance, 60.0f } } },
-			{ "mono", "unison-noise-lfo", { { mono::unison, 2.0f }, { mono::noiseType, 2.0f }, { mono::noiseLevel, 30.0f },
+			{ "kobber", "svf-bandpass", { { mono::filterType, 1.0f }, { mono::filterMode, 0.0f }, { mono::filterResonance, 50.0f } } },
+			{ "kobber", "k35", { { mono::filterType, 2.0f }, { mono::filterResonance, 60.0f } } },
+			{ "kobber", "unison-noise-lfo", { { mono::unison, 2.0f }, { mono::noiseType, 2.0f }, { mono::noiseLevel, 30.0f },
 				{ mono::lfos[0].rate, 6.0f }, { mono::lfos[0].pitch[0], 2.0f } } },
-			{ "mono", "legato-glide", { { mono::performanceMode, 2.0f }, { mono::glideMode, 1.0f }, { mono::glideTime, 0.05f } } },
+			{ "kobber", "legato-glide", { { mono::performanceMode, 2.0f }, { mono::glideMode, 1.0f }, { mono::glideTime, 0.05f } } },
 			// Mono, low-note priority: the higher second note waits until the first is released (held-key return).
-			{ "mono", "low-priority", { { mono::performanceMode, 1.0f }, { mono::notePriority, 1.0f } } },
+			{ "kobber", "low-priority", { { mono::performanceMode, 1.0f }, { mono::notePriority, 1.0f } } },
 			// Oscillators 2 and 3 sounding at 16' and 1'.
-			{ "mono", "osc-ranges", { { mono::osc2Range, 0.0f }, { mono::osc2Level, 60.0f }, { mono::osc3Range, 4.0f },
+			{ "kobber", "osc-ranges", { { mono::osc2Range, 0.0f }, { mono::osc2Level, 60.0f }, { mono::osc3Range, 4.0f },
 				{ mono::osc3Level, 40.0f } } },
 		};
 		for (auto&& extra : oversamplingCases("rav", "trackingOversampling", 2)) all.push_back(extra);
@@ -255,7 +255,7 @@ TEST_CASE("Reference comparison rejects non-finite output", "[compat][reference]
 // One test per product so CTest can run them in parallel.
 TEST_CASE("Every Rav reference render still sounds the same", "[compat][reference][rav]") { checkReferences("rav"); }
 TEST_CASE("Every Glimmer reference render still sounds the same", "[compat][reference][glimmer]") { checkReferences("glimmer"); }
-TEST_CASE("Every Mono reference render still sounds the same", "[compat][reference][mono]") { checkReferences("mono"); }
+TEST_CASE("Every Mono reference render still sounds the same", "[compat][reference][kobber]") { checkReferences("kobber"); }
 
 TEST_CASE("Capture reference renders", "[.capture-references]")
 {
