@@ -205,8 +205,7 @@ void PluginProcessor::applyPendingQualityChange() noexcept
 FlintParameters PluginProcessor::snapshot() const noexcept
 {
 	FlintParameters result;
-	result.mode =
-	    static_cast<Mode>(std::clamp(juce::roundToInt(cached->mode->load()), 0, static_cast<int>(modeCount) - 1));
+	result.mode = modes.at(cached->mode->load());
 	result.modelIndex[static_cast<std::size_t>(Mode::kick)] = juce::roundToInt(cached->kickModel->load());
 	result.modelIndex[static_cast<std::size_t>(Mode::mallet)] = juce::roundToInt(cached->malletModel->load());
 	result.pitch = static_cast<double>(cached->pitch->load());
@@ -214,7 +213,7 @@ FlintParameters PluginProcessor::snapshot() const noexcept
 	result.decay = percent(cached->decay);
 	result.tone = percent(cached->tone);
 	result.drive = percent(cached->drive);
-	result.driveType = static_cast<DriveType>(std::clamp(juce::roundToInt(cached->driveType->load()), 0, 2));
+	result.driveType = driveTypes.at(cached->driveType->load());
 	result.levelDecibels = static_cast<double>(cached->level->load());
 	result.variation = percent(cached->variation);
 	result.noteOffDamps = cached->noteOffDamps->load() >= 0.5f;
@@ -363,14 +362,14 @@ void PluginProcessor::selectMode(Mode selected)
 		auto* parameter = parameterState.getParameter(identifier);
 		values.push_back({ parameter, parameter->convertFrom0to1(parameter->getValue()), after });
 	};
-	add(parameters::mode, static_cast<float>(selected));
+	add(parameters::mode, static_cast<float>(modes.indexOf(selected)));
 	add(parameters::pitch, start.pitch);
 	add(parameters::attack, start.attack);
 	add(parameters::decay, start.decay);
 	add(parameters::tone, start.tone);
 	// Flush pending parameter changes into the state first, so an earlier edit is not recorded in this step.
 	juce::ignoreUnused(parameterState.copyState());
-	undoManager.beginNewTransaction("Mode: " + juce::String(modeNames[static_cast<std::size_t>(selected)]));
+	undoManager.beginNewTransaction("Mode: " + juce::String(modes.nameOf(selected)));
 	undoManager.perform(new ModeChange(std::move(values)));
 }
 

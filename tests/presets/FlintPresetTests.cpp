@@ -39,7 +39,7 @@ double amount(vekt::flint::PluginProcessor& processor, const char* identifier)
 // The factory presets' targets (docs/FLINT_VALIDATION.md, the model sheets), in the sheets' units.
 void checkTarget(vekt::flint::PluginProcessor& processor, const juce::String& name)
 {
-	const auto mode = static_cast<Mode>(juce::roundToInt(getParameter(processor, parameters::mode)));
+	const auto mode = vekt::flint::modes.at(getParameter(processor, parameters::mode));
 	const auto driveType = juce::roundToInt(getParameter(processor, parameters::driveType));
 	const auto kickT60 = KickClassicAnalog::t60Seconds(amount(processor, parameters::decay));
 	const auto barT60 = MalletBar::fundamentalT60(amount(processor, parameters::decay),
@@ -165,10 +165,10 @@ TEST_CASE("Flint rejects malformed presets without changing sound", "[flint][pre
 	juce::ScopedJuceInitialiser_GUI initialiseJuce;
 	vekt::flint::PluginProcessor processor;
 	setParameter(processor, parameters::decay, 30.0f);
-	setParameter(processor, parameters::mode, static_cast<float>(Mode::mallet));
+	setParameter(processor, parameters::mode, static_cast<float>(vekt::flint::modes.indexOf(Mode::mallet)));
 	auto preset = processor.createPreset("Invalid");
 	setParameter(processor, parameters::decay, 90.0f);
-	setParameter(processor, parameters::mode, static_cast<float>(Mode::kick));
+	setParameter(processor, parameters::mode, static_cast<float>(vekt::flint::modes.indexOf(Mode::kick)));
 
 	SECTION("missing parameter") { preset.parameters.pop_back(); }
 	SECTION("unknown parameter") { preset.parameters.back().identifier = "unknown"; }

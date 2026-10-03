@@ -313,7 +313,7 @@ TEST_CASE("Flint allocates nothing while playing notes and switching modes", "[f
 	midi.addEvent(juce::MidiMessage::noteOn(1, 36, 0.8f), 3);
 	midi.addEvent(juce::MidiMessage::noteOff(1, 36), 300);
 	midi.addEvent(juce::MidiMessage::noteOn(1, 36, 0.5f), 400);
-	setParameter(*processor, parameters::mode, static_cast<float>(Mode::mallet));
+	setParameter(*processor, parameters::mode, static_cast<float>(vekt::flint::modes.indexOf(Mode::mallet)));
 	vekt::test::AllocationScope scope;
 	for (auto block = 0; block < 20; ++block) processor->processBlock(buffer, midi);
 	const auto counts = scope.stop();

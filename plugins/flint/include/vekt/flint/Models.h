@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vekt/plugin_support/ChoiceTable.h>
+
 #include <array>
 #include <cstddef>
 #include <optional>
@@ -22,9 +24,13 @@ enum class Mode
 	percussion
 };
 
-inline constexpr std::array modeNames { "Kick", "Snare", "Tom", "Clap", "Hi-Hat", "Cymbal", "Shaker", "Mallet",
-	"Percussion" };
-inline constexpr std::size_t modeCount = modeNames.size();
+// The Mode parameter's choices (plugin_support::ChoiceTable): the layout's names and the decoding of its value.
+inline constexpr plugin_support::ChoiceTable modes { plugin_support::Choice { Mode::kick, "Kick" },
+	plugin_support::Choice { Mode::snare, "Snare" }, plugin_support::Choice { Mode::tom, "Tom" },
+	plugin_support::Choice { Mode::clap, "Clap" }, plugin_support::Choice { Mode::hiHat, "Hi-Hat" },
+	plugin_support::Choice { Mode::cymbal, "Cymbal" }, plugin_support::Choice { Mode::shaker, "Shaker" },
+	plugin_support::Choice { Mode::mallet, "Mallet" }, plugin_support::Choice { Mode::percussion, "Percussion" } };
+inline constexpr std::size_t modeCount = modes.size();
 
 // Every model of every mode, in mode order; the index of an engine in the engine host.
 enum class ModelId

@@ -3,6 +3,7 @@
 // (left channel, then right) to $VEKT_RENDER_DIR. The script compiles this file into older revisions too, so it uses
 // only the products' processors and their frozen parameter IDs. See docs/VERIFICATION_SPEED.md.
 
+#include <vekt/flint/PluginProcessor.h>
 #include <vekt/glimmer/PluginProcessor.h>
 #include <vekt/mono/PluginProcessor.h>
 #include <vekt/rav/PluginProcessor.h>
@@ -28,6 +29,7 @@ namespace
 namespace mono = vekt::mono::parameters;
 namespace rav = vekt::rav::parameters;
 namespace glimmer = vekt::glimmer::parameters;
+namespace flint = vekt::flint::parameters;
 
 constexpr double sampleRate = 48'000.0;
 constexpr int frames = 24'000; // 0.5 s
@@ -109,6 +111,13 @@ std::vector<NoteEvent> channelTwoNotes()
 		{ 12'000, juce::MidiMessage::noteOff(2, 45) }, { 16'000, juce::MidiMessage::controllerEvent(2, 64, 0) } };
 }
 
+// Flint hits: soft, then two louder ones, one with a note off while it rings.
+std::vector<NoteEvent> hits()
+{
+	return { { 0, juce::MidiMessage::noteOn(1, 36, 0.5f) }, { 8'000, juce::MidiMessage::noteOn(1, 36, 0.9f) },
+		{ 10'000, juce::MidiMessage::noteOff(1, 36) }, { 16'000, juce::MidiMessage::noteOn(1, 36, 1.0f) } };
+}
+
 // One held note under pitch bend and the mod wheel (vibrato).
 std::vector<NoteEvent> expressiveNote()
 {
@@ -122,6 +131,7 @@ std::vector<CorpusCase> corpus()
 	const auto ravProcessor = [] { return std::make_unique<vekt::rav::PluginProcessor>(); };
 	const auto glimmerProcessor = [] { return std::make_unique<vekt::glimmer::PluginProcessor>(); };
 	const auto monoProcessor = [] { return std::make_unique<vekt::mono::PluginProcessor>(); };
+	const auto flintProcessor = [] { return std::make_unique<vekt::flint::PluginProcessor>(); };
 	std::vector<CorpusCase> cases {
 		{ "rav-default", ravProcessor, {} },
 		{ "rav-overdrive", ravProcessor, { { rav::mode, 1.0f }, { rav::drive, 18.0f } } },
@@ -201,6 +211,19 @@ std::vector<CorpusCase> corpus()
 		    { { mono::performanceMode, 0.0f }, { mono::unison, 2.0f }, { mono::unisonDetune, 20.0f } }, fourNotes(),
 		    127 },
 		{ "mono-offline-8x-fir", monoProcessor, { { mono::offlineOversampling, 3.0f } }, twoNotes(), 256, true },
+		// Flint: Kick / Classic Analog with each Drive Type, Mallet / Bar, and a Mode change between hits.
+		{ "flint-kick", flintProcessor, { { flint::variation, 0.0f } }, hits() },
+		{ "flint-kick-hard-drive", flintProcessor,
+		    { { flint::variation, 0.0f }, { flint::drive, 60.0f }, { flint::driveType, 1.0f } }, hits() },
+		{ "flint-kick-fold-drive", flintProcessor,
+		    { { flint::variation, 0.0f }, { flint::drive, 60.0f }, { flint::driveType, 2.0f } }, hits() },
+		{ "flint-mallet", flintProcessor,
+		    { { flint::variation, 0.0f }, { flint::mode, 7.0f }, { flint::pitch, 72.0f } }, hits() },
+		// Variation stays 0: each instance draws its own seed (kept in the project), so hits would differ between runs.
+		{ "flint-kick-sweep-click", flintProcessor,
+		    { { flint::variation, 0.0f }, { flint::kickSweep, 50.0f }, { flint::kickClick, 50.0f } }, hits() },
+		{ "flint-mode-change", flintProcessor, { { flint::variation, 0.0f } }, hits(), 256, false,
+		    { { 12'000, flint::mode, 7.0f } } },
 	};
 	return cases;
 }

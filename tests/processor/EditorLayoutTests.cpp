@@ -1575,7 +1575,7 @@ TEST_CASE("Flint editor keeps the shared controls in place and rebinds the model
 	// Every mode is offered; only those with a model in this build can be chosen (A21: unavailable entries marked).
 	for (std::size_t index = 0; index < vekt::flint::modeCount; ++index)
 	{
-		const juce::String name = vekt::flint::modeNames[index];
+		const juce::String name = vekt::flint::modes[index].name;
 		auto* button = findNamedButton(content, name + " mode");
 		INFO(name.toStdString());
 		REQUIRE(button != nullptr);

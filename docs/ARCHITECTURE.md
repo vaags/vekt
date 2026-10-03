@@ -51,7 +51,8 @@ hard ownership boundary. A generic runtime effect graph is outside version 1.
 - `ChoiceTable` lists a choice parameter's values in choice order with their
   names. Each product keeps its tables in a uniquely named `Source/` header
   (`RavParameterChoices.h`, `GlimmerParameterChoices.h`,
-  `MonoParameterChoices.h`); the layout builds the parameter's choices from the
+  `MonoParameterChoices.h`; Flint's Mode table sits with its models in
+  `Models.h`, Drive Type with its enum in `FlintParameters.h`); the layout builds the parameter's choices from the
   table and the processor and editor decode the value with it, rounded and
   clamped to a valid choice, so names, order and meaning cannot drift apart.
   The shared oversampling lists stay in `dsp/OversamplingChoices.h`, where a

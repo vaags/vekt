@@ -17,7 +17,6 @@ namespace
 constexpr int modeRadioGroup = 801;
 constexpr int modelRadioGroup = 802;
 constexpr int driveTypeRadioGroup = 803;
-constexpr std::array driveTypeNames { "Soft", "Hard", "Fold" };
 
 juce::String formatSeconds(double seconds)
 {
@@ -113,8 +112,8 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	for (std::size_t index = 0; index < modeButtons.size(); ++index)
 	{
 		auto& button = modeButtons[index];
-		const auto mode = static_cast<Mode>(index);
-		const juce::String name = modeNames[index];
+		const auto mode = modes[index].value;
+		const juce::String name = modes[index].name;
 		button.setButtonText(name);
 		button.setName(name + " mode");
 		button.setRadioGroupId(modeRadioGroup);
@@ -185,12 +184,14 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	pitchSlider.setTooltip("Pitch: drag snaps to semitones, Shift-drag is continuous. Enter a note (\"D#2 +12 ct\"), "
 	                       "a frequency (\"78 Hz\") or a MIDI note number.");
 
+	static_assert(std::tuple_size_v<decltype(driveTypeButtons)> == driveTypes.size()); // one button per type, in order
 	for (std::size_t index = 0; index < driveTypeButtons.size(); ++index)
 	{
 		auto& button = driveTypeButtons[index];
-		button.setButtonText(driveTypeNames[index]);
-		button.setName(juce::String(driveTypeNames[index]) + " drive");
-		button.setTooltip("Drive Type: " + juce::String(driveTypeNames[index]));
+		const juce::String typeName { driveTypes[index].name };
+		button.setButtonText(typeName);
+		button.setName(typeName + " drive");
+		button.setTooltip("Drive Type: " + typeName);
 		button.setClickingTogglesState(true);
 		button.setRadioGroupId(driveTypeRadioGroup);
 		button.setConnectedEdges((index > 0 ? juce::Button::ConnectedOnLeft : 0) |
@@ -198,7 +199,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 		button.onClick = [this, index]
 		{
 			if (driveTypeButtons[index].getToggleState())
-				driveTypeAttachment->setValueAsCompleteGesture(static_cast<float>(index));
+				driveTypeAttachment->setValueAsCompleteGesture(static_cast<float>(index)); // buttons in choice order
 		};
 		soundPanel.addAndMakeVisible(button);
 	}
@@ -208,7 +209,7 @@ PluginEditor::PluginEditor(PluginProcessor& newProcessor)
 	    {
 		    for (std::size_t index = 0; index < driveTypeButtons.size(); ++index)
 			    driveTypeButtons[index].setToggleState(
-			        static_cast<int>(index) == juce::roundToInt(value), juce::dontSendNotification);
+			        driveTypes[index].value == driveTypes.at(value), juce::dontSendNotification);
 	    },
 	    &pluginProcessor.getUndoManager());
 	driveTypeAttachment->sendInitialUpdate();
@@ -286,9 +287,7 @@ void PluginEditor::configureRotary(juce::Component& parent, ui::RotaryControl& c
 
 Mode PluginEditor::selectedMode() const noexcept
 {
-	const auto index =
-	    std::clamp(juce::roundToInt(parameterValue(parameters::mode)), 0, static_cast<int>(modeCount) - 1);
-	return static_cast<Mode>(index);
+	return modes.at(parameterValue(parameters::mode));
 }
 
 std::optional<ModelId> PluginEditor::selectedModel() const noexcept
@@ -316,7 +315,7 @@ void PluginEditor::refreshSelection()
 {
 	const auto mode = selectedMode();
 	for (std::size_t index = 0; index < modeButtons.size(); ++index)
-		modeButtons[index].setToggleState(static_cast<Mode>(index) == mode, juce::dontSendNotification);
+		modeButtons[index].setToggleState(modes[index].value == mode, juce::dontSendNotification);
 	const auto models = modelsOf(mode);
 	const auto* identifier = parameters::modelParameterOf(mode);
 	const auto selectedIndex = identifier != nullptr ? juce::roundToInt(parameterValue(identifier)) : 0;

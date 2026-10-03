@@ -3,6 +3,8 @@
 #include <vekt/flint/Models.h>
 #include <vekt/plugin_support/QualitySelection.h>
 
+#include "FlintParameters.h"
+
 #include <cmath>
 
 namespace vekt::flint::parameters
@@ -69,7 +71,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 	addPercent(layout, tone, "Tone", 50.0f);
 	addPercent(layout, drive, "Drive", 0.0f);
 	layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { driveType, version }, "Drive Type",
-	    juce::StringArray { "Soft", "Hard", "Fold" }, 0, fixed()));
+	    driveTypes.names(), 0, fixed()));
 	layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { level, version }, "Level",
 	    juce::NormalisableRange<float> { -48.0f, 12.0f, 0.01f }, 0.0f,
 	    juce::AudioParameterFloatAttributes {}.withLabel("dB")));
@@ -78,10 +80,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 	layout.add(std::make_unique<juce::AudioParameterBool>(
 	    juce::ParameterID { noteOffDamps, version }, "Note Off Damps", false));
 
-	juce::StringArray modes;
-	for (const auto* name : modeNames) modes.add(name);
-	layout.add(
-	    std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { mode, version }, "Mode", modes, 0, fixed()));
+	layout.add(std::make_unique<juce::AudioParameterChoice>(
+	    juce::ParameterID { mode, version }, "Mode", modes.names(), 0, fixed()));
 	layout.add(std::make_unique<juce::AudioParameterChoice>(
 	    juce::ParameterID { kickModel, version }, "Kick Model", modelNames(Mode::kick), 0, fixed()));
 	layout.add(std::make_unique<juce::AudioParameterChoice>(

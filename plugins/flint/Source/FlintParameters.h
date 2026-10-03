@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vekt/flint/Models.h>
+#include <vekt/plugin_support/ChoiceTable.h>
 
 #include <array>
 #include <cstddef>
@@ -14,6 +15,10 @@ enum class DriveType
 	hard,
 	fold
 };
+
+// The Drive Type parameter's choices: the layout's names and the decoding of its value.
+inline constexpr plugin_support::ChoiceTable driveTypes { plugin_support::Choice { DriveType::soft, "Soft" },
+	plugin_support::Choice { DriveType::hard, "Hard" }, plugin_support::Choice { DriveType::fold, "Fold" } };
 
 // Model controls as the host stores them, 0–1 (docs/FLINT_VALIDATION.md, model sheets); each engine maps its own.
 struct KickClassicAnalogSettings
