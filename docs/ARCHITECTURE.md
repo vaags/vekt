@@ -20,6 +20,14 @@ link the products' Core libraries.
 `vekt_dsp` never includes plugin, editor, preset, or product-specific headers.
 Plugin processors are composition roots: they connect parameters, reusable DSP,
 state, and format wrappers but do not contain signal-processing algorithms.
+Mono's processor, the largest, composes separately tested parts in its
+`Source/`: `MonoSettingsSnapshot` (the one mapping from parameters to voice
+settings, shared with tests), `MonoVoiceAllocator` (polyphonic reuse and
+stealing, the monophonic modes, note priority, held-key return and the sustain
+pedal, unit-tested against a recording fake voice) and `MonoRenderPlan` (how a
+segment's sounding voices are grouped into summing units and thread jobs).
+`MonoVoice` keeps its per-sample path inline in its header; setup, note start
+and release, and diagnostics live in `MonoVoice.cpp`.
 
 New abstractions must be justified by at least two concrete consumers or by a
 hard ownership boundary. A generic runtime effect graph is outside version 1.

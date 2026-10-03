@@ -1,3 +1,9 @@
+# Mono processor split (3 October 2026)
+
+The processor was split into `MonoSettingsSnapshot`, `MonoVoiceAllocator` and `MonoRenderPlan` (ARCHITECTURE.md), and
+`MonoVoice`'s setup and note lifecycle moved to `MonoVoice.cpp`, without changing a sample: `scripts/render-diff.sh
+1769c8f` reported every corpus case identical in `dev-opt` and `dev`.
+
 # Mono reference renders recaptured (3 October 2026)
 
 The Mono reference renders (`tests/fixtures/audio/mono`) had drifted from the current build by -120.1 to -134.3 dBFS

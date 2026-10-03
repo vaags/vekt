@@ -24,7 +24,12 @@ add_library(VektMonoCore STATIC
 	Source/WidthOscillator.h
 	Source/MonoRenderWorkers.cpp
 	Source/MonoRenderWorkers.h
+	Source/MonoSettingsSnapshot.cpp
+	Source/MonoSettingsSnapshot.h
+	Source/MonoVoiceAllocator.h
+	Source/MonoRenderPlan.h
 	Source/FactoryPresets.cpp
+	Source/MonoVoice.cpp
 	Source/MonoVoice.h
 	Source/Parameters.cpp
 	Source/PluginEditor.cpp

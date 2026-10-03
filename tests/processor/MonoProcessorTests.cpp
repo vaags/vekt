@@ -3,6 +3,7 @@
 
 #include "MonoVoice.h"
 #include "MonoParameterChoices.h"
+#include "MonoSettingsSnapshot.h"
 #include "ContourEnvelope.h"
 #include "MonoRenderWorkers.h"
 
@@ -2517,44 +2518,47 @@ TEST_CASE("Mono processor and extracted voice render identically", "[mono][proce
 	setParameter(processor, vekt::mono::parameters::ampVelocity, settings.ampVelocity * 100.0f);
 	setParameter(processor, vekt::mono::parameters::filterVelocity, settings.filterVelocity * 100.0f);
 
-	const auto raw = [&processor](const char* identifier) { return processor.getParameters().getRawParameterValue(identifier)->load(); };
+	// The processor's mapping (voiceSettingsFrom, at the default tempo) must give back, in the voice's units, what was set
+	// above, field by field; the voice then renders with exactly what the processor uses.
+	const auto mapped = vekt::mono::voiceSettingsFrom(vekt::mono::MonoParameterValues::resolve(processor.getParameters()), 120.0);
 	for (std::size_t oscillator = 0; oscillator < 3; ++oscillator)
 	{
-		settings.rangeOctaves[oscillator] = vekt::mono::oscillatorRanges.at(raw(ranges[oscillator]));
-		settings.semitone[oscillator] = raw(semitones[oscillator]);
-		settings.fine[oscillator] = raw(fines[oscillator]);
-		settings.octave[oscillator] = raw(octaves[oscillator]);
-		settings.level[oscillator] = raw(levels[oscillator]) * 0.01f;
-		settings.morph[oscillator] = raw(morphs[oscillator]);
-		settings.pulseWidth[oscillator] = raw(widths[oscillator]);
+		REQUIRE(mapped.rangeOctaves[oscillator] == settings.rangeOctaves[oscillator]);
+		REQUIRE(mapped.semitone[oscillator] == Catch::Approx(settings.semitone[oscillator]).margin(1.0e-4));
+		REQUIRE(mapped.fine[oscillator] == Catch::Approx(settings.fine[oscillator]).margin(1.0e-4));
+		REQUIRE(mapped.octave[oscillator] == Catch::Approx(settings.octave[oscillator]).margin(1.0e-4));
+		REQUIRE(mapped.level[oscillator] == Catch::Approx(settings.level[oscillator]).margin(1.0e-4));
+		REQUIRE(mapped.morph[oscillator] == Catch::Approx(settings.morph[oscillator]).margin(1.0e-4));
+		REQUIRE(mapped.pulseWidth[oscillator] == Catch::Approx(settings.pulseWidth[oscillator]).margin(1.0e-4));
 	}
-	settings.noiseType = vekt::mono::noiseTypes.at(raw(vekt::mono::parameters::noiseType));
-	settings.noiseLevel = raw(vekt::mono::parameters::noiseLevel) * 0.01f;
-	settings.cutoff = raw(vekt::mono::parameters::filterCutoff);
-	settings.resonance = raw(vekt::mono::parameters::filterResonance) * 0.01f;
-	settings.tracking = raw(vekt::mono::parameters::filterKeyTracking) * 0.01f;
-	settings.envelopeAmount = raw(vekt::mono::parameters::filterEnvelopeAmount) * 0.01f;
-	settings.drive = raw(vekt::mono::parameters::filterDrive);
-	settings.qCompensation = raw(vekt::mono::parameters::filterQCompensation) >= 0.5f;
-	settings.filterMode = raw(vekt::mono::parameters::filterMode);
-	settings.ampAttack = raw(vekt::mono::parameters::ampAttack);
-	settings.ampDecay = raw(vekt::mono::parameters::ampDecay);
-	settings.ampSustain = raw(vekt::mono::parameters::ampSustain) * 0.01f;
-	settings.ampRelease = raw(vekt::mono::parameters::ampRelease);
-	settings.filterAttack = raw(vekt::mono::parameters::filterAttack);
-	settings.filterDecay = raw(vekt::mono::parameters::filterDecay);
-	settings.filterSustain = raw(vekt::mono::parameters::filterSustain) * 0.01f;
-	settings.filterRelease = raw(vekt::mono::parameters::filterRelease);
-	settings.ampVelocity = raw(vekt::mono::parameters::ampVelocity) * 0.01f;
-	settings.filterVelocity = raw(vekt::mono::parameters::filterVelocity) * 0.01f;
-	settings.calibration = raw(vekt::mono::parameters::calibration);
-	settings.unison = vekt::mono::unisonCounts.at(raw(vekt::mono::parameters::unison));
-	settings.detune = raw(vekt::mono::parameters::unisonDetune);
-	settings.unisonSpread = raw(vekt::mono::parameters::unisonSpread) * 0.01f;
-	settings.voiceWidth = raw(vekt::mono::parameters::voiceWidth) * 0.01f;
-	settings.drift = raw(vekt::mono::parameters::drift);
-	settings.glideMode = vekt::mono::glideModes.at(raw(vekt::mono::parameters::glideMode));
-	settings.glideTime = raw(vekt::mono::parameters::glideTime);
+	REQUIRE(mapped.noiseLevel == Catch::Approx(settings.noiseLevel).margin(1.0e-4));
+	REQUIRE(mapped.cutoff == Catch::Approx(settings.cutoff).margin(1.0e-4));
+	REQUIRE(mapped.resonance == Catch::Approx(settings.resonance).margin(1.0e-4));
+	REQUIRE(mapped.tracking == Catch::Approx(settings.tracking).margin(1.0e-4));
+	REQUIRE(mapped.envelopeAmount == Catch::Approx(settings.envelopeAmount).margin(1.0e-4));
+	REQUIRE(mapped.drive == Catch::Approx(settings.drive).margin(1.0e-4));
+	REQUIRE(mapped.ampAttack == Catch::Approx(settings.ampAttack).margin(1.0e-4));
+	REQUIRE(mapped.ampDecay == Catch::Approx(settings.ampDecay).margin(1.0e-4));
+	REQUIRE(mapped.ampSustain == Catch::Approx(settings.ampSustain).margin(1.0e-4));
+	REQUIRE(mapped.ampRelease == Catch::Approx(settings.ampRelease).margin(1.0e-4));
+	REQUIRE(mapped.filterAttack == Catch::Approx(settings.filterAttack).margin(1.0e-4));
+	REQUIRE(mapped.filterDecay == Catch::Approx(settings.filterDecay).margin(1.0e-4));
+	REQUIRE(mapped.filterSustain == Catch::Approx(settings.filterSustain).margin(1.0e-4));
+	REQUIRE(mapped.filterRelease == Catch::Approx(settings.filterRelease).margin(1.0e-4));
+	REQUIRE(mapped.ampVelocity == Catch::Approx(settings.ampVelocity).margin(1.0e-4));
+	REQUIRE(mapped.filterVelocity == Catch::Approx(settings.filterVelocity).margin(1.0e-4));
+	REQUIRE(mapped.calibration == Catch::Approx(settings.calibration).margin(1.0e-4));
+	REQUIRE(mapped.detune == Catch::Approx(settings.detune).margin(1.0e-4));
+	REQUIRE(mapped.unisonSpread == Catch::Approx(settings.unisonSpread).margin(1.0e-4));
+	REQUIRE(mapped.voiceWidth == Catch::Approx(settings.voiceWidth).margin(1.0e-4));
+	REQUIRE(mapped.glideTime == Catch::Approx(settings.glideTime).margin(1.0e-4));
+	REQUIRE(mapped.drift == Catch::Approx(settings.drift).margin(1.0e-4));
+	REQUIRE(mapped.unison == settings.unison);
+	REQUIRE(mapped.glideMode == settings.glideMode);
+	REQUIRE(mapped.noiseType == settings.noiseType);
+	REQUIRE(mapped.qCompensation);
+	REQUIRE(mapped.filterMode == Catch::Approx(mode).margin(1.0e-4));
+	settings = mapped;
 
 	constexpr auto sampleRate = 48'000.0;
 	constexpr auto blockSize = 512;

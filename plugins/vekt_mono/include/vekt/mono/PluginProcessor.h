@@ -8,6 +8,10 @@
 #include <vekt/plugin_support/PresetHost.h>
 #include <vekt/plugin_support/QualitySelection.h>
 
+#include "MonoSettingsSnapshot.h"
+#include "MonoRenderPlan.h"
+#include "MonoVoiceAllocator.h"
+
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include <array>
@@ -102,12 +106,7 @@ public:
 
 private:
 	[[nodiscard]] static float value(const std::atomic<float>* parameter) noexcept { return parameter->load(); }
-	[[nodiscard]] MonoVoiceSettings snapshotSettings() const;
 	void handleMidi(const juce::MidiMessage& message);
-	void noteOn(int channel, int note, float velocity);
-	void noteOff(int channel, int note);
-	void allNotesOff(int channel, bool immediate);
-	void releaseSustainedNotes(int channel);
 	void resetPlayingState();
 	void render(juce::AudioBuffer<float>& buffer, int startSample, int numberOfSamples);
 	// Renders one job's voices (sharing one batched filter solve) over the current segment, each into its own buffer.
@@ -122,45 +121,16 @@ private:
 	[[nodiscard]] juce::Result validatePresetSound(const presets::Preset& preset) const;
 	[[nodiscard]] juce::Result applyPreset(const presets::Preset& preset);
 	[[nodiscard]] bool matchesPresetSound(const presets::Preset& preset) const;
-	[[nodiscard]] MonoVoice& findVoiceForNote(int channel, int note);
-	[[nodiscard]] MonoVoice& monoVoiceForChannel(int channel);
-	void retargetMonophonicVoice(int channel, bool retrigger);
-	[[nodiscard]] int activeVoiceLimit() const noexcept;
-
-	// Every parameter the processor reads, resolved by ID once at construction so no block looks one up by name.
-	struct LfoParameters
-	{
-		std::atomic<float> *rate {}, *sync {}, *division {}, *shape {}, *polarity {}, *mode {}, *phase {}, *delay {}, *fade {}, *amount {};
-		std::array<std::atomic<float>*, 19> depths {}; // in parameters::LfoParameterIds::depths() order
-	};
-	struct CachedParameters
-	{
-		std::array<std::atomic<float>*, 3> range {}, semitone {}, fine {}, octave {}, level {}, morph {}, pulseWidth {};
-		std::atomic<float> *noiseType {}, *noiseLevel {}, *filterCutoff {}, *filterResonance {}, *filterKeyTracking {}, *filterEnvelopeAmount {};
-		std::atomic<float> *filterDrive {}, *filterQCompensation {}, *filterMode {}, *filterType {}, *ampAttack {}, *ampDecay {};
-		std::atomic<float> *ampSustain {}, *ampRelease {}, *filterAttack {}, *filterDecay {}, *filterSustain {}, *filterRelease {};
-		std::atomic<float> *ampVelocity {}, *filterVelocity {}, *calibration {}, *unison {}, *unisonDetune {}, *unisonSpread {};
-		std::atomic<float> *voiceWidth {}, *drift {}, *glideMode {}, *glideTime {}, *multicore {}, *voiceCount {};
-		std::atomic<float> *pitchBendRange {}, *performanceMode {}, *notePriority {}, *heldKeyReturn {}, *vibratoRate {};
-		std::atomic<float> *vibratoShape {}, *vibratoDepth {}, *vibratoAmount {}, *masterOutput {};
-		std::array<LfoParameters, 2> lfos {};
-	};
-	[[nodiscard]] static CachedParameters cacheParameters(juce::AudioProcessorValueTreeState& state);
+	[[nodiscard]] MonoVoiceAllocator<MonoVoice>::Rules allocationRules() const noexcept;
 
 	juce::UndoManager undoManager;
 	juce::AudioProcessorValueTreeState parameterState;
 	plugin_support::PresetHost presetHost;
 	plugin_support::QualitySelection qualitySelection;
-	CachedParameters cached;
+	MonoParameterValues cached;
 	std::array<std::unique_ptr<MonoVoice>, 16> voices;
-	std::array<bool, 16> sustainByChannel {};
 	std::array<float, 16> pitchBendByChannel {};
-	struct HeldNote
-	{
-		int note {};
-		float velocity {};
-	};
-	std::array<std::vector<HeldNote>, 16> heldNotesByChannel;
+	MonoVoiceAllocator<MonoVoice> allocator;
 	dsp::OversamplingBank<float> oversampling { 2 };
 	std::array<std::unique_ptr<LfoClock>, 2> lfoClocks;
 	std::array<std::atomic<float>, 2> lfoDisplayValues {}, lfoDisplayRates {};
@@ -177,7 +147,6 @@ private:
 	dsp::ScopeTap outputScope;
 	std::atomic<bool> pendingPresetReset {};
 	int activeVoiceCount { 8 };
-	std::uint64_t noteAge {};
 	double sampleRateHz { 48'000.0 };
 	// Multicore: the pool is created on the message thread the first time Multicore is on, then kept.
 	// Created on non-audio threads only (prepareToPlay, the message thread); the mutex covers check and create.
@@ -192,17 +161,14 @@ private:
 	std::unique_ptr<WorkgroupMailbox> workgroupMailbox;
 	juce::AudioWorkgroup stagedWorkgroup;
 	bool workgroupStaged {};
-	// One render segment's shared inputs, precomputed so jobs render independently. Units fix the summing order
-	// (sounding voices in voice order, four filter lanes per unit); jobs split the same voices for rendering,
-	// into smaller groups when Multicore has more threads than units. A voice renders the same bits in any job.
+	// One render segment's shared inputs, precomputed so jobs render independently (RenderPlan: units fix the
+	// summing order, jobs split the same voices across threads).
 	struct RenderSegment
 	{
-		using VoiceGroups = std::array<std::array<std::uint8_t, 4>, 16>;
 		const MonoVoiceSettings* settings {};
 		std::array<float, 16> channelControl {};
-		int samples {}, units {}, jobs {};
-		VoiceGroups unitVoices {}, jobVoices {};
-		std::array<int, 16> unitVoiceCount {}, jobVoiceCount {};
+		int samples {};
+		RenderPlan plan;
 	} segment;
 	std::size_t voiceStride {};
 	std::vector<double> lfoPositionBuffer; // two per sample
