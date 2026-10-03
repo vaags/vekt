@@ -125,7 +125,7 @@ I/O, but includes OS interruptions; it is not a real-time scheduling guarantee.
 ## Build Gates
 
 ```sh
-cmake --build --preset dev --target vekt_dsp_tests VektGlimmer_Standalone VektGlimmer_VST3 VektGlimmer_AU
+cmake --build --preset dev --target vekt_dsp_tests Glimmer_Standalone Glimmer_VST3 Glimmer_AU
 ctest --preset dev --output-on-failure
 ```
 
@@ -175,7 +175,7 @@ The installed macOS app can be invoked without adding it to `PATH`:
 ```sh
 /Applications/pluginval.app/Contents/MacOS/pluginval \
   --strictness-level 10 --random-seed 12345 \
-  --validate "build/dev/plugins/vekt_glimmer/VektGlimmer_artefacts/Debug/VST3/Glimmer.vst3"
+  --validate "build/dev/plugins/glimmer/Glimmer_artefacts/Debug/VST3/Glimmer.vst3"
 ```
 
 Before release, audition level-matched organ, guitar, electric piano, stereo pads, and drums

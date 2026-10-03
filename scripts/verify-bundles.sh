@@ -19,8 +19,8 @@ done
 
 cd "${0:A:h}/.."
 typeset -A names=(rav Rav glimmer Glimmer mono Mono flint Flint)
-typeset -A targets=(rav VektRav glimmer VektGlimmer mono VektMono flint Flint)
-typeset -A folders=(rav vekt_rav glimmer vekt_glimmer mono vekt_mono flint flint)
+typeset -A targets=(rav Rav glimmer Glimmer mono VektMono flint Flint)
+typeset -A folders=(rav rav glimmer glimmer mono vekt_mono flint flint)
 checked=0
 failed=0
 for product in $products; do

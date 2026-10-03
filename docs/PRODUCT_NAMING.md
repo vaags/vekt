@@ -58,8 +58,8 @@ A product is named after a natural material in Norwegian:
 - **Mono will be renamed Kobber** (decided by Thomas, 3 October 2026; not yet scheduled). Mono is a polyphonic synth
   with three filters, so the old name is also misleading. Rename it only when asked. Its `PLUGIN_CODE` is already
   `Kobr`.
-- Product names no longer carry the Vekt prefix (3 October 2026). The folders (`plugins/vekt_rav`), CMake targets
-  (`VektRav_VST3`) and namespaces (`vekt::rav`) still do; drop the folder and target prefix together with the Kobber
+- Product names no longer carry the Vekt prefix (3 October 2026). The folders (`plugins/rav`), CMake targets
+  (`Rav_VST3`) and namespaces (`vekt::rav`) still do; drop the folder and target prefix together with the Kobber
   rename, when asked.
 - New products start without the prefix; Flint is planned as `plugins/flint`.
 - Known risk (3 October 2026): JUCE names the Standalone settings file after the product, at the top of

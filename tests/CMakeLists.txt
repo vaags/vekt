@@ -81,8 +81,8 @@ target_link_libraries(vekt_dsp_tests PRIVATE
 	vekt::audio_analysis
     vekt::ui
 	vekt::plugin_support
-    VektRavCore
-	VektGlimmerCore
+    RavCore
+	GlimmerCore
 	VektMonoCore
 	FlintCore
     vekt::juce_headers

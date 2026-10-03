@@ -22,8 +22,8 @@ pluginval=$(command -v pluginval || print /Applications/pluginval.app/Contents/M
 [[ -x $pluginval ]] || { print -u2 "pluginval not found"; exit 69; }
 
 typeset -A names=(rav Rav glimmer Glimmer mono Mono flint Flint)
-typeset -A targets=(rav VektRav glimmer VektGlimmer mono VektMono flint Flint)
-typeset -A folders=(rav vekt_rav glimmer vekt_glimmer mono vekt_mono flint flint)
+typeset -A targets=(rav Rav glimmer Glimmer mono VektMono flint Flint)
+typeset -A folders=(rav rav glimmer glimmer mono vekt_mono flint flint)
 build_targets=()
 for product in $products; do build_targets+=("${targets[$product]}_VST3"); done
 build_log=$(mktemp "${TMPDIR:-/tmp}/vekt-pluginval-build.XXXXXX")

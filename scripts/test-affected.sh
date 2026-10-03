@@ -58,8 +58,8 @@ add_users() {
 for file in $changed; do
 	case $file in
 		''|docs/*|*.md|.claude/*|.editorconfig|.clang-format|.gitignore) ;;
-		plugins/vekt_rav/*) add rav; add_users rav ;;
-		plugins/vekt_glimmer/*) add glimmer; add_users glimmer ;;
+		plugins/rav/*) add rav; add_users rav ;;
+		plugins/glimmer/*) add glimmer; add_users glimmer ;;
 		plugins/vekt_mono/*) add mono; add_users mono ;;
 		plugins/flint/*) add flint; add_users flint ;;
 		# Framework modules select their own tests, the modules that link them (framework/*/CMakeLists.txt), every

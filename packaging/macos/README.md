@@ -4,7 +4,7 @@ Build AUv2 components and matching Release VST3 bundles:
 
 ```sh
 zsh scripts/build-au.sh --release
-cmake --build --preset release --target VektRav_VST3 VektGlimmer_VST3 VektMono_VST3 Flint_VST3
+cmake --build --preset release --target Rav_VST3 Glimmer_VST3 VektMono_VST3 Flint_VST3
 zsh scripts/verify-bundles.sh --release
 ```
 

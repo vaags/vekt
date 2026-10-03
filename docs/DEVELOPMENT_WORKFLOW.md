@@ -109,15 +109,15 @@ shared cases. Record the executed test count.
 
 | Product | Standalone target | VST3 target | AUv2 target | Offline renderer |
 | --- | --- | --- | --- | --- |
-| Rav | `VektRav_Standalone` | `VektRav_VST3` | `VektRav_AU` | `VektRavRender --product rav` |
-| Glimmer | `VektGlimmer_Standalone` | `VektGlimmer_VST3` | `VektGlimmer_AU` | `VektRavRender --product glimmer` |
+| Rav | `Rav_Standalone` | `Rav_VST3` | `Rav_AU` | `VektRavRender --product rav` |
+| Glimmer | `Glimmer_Standalone` | `Glimmer_VST3` | `Glimmer_AU` | `VektRavRender --product glimmer` |
 | Mono | `VektMono_Standalone` | `VektMono_VST3` | `VektMono_AU` | `VektMonoRender --fixture <name>` |
 | Flint | `Flint_Standalone` | `Flint_VST3` | `Flint_AU` | none yet; `VektFlintCost` measures cost (A19) |
 
 Build only required wrappers, for example:
 
 ```sh
-cmake --build --preset dev --target VektGlimmer_VST3
+cmake --build --preset dev --target Glimmer_VST3
 ```
 
 Choose the tier from [verification speed](VERIFICATION_SPEED.md):

@@ -95,15 +95,15 @@ target_link_libraries(VektFlintCost PRIVATE
 	vekt_project_options)
 
 target_link_libraries(VektRavRender PRIVATE
-	VektRavCore
-	VektGlimmerCore
+	RavCore
+	GlimmerCore
     vekt::juce_headers
 	vekt::juce_runtime
 	vekt_project_options)
 
 target_link_libraries(VektRavAudioLab PRIVATE
-	VektRavCore
-	VektGlimmerCore
+	RavCore
+	GlimmerCore
 	VektMonoCore
 	FlintCore
     vekt::juce_headers

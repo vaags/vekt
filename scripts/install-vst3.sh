@@ -6,13 +6,13 @@ product=${1:-rav}
 
 case "$product" in
 rav)
-	target=VektRav_VST3
-	source_bundle="build/dev/plugins/vekt_rav/VektRav_artefacts/Debug/VST3/Rav.vst3"
+	target=Rav_VST3
+	source_bundle="build/dev/plugins/rav/Rav_artefacts/Debug/VST3/Rav.vst3"
 	destination="$HOME/Library/Audio/Plug-Ins/VST3/Rav.vst3"
 	;;
 glimmer)
-	target=VektGlimmer_VST3
-	source_bundle="build/dev/plugins/vekt_glimmer/VektGlimmer_artefacts/Debug/VST3/Glimmer.vst3"
+	target=Glimmer_VST3
+	source_bundle="build/dev/plugins/glimmer/Glimmer_artefacts/Debug/VST3/Glimmer.vst3"
 	destination="$HOME/Library/Audio/Plug-Ins/VST3/Glimmer.vst3"
 	;;
 mono)

@@ -15,4 +15,4 @@ esac
 
 cmake --preset "$preset"
 cmake --build --preset "$preset" --target \
-	VektRav_AU VektGlimmer_AU VektMono_AU Flint_AU
+	Rav_AU Glimmer_AU VektMono_AU Flint_AU

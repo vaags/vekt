@@ -27,7 +27,7 @@ Configure the Debug Ninja preset and run:
 
 ```sh
 cmake --preset dev
-cmake --build --preset dev --target vekt_dsp_tests VektRav_VST3 VektRav_AU
+cmake --build --preset dev --target vekt_dsp_tests Rav_VST3 Rav_AU
 ctest --preset dev --output-on-failure
 ```
 

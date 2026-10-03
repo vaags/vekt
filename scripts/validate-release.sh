@@ -8,8 +8,8 @@ if (( $# != 1 && $# != 3 )); then
 fi
 product=$1
 case "$product" in
-rav) target=VektRav; product_name=Rav; folder=vekt_rav ;;
-glimmer) target=VektGlimmer; product_name=Glimmer; folder=vekt_glimmer ;;
+rav) target=Rav; product_name=Rav; folder=rav ;;
+glimmer) target=Glimmer; product_name=Glimmer; folder=glimmer ;;
 mono) target=VektMono; product_name=Mono; folder=vekt_mono ;;
 flint) target=Flint; product_name=Flint; folder=flint ;;
 *) print -u2 "Unknown product: $product"; exit 64 ;;
