@@ -37,20 +37,22 @@ Response analyticResponse(double sampleRate, double cutoffHz, double k, double f
 	return { 1.0 / denominator, s / denominator, s * s / denominator };
 }
 
-// The filter's frequency response at several frequencies: the DTFT of its impulse response, run for at least 40
-// envelope time constants (Q / (pi fc), at least that of Q = 1) and until a whole block of it is below 1e-15. Near
-// Nyquist the warped poles decay more slowly per sample than that time constant says, hence the tail check.
-std::vector<Response> measuredResponse(double sampleRate, double cutoffHz, double k, const std::vector<double>& frequencies)
+// The filter's frequency response at several frequencies: the DTFT of its impulse response, run for at least
+// timeConstants envelope time constants (Q / (pi fc), at least that of Q = 1) and until a whole block of it is below
+// tail. Near Nyquist the warped poles decay more slowly per sample than that time constant says, hence the tail check.
+// The defaults suit 1e-9 checks; a looser check can stop sooner.
+std::vector<Response> measuredResponse(double sampleRate, double cutoffHz, double k, const std::vector<double>& frequencies,
+	double timeConstants = 40.0, double tail = 1.0e-15)
 {
 	LinearTptSvf svf;
 	svf.prepare(sampleRate);
 	const auto timeConstant = std::max(1.0, 1.0 / k) / (std::numbers::pi * cutoffHz);
-	const auto minimumSamples = static_cast<long>(std::ceil(40.0 * timeConstant * sampleRate));
+	const auto minimumSamples = static_cast<long>(std::ceil(timeConstants * timeConstant * sampleRate));
 	std::vector<Response> responses(frequencies.size());
 	std::vector<Complex> rotation, phasor(frequencies.size(), Complex(1.0, 0.0));
 	for (const auto frequency : frequencies) rotation.push_back(std::polar(1.0, -2.0 * std::numbers::pi * frequency / sampleRate));
 	double blockPeak {};
-	for (long sample = 0; sample < minimumSamples || (sample & 1023) != 0 || blockPeak > 1.0e-15; ++sample)
+	for (long sample = 0; sample < minimumSamples || (sample & 1023) != 0 || blockPeak > tail; ++sample)
 	{
 		if ((sample & 1023) == 0) blockPeak = 0.0;
 		const auto out = svf.process(sample == 0 ? 1.0 : 0.0, cutoffHz, k);
@@ -138,13 +140,15 @@ TEST_CASE("Kobber linear SVF passes DC through LP and Nyquist through HP", "[kob
 TEST_CASE("Kobber linear SVF stays exact at the lowest cutoff and highest effective rate", "[kobber][filter][svf]")
 {
 	// The 5 Hz Cutoff minimum at 192 kHz x16, the highest internal rate: g = tan(pi 5 / 3.072 MHz) is about 5e-6. (Modulation can reach the
-	// 2.5 Hz floor; the impulse response this measures grows as fs / fc, so Q 0.5 only.)
+	// 2.5 Hz floor; the impulse response this measures grows as fs / fc, so Q 0.5 only.) The response starts near 5e-6 per
+	// sample, so 20 time constants and a 1e-13 tail leave a relative truncation error near 2e-8, far under the 1e-6
+	// checked, at half the length the helper's 1e-9 default needs.
 	constexpr double sampleRate = vekt::dsp::maximumInternalSampleRate;
 	constexpr double cutoff = 5.0;
 	for (const auto k : { 2.0 })
 	{
 		INFO("k " << k);
-		const auto responses = measuredResponse(sampleRate, cutoff, k, { 0.0, cutoff, 4.0 * cutoff });
+		const auto responses = measuredResponse(sampleRate, cutoff, k, { 0.0, cutoff, 4.0 * cutoff }, 20.0, 1.0e-13);
 		CHECK(near(responses[0].lowPass, 1.0, 1.0e-6));
 		CHECK(std::abs(std::abs(responses[1].lowPass) * k - 1.0) < 1.0e-6);
 		CHECK(std::abs(responses[1].notch()) < 1.0e-6);

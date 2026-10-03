@@ -56,10 +56,15 @@ double measuredGain(double frequency, double cutoff, double feedback, double sam
 	NonlinearTptLadderHighPass filter;
 	filter.prepare(sampleRate);
 	const auto settings = highPassSettings(cutoff, feedback, 0.0, linear);
-	// The slowest decay measured here (k = 3.6) has a time constant of about 6 ms: 0.1 s settles it below 1e-7. The window
-	// holds whole periods, so the projection needs no longer one.
-	const auto settle = static_cast<long>(0.1 * sampleRate);
-	const auto periods = std::max(8.0, std::floor(0.05 * frequency));
+	// The transient decays with the slowest pole's time constant, 1 / (2 pi fc (1 - k^(1/4) cos(pi / 4))): about 0.16 ms at
+	// k = 0, 1 ms at k = 2 and 6 ms at k = 3.6 for a 1 kHz cutoff. It starts at the input's level, so it must fall below
+	// 1e-5 of the expected output (down to -73 dB here): ln(1e5 / gain) time constants, 12 to 21 of them, far under the
+	// 0.01 dB checked. The window holds whole periods, at least 8 and at least 4,096 samples, so rounding the period count
+	// to whole samples stays under 0.002 dB.
+	const auto timeConstant = 1.0 / (2.0 * std::numbers::pi * cutoff * (1.0 - std::pow(feedback, 0.25) * std::cos(std::numbers::pi / 4.0)));
+	const auto timeConstants = std::log(1.0e5 / analyticGain(frequency, cutoff, feedback, sampleRate));
+	const auto settle = static_cast<long>(std::ceil(timeConstants * timeConstant * sampleRate));
+	const auto periods = std::max(8.0, std::ceil(4'096.0 * frequency / sampleRate));
 	const auto window = static_cast<long>(std::lround(periods * sampleRate / frequency));
 	double inPhase {}, quadrature {};
 	for (long sample = 0; sample < settle + window; ++sample)
